@@ -1,3 +1,17 @@
 * ox-respec --- org export backend for [[https://respec.org/docs/][ReSpec]] style
 
-based on ox-html.el and WIP.
+based on ox-html.el and WIP(work in progress).
+
+** reference materials
+
+For the CSS styles used by respec documents, see:
+
+- https://www.w3.org/StyleSheets/
+- https://www.w3.org/StyleSheets/TR/2021/
+- https://www.w3.org/StyleSheets/TR/2021/base.css
+
+For org-mode Syntax and export, see:
+
+- https://orgmode.org/worg/org-syntax.html
+- https://orgmode.org/worg/dev/org-element-api.html
+- https://orgmode.org/worg/dev/org-export-reference.html
