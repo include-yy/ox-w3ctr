@@ -1,0 +1,3 @@
+* ox-respec --- org export backend for [[https://respec.org/docs/][ReSpec Documentation]] style
+
+based on ox-html.el and WIP.
