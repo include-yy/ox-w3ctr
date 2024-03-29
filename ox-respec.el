@@ -1,4 +1,4 @@
-;;; ox-respec.el --- include-yy's HTML Back-End for Org Export Engine which focus on respec style -*- lexical-binding: t; -*-
+;;; ox-respec.el --- HTML Back-End for Org Export Engine which focus on respec style -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 include-yy <yy@egh0bww1.com>
 
@@ -46,39 +46,67 @@
 (org-export-define-backend 'respec
   '(;; see https://orgmode.org/worg/org-syntax.html for details
     ;; top-level structure
-    (inner-template . t-inner-template) (template . t-template)
-    ;; marker * / ~ _ = +
-    (bold . t-bold) (italic . t-italic) (code . t-code)
-    (underline . t-underline) (verbatim . t-verbatim)
-    (strike-through . t-strike-through)
-    ;; basic elements
-    (subscript . t-subscript) (superscript . t-superscript)
-    (line-break . t-line-break) (timestamp . t-timestamp)
-    (entity . t-entity) (export-snippet . t-export-snippet) ; \alpha, #+HTML:
-    (fixed-width . t-fixed-width) (footnote-reference . t-footnote-reference)
+    (inner-template . t-inner-template)
+    (template . t-template)
+    ;;@ headline section [2]
+    (headline . t-headline)
+    (section . t-section)
+    ;;@ greater elements [11]
+    (center-block . t-center-block) ; #+BEGIN_CENTER
+    (quote-block . t-quote-block) ; #+BEGIN_QUOTE
+    (special-block . t-special-block) ; #+BEGIN_something
+    ;; drawers `drawer' (NOUSE)
+    (dynamic-block . t-dynamic-block) ; #+BEGIN: name para
+    ;; footnote-definition (NOEXIST) `footnote-definition'
+    ;; inlinetasks `inlinetask' (NOUSE)
+    (item . t-item) ; plain list item
+    (plain-list . t-plain-list) ; plain list
+    ;; property drawers `property-drawer' (NOUSE)
+    (table . t-table)
+    ;;@ lesser elements [17]
+    ;; comment block (NOT EXPORT)
+    (example-block . t-example-block) ; #+BEGIN_EXAMPLE
+    (export-block . t-export-block) ; #+BEGIN_EXPORT html
+    (src-block . t-src-block) ; #+BEGIN_SRC lang paras
+    (verse-block . t-verse-block) ; #+BEGIN_VERSE
+    ;; clock `clock' (NOUSE)
+    ;; diary sexp `diary-sexp' (NOUSE)
+    ;; planning `planning' (NOUSE)
+    ;; comments (NO EXPORT)
+    (fixed-width . t-fixed-width) ; ^: contents
     (horizontal-rule . t-horizontal-rule) ; -----------
-    ;; block
-    (center-block . t-center-block) (dynamic-block . t-dynamic-block)
-    (example-block . t-example-block) (export-block . t-export-block)
-    (inline-src-block . t-inline-src-block) (quote-block . t-quote-block)
-    (special-block . t-special-block) (src-block . t-src-block)
-    (verse-block . t-verse-block)
-    ;; paragraph, headline, section
-    (paragraph . t-paragraph)  (plain-text . t-plain-text)
-    (section . t-section) (headline . t-headline)
-    ;; table, list
-    (table . t-table) (table-cell . t-table-cell)
-    (table-row . t-table-row)
-    (plain-list . t-plain-list) (item . t-item)
-    (statistics-cookie . t-statistics-cookie) ; [%] [/]
-    ;; latex
+    (keyword . t-keyword) ; #+NAME: ...
+    ;; babel cell (NOEXIST)
     (latex-environment . t-latex-environment) ; \begin
+    ;; node properties `node-property' (NOUSE)
+    (paragraph . t-paragraph)
+    (table-row . t-table-row)
+    ;;@ objects [25]
+    (entity . t-entity) ; \alpha, \cent
     (latex-fragment . t-latex-fragment) ; \(, \[
-    ;; link, target
-    (link . t-link) (target . t-target)
-    (radio-target . t-radio-target)
-    ;; #+HTML: and #+TOC:
-    (keyword . t-keyword))
+    (export-snippet . t-export-snippet) ; @@html:something@@
+    (footnote-reference . t-footnote-reference)
+    ;; citation (NOEXIST)
+    ;; citation reference (NOEXIST)
+    ;; inline babel calls (NOEXIST)
+    (inline-src-block . t-inline-src-block) ; src_LANG{BODY}
+    (line-break . t-line-break) ; \\
+    (link . t-link)
+    ;; macros (NOEXIST)
+    (target . t-target) ; <<target>>
+    (radio-target . t-radio-target) ; <<<CONTENTS>>>
+    (statistics-cookie . t-statistics-cookie) ; [%] [/]
+    (subscript . t-subscript) ; a_{b}
+    (superscript . t-superscript) ; a^{b}
+    (table-cell . t-table-cell)
+    (timestamp . t-timestamp)
+    (bold . t-bold) ; *a*
+    (italic . t-italic) ; /a/
+    (underline . t-underline) ; _a_
+    (verbatim . t-verbatim) ; =a=
+    (code . t-code) ; ~a~
+    (strike-through . t-strike-through) ; +a+
+    (plain-text . t-plain-text))
   :filters-alist '((:filter-parse-tree . t-image-link-filter)
 		   (:filter-final-output . t-final-function))
   :menu-entry
@@ -147,7 +175,6 @@
     (:html-headline-cnt nil nil 0)
     ;; <yy> store zeroth section's output
     (:html-zeroth-section-output nil nil "")))
-
 
 ;;; Internal Variables
 
