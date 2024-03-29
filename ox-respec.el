@@ -30,8 +30,9 @@
 
 ;; This library implements a HTML back-end for Org generic exporter.
 ;; Based on ox-html.el, focus on HTML5 standard
-;; https://html.spec.whatwg.org/multipage/
-;; https://respec.org/docs/
+;; A parasitic implementation of ox-html.el
+;; HTML LIVE STANDARD:   https://html.spec.whatwg.org/multipage/
+;; RESPEC DOCUMENTATION: https://respec.org/docs/
 
 ;;; Code:
 
@@ -134,8 +135,6 @@
     (:subtitle "SUBTITLE" nil nil parse)
     (:html-head-include-default-style
      nil "html-style" t-head-include-default-style)
-    (:html-allow-name-attribute-in-anchors
-     nil nil t-allow-name-attribute-in-anchors)
     (:html-divs nil nil t-divs)
     (:html-checkbox-type nil nil t-checkbox-type)
     (:html-extension nil nil t-extension)
@@ -204,13 +203,18 @@ property on the headline itself.")
 This affects IDs that are determined from the ID property.")
 
 (defcustom t-style-default
-  "<style>.self-link:hover{opacity:1;text-decoration:none;background-color:transparent}.header-wrapper{display:flex;align-items:baseline}:is(h2,h3,h4,h5,h6):not(#toc>h2,#abstract>h2){position:relative;left:-.5em}:is(h2,h3,h4,h5,h6):not(#toc>h2)+a.self-link{color:inherit;order:-1;position:relative;left:-1.1em;font-size:1rem;opacity:.5}:is(h2,h3,h4,h5,h6)+a.self-link::before{content:\"§\";text-decoration:none;color:#005a9c;color:var(--heading-text)}:is(h2)+a.self-link{top:-.2em}:is(h3)+a.self-link{top:-.1em}:is(h4,h5,h6)+a.self-link::before{color:#000}</style>"
+  "<style>
+.self-link:hover{opacity:1;text-decoration:none;background-color:transparent}
+.header-wrapper{display:flex;align-items:baseline}
+:is(h2,h3,h4,h5,h6):not(#toc>h2,#abstract>h2){position:relative;left:-.5em}
+:is(h2,h3,h4,h5,h6):not(#toc>h2)+a.self-link{color:inherit;order:-1;position:relative;left:-1.1em;font-size:1rem;opacity:.5}
+:is(h2,h3,h4,h5,h6)+a.self-link::before{content:\"§\";text-decoration:none;color:#005a9c;color:var(--heading-text)}
+:is(h2)+a.self-link{top:-.2em}:is(h3)+a.self-link{top:-.1em}:is(h4,h5,h6)+a.self-link::before{color:#000}
+</style>"
   "The default style specification for exported HTML files.
 You can use `t-head' and `t-head-extra' to add to
 this style.  If you don't want to include this default style,
-customize `t-head-include-default-style'.
-
-See default.css in dev directory."
+customize `t-head-include-default-style'."
   :group 'org-export-respec
   :type 'string)
 
@@ -218,7 +222,7 @@ See default.css in dev directory."
 
 (defgroup org-export-respec nil
   "Options for exporting Org mode files to HTML."
-  :tag "Org Export HTML"
+  :tag "Org Export ReSpec HTML"
   :group 'org-export)
 
 ;;;; Bold, etc.
@@ -232,14 +236,9 @@ See default.css in dev directory."
     (verbatim . "<code>%s</code>"))
   "Alist of HTML expressions to convert text markup.
 
-The key must be a symbol among `bold', `code', `italic',
-`strike-through', `underline' and `verbatim'.  The value is
-a formatting string to wrap fontified text with.
-
-If no association can be found for a given markup, text will be
-returned as-is."
+See `org-html-text-markup-alist' for more information."
   :group 'org-export-respec
-  :type '(list (cons symbol string)))
+  :type 'sexp)
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -274,39 +273,21 @@ by the footnotes themselves."
 
 (defcustom t-toplevel-hlevel 2
   "The <H> level for level 1 headings in HTML export.
-This is also important for the classes that will be wrapped around headlines
-and outline structure.  If this variable is 1, the top-level headlines will
-be <h1>, and the corresponding classes will be outline-1, section-number-1,
-and outline-text-1.  If this is 2, all of these will get a 2 instead.
-The default for this variable is 2, because we use <h1> for formatting the
-document title."
+
+See `org-html-toplevel-hlevel' for more information."
   :group 'org-export-respec
   :type 'integer)
-
-;;;; HTML-specific
-
-(defcustom t-allow-name-attribute-in-anchors nil
-  "When nil, do not set \"name\" attribute in anchors.
-By default, when appropriate, anchors are formatted with \"id\"
-but without \"name\" attribute."
-  :group 'org-export-respec
-  :type 'boolean)
 
 ;;;; LaTeX
 
 (defcustom t-equation-reference-format "\\eqref{%s}"
   "The MathJax command to use when referencing equations.
 
-This is a format control string that expects a single string argument
-specifying the label that is being referenced.  The argument is
-generated automatically on export.
-
-The default is to wrap equations in parentheses (using \"\\eqref{%s}\)\".
-
 Most common values are:
-
   \\eqref{%s}    Wrap the equation in parentheses
-  \\ref{%s}      Do not wrap the equation in parentheses"
+  \\ref{%s}      Do not wrap the equation in parentheses
+
+See `org-html-equation-reference-format' for more information."
   :group 'org-export-respec
   :type 'string
   :safe #'stringp)
@@ -314,20 +295,7 @@ Most common values are:
 (defcustom t-with-latex org-export-with-latex
   "Non-nil means process LaTeX math snippets.
 
-When set, the exporter will process LaTeX environments and
-fragments.
-
-This option can also be set with the +OPTIONS line,
-e.g. \"tex:mathjax\".  Allowed values are:
-
-  nil           Ignore math snippets.
-  `verbatim'    Keep everything in verbatim
-  `mathjax', t  Do MathJax preprocessing and arrange for MathJax.js to
-                be loaded.
-  `html'        Use `org-latex-to-html-convert-command' to convert
-                LaTeX fragments to HTML.
-  SYMBOL        Any symbol defined in `org-preview-latex-process-alist',
-                e.g., `dvipng'."
+See `org-html-with-latex' for more information."
   :group 'org-export-respec
   :type '(symbol))
 
@@ -335,13 +303,9 @@ e.g. \"tex:mathjax\".  Allowed values are:
 
 (defcustom t-link-org-files-as-html t
   "Non-nil means make file links to \"file.org\" point to \"file.html\".
+When nil, the links still point to the plain \".org\" file.
 
-When Org mode is exporting an Org file to HTML, links to non-HTML files
-are directly put into a \"href\" tag in HTML.  However, links to other Org files
-(recognized by the extension \".org\") should become links to the corresponding
-HTML file, assuming that the linked Org file will also be converted to HTML.
-
-When nil, the links still point to the plain \".org\" file."
+See `org-html-link-org-files-as-html' for more information."
   :group 'org-export-respec
   :type 'boolean)
 
@@ -349,21 +313,19 @@ When nil, the links still point to the plain \".org\" file."
 
 (defcustom t-inline-images t
   "Non-nil means inline images into exported HTML pages.
-This is done using an <img> tag.  When nil, an anchor with href is used to
-link to the image."
+When nil, an anchor with href is used to link to the image."
   :group 'org-export-respec
   :type 'boolean)
 
 (defcustom t-inline-image-rules
-  `(("file" . ,(regexp-opt '(".jpeg" ".jpg" ".png" ".gif" ".svg" ".webp")))
-    ("http" . ,(regexp-opt '(".jpeg" ".jpg" ".png" ".gif" ".svg" ".webp")))
-    ("https" . ,(regexp-opt '(".jpeg" ".jpg" ".png" ".gif" ".svg" ".webp"))))
+  `(("file" . ,(regexp-opt '(".jpeg" ".jpg" ".png" ".gif" ".svg" ".webp" ".avif")))
+    ("http" . ,(regexp-opt '(".jpeg" ".jpg" ".png" ".gif" ".svg" ".webp" ".avif")))
+    ("https" . ,(regexp-opt '(".jpeg" ".jpg" ".png" ".gif" ".svg" ".webp" ".avif"))))
   "Rules characterizing image files that can be inlined into HTML.
-A rule consists in an association whose key is the type of link
-to consider, and value is a regexp that will be matched against
-link's path."
+
+See `org-html-inline-image-rules' for more information."
   :group 'org-export-respec
-  :type '(alist string string))
+  :type 'sexp)
 
 ;;;; Plain Text
 
@@ -381,7 +343,7 @@ link's path."
 - hljs means use highlight.js to render
 - src2h5 means use a (WIP) backend for code fontify"
   :group 'org-export-respec
-  :type '(choice (const hljs) (const src2h5) (const nil)))
+  :type '(choice (const native) (const hljs) (const nil)))
 
 (defcustom t-wrap-src-lines t
   "If non-nil, wrap individual lines of source blocks in \"code\" elements.
@@ -401,7 +363,7 @@ The second %s will be replaced by a style entry to align the field.
 See also the variable `t-table-use-header-tags-for-first-column'.
 See also the variable `t-table-align-individual-fields'."
   :group 'org-export-respec
-  :type '(cons (string :tag "Opening tag") (string :tag "Closing tag")))
+  :type 'sexp)
 
 (defcustom t-table-data-tags '("<td%s>" . "</td>")
   "The opening and ending tags for table data fields.
@@ -410,52 +372,21 @@ The first %s will be filled with the scope of the field, either row or col.
 The second %s will be replaced by a style entry to align the field.
 See also the variable `t-table-align-individual-fields'."
   :group 'org-export-respec
-  :type '(cons (string :tag "Opening tag") (string :tag "Closing tag")))
+  :type 'sexp)
 
 (defcustom t-table-row-open-tag "<tr>"
   "The opening tag for table rows.
-This is customizable so that alignment options can be specified.
-Instead of strings, these can be a Lisp function that will be
-evaluated for each row in order to construct the table row tags.
 
-The function will be called with these arguments:
-
-         `number': row number (0 is the first row)
-   `group-number': group number of current row
-   `start-group?': non-nil means the row starts a group
-     `end-group?': non-nil means the row ends a group
-           `top?': non-nil means this is the top row
-        `bottom?': non-nil means this is the bottom row
-
-For example:
-
-  (setq t-table-row-open-tag
-        (lambda (number group-number start-group? end-group-p top? bottom?)
-           (cond (top? \"<tr class=\\\"tr-top\\\">\")
-                 (bottom? \"<tr class=\\\"tr-bottom\\\">\")
-                 (t (if (= (mod number 2) 1)
-                        \"<tr class=\\\"tr-odd\\\">\"
-                      \"<tr class=\\\"tr-even\\\">\")))))
-
-will use the \"tr-top\" and \"tr-bottom\" classes for the top row
-and the bottom row, and otherwise alternate between \"tr-odd\" and
-\"tr-even\" for odd and even rows."
+See `org-html-table-row-open-tag' for more information."
   :group 'org-export-respec
-  :type '(choice :tag "Opening tag"
-		 (string :tag "Specify")
-		 (function)))
+  :type 'sexp)
 
 (defcustom t-table-row-close-tag "</tr>"
   "The closing tag for table rows.
-This is customizable so that alignment options can be specified.
-Instead of strings, this can be a Lisp function that will be
-evaluated for each row in order to construct the table row tags.
 
-See documentation of `t-table-row-open-tag'."
+See `org-html-table-row-close-tag' for more information."
   :group 'org-export-respec
-  :type '(choice :tag "Closing tag"
-		 (string :tag "Specify")
-		 (function)))
+  :type 'sexp)
 
 (defcustom t-table-align-individual-fields t
   "Non-nil means attach style attributes for alignment to each table field.
@@ -485,8 +416,7 @@ Otherwise, place it near the end."
   :type 'string)
 
 (defcustom t-coding-system 'utf-8
-  "Coding system for HTML export.
-Use utf-8 as the default value."
+  "Coding system for HTML export."
   :group 'org-export-respec
   :type 'coding-system)
 
@@ -498,7 +428,7 @@ The car of each entry is one of `preamble' or `postamble'.
 The cdrs of each entry are the ELEMENT_TYPE and ID for each
 section of the exported document."
   :group 'org-export-respec
-  :type '(alist symbol (list string)))
+  :type 'sexp)
 
 (defconst t-checkbox-types
   '((unicode .
@@ -556,13 +486,40 @@ See `format-time-string' for more information on its components."
 See `org-html-mathjax-options' for details"
   :group 'org-export-respec
   :package-version '(Org . "9.6")
-  :type '(alist symbol sexp))
+  :type 'sexp)
 
 (defcustom t-mathjax-template
   "<script>
-window.MathJax={tex:{ams:{multlineWidth:'%MULTLINEWIDTH'},tags:'%TAGS',tagSide:'%TAGSIDE',tagIndent:'%TAGINDENT'},chtml:{scale:%SCALE,displayAlign:'%ALIGN',displayIndent:'%INDENT'},svg:{scale:%SCALE,displayAlign:'%ALIGN',displayIndent:'%INDENT'},output:{font:'%FONT',displayOverflow:'%OVERFLOW'}};
+  window.MathJax = {
+    tex: {
+      ams: {
+        multlineWidth: '%MULTLINEWIDTH'
+      },
+      tags: '%TAGS',
+      tagSide: '%TAGSIDE',
+      tagIndent: '%TAGINDENT'
+    },
+    chtml: {
+      scale: %SCALE,
+      displayAlign: '%ALIGN',
+      displayIndent: '%INDENT'
+    },
+    svg: {
+      scale: %SCALE,
+      displayAlign: '%ALIGN',
+      displayIndent: '%INDENT'
+    },
+    output: {
+      font: '%FONT',
+      displayOverflow: '%OVERFLOW'
+    }
+  };
 </script>
-<script id=\"MathJax-script\" async src=\"%PATH\">
+
+<script
+  id=\"MathJax-script\"
+  async
+  src=\"%PATH\">
 </script>"
   "The MathJax template.  See also `org-html-mathjax-options'."
   :group 'org-export-respec
@@ -573,24 +530,9 @@ window.MathJax={tex:{ams:{multlineWidth:'%MULTLINEWIDTH'},tags:'%TAGS',tagSide:'
 (defcustom t-postamble nil
   "Non-nil means insert a postamble in HTML export.
 
-When set to `auto', check against the
-`org-export-with-author/email/creator/date' variables to set the
-content of the postamble.  When set to a string, use this string
-as the postamble.  When t, insert a string as defined by the
-formatting string in `t-postamble-format'.
-
-When set to a function, apply this function and insert the
-returned string.  The function takes the property list of export
-options as its only argument.
-
-Setting :html-postamble in publishing projects will take
-precedence over this variable."
+See `org-html-postamble' for more information"
   :group 'org-export-respec
-  :type '(choice (const :tag "No postamble" nil)
-		 (const :tag "Auto postamble" auto)
-		 (const :tag "Default formatting string" t)
-		 (string :tag "Custom formatting string")
-		 (function :tag "Function (must return a string)")))
+  :type 'sexp)
 
 (defcustom t-postamble-format
   '(("en" "<p class=\"author\">Author: %a (%e)</p>
@@ -599,28 +541,9 @@ precedence over this variable."
 <p class=\"validation\">%v</p>"))
   "Alist of languages and format strings for the HTML postamble.
 
-The first element of each list is the language code, as used for
-the LANGUAGE keyword.  See `org-export-default-language'.
-
-The second element of each list is a format string to format the
-postamble itself.  This format string can contain these elements:
-
-  %t stands for the title.
-  %s stands for the subtitle.
-  %a stands for the author's name.
-  %e stands for the author's email.
-  %d stands for the date.
-  %c will be replaced by `t-creator-string'.
-  %v will be replaced by `t-validation-link'.
-  %T will be replaced by the export time.
-  %C will be replaced by the last modification time.
-
-If you need to use a \"%\" character, you need to escape it
-like that: \"%%\"."
+See `org-html-postamble-format' for more information."
   :group 'org-export-respec
-  :type '(repeat
-	  (list (string :tag "Language")
-		(string :tag "Format string"))))
+  :type 'sexp)
 
 (defcustom t-validation-link
   "<a href=\"https://validator.w3.org/check?uri=referer\">Validate</a>"
@@ -642,51 +565,17 @@ This option can also be set on with the CREATOR keyword."
 (defcustom t-preamble t
   "Non-nil means insert a preamble in HTML export.
 
-When t, insert a string as defined by the formatting string in
-`t-preamble-format'.  When set to a string, use this
-formatting string instead (see `t-postamble-format' for an
-example of such a formatting string).
-
-When set to a function, apply this function and insert the
-returned string.  The function takes the property list of export
-options as its only argument.
-
-Setting :html-preamble in publishing projects will take
-precedence over this variable."
+See `org-html-preamble' for more information"
   :group 'org-export-respec
-  :type '(choice (const :tag "No preamble" nil)
-		 (const :tag "Default preamble" t)
-		 (string :tag "Custom formatting string")
-		 (function :tag "Function (must return a string)")))
+  :type 'sexp)
 
 (defcustom t-preamble-format '(("en" ""))
   "Alist of languages and format strings for the HTML preamble.
-
-The first element of each list is the language code, as used for
 the LANGUAGE keyword.  See `org-export-default-language'.
 
-The second element of each list is a format string to format the
-preamble itself.  This format string can contain these elements:
-
-  %t stands for the title.
-  %s stands for the subtitle.
-  %a stands for the author's name.
-  %e stands for the author's email.
-  %d stands for the date.
-  %c will be replaced by `t-creator-string'.
-  %v will be replaced by `t-validation-link'.
-  %T will be replaced by the export time.
-  %C will be replaced by the last modification time.
-
-If you need to use a \"%\" character, you need to escape it
-like that: \"%%\".
-
-See the default value of `t-postamble-format' for an
-example."
+See `org-html-preamble-format' for more information."
   :group 'org-export-respec
-  :type '(repeat
-	  (list (string :tag "Language")
-		(string :tag "Format string"))))
+  :type 'sexp)
 
 (defcustom t-link-left ""
   "Where should the \"left\" link of exported HTML pages lead?"
@@ -771,8 +660,8 @@ See `org-html-viewport' for more infomation.
 See the following site for a reference:
 https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
   :group 'org-export-respec
-  :type '(alist symbol string))
-
+  :type 'sexp)
+
 ;;; Internal Functions
 
 (defun t-close-tag (tag attr _info)
@@ -889,8 +778,6 @@ INFO is a plist used as a communication channel.  This function
 is meant to be used as a predicate for `org-export-get-ordinal' or
 a value to `t-standalone-image-predicate'."
   (org-element-property :caption element))
-
-;;;; Table
 
 (defun t--make-string (n string)
   "Build a string by concatenating N times STRING."
@@ -1287,16 +1174,15 @@ holding export options."
    ;; Closing document.
    "</body>\n\n</html>"))
 
+
 ;;;; Anchor
 
 (defun t--anchor (id desc attributes info)
   "Format a HTML anchor."
-  (let* ((name (and (plist-get info :html-allow-name-attribute-in-anchors) id))
-	 (attributes (concat (and id (format " id=\"%s\"" id))
-			     (and name (format " name=\"%s\"" name))
+  (let* ((attributes (concat (and id (format " id=\"%s\"" id))
 			     attributes)))
     (format "<span%s>%s</span>" attributes (or desc ""))))
-
+
 ;;;; Src Code
 
 (defun t-fontify-code (code lang)
@@ -1308,32 +1194,7 @@ is the language used for CODE, as a string, or nil."
    ((not lang) (t-encode-plain-text code))
    ((not t-fontify-method) (t-encode-plain-text code))
    ((eq t-fontify-method 'hljs) (t-encode-plain-text code))
-   ((not (featurep 'src2h5))
-    (message "src2h5 seems not loaded")
-    (t-encode-plain-text code))
-   (t
-    (setq lang (or (assoc-default lang org-src-lang-modes) lang))
-    (let* ((lang-mode (and lang (intern (format "%s-mode" lang)))))
-      (cond
-       ((not (functionp lang-mode))
-	(t-encode-plain-text code))
-       (t (setq code
-		(let ((inhibit-read-only t))
-		  (with-temp-buffer
-		    (funcall lang-mode)
-		    (insert code)
-		    (font-lock-ensure)
-		    (save-excursion
-		      (let ((beg (point-min))
-			    (end (point-max)))
-			(goto-char beg)
-			(while (progn (end-of-line) (< (point) end))
-			  (put-text-property (point) (1+ (point)) 'face nil)
-			  (forward-char 1))))
-		    (org-src-mode)
-		    (set-buffer-modified-p nil)
-		    (src2h5-region (point-min) (point-max))))))))
-    code)))
+   (t (t-encode-plain-text code))))
 
 (defun t-do-format-code
     (code &optional lang refs retain-labels num-start wrap-lines)
@@ -2313,27 +2174,14 @@ CONTENTS holds the contents of the item.  INFO is a plist holding
 contextual information."
   (if (org-export-read-attribute :attr_html src-block :textarea)
       (t--textarea-block src-block)
-    (let* ((lang (org-element-property :language src-block))
-	   (code (t-format-code src-block info))
-	   (label (let ((lbl (t--reference src-block info t)))
-		    (if lbl (format " id=\"%s\"" lbl) ""))))
-      (format "<div class=\"src-container\">\n%s%s\n</div>"
-	      ;; Build caption.
-	      (let ((caption (org-export-get-caption src-block)))
-		(if (not caption) ""
-		  (let ((listing-number
-			 (format
-			  "<span class=\"listing-number\">%s </span>"
-			  (format
-			   "Listing %d:"
-			   (org-export-get-ordinal
-			    src-block info nil #'t--has-caption-p)))))
-		    (format "<label class=\"org-src-name\">%s%s</label>"
-			    listing-number
-			    (org-trim (org-export-data caption info))))))
-	      ;; Contents.
-	      (format "<pre class=\"src src-%s\"%s>\n%s</pre>"
-                      lang label code)))))
+    (let* ((code (t-format-code src-block info))
+	   (lbl (t--reference src-block info t))
+	   (caption (let ((cap (org-export-get-caption src-block)))
+		      (when cap (org-trim (org-export-data cap info)))))
+	   (class (let ((cls (org-export-read-attribute
+			      :attr_html src-block :class)))
+		    (and cls (split-string cls)))))
+      (format "<pre>%s</pre>" code))))
 
 ;;;; Statistics Cookie
 
