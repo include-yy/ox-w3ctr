@@ -113,7 +113,7 @@
   :menu-entry
   '(?r "Export to respec style html"
        ((?H "As HTML buffer" t-export-as-html)
-	(?y "As HTML file" t-export-to-html)
+	(?h "As HTML file" t-export-to-html)
 	(?o "As HTML file and open"
 	    (lambda (a s v b)
 	      (if a (t-export-to-html t s v b)
@@ -2174,14 +2174,30 @@ CONTENTS holds the contents of the item.  INFO is a plist holding
 contextual information."
   (if (org-export-read-attribute :attr_html src-block :textarea)
       (t--textarea-block src-block)
-    (let* ((code (t-format-code src-block info))
-	   (lbl (t--reference src-block info t))
-	   (caption (let ((cap (org-export-get-caption src-block)))
-		      (when cap (org-trim (org-export-data cap info)))))
-	   (class (let ((cls (org-export-read-attribute
-			      :attr_html src-block :class)))
-		    (and cls (split-string cls)))))
-      (format "<pre>%s</pre>" code))))
+    (let ((use-block (org-export-read-attribute :attr_html src-block :use-block)))
+      (if (not use-block)
+	  (let ((code (t-format-code src-block info))
+		(id (t--reference src-block info t))
+		(cls (org-export-read-attribute :attr_html src-block :class)))
+	    (format "<pre%s%s>\n%s\n</pre>"
+		    (if id (format " id=\"%s\"" id) "")
+		    (if cls (format " class=\"%s\"" cls) "")
+		    code))
+	(let* ((code (t-format-code src-block info))
+	       (id (t--reference src-block info))
+	       (cls (org-export-read-attribute :attr_html src-block :class))
+	       (caption (let ((cap (org-export-get-caption src-block)))
+			  (if cap (org-trim (org-export-data cap info) nil))))
+	       (class (if (org-string-nw-p cls) cls
+			(if (equal use-block "no-marker") "example no-marker"
+			  "example"))))
+	  (format "<div%s%s>\n%s\n%s\n<pre>\n%s</pre></div>"
+		  (format " class=\"%s\"" class)
+		  (format " id=\"%s\"" id)
+		  (format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
+			  "aria-label=\"source block\"")
+		  (if caption (format "<div class=\"marker\">%s</div>" caption) "")
+		  code))))))
 
 ;;;; Statistics Cookie
 
