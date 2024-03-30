@@ -164,7 +164,6 @@
     (:html-inline-images nil nil t-inline-images)
     (:html-table-row-open-tag nil nil t-table-row-open-tag)
     (:html-table-row-close-tag nil nil t-table-row-close-tag)
-    (:html-wrap-src-lines nil nil t-wrap-src-lines)
     ;; Redefine regular options.
     (:creator "CREATOR" nil t-creator-string)
     (:with-latex nil "tex" t-with-latex)
@@ -344,14 +343,6 @@ See `org-html-inline-image-rules' for more information."
 - src2h5 means use a (WIP) backend for code fontify"
   :group 'org-export-respec
   :type '(choice (const native) (const hljs) (const nil)))
-
-(defcustom t-wrap-src-lines t
-  "If non-nil, wrap individual lines of source blocks in \"code\" elements.
-In this case, add line number in attribute \"data-ox-html-linenr\" when line
-numbers are enabled."
-  :group 'org-export-respec
-  :type 'boolean
-  :safe #'booleanp)
 
 ;;;; Table
 
@@ -1252,7 +1243,8 @@ used as a communication channel."
 	 ;; Does it have line numbers?
 	 (num-start (org-export-get-loc element info))
 	 ;; Should lines be wrapped in code elements?
-	 (wrap-lines (plist-get info :html-wrap-src-lines)))
+	 ;; mention
+	 (wrap-lines nil))
     (t-do-format-code code lang refs retain-labels num-start wrap-lines)))
 
 
