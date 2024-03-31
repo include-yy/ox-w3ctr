@@ -1,6 +1,8 @@
-* ox-respec --- org export backend for [[https://respec.org/docs/][ReSpec]] style
+* ox-w3ctr --- org export backend for W3C TR CSS style
 
-based on ox-html.el and WIP(work in progress).
+based on ox-html.el and CSS of W3C specifications 2021
+
+WIP(work in progress).
 
 ** reference materials
 

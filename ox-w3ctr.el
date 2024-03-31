@@ -1,4 +1,4 @@
-;;; ox-respec.el --- HTML Back-End for Org Export Engine which focus on respec style -*- lexical-binding: t; -*-
+;;; ox-w3ctr.el --- HTML Back-End for Org Export Engine using W3C TR CSS specification -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 include-yy <yy@egh0bww1.com>
 
@@ -9,7 +9,7 @@
 ;; Package-Version: 0.1
 ;; Package-Requires: ((emacs "29.2"))
 ;; Keywords: HTML, org
-;; URL: https://github.com/include-yy/ox-respec
+;; URL: https://github.com/include-yy/ox-w3ctr
 
 ;; This file is not part of GNU Emacs.
 
@@ -29,10 +29,12 @@
 ;;; Commentary:
 
 ;; This library implements a HTML back-end for Org generic exporter.
-;; Based on ox-html.el, focus on HTML5 standard
 ;; A parasitic implementation of ox-html.el
-;; HTML LIVE STANDARD:   https://html.spec.whatwg.org/multipage/
-;; RESPEC DOCUMENTATION: https://respec.org/docs/
+
+;; See:
+;; - https://respec.org/docs/
+;; - https://www.w3.org/StyleSheets/TR/2021/
+;; - https://github.com/w3c/tr-design
 
 ;;; Code:
 
@@ -44,7 +46,7 @@
 
 ;;; Define Back-End
 
-(org-export-define-backend 'respec
+(org-export-define-backend 'w3ctr
   '(;; see https://orgmode.org/worg/org-syntax.html for details
     ;; top-level structure
     (inner-template . t-inner-template)
@@ -111,7 +113,7 @@
   :filters-alist '((:filter-parse-tree . t-image-link-filter)
 		   (:filter-final-output . t-final-function))
   :menu-entry
-  '(?r "Export to respec style html"
+  '(?w "Export to W3C technical reports style html"
        ((?H "As HTML buffer" t-export-as-html)
 	(?h "As HTML file" t-export-to-html)
 	(?o "As HTML file and open"
@@ -214,14 +216,14 @@ This affects IDs that are determined from the ID property.")
 You can use `t-head' and `t-head-extra' to add to
 this style.  If you don't want to include this default style,
 customize `t-head-include-default-style'."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 
 ;;; User Configuration Variables
 
-(defgroup org-export-respec nil
+(defgroup org-export-w3ctr nil
   "Options for exporting Org mode files to HTML."
-  :tag "Org Export ReSpec HTML"
+  :tag "Org Export W3C TR HTML"
   :group 'org-export)
 
 ;;;; Bold, etc.
@@ -236,13 +238,13 @@ customize `t-head-include-default-style'."
   "Alist of HTML expressions to convert text markup.
 
 See `org-html-text-markup-alist' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
 Warning: non-nil may break indentation of source code blocks."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'boolean)
 
 ;;;; Footnotes
@@ -254,18 +256,18 @@ Warning: non-nil may break indentation of source code blocks."
 Should contain a two instances of %s.  The first will be replaced with the
 language-specific word for \"Footnotes\", the second one will be replaced
 by the footnotes themselves."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-footnote-format "<sup>%s</sup>"
   "The format for the footnote reference.
 %s will be replaced by the footnote reference itself."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-footnote-separator "<sup>, </sup>"
   "Text used to separate footnotes."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 
 ;;;; Headline
@@ -274,7 +276,7 @@ by the footnotes themselves."
   "The <H> level for level 1 headings in HTML export.
 
 See `org-html-toplevel-hlevel' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'integer)
 
 ;;;; LaTeX
@@ -287,7 +289,7 @@ Most common values are:
   \\ref{%s}      Do not wrap the equation in parentheses
 
 See `org-html-equation-reference-format' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string
   :safe #'stringp)
 
@@ -295,7 +297,7 @@ See `org-html-equation-reference-format' for more information."
   "Non-nil means process LaTeX math snippets.
 
 See `org-html-with-latex' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(symbol))
 
 ;;;; Links :: Generic
@@ -305,7 +307,7 @@ See `org-html-with-latex' for more information."
 When nil, the links still point to the plain \".org\" file.
 
 See `org-html-link-org-files-as-html' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'boolean)
 
 ;;;; Links :: Inline images
@@ -313,7 +315,7 @@ See `org-html-link-org-files-as-html' for more information."
 (defcustom t-inline-images t
   "Non-nil means inline images into exported HTML pages.
 When nil, an anchor with href is used to link to the image."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'boolean)
 
 (defcustom t-inline-image-rules
@@ -323,7 +325,7 @@ When nil, an anchor with href is used to link to the image."
   "Rules characterizing image files that can be inlined into HTML.
 
 See `org-html-inline-image-rules' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 ;;;; Plain Text
@@ -341,7 +343,7 @@ See `org-html-inline-image-rules' for more information."
 - nil  means no highlighting
 - hljs means use highlight.js to render
 - src2h5 means use a (WIP) backend for code fontify"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(choice (const native) (const hljs) (const nil)))
 
 ;;;; Table
@@ -353,7 +355,7 @@ The first %s will be filled with the scope of the field, either row or col.
 The second %s will be replaced by a style entry to align the field.
 See also the variable `t-table-use-header-tags-for-first-column'.
 See also the variable `t-table-align-individual-fields'."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-table-data-tags '("<td%s>" . "</td>")
@@ -362,21 +364,21 @@ This is customizable so that alignment options can be specified.
 The first %s will be filled with the scope of the field, either row or col.
 The second %s will be replaced by a style entry to align the field.
 See also the variable `t-table-align-individual-fields'."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-table-row-open-tag "<tr>"
   "The opening tag for table rows.
 
 See `org-html-table-row-open-tag' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-table-row-close-tag "</tr>"
   "The closing tag for table rows.
 
 See `org-html-table-row-close-tag' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-table-align-individual-fields t
@@ -384,31 +386,31 @@ See `org-html-table-row-close-tag' for more information."
 When nil, alignment will only be specified in the column tags, but this
 is ignored by some browsers (like Firefox, Safari).  Opera does it right
 though."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'boolean)
 
 (defcustom t-table-use-header-tags-for-first-column nil
   "Non-nil means format column one in tables with header tags.
 When nil, also column one will use data tags."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'boolean)
 
 (defcustom t-table-caption-above t
   "When non-nil, place caption string at the beginning of the table.
 Otherwise, place it near the end."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'boolean)
 
 ;;;; Template :: Generic
 
 (defcustom t-extension "html"
   "The extension for exported HTML files."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-coding-system 'utf-8
   "Coding system for HTML export."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'coding-system)
 
 (defcustom t-divs
@@ -418,7 +420,7 @@ Otherwise, place it near the end."
 The car of each entry is one of `preamble' or `postamble'.
 The cdrs of each entry are the ELEMENT_TYPE and ID for each
 section of the exported document."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defconst t-checkbox-types
@@ -448,7 +450,7 @@ checkboxes.  The other two use the `off' checkbox for `trans'.")
   "The type of checkboxes to use for HTML export.
 See `t-checkbox-types' for the values used for each
 option."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(choice
 	  (const :tag "ASCII characters" ascii)
 	  (const :tag "Unicode characters" unicode)
@@ -457,7 +459,7 @@ option."
 (defcustom t-metadata-timestamp-format "%Y-%m-%d %a %H:%M"
   "Format used for timestamps in preamble, postamble and metadata.
 See `format-time-string' for more information on its components."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 
 ;;;; Template :: Mathjax
@@ -475,7 +477,7 @@ See `format-time-string' for more information on its components."
   "Options for MathJax setup.
 
 See `org-html-mathjax-options' for details"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :package-version '(Org . "9.6")
   :type 'sexp)
 
@@ -513,7 +515,7 @@ See `org-html-mathjax-options' for details"
   src=\"%PATH\">
 </script>"
   "The MathJax template.  See also `org-html-mathjax-options'."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 
 ;;;; Template :: Postamble
@@ -522,7 +524,7 @@ See `org-html-mathjax-options' for details"
   "Non-nil means insert a postamble in HTML export.
 
 See `org-html-postamble' for more information"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-postamble-format
@@ -533,13 +535,13 @@ See `org-html-postamble' for more information"
   "Alist of languages and format strings for the HTML postamble.
 
 See `org-html-postamble-format' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-validation-link
   "<a href=\"https://validator.w3.org/check?uri=referer\">Validate</a>"
   "Link to HTML validation service."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-creator-string
@@ -548,7 +550,7 @@ See `org-html-postamble-format' for more information."
 	  (if (fboundp 'org-version) (org-version) "unknown version"))
   "Information about the creator of the HTML document.
 This option can also be set on with the CREATOR keyword."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(string :tag "Creator string"))
 
 ;;;; Template :: Preamble
@@ -557,7 +559,7 @@ This option can also be set on with the CREATOR keyword."
   "Non-nil means insert a preamble in HTML export.
 
 See `org-html-preamble' for more information"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-preamble-format '(("en" ""))
@@ -565,32 +567,32 @@ See `org-html-preamble' for more information"
 the LANGUAGE keyword.  See `org-export-default-language'.
 
 See `org-html-preamble-format' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-link-left ""
   "Where should the \"left\" link of exported HTML pages lead?"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(string :tag "File or URL"))
 
 (defcustom t-link-lname "UP"
   "The left link's name"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(string))
 
 (defcustom t-link-right ""
   "Where should the \"HOME\" link of exported HTML pages lead?"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(string :tag "File or URL"))
 
 (defcustom t-link-rname "HOME"
   "The right link's name"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(string))
 
 (defcustom t-format-home/up-function #'t-format-home/up-default-function
   "function used for home/div formatting"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(symbol))
 
 ;;;; Template :: Styles
@@ -603,7 +605,7 @@ to `t--build-meta-entry'.  Any nil items are ignored.
 
 Also accept a function which gives such a list when called with a
 single argument (INFO, a communication plist)."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type '(choice
 	  (repeat
 	   (list (string :tag "Meta label")
@@ -616,14 +618,14 @@ single argument (INFO, a communication plist)."
 The actual style is defined in `t-style-default' and
 should not be modified.  Use `t-head' to use your own
 style information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'boolean)
 
 (defcustom t-head ""
   "Org-wide head definitions for exported HTML files.
 
 See `org-html-head' for more information."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 ;;;###autoload
 (put 't-head 'safe-local-variable 'stringp)
@@ -633,7 +635,7 @@ See `org-html-head' for more information."
 
 You can set this on a per-file basis using #+HTML_HEAD_EXTRA:,
 or for publication projects using the :html-head-extra property."
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'string)
 ;;;###autoload
 (put 't-head-extra 'safe-local-variable 'stringp)
@@ -650,7 +652,7 @@ or for publication projects using the :html-head-extra property."
 See `org-html-viewport' for more infomation.
 See the following site for a reference:
 https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
-  :group 'org-export-respec
+  :group 'org-export-w3ctr
   :type 'sexp)
 
 ;;; Internal Functions
@@ -1181,10 +1183,11 @@ holding export options."
 CODE is a string representing the source code to colorize.  LANG
 is the language used for CODE, as a string, or nil."
   (cond
-   ((string= code "") "")
-   ((not lang) (t-encode-plain-text code))
-   ((not t-fontify-method) (t-encode-plain-text code))
-   ((eq t-fontify-method 'hljs) (t-encode-plain-text code))
+   ((or (string= code "") (not lang) (not t-fontify-method))
+    (t-encode-plain-text code))
+   ((eq t-fontify-method 'hljs)
+    (format "<code class=\"language-%s\">\n%s\n</code>"
+	    lang (t-encode-plain-text code)))
    (t (t-encode-plain-text code))))
 
 (defun t-do-format-code
@@ -1246,7 +1249,6 @@ used as a communication channel."
 	 ;; mention
 	 (wrap-lines nil))
     (t-do-format-code code lang refs retain-labels num-start wrap-lines)))
-
 
 ;;; Tables of Contents
 
@@ -1884,7 +1886,7 @@ INFO is a plist holding contextual information.  See
 	    (if (org-string-nw-p attr) (concat " " attr) ""))))
     (cond
      ;; Link type is handled by a special function.
-     ((org-export-custom-protocol-maybe link desc 'respec info))
+     ((org-export-custom-protocol-maybe link desc 'w3ctr info))
      ;; Image file.
      ((and (plist-get info :html-inline-images)
 	   (org-export-inline-image-p
@@ -2166,7 +2168,8 @@ CONTENTS holds the contents of the item.  INFO is a plist holding
 contextual information."
   (if (org-export-read-attribute :attr_html src-block :textarea)
       (t--textarea-block src-block)
-    (let ((use-block (org-export-read-attribute :attr_html src-block :use-block)))
+    (let ((use-block (org-export-read-attribute :attr_html src-block :use-block))
+	  (lang (org-element-property :language src-block)))
       (if (not use-block)
 	  (let ((code (t-format-code src-block info))
 		(id (t--reference src-block info t))
@@ -2470,7 +2473,7 @@ contextual information."
 
 See `org-html-export-as-html' for more information."
   (interactive)
-  (org-export-to-buffer 'respec "*Org respec HTML Export*"
+  (org-export-to-buffer 'w3ctr "*Org w3ctr HTML Export*"
     async subtreep visible-only body-only ext-plist
     (lambda () (set-auto-mode t))))
 
@@ -2481,7 +2484,7 @@ This can be used in any buffer.  For example, you can write an
 itemized list in Org syntax in an HTML buffer and use this command
 to convert it."
   (interactive)
-  (org-export-replace-region-by 'respec))
+  (org-export-replace-region-by 'w3ctr))
 
 ;;;###autoload
 (defun t-export-to-html
@@ -2497,7 +2500,7 @@ See `org-html-export-to-html' for more information."
 			 "html")))
 	 (file (org-export-output-file-name extension subtreep))
 	 (org-export-coding-system t-coding-system))
-    (org-export-to-file 'respec file
+    (org-export-to-file 'w3ctr file
       async subtreep visible-only body-only ext-plist)))
 
 ;;;###autoload
@@ -2509,17 +2512,17 @@ is the property list for the given project.  PUB-DIR is the
 publishing directory.
 
 Return output file name."
-  (org-publish-org-to 'respec filename
+  (org-publish-org-to 'w3ctr filename
 		      (concat (when (> (length t-extension) 0) ".")
 			      (or (plist-get plist :html-extension)
 				  t-extension
 				  "html"))
 		      plist pub-dir))
 
-(provide 'ox-respec)
+(provide 'ox-w3ctr)
 
 ;; Local variables:
-;; read-symbol-shorthands: (("t-" . "org-respec-"))
+;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
 ;; End:
 
-;;; ox-respec.el ends here
+;;; ox-w3ctr.el ends here
