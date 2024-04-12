@@ -341,8 +341,9 @@ See `org-html-inline-image-rules' for more information."
 (defcustom t-fontify-method nil
   "Method to fontify code
 - nil  means no highlighting
-- hljs means use highlight.js to render
-- engrave means use a subset of engrave-face.el for code fontify"
+- engrave means use a subset of engrave-face.el for code fontify
+
+There was a support for highlight.js, but has benn abandoned."
   :group 'org-export-w3ctr
   :type '(choice (const engrave) (const hljs) (const nil)))
 
@@ -1310,9 +1311,6 @@ is the language used for CODE, as a string, or nil."
   (cond
    ((or (string= code "") (not lang) (not t-fontify-method))
     (t-encode-plain-text code))
-   ((eq t-fontify-method 'hljs)
-    (format "<code class=\"language-%s\">\n%s\n</code>"
-	    lang (t-encode-plain-text code)))
    ((eq t-fontify-method 'engrave)
     (t-faces-fontify-code code lang))
    (t (t-encode-plain-text code))))
