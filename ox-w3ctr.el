@@ -1291,13 +1291,14 @@ This function is lifted from engrave-faces [2024-04-12]"
       (setq code
 	    (let ((inhibit-read-only t))
 	      (with-temp-buffer
+		(let ((inbuf (current-buffer)))
 		(funcall lang-mode)
 		(insert code)
 		(font-lock-ensure)
-		(org-src-mode)
 		(set-buffer-modified-p nil)
-		(with-current-buffer (org-w3ctr-faces-buffer)
-		  (buffer-string)))))
+		(with-temp-buffer
+		  (org-w3ctr-faces-buffer inbuf (current-buffer))
+		  (buffer-string))))))
       (format "<code>\n%s\n</code>" code)))))
 
 ;;;; Src Code
