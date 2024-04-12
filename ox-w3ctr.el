@@ -342,9 +342,9 @@ See `org-html-inline-image-rules' for more information."
   "Method to fontify code
 - nil  means no highlighting
 - hljs means use highlight.js to render
-- src2h5 means use a (WIP) backend for code fontify"
+- engrave means use a subset of engrave-face.el for code fontify"
   :group 'org-export-w3ctr
-  :type '(choice (const native) (const hljs) (const nil)))
+  :type '(choice (const engrave) (const hljs) (const nil)))
 
 ;;;; Table
 
@@ -1156,7 +1156,8 @@ holding export options."
 	  (if subtitle
 	      (format
 	       "<p id=\"time-state\"><time datetime=\"%s\">%s</time></p>\n"
-	       (car subtitle) (car subtitle))
+	       "123"
+	       (org-export-data subtitle info))
 	    "")))))
    contents
    ;; back-to-top
@@ -1170,11 +1171,134 @@ holding export options."
 
 ;;;; Anchor
 
-(defun t--anchor (id desc attributes info)
+(defun t--anchor (id desc attributes _info)
   "Format a HTML anchor."
   (let* ((attributes (concat (and id (format " id=\"%s\"" id))
 			     attributes)))
     (format "<span%s>%s</span>" attributes (or desc ""))))
+
+;;;; src-block export backend
+
+;; engrave src-block render code is steal from engrave-faces.el
+;; see https://github.com/tecosaur/engrave-faces
+;; To get CSS from current or specified theme, use
+;; `engrave-faces-html-gen-stylesheet'
+
+(defun org-w3ctr-faces-buffer (&optional in-buffer out-buffer)
+  "Export the current buffer to HTML and return the output buffer.
+If IN-BUFFER is not nil, use it instead of current buffer.
+If OUT-BUFFER is not nil, it will be the output buffer and return value.
+
+Make sure the current buffer is already fontified with `font-lock-ensure'"
+  (let ((ibuf (or in-buffer (current-buffer)))
+	(obuf (or out-buffer
+		  (generate-new-buffer "*html*")))
+	(completed nil))
+    (with-current-buffer ibuf
+      (unwind-protect
+	  (let (next-change text)
+	    (goto-char (point-min))
+	    (while (not (eobp))
+	      (setq next-change (org-w3ctr-faces--next-change (point)))
+	      (setq text (buffer-substring-no-properties (point) next-change))
+	      (when (> (length text) 0)
+		(princ (org-w3ctr-faces-transformer
+			(get-text-property (point) 'face)
+			text)
+		       obuf))
+	      (goto-char next-change)))
+	(setq completed t)))
+    (if (not completed)
+	(if out-buffer t (kill-buffer obuf))
+      obuf)))
+
+(defun org-w3ctr-faces--next-change (pos &optional limit)
+  "Find the next face change from POS up to LIMIT.
+
+This function is lifted from htmlize.
+This function is lifted from engrave-faces [2024-04-12]"
+  (unless limit
+    (setq limit (point-max)))
+  (let ((next-prop (next-single-property-change pos 'face nil limit))
+        (overlay-faces (org-w3ctr-faces--overlay-faces-at pos)))
+    (while (progn
+             (setq pos (next-overlay-change pos))
+             (and (< pos next-prop)
+                  (equal overlay-faces (org-w3ctr-faces--overlay-faces-at pos)))))
+    (setq pos (min pos next-prop))
+    ;; Additionally, we include the entire region that specifies the
+    ;; `display' property.
+    (when (get-char-property pos 'display)
+      (setq pos (next-single-char-property-change pos 'display nil limit)))
+    pos))
+
+(defun org-w3ctr-faces--overlay-faces-at (pos)
+  (delq nil (mapcar (lambda (o) (overlay-get o 'face)) (overlays-at pos))))
+
+(defun org-w3ctr-faces-transformer (prop text)
+  "Transform text to HTML code with CSS"
+  (let ((protected-content (org-w3ctr-faces--protect-string text))
+	(style (org-w3ctr-faces-get-style prop)))
+    (if (string-match-p "\\`[\n[:space:]]+\\'" text) protected-content
+      (if (not style) protected-content
+	(concat "<span class=\"ef-"
+		(plist-get (cdr style) :slug) "\">"
+		protected-content "</span>")))))
+
+(defun org-w3ctr-faces--protect-string (text)
+  (dolist (pair '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;")) text)
+    (setq text (replace-regexp-in-string (car pair) (cdr pair) text t t))))
+
+(defconst org-w3ctr-faces-style-plist
+  '(;; faces.el --- excluding: bold, italic, bold-italic, underline, and some others
+    (default :slug "D")
+    (shadow  :slug "h")
+    (success :slug "sc")
+    (warning :slug "w")
+    (error   :slug "e")
+    ;; font-lock.el
+    (font-lock-comment-face :slug "c")
+    (font-lock-comment-delimiter-face :slug "cd")
+    (font-lock-string-face :slug "s")
+    (font-lock-doc-face :slug "d")
+    (font-lock-doc-markup-face :slug "m")
+    (font-lock-keyword-face :slug "k")
+    (font-lock-builtin-face :slug "b")
+    (font-lock-function-name-face :slug "f")
+    (font-lock-variable-name-face :slug "v")
+    (font-lock-type-face :slug "t")
+    (font-lock-constant-face :slug "o")
+    (font-lock-warning-face :slug "wr")
+    (font-lock-negation-char-face :slug "nc")
+    (font-lock-preprocessor-face :slug "pp")
+    (font-lock-regexp-grouping-construct :slug "rc")
+    (font-lock-regexp-grouping-backslash :slug "rb")))
+
+(defun org-w3ctr-faces-get-style (prop)
+  (cond
+   ((null prop) nil)
+   ((and (listp prop) (eq (car prop) 'quote))
+    (assoc (eval prop t) org-w3ctr-faces-style-plist))
+   (t (assoc prop org-w3ctr-faces-style-plist))))
+
+(defun t-faces-fontify-code (code lang)
+  (setq lang (or (assoc-default lang org-src-lang-modes) lang))
+  (let* ((lang-mode (and lang (intern (format "%s-mode" lang)))))
+    (cond
+     ((not (functionp lang-mode))
+      (format "<code>\n%s\n</code>" (t-encode-plain-text code)))
+     (t
+      (setq code
+	    (let ((inhibit-read-only t))
+	      (with-temp-buffer
+		(funcall lang-mode)
+		(insert code)
+		(font-lock-ensure)
+		(org-src-mode)
+		(set-buffer-modified-p nil)
+		(with-current-buffer (org-w3ctr-faces-buffer)
+		  (buffer-string)))))
+      (format "<code>\n%s\n</code>" code)))))
 
 ;;;; Src Code
 
@@ -1188,6 +1312,8 @@ is the language used for CODE, as a string, or nil."
    ((eq t-fontify-method 'hljs)
     (format "<code class=\"language-%s\">\n%s\n</code>"
 	    lang (t-encode-plain-text code)))
+   ((eq t-fontify-method 'engrave)
+    (t-faces-fontify-code code lang))
    (t (t-encode-plain-text code))))
 
 (defun t-do-format-code
@@ -2168,8 +2294,7 @@ CONTENTS holds the contents of the item.  INFO is a plist holding
 contextual information."
   (if (org-export-read-attribute :attr_html src-block :textarea)
       (t--textarea-block src-block)
-    (let ((use-block (org-export-read-attribute :attr_html src-block :use-block))
-	  (lang (org-element-property :language src-block)))
+    (let ((use-block (org-export-read-attribute :attr_html src-block :use-block)))
       (if (not use-block)
 	  (let ((code (t-format-code src-block info))
 		(id (t--reference src-block info t))
