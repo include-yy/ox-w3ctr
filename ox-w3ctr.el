@@ -203,21 +203,23 @@ property on the headline itself.")
   "Prefix to use in ID attributes.
 This affects IDs that are determined from the ID property.")
 
-(defcustom t-style-default
-  "<style>
-.self-link:hover{opacity:1;text-decoration:none;background-color:transparent}
-.header-wrapper{display:flex;align-items:baseline}
-:is(h2,h3,h4,h5,h6):not(#toc>h2,#abstract>h2){position:relative;left:-.5em}
-:is(h2,h3,h4,h5,h6):not(#toc>h2)+a.self-link{color:inherit;order:-1;position:relative;left:-1.1em;font-size:1rem;opacity:.5}
-:is(h2,h3,h4,h5,h6)+a.self-link::before{content:\"§\";text-decoration:none;color:#005a9c;color:var(--heading-text)}
-:is(h2)+a.self-link{top:-.2em}:is(h3)+a.self-link{top:-.1em}:is(h4,h5,h6)+a.self-link::before{color:#000}
-</style>"
+(defcustom t-style-default ""
   "The default style specification for exported HTML files.
 You can use `t-head' and `t-head-extra' to add to
 this style.  If you don't want to include this default style,
 customize `t-head-include-default-style'."
   :group 'org-export-w3ctr
   :type 'string)
+
+;; load default CSS from style.css
+;; if style.css changed, rerun this code to update t-style-default
+(setq t-style-default
+      (let ((fname (if (not load-in-progress) (expand-file-name "style.css")
+		     (concat (file-name-directory load-file-name) "style.css"))))
+	(format "<style>\n%s\n</style>\n"
+		(with-temp-buffer
+		  (insert-file fname)
+		  (buffer-string)))))
 
 ;;; User Configuration Variables
 
@@ -338,14 +340,14 @@ See `org-html-inline-image-rules' for more information."
 
 ;;;; Src Block
 
-(defcustom t-fontify-method nil
+(defcustom t-fontify-method 'engrave
   "Method to fontify code
-- nil  means no highlighting
+- nil means no highlighting
 - engrave means use a subset of engrave-face.el for code fontify
 
-There was a support for highlight.js, but has benn abandoned."
+There was a support for highlight.js, but has been abandoned."
   :group 'org-export-w3ctr
-  :type '(choice (const engrave) (const hljs) (const nil)))
+  :type '(choice (const engrave) (const nil)))
 
 ;;;; Table
 
@@ -726,7 +728,7 @@ arguments CAPTION and LABEL are given, use them for caption and
 \"id\" attribute."
   (format "\n<figure%s%s>\n%s%s</figure>"
 	  (if (org-string-nw-p label) (format " id=\"%s\"" label) "")
-	  (if attrs (concat " " attrs) "")
+	  (if (and attrs (not (equal attrs ""))) (concat " " attrs) "")
 	  ;; Contents.
 	  contents
 	  ;; Caption.
