@@ -150,8 +150,6 @@
     (:html-mathjax-options nil nil t-mathjax-options)
     (:html-mathjax-template nil nil t-mathjax-template)
     (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
-    (:html-postamble-format nil nil t-postamble-format)
-    (:html-preamble-format nil nil t-preamble-format)
     (:html-table-align-individual-fields
      nil nil t-table-align-individual-fields)
     (:html-table-caption-above nil nil t-table-caption-above)
@@ -174,7 +172,8 @@
     ;; <yy> aux counter for unnumbered headline
     (:html-headline-cnt nil nil 0)
     ;; <yy> store zeroth section's output
-    (:html-zeroth-section-output nil nil "")))
+    (:html-zeroth-section-output nil nil "")
+    ))
 
 ;;; Internal Variables
 
@@ -530,17 +529,6 @@ See `org-html-postamble' for more information"
   :group 'org-export-w3ctr
   :type 'sexp)
 
-(defcustom t-postamble-format
-  '(("en" "<p class=\"author\">Author: %a (%e)</p>
-<p class=\"date\">Date: %d</p>
-<p class=\"creator\">%c</p>
-<p class=\"validation\">%v</p>"))
-  "Alist of languages and format strings for the HTML postamble.
-
-See `org-html-postamble-format' for more information."
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
 (defcustom t-validation-link
   "<a href=\"https://validator.w3.org/check?uri=referer\">Validate</a>"
   "Link to HTML validation service."
@@ -558,18 +546,10 @@ This option can also be set on with the CREATOR keyword."
 
 ;;;; Template :: Preamble
 
-(defcustom t-preamble t
+(defcustom t-preamble nil
   "Non-nil means insert a preamble in HTML export.
 
 See `org-html-preamble' for more information"
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-(defcustom t-preamble-format '(("en" ""))
-  "Alist of languages and format strings for the HTML preamble.
-the LANGUAGE keyword.  See `org-export-default-language'.
-
-See `org-html-preamble-format' for more information."
   :group 'org-export-w3ctr
   :type 'sexp)
 
@@ -657,6 +637,15 @@ See the following site for a reference:
 https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
   :group 'org-export-w3ctr
   :type 'sexp)
+
+;;;; Some options added by include-yy
+(defcustom t-use-babel nil
+  "use babel or not when exporting.
+
+This option will override `org-export-use-babel'"
+  :group 'org-export-w3ctr
+  :type '(boolean))
+
 
 ;;; Internal Functions
 
@@ -721,14 +710,17 @@ if DATUM's type is not headline, return nil"
 	    (plist-put info :internal-references cache)
 	    newid)))))
 
-(defun t--wrap-image (contents _info &optional caption label attrs)
+(defun t--wrap-image (contents _info &optional caption label class)
   "Wrap CONTENTS string within an appropriate environment for images.
 INFO is a plist used as a communication channel.  When optional
 arguments CAPTION and LABEL are given, use them for caption and
-\"id\" attribute."
+\"id\" attribute.
+
+Also, include-yy allows it to contain class, we can then use selectors
+to specify the inner img styles [2024-04-13]"
   (format "\n<figure%s%s>\n%s%s</figure>"
 	  (if (org-string-nw-p label) (format " id=\"%s\"" label) "")
-	  (if (and attrs (not (equal attrs ""))) (concat " " attrs) "")
+	  (if (org-string-nw-p class) (format " class=\"%s\"" class) "")
 	  ;; Contents.
 	  contents
 	  ;; Caption.
@@ -742,7 +734,9 @@ SOURCE is a string specifying the location of the image.
 ATTRIBUTES is a plist, as returned by
 `org-export-read-attribute'.  INFO is a plist used as
 a communication channel."
-  (when (eq caller 'link) (setq attributes nil))
+  (when (eq caller 'link)
+    (cl-remf attributes :id)
+    (cl-remf attributes :class))
   (t-close-tag
    "img"
    (t--make-attribute-string
@@ -1024,61 +1018,12 @@ communication channel."
 	(spec (t-format-spec info)))
     (when section
       (let ((section-contents
-	     (if (functionp section) (funcall section info)
-	       (cond
-		((stringp section) (format-spec section spec))
-		((eq section 'auto)
-		 (let ((date (cdr (assq ?d spec)))
-		       (author (cdr (assq ?a spec)))
-		       (email (cdr (assq ?e spec)))
-		       (creator (cdr (assq ?c spec)))
-		       (validation-link (cdr (assq ?v spec))))
-		   (concat
-		    (and (plist-get info :with-date)
-			 (org-string-nw-p date)
-			 (format "<p class=\"date\">%s: %s</p>\n"
-				 "Date"
-				 date))
-		    (and (plist-get info :with-author)
-			 (org-string-nw-p author)
-			 (format "<p class=\"author\">%s: %s</p>\n"
-				 "Author"
-				 author))
-		    (and (plist-get info :with-email)
-			 (org-string-nw-p email)
-			 (format "<p class=\"email\">%s: %s</p>\n"
-				 "Email"
-				 email))
-		    (and (plist-get info :time-stamp-file)
-			 (format
-			  "<p class=\"date\">%s: %s</p>\n"
-			  "Created"
-			  (format-time-string
-			   (plist-get info :html-metadata-timestamp-format))))
-		    (and (plist-get info :with-creator)
-			 (org-string-nw-p creator)
-			 (format "<p class=\"creator\">%s</p>\n" creator))
-		    (and (org-string-nw-p validation-link)
-			 (format "<p class=\"validation\">%s</p>\n"
-				 validation-link)))))
-		(t
-		 (let ((formats (plist-get info (if (eq type 'preamble)
-						    :html-preamble-format
-						  :html-postamble-format)))
-		       (language (plist-get info :language)))
-		   (format-spec
-		    (cadr (or (assoc-string language formats t)
-			      (assoc-string "en" formats t)))
-		    spec)))))))
-	(let ((div (assq type (plist-get info :html-divs))))
-	  (when (org-string-nw-p section-contents)
-	    (concat
-	     (format "<%s id=\"%s\" class=\"%s\">\n"
-		     (nth 1 div)
-		     (nth 2 div)
-		     t--pre/postamble-class)
-	     (org-element-normalize-string section-contents)
-	     (format "</%s>\n" (nth 1 div)))))))))
+	     (cond
+	      ((functionp section) (funcall section info))
+	      ((stringp section) (format-spec section spec))
+	      (t ""))))
+	(when (org-string-nw-p section-contents)
+	  (org-element-normalize-string section-contents))))))
 
 (defun t-inner-template (contents info)
   "Return body of document string after HTML conversion.
@@ -2137,8 +2082,9 @@ the plist used as a communication channel."
 	 (parent-type (org-element-type parent))
 	 (style '((footnote-definition " class=\"footpara\"")
 		  (org-data " class=\"footpara\"")))
-	 (attributes (t--make-attribute-string
-		      (org-export-read-attribute :attr_html paragraph)))
+	 (class (org-export-read-attribute :attr_html paragraph :class))
+	 (attrs (t--make-attribute-string
+		 (org-export-read-attribute :attr_html paragraph)))
 	 (extra (or (cadr (assq parent-type style)) "")))
     (cond
      ((and (eq parent-type 'item)
@@ -2153,11 +2099,14 @@ the plist used as a communication channel."
       ;; Standalone image.
       (let ((caption (org-export-data (org-export-get-caption paragraph) info))
 	    (label (t--reference paragraph info t)))
-	(t--wrap-image contents info caption label attributes)))
+	(t--wrap-image contents info caption label class)))
      ;; Regular paragraph.
-     (t (format "<p%s%s>\n%s</p>"
-		(if (org-string-nw-p attributes)
-		    (concat " " attributes) "")
+     (t (format "<p%s%s%s>\n%s</p>"
+		(let ((id (t--reference paragraph info t)))
+		  (if (org-string-nw-p id)
+		      (format " id=\"%s\"" id) ""))
+		(if (org-string-nw-p attrs)
+		    (concat " " attrs) "")
 		extra (replace-regexp-in-string "\\(\\cc\\)\n\\(\\cc\\)" "\\1<!--\n-->\\2" contents))))))
 
 ;;;; Plain List
@@ -2599,9 +2548,10 @@ contextual information."
 
 See `org-html-export-as-html' for more information."
   (interactive)
-  (org-export-to-buffer 'w3ctr "*Org w3ctr HTML Export*"
-    async subtreep visible-only body-only ext-plist
-    (lambda () (set-auto-mode t))))
+  (let ((org-export-use-babel t-use-babel))
+    (org-export-to-buffer 'w3ctr "*Org w3ctr HTML Export*"
+      async subtreep visible-only body-only ext-plist
+      (lambda () (set-auto-mode t)))))
 
 ;;;###autoload
 (defun t-convert-region-to-html ()
@@ -2610,7 +2560,8 @@ This can be used in any buffer.  For example, you can write an
 itemized list in Org syntax in an HTML buffer and use this command
 to convert it."
   (interactive)
-  (org-export-replace-region-by 'w3ctr))
+  (let ((org-export-use-babel t-use-babel))
+    (org-export-replace-region-by 'w3ctr)))
 
 ;;;###autoload
 (defun t-export-to-html
@@ -2625,7 +2576,9 @@ See `org-html-export-to-html' for more information."
 			 t-extension
 			 "html")))
 	 (file (org-export-output-file-name extension subtreep))
-	 (org-export-coding-system t-coding-system))
+	 (org-export-coding-system t-coding-system)
+	 (org-export-use-babel t-use-babel)
+	 )
     (org-export-to-file 'w3ctr file
       async subtreep visible-only body-only ext-plist)))
 
@@ -2638,12 +2591,13 @@ is the property list for the given project.  PUB-DIR is the
 publishing directory.
 
 Return output file name."
-  (org-publish-org-to 'w3ctr filename
-		      (concat (when (> (length t-extension) 0) ".")
-			      (or (plist-get plist :html-extension)
-				  t-extension
-				  "html"))
-		      plist pub-dir))
+  (let ((org-export-use-babel t-use-babel))
+    (org-publish-org-to 'w3ctr filename
+			(concat (when (> (length t-extension) 0) ".")
+				(or (plist-get plist :html-extension)
+				    t-extension
+				    "html"))
+			plist pub-dir)))
 
 (provide 'ox-w3ctr)
 
