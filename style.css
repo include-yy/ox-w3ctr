@@ -1,0 +1,702 @@
+:root {
+    --text: black;
+    --bg: white;
+
+    --tocnav-normal-text: #707070;
+    --tocnav-normal-bg: var(--bg);
+    --tocnav-hover-text: var(--tocnav-normal-text);
+    --tocnav-hover-bg: #f8f8f8;
+    --tocnav-active-text: #c00;
+    --tocnav-active-bg: var(--tocnav-normal-bg);
+
+    --tocsidebar-text: var(--text);
+    --tocsidebar-bg: #f7f8f9;
+    --tocsidebar-shadow: rgba(0,0,0,.1);
+    --tocsidebar-heading-text: hsla(203,20%,40%,.7);
+
+    --toclink-text: var(--text);
+    --toclink-underline: #3980b5;
+    --toclink-visited-text: var(--toclink-text);
+    --toclink-visited-underline: #054572;
+
+    --heading-text: #005a9c;
+
+    --del-text: #AA0000;
+    --del-bg: transparent;
+    --ins-text: #006100;
+    --ins-bg: transparent;
+
+    --a-normal-text: #034575;
+    --a-normal-underline: #707070;
+    --a-visited-text: var(--a-normal-text);
+    --a-visited-underline: #bbb;
+    --a-hover-bg: rgba(75%, 75%, 75%, .25);
+    --a-active-text: #c00;
+    --a-active-underline: #c00;
+
+    --blockquote-border: silver;
+    --blockquote-bg: transparent;
+    --blockquote-text: var(--text);
+
+    --issue-border: #e05252;
+    --issue-bg: #fbe9e9;
+    --issue-text: var(--text);
+    --issueheading-text: #831616;
+
+    --example-border: #e0cb52;
+    --example-bg: #fcfaee;
+    --example-text: var(--text);
+    --exampleheading-text: #574b0f;
+
+    --note-border: #52e052;
+    --note-bg: #e9fbe9;
+    --note-text: var(--text);
+    --noteheading-text: hsl(120, 70%, 22%);
+    --notesummary-underline: silver;
+
+    --advisement-border: orange;
+    --advisement-bg: #fec;
+    --advisement-text: var(--text);
+    --advisementheading-text: #b35f00;
+
+    --amendment-border: #330099;
+    --amendment-bg: #F5F0FF;
+    --amendment-text: var(--text);
+    --amendmentheading-text: #220066;
+}
+
+body {
+
+    counter-reset: example figure issue;
+
+    max-width: 50em;
+    margin: 0 auto 4em;
+    padding: 1.6em 1.5em 0 50px;
+    padding: 1.6em 1.5em 0 calc(26px + 1.5em);
+
+    line-height: 1.5;
+    font-family: sans-serif;
+    window: 2;
+    orphans: 2;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+
+    color: black;
+    color: var(--text);
+    background: white top left fixed no-repeat;
+    background: var(--bg);
+    background-size: 25px auto;
+}
+/*
+  figure
+*/
+img {
+    border-style: none;
+}
+figure, .sidefigure {
+    page-break-inside: avoid;
+    text-align: center;
+    margin: 2.5em 0;
+}
+figure img, figure svg {
+    max-width: 100%;
+    margin: auto;
+    height: auto;
+}
+@media screen and (min-width: 20em) {
+    .sidefigure {
+	float: right;
+	width: 50%;
+	margin: 0 0 0.5em 0.5em;
+    }
+}
+figcaption, .sidefigure {
+    max-width: 50em;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+figcaption {
+    font-style: italic;
+    font-size: 90%;
+    counter-increment: figure;
+}
+
+/* autogen numbers */
+figcaption::before {
+    content: "Figure " counter(figure) ". ";
+    font-weight: bold;
+}
+
+/*
+  colored boxes
+*/
+.src-container,
+.issue, .note, .example, .advisement, blockquote,
+.amendment, .correction, .addition {
+    padding: .5em;
+    border: .5em;
+    border-left-style: solid;
+    page-break-inside: avoid;
+    margin: 1em auto;
+}
+.src-container,
+.note  > p:first-child,
+.issue > p:first-child,
+blockquote > :first-child,
+.amendment > p:first-child,
+.correction > p:first-child,
+.addition > p:first-child {
+    margin-top: 0;
+}
+.src-container,
+.note  > p:last-child,
+.issue > p:last-child,
+blockquote > :last-child,
+.amendment > p:last-child,
+.correction > p:last-child,
+.addition > p:last-child {
+    margin-bottom: 0;
+}
+.src-container {
+    border-color: #F0F0F0;
+    background: #FDFDFD;
+    color: black;
+}
+blockquote {
+    border-color: silver;
+    border-color: var(--blockquote-border);
+    background: var(--blockquote-bg);
+    color: var(--blockquote-text);
+}
+.example {
+    position: relative;
+    border-color: #e0cb52;
+    border-color: var(--example-border);
+    background: #fcfaee;
+    background: var(--example-bg);
+    color: black;
+    color: var(--example-text);
+    counter-increment: example;
+    overflow: auto;
+    clear: both;
+}
+.example > .marker {
+    display: block;
+    padding-right: 0em;
+}
+
+.example:not(.no-marker)::before {
+    content: "Example " counter(example);
+}
+
+.note {
+    border-color: #52e052;
+    border-color: var(--note-border);
+    background: #e9fbe9;
+    background: var(--note-bg);
+    color: black;
+    color: var(--note-text);
+    overflow: auto;
+}
+.advisement {
+    border-color: orange;
+    border-color: var(--advisement-border);
+    border-style: none solid;
+    background: #fec;
+    background: var(--advisement-bg);
+    color: black;
+    color: var(--advisement-text);
+}
+.amendment, .correction, .addition {
+    border-color: #330099;
+    border-color: var(--amendment-border);
+    background: #F5F0FF;
+    background: var(--amendment-bg);
+}
+/*
+  details & summary
+*/
+details:not([hidden]) {
+    display: block;
+}
+summary {
+    font-weight: bolder;
+}
+summary>p {
+    display: inline;
+}
+/*
+heading
+*/
+h1, h2, h3, h4, h5, h6, dt {
+    page-break-after: avoid;
+    page-break-inside: avoid;
+    font: 100% sans-serif;   /* Reset all font styling to clear out UA styles */
+    font-family: inherit;    /* Inherit the font family. */
+    line-height: 1.2;        /* Keep wrapped headings compact */
+    hyphens: manual;         /* Hyphenated headings look weird */
+}
+
+h2, h3, h4, h5, h6 {
+    margin-top: 3rem;
+}
+
+h1, h2, h3 {
+    color: #005a9c;
+    color: var(--heading-text);
+}
+
+h1 { font-size: 170%; }
+h2 { font-size: 140%; }
+h3 { font-size: 120%; }
+h4 { font-weight: bold; }
+h5 { font-style: italic; }
+h6 { font-variant: small-caps; }
+dt { font-weight: bold; }
+
+#time-state {
+    margin-top: 0;
+    margin-bottom: 1.5em;
+    font: 140% sans-serif;
+    font-family: inherit;
+    line-height: 1.2;
+    hyphens: manual;
+    color: #005a9c;
+    color: var(--heading-text);
+}
+
+/*
+  paragraph
+*/
+
+p {
+    margin: 1em 0;
+}
+dd > p:first-child, li > p:first-child {
+    margin-top: 0;
+}
+ul, ol {
+    margin-left: 0;
+    padding-left: 2em;
+}
+li {
+    margin: 0.25em 0 0.5em;
+    padding: 0;
+}
+dl dd {
+    margin: 0 0 .5em 2em;
+}
+
+
+/*
+  change marking
+*/
+del {
+    color: #AA0000;
+    color: var(--del-text);
+    background: transparent;
+    background: var(--del-bg);
+    text-decoration: line-through;
+}
+ins {
+    color: #006100;
+    color: var(--ins-text);
+    background: transparent;
+    background: var(--ins-bg);
+    text-decoration: underline;
+    text-decoration-style: dashed;
+}
+sup {
+    vertical-align: super;
+    font-size: 80%;
+}
+sub {
+    vertical-align: sub;
+    font-size: 80%;
+}
+
+/*
+Code
+*/
+pre, code, samp {
+    font-family: Menlo, Consolas, "DejaVu Sans Mono", Monaco, monospace;
+    font-size: .9em;
+    hyphens: none;
+    text-transform: none;
+    text-align: left;
+    text-align: start;
+    font-variant: normal;
+    orphans: 3;
+    widows: 3;
+    page-break-before: avoid;
+}
+pre code, code code {
+    font-size: 100%;
+}
+pre {
+    margin-top: 1em;
+    margin-bottom: 1em;
+    overflow: auto;
+}
+
+pre {
+  background: #fafafa;
+}
+
+/*
+  links
+*/
+/* We hyperlink a lot, so make it less intrusive */
+a[href] {
+    color: #034575;
+    color: var(--a-normal-text);
+    text-decoration-color: #707070;
+    text-decoration-color: var(--a-normal-underline);
+    text-decoration-skip-ink: none;
+}
+a:visited {
+    color: #034575;
+    color: var(--a-visited-text);
+    text-decoration-color: #bbb;
+    text-decoration-color: var(--a-visited-underline);
+}
+/* Indicate interaction with the link */
+a[href]:focus,
+a[href]:hover {
+    text-decoration-thickness: 2px;
+    text-decoration-skip-ink: none;
+}
+a[href]:active {
+    color: #c00;
+    color: var(--a-active-text);
+    text-decoration-color: #c00;
+    text-decoration-color: var(--a-active-underline);
+}
+/*
+  toc
+*/
+.toc a {
+    color: black;
+    color: var(--toclink-text);
+    padding: 0.1rem 1px 0;
+    /* Larger, more consistently-sized click target */
+    display: block;
+    text-decoration: none;
+    border-bottom: 3px solid transparent;
+    margin-bottom: 2px;
+}
+.toc a:visited {
+    color: black;
+    color: var(--toclink-visited-text);
+}
+.toc a:focus, .toc a:hover {
+    background: #f8f8f8;
+    background: rgba(75%, 75%, 75%,.25);
+    background: var(--a-hover-bg);
+    border-bottom-color: #3980b5;
+    border-bottom-color: var(--toclink-underline);
+}
+.toc a:visited:focus, .toc a:visited:hover {
+    border-bottom-color: #054572;
+    border-bottom-color: var(--toclink-visited-underline);
+}
+.toc, .toc ol, .toc ul, .toc li {
+    /* because generated content isn't search/selectable
+       and markers can't do multilevel yet */
+    list-style: none; /* Numbers must be inlined into source */
+    margin:  0;
+    padding: 0;
+}
+.toc {
+    line-height: 1.1em; /* consistent spacing */
+}
+/* ToC not indented until third level, but font style & margins show hierarchy */
+.toc > li             { font-weight: bold;   }
+.toc > li li          { font-weight: normal; }
+.toc > li li li       { font-size:   95%;    }
+.toc > li li li li    { font-size:   90%;    }
+.toc > li li li li li { font-size:   85%;    }
+
+.toc > li             { margin: 1.5rem 0;    }
+.toc > li li          { margin: 0.3rem 0;    }
+.toc > li li li       { margin-left: 2rem;   }
+/* Section numbers in a column of their own */
+.toc .secno {
+    float: left;
+    width: 4rem;
+    white-space: nowrap;
+}
+.toc > li li li li .secno {
+    font-size: 85%;
+}
+.toc > li li li li li .secno {
+    font-size: 100%;
+}
+:not(li) > .toc              { margin-left:  5rem; }
+.toc .secno                  { margin-left: -5rem; }
+.toc > li li li .secno       { margin-left: -7rem; }
+.toc > li li li li .secno    { margin-left: -9rem; }
+.toc > li li li li li .secno { margin-left: -11rem; }
+/* Tighten up indentation in narrow ToCs */
+@media (max-width: 30em) {
+    :not(li) > .toc              { margin-left:  4rem; }
+    .toc .secno                  { margin-left: -4rem; }
+    .toc > li li li              { margin-left:  1rem; }
+    .toc > li li li .secno       { margin-left: -5rem; }
+    .toc > li li li li .secno    { margin-left: -6rem; }
+    .toc > li li li li li .secno { margin-left: -7rem; }
+}
+@media screen and (min-width: 78em) {
+    body:not(.toc-inline) :not(li) > .toc              { margin-left:  4rem; }
+    body:not(.toc-inline) .toc .secno                  { margin-left: -4rem; }
+    body:not(.toc-inline) .toc > li li li              { margin-left:  1rem; }
+    body:not(.toc-inline) .toc > li li li .secno       { margin-left: -5rem; }
+    body:not(.toc-inline) .toc > li li li li .secno    { margin-left: -6rem; }
+    body:not(.toc-inline) .toc > li li li li li .secno { margin-left: -7rem; }
+}
+body.toc-sidebar #toc :not(li) > .toc              { margin-left:  4rem; }
+body.toc-sidebar #toc .toc .secno                  { margin-left: -4rem; }
+body.toc-sidebar #toc .toc > li li li              { margin-left:  1rem; }
+body.toc-sidebar #toc .toc > li li li .secno       { margin-left: -5rem; }
+body.toc-sidebar #toc .toc > li li li li .secno    { margin-left: -6rem; }
+body.toc-sidebar #toc .toc > li li li li li .secno { margin-left: -7rem; }
+.toc li {
+    clear: both;
+}
+
+/*
+  home-and-up
+*/
+#home-and-up {
+    position: fixed;
+    z-index: 3;
+    top: 0; right: 0.5em;
+    margin: 0;
+    min-height: 1.5em;
+    box-shadow: 0 0 2px;
+    font-size: 1.5em;
+}
+#home-and-up > a {
+    height: 1.5em;
+    padding: .1em 0.5em;
+    margin: 0;
+    box-shadow: 0 0 2px;
+    border: none;
+    color: #034575;
+    color: var(--a-normal-text);
+    background: white;
+    background: var(--bg);
+}
+/*
+  toc-nav
+*/
+#toc-nav {
+    position: fixed;
+    z-index: 3;
+    bottom: 0; left: 0;
+    margin: 0;
+    min-width: 1.33em;
+    border-top-right-radius: 2rem;
+    box-shadow: 0 0 2px;
+    font-size: 1.5em;
+}
+#toc-nav > a {
+    display: block;
+    white-space: nowrap;
+
+    height: 1.33em;
+    padding: .1em 0.3em;
+    margin: 0;
+
+    box-shadow: 0 0 2px;
+    border: none;
+    border-top-right-radius: 1.33em;
+    color: #707070;
+    color: var(--tocnav-normal-text);
+    background: white;
+    background: var(--tocnav-normal-bg);
+}
+#toc-nav > a:hover, #toc-nav > a:focus {
+    color: black;
+    color: var(--tocnav-hover-text);
+    background: #f8f8f8;
+    background: var(--tocnav-hover-bg);
+}
+#toc-nav > a:active {
+    color: #c00;
+    color: var(--tocnav-active-text);
+    background: white;
+    background: var(--tocnav-active-bg);
+}
+#toc-nav > #toc-jump, #toc-nav > #toc-toggle {
+    padding-bottom: 2em;
+    margin-bottom: -1.9em;
+}
+/* statusbar gets in the way on keyboard focus; remove once browsers fix */
+#toc-nav > a[href="#toc"]:not(:hover):focus:last-child {
+    padding-bottom: 1.5rem;
+}
+#toc-nav:not(:hover) > a:not(:focus) > span + span {
+    /* Ideally this uses :focus-within on #toc-nav */
+    display: none;
+}
+#toc-nav > a > span + span {
+    padding-right: 0.2em;
+}
+/*
+  toc sidebar
+*/
+@media screen {
+    body.toc-sidebar #toc {
+	position: fixed;
+	top: 0; bottom: 0;
+	left: 0;
+	width: 23.5em;
+	max-width: 80%;
+	max-width:calc(100% - 2em - 26px);
+	overflow: auto;
+	padding: 0 1em;
+	padding-left: 42px;
+	padding-left: calc(1em + 26px);
+	color: black;
+	color: var(--tocsidebar-text);
+	background: inherit;
+	background-color: #f7f8f9;
+	background-color: var(--tocsidebar-bg);
+	z-index: 1;
+	box-shadow: -.1em 0 .25em rgba(0,0,0,.1) inset;
+	box-shadow: -.1em 0 .25em var(--tocsidebar-shadow) inset;
+    }
+    body.toc-sidebar #toc h2 {
+	margin-top: .8rem;
+	font-variant: small-caps;
+	font-variant: all-small-caps;
+	text-transform: lowercase;
+	font-weight: bold;
+	color: gray;
+	color: hsla(203,20%,40%,.7);
+	color: var(--tocsidebar-heading-text);
+    }
+    body.toc-sidebar #toc-jump:not(:focus) {
+	width: 0;
+	height: 0;
+	padding: 0;
+	position: absolute;
+	overflow: hidden;
+    }
+}
+
+@media screen and (max-width: 28em) {
+    body.toc-sidebar {
+	overflow: hidden;
+    }
+}
+
+@media screen and (min-width: 78em) {
+    body:not(.toc-inline) #toc {
+	position: fixed;
+	top: 0; bottom: 0;
+	left: 0;
+	width: 23.5em;
+	overflow: auto;
+	padding: 0 1em;
+	padding-left: 42px;
+	padding-left: calc(1em + 26px);
+	color: black;
+	color: var(--tocsidebar-text);
+	background: inherit;
+	background-color: #f7f8f9;
+	background-color: var(--tocsidebar-bg);
+	z-index: 1;
+	box-shadow: -.1em 0 .25em rgba(0,0,0,.1) inset;
+	box-shadow: -.1em 0 .25em var(--tocsidebar-shadow) inset;
+    }
+    body:not(.toc-inline) #toc h2 {
+	margin-top: .8rem;
+	font-variant: small-caps;
+	font-variant: all-small-caps;
+	text-transform: lowercase;
+	font-weight: bold;
+	color: gray;
+	color: hsla(203,20%,40%,.7);
+	color: var(--tocsidebar-heading-text);
+    }
+    body:not(.toc-inline) {
+	padding-left: 29em;
+    }
+    body:not(.toc-inline) #toc-jump:not(:focus) {
+	width: 0;
+	height: 0;
+	padding: 0;
+	position: absolute;
+	overflow: hidden;
+    }
+}
+@media screen and (min-width: 90em) {
+    body:not(.toc-inline) {
+	margin: 0 4em;
+    }
+}
+
+a.self-link::before { content: "¶"; }
+.example > a.self-link {
+    left: auto;
+    right: 0;
+}
+a.self-link {
+    position: absolute;
+}
+
+.self-link:hover{opacity:1;text-decoration:none;background-color:transparent}
+.header-wrapper{display:flex;align-items:baseline}
+:is(h2,h3,h4,h5,h6):not(#toc>h2,#abstract>h2){position:relative;left:-.5em}
+:is(h2,h3,h4,h5,h6):not(#toc>h2)+a.self-link{color:inherit;order:-1;position:relative;left:-1.1em;font-size:1rem;opacity:.5}
+:is(h2,h3,h4,h5,h6)+a.self-link::before{content:"§";text-decoration:none;color:#005a9c;color:var(--heading-text)}
+:is(h2)+a.self-link{top:-.2em}:is(h3)+a.self-link{top:-.1em}:is(h4,h5,h6)+a.self-link::before{color:#000}
+
+
+.ef-h {
+  color: #7f7f7f; }
+.ef-sc {
+  color: #a1db00; }
+.ef-w {
+  color: #ff8700;
+  font-weight: 700; }
+.ef-e {
+  color: #ff4b4b; }
+.ef-c {
+  color: #b2b2b2;
+  text-decoration: italic; }
+.ef-cd {
+  color: #b2b2b2;
+  text-decoration: italic; }
+.ef-s {
+  color: #ff1f8b; }
+.ef-d {
+  color: #cc0000; }
+.ef-m {
+  color: #1f5bff; }
+.ef-k {
+  color: #00af00; }
+.ef-b {
+  color: #b218b2; }
+.ef-f {
+  color: #ef2929; }
+.ef-v {
+  color: #ff8700; }
+.ef-t {
+  color: #18b2b2; }
+.ef-o {
+  color: #1f5bff; }
+.ef-wr {
+  color: #cc0000;
+  font-weight: 700; }
+.ef-nc {
+  color: #cc0000; }
+.ef-pp {
+  color: #b218b2; }
+.ef-rc {
+  color: #b218b2; }
+.ef-rb {
+  color: #ff8700; }

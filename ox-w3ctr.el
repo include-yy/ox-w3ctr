@@ -137,7 +137,6 @@
     (:subtitle "SUBTITLE" nil nil parse)
     (:html-head-include-default-style
      nil "html-style" t-head-include-default-style)
-    (:html-divs nil nil t-divs)
     (:html-checkbox-type nil nil t-checkbox-type)
     (:html-extension nil nil t-extension)
     (:html-footnote-format nil nil t-footnote-format)
@@ -173,14 +172,13 @@
     (:html-headline-cnt nil nil 0)
     ;; <yy> store zeroth section's output
     (:html-zeroth-section-output nil nil "")
+    ;; <yy> add back to top arrow
+    (:html-back-to-top nil nil t-back-to-top)
     ))
 
 ;;; Internal Variables
 
 (defvar t-format-table-no-css)
-
-(defvar t--pre/postamble-class "status"
-  "CSS class used for pre/postamble.")
 
 (defconst t-html5-elements
   '("article" "aside" "audio" "canvas" "details" "figcaption" "div"
@@ -217,8 +215,25 @@ customize `t-head-include-default-style'."
 		     (concat (file-name-directory load-file-name) "style.css"))))
 	(format "<style>\n%s\n</style>\n"
 		(with-temp-buffer
-		  (insert-file fname)
+		  (insert-file-contents fname)
 		  (buffer-string)))))
+
+(defconst t-toc-side-bottom "\
+<p id=\"toc-nav\">
+<a id=\"toc-jump\" href=\"#toc\">
+<span aria-hidden=\"true\">↑</span>
+<span>Jump to Table of Contents</span>
+</a>
+<a id=\"toc-toggle\" href=\"#toc\">
+<span aria-hidden=\"true\">→</span>
+<span>Pop Out Sidebar</span>
+</a>\n</p>"
+  "Jump to TOC and Pop Out Sidebar bottoms for TOC")
+
+(defconst t-back-to-top-arrow "\
+<p role=\"navigation\" id=\"back-to-top\">\n<a href=\"#title\">\
+<abbr title=\"Back to Top\">↑</abbr></a>\n</p>\n")
+
 
 ;;; User Configuration Variables
 
@@ -414,16 +429,6 @@ Otherwise, place it near the end."
   "Coding system for HTML export."
   :group 'org-export-w3ctr
   :type 'coding-system)
-
-(defcustom t-divs
-  '((preamble  "div" "preamble")
-    (postamble "footer" "postamble"))
-  "Alist of the two section elements for HTML export.
-The car of each entry is one of `preamble' or `postamble'.
-The cdrs of each entry are the ELEMENT_TYPE and ID for each
-section of the exported document."
-  :group 'org-export-w3ctr
-  :type 'sexp)
 
 (defconst t-checkbox-types
   '((unicode .
@@ -643,6 +648,11 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
   "use babel or not when exporting.
 
 This option will override `org-export-use-babel'"
+  :group 'org-export-w3ctr
+  :type '(boolean))
+
+(defcustom t-back-to-top t
+  "add back-to-top arrow at the end of html file"
   :group 'org-export-w3ctr
   :type '(boolean))
 
@@ -1016,14 +1026,15 @@ TYPE is either `preamble' or `postamble', INFO is a plist used as a
 communication channel."
   (let ((section (plist-get info (intern (format ":html-%s" type))))
 	(spec (t-format-spec info)))
-    (when section
+    (if section
       (let ((section-contents
 	     (cond
 	      ((functionp section) (funcall section info))
 	      ((stringp section) (format-spec section spec))
 	      (t ""))))
-	(when (org-string-nw-p section-contents)
-	  (org-element-normalize-string section-contents))))))
+	(if (org-string-nw-p section-contents)
+	    (org-element-normalize-string section-contents) ""))
+      "")))
 
 (defun t-inner-template (contents info)
   "Return body of document string after HTML conversion.
@@ -1062,6 +1073,17 @@ See `org-html-inner-template' for more information"
 	(format "<nav id=\"home-and-up\">\n<a href=\"%s\"> %s </a>\n</nav>\n"
 		link-right link-rname))))))
 
+(defun t--build-title (info)
+  (when (plist-get info :with-title)
+    (let ((title (and (plist-get info :with-title)
+		      (plist-get info :title)))
+	  (subtitle (plist-get info :subtitle)))
+      (when title
+	(format
+	 "<header>\n<h1 id=\"title\">%s</h1>\n<h2>%s</h2>\n</header>\n"
+	 (org-export-data title info)
+	 (if subtitle (org-export-data subtitle info) ""))))))
+
 (defun t-template (contents info)
   "Return complete document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
@@ -1077,40 +1099,20 @@ holding export options."
    (t--build-mathjax-config info)
    "</head>\n"
    "<body class=\"toc-inline\">\n"
-   ;; generate sidebar
+   ;; generate sidebar bottoms
    (when (plist-get info :with-toc)
-     "<p id=\"toc-nav\">
-<a id=\"toc-jump\" href=\"#toc\">
-<span aria-hidden=\"true\">↑</span>
-<span>Jump to Table of Contents</span>
-</a>
-<a id=\"toc-toggle\" href=\"#toc\">
-<span aria-hidden=\"true\">→</span>
-<span>Pop Out Sidebar</span>
-</a>\n</p>")
+     t-toc-side-bottom)
    ;; home and up links
    (when-let ((fun (plist-get info :html-format-home/up-function)))
      (funcall fun info))
-   ;; Preamble.
-   (t--build-pre/postamble 'preamble info)
-   (when (plist-get info :with-title)
-     (let ((title (and (plist-get info :with-title)
-		       (plist-get info :title)))
-	   (subtitle (plist-get info :subtitle)))
-       (when title
-	 (format
-	  "<header>\n<h1 id=\"title\">%s</h1>\n%s</header>\n"
-	  (org-export-data title info)
-	  (if subtitle
-	      (format
-	       "<p id=\"time-state\"><time datetime=\"%s\">%s</time></p>\n"
-	       "123"
-	       (org-export-data subtitle info))
-	    "")))))
+   ;; title and preamble
+   (format "<div class=\"head\">\n%s%s\n</div>\n"
+	   (t--build-title info)
+	   (t--build-pre/postamble 'preamble info))
    contents
    ;; back-to-top
-   "<p role=\"navigation\" id=\"back-to-top\">\n<a href=\"#title\">\
-<abbr title=\"Back to Top\">↑</abbr></a>\n</p>\n"
+   (when (plist-get info :html-back-to-top)
+     t-back-to-top-arrow)
    ;; Postamble.
    (t--build-pre/postamble 'postamble info)
    ;; Closing document.
@@ -1261,6 +1263,14 @@ is the language used for CODE, as a string, or nil."
    ((eq t-fontify-method 'engrave)
     (t-faces-fontify-code code lang))
    (t (t-encode-plain-text code))))
+
+(defun t-format-src-block-code (element _info)
+  (let* ((lang (org-element-property :language element))
+	 ;; Extract code and references.
+	 (code-info (org-export-unravel-code element))
+	 (code (car code-info)))
+    (let ((code (t-fontify-code code lang)))
+      code)))
 
 (defun t-do-format-code
     (code &optional lang refs retain-labels num-start wrap-lines)
@@ -1424,11 +1434,16 @@ information."
 
 ;;;; Dynamic Block
 
-(defun t-dynamic-block (_dynamic-block contents _info)
+(defun t-dynamic-block (dynamic-block contents info)
   "Transcode a DYNAMIC-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block.  INFO is a plist
 holding contextual information.  See `org-export-data'."
-  contents)
+  (let* ((block-name (org-element-property :block-name dynamic-block))
+	 (args (read (concat "(" (org-element-property :arguments dynamic-block) ")")))
+	 (func (intern (concat "org-w3ctr-dynamic-block:" block-name))))
+    (if (fboundp func)
+	(funcall func dynamic-block contents info args))
+      contents))
 
 ;;;; Entity
 
@@ -2244,30 +2259,27 @@ CONTENTS holds the contents of the item.  INFO is a plist holding
 contextual information."
   (if (org-export-read-attribute :attr_html src-block :textarea)
       (t--textarea-block src-block)
-    (let ((use-block (org-export-read-attribute :attr_html src-block :use-block)))
-      (if (not use-block)
-	  (let ((code (t-format-code src-block info))
-		(id (t--reference src-block info t))
-		(cls (org-export-read-attribute :attr_html src-block :class)))
-	    (format "<pre%s%s>\n%s\n</pre>"
-		    (if id (format " id=\"%s\"" id) "")
-		    (if cls (format " class=\"%s\"" cls) "")
-		    code))
-	(let* ((code (t-format-code src-block info))
-	       (id (t--reference src-block info))
-	       (cls (org-export-read-attribute :attr_html src-block :class))
-	       (caption (let ((cap (org-export-get-caption src-block)))
-			  (if cap (org-trim (org-export-data cap info) nil))))
-	       (class (if (org-string-nw-p cls) cls
-			(if (equal use-block "no-marker") "example no-marker"
-			  "example"))))
-	  (format "<div%s%s>\n%s\n%s\n<pre>\n%s</pre></div>"
-		  (format " class=\"%s\"" class)
-		  (format " id=\"%s\"" id)
-		  (format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
-			  "aria-label=\"source block\"")
-		  (if caption (format "<div class=\"marker\">%s</div>" caption) "")
-		  code))))))
+    (if (not (t--has-caption-p src-block))
+	(let ((code (t-format-src-block-code src-block info))
+	      (id (t--reference src-block info t))
+	      (cls (org-export-read-attribute :attr_html src-block :class)))
+	  (format "<pre%s%s>\n%s\n</pre>"
+		  (if id (format " id=\"%s\"" id) "")
+		  (if cls (format " class=\"%s\"" cls) "")
+		  code))
+      (let* ((code (t-format-src-block-code src-block info))
+	     (id (t--reference src-block info))
+	     (cls (org-export-read-attribute :attr_html src-block :class))
+	     (caption (let ((cap (org-export-get-caption src-block)))
+			(if cap (org-trim (org-export-data cap info) nil))))
+	     (class (if (org-string-nw-p cls) cls "example")))
+	(format "<div%s%s>\n%s\n%s\n<pre>\n%s</pre></div>"
+		(format " id=\"%s\"" id)
+		(format " class=\"%s\"" class)
+		(format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
+			"aria-label=\"source block\"")
+		(if caption (format "<div class=\"marker\">%s</div>" caption) "")
+		code)))))
 
 ;;;; Statistics Cookie
 
