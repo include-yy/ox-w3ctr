@@ -1309,7 +1309,7 @@ This function is lifted from engrave-faces [2024-04-12]"
   (let* ((lang-mode (and lang (intern (format "%s-mode" lang)))))
     (cond
      ((not (functionp lang-mode))
-      (format "<code>\n%s\n</code>" (t-encode-plain-text code)))
+      (format "<code class=\"src src-%s\">\n%s\n</code>" lang (t-encode-plain-text code)))
      (t
       (setq code
 	    (let ((inhibit-read-only t))
@@ -1322,12 +1322,12 @@ This function is lifted from engrave-faces [2024-04-12]"
 		(with-temp-buffer
 		  (org-w3ctr-faces-buffer inbuf (current-buffer))
 		  (buffer-string))))))
-      (format "<code>\n%s\n</code>" code)))))
+      (format "<code class=\"src src-%s\">\n%s\n</code>" lang code)))))
 
 ;;;; Src Code
 
 (defun t-fontify-code (code lang)
-  "Color the code (WIP).
+  "Color the code.
 CODE is a string representing the source code to colorize.  LANG
 is the language used for CODE, as a string, or nil."
   (cond
@@ -1632,24 +1632,6 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;;; Headline
 
-(defun t--format-headline (todo _todo-type priority text tags info)
-  (let ((todo (t--todo todo info))
-	(priority (t--priority priority info))
-	(tags (t--tags tags info)))
-    (concat todo (and todo " ")
-	    priority (and priority " ")
-	    text
-	    (and tags "&#xa0;&#xa0;&#xa0;") tags)))
-
-(defun t--format-head-wrapper (tag id cls secno headline info)
-  (format
-   (concat "<div class=\"header-wrapper\">\n"
-	   "<%s id=\"x-%s\"%s>%s</%s>\n"
-	   (when (plist-get info :html-self-link-headlines)
-	     "<a class=\"self-link\" href=\"#%s\" aria-label=\"Permalink for Section %s\"></a>\n")
-	   "</div>\n")
-   tag id cls headline tag id secno))
-
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
 CONTENTS holds the contents of the headline.  INFO is a plist
@@ -1715,6 +1697,24 @@ holding contextual information."
       (if (<= (org-export-get-relative-level headline info) 5)
 	  "section" "div")))
 
+(defun t--format-headline (todo _todo-type priority text tags info)
+  (let ((todo (t--todo todo info))
+	(priority (t--priority priority info))
+	(tags (t--tags tags info)))
+    (concat todo (and todo " ")
+	    priority (and priority " ")
+	    text
+	    (and tags "&#xa0;&#xa0;&#xa0;") tags)))
+
+(defun t--format-head-wrapper (tag id cls secno headline info)
+  (format
+   (concat "<div class=\"header-wrapper\">\n"
+	   "<%s id=\"x-%s\"%s>%s</%s>\n"
+	   (when (plist-get info :html-self-link-headlines)
+	     "<a class=\"self-link\" href=\"#%s\" aria-label=\"Permalink for Section %s\"></a>\n")
+	   "</div>\n")
+   tag id cls headline tag id secno))
+
 ;;;; Horizontal Rule
 
 (defun t-horizontal-rule (_horizontal-rule _contents info)
@@ -1761,9 +1761,9 @@ INFO is a plist holding contextual information.  See
 					   &optional term-counter-id
 					   headline)
   "Format a list item into HTML."
-  (let ((class (if checkbox
+  (let ((class (if (not checkbox) ""
 		   (format " class=\"%s\""
-			   (symbol-name checkbox)) ""))
+			   (symbol-name checkbox))))
 	(checkbox (concat (t-checkbox checkbox info)
 			  (and checkbox " ")))
 	(br (t-close-tag "br" nil info))
@@ -2251,7 +2251,7 @@ the plist used as a communication channel."
 		      (format " id=\"%s\"" id) ""))
 		(if (org-string-nw-p attrs)
 		    (concat " " attrs) "")
-		extra (replace-regexp-in-string "\\(\\cc\\)\n\\(\\cc\\)" "\\1<!--\n-->\\2" contents))))))
+		extra contents)))))
 
 ;;;; Plain List
 
@@ -2407,8 +2407,7 @@ contextual information."
 		(format " class=\"%s\"" class)
 		(format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
 			"aria-label=\"source block\"")
-		(if (not caption) ""
-		  (format "<span class=\"example-title\">%s</span>" caption))
+		(if (not caption) "" caption)
 		code)))))
 
 ;;;; Statistics Cookie
