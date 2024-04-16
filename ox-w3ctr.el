@@ -58,7 +58,7 @@
     (center-block . t-center-block) ; #+BEGIN_CENTER
     (quote-block . t-quote-block) ; #+BEGIN_QUOTE
     (special-block . t-special-block) ; #+BEGIN_something
-    ;; drawers `drawer' (NOUSE)
+    (drawer . t-drawer)
     (dynamic-block . t-dynamic-block) ; #+BEGIN: name para
     ;; footnote-definition (NOEXIST) `footnote-definition'
     ;; inlinetasks `inlinetask' (NOUSE)
@@ -149,6 +149,7 @@
     (:html-mathjax-options nil nil t-mathjax-options)
     (:html-mathjax-template nil nil t-mathjax-template)
     (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
+    (:html-self-link-headlines nil nil t-self-link-headlines)
     (:html-table-align-individual-fields
      nil nil t-table-align-individual-fields)
     (:html-table-caption-above nil nil t-table-caption-above)
@@ -174,6 +175,12 @@
     (:html-zeroth-section-output nil nil "")
     ;; <yy> add back to top arrow
     (:html-back-to-top nil nil t-back-to-top)
+    ;; <yy> control max headline level
+    (:headline-levels nil "H" t-headline-level)
+    ;; <yy> control todo, priority and tags export
+    (:with-todo-keywords nil "todo" t-with-todo-keywords)
+    (:with-priority nil "pri" t-with-priority)
+    (:with-tags nil "tags" t-with-tags)
     ))
 
 ;;; Internal Variables
@@ -233,6 +240,12 @@ customize `t-head-include-default-style'."
 (defconst t-back-to-top-arrow "\
 <p role=\"navigation\" id=\"back-to-top\">\n<a href=\"#title\">\
 <abbr title=\"Back to Top\">↑</abbr></a>\n</p>\n")
+
+(defconst t-dynamic-block-elements
+  '("article" "aside" "audio" "canvas" "figcaption"
+    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
+    "output" "progress" "section" "summary" "video")
+  "block-name that recognized as HTML elements")
 
 
 ;;; User Configuration Variables
@@ -294,6 +307,12 @@ by the footnotes themselves."
 See `org-html-toplevel-hlevel' for more information."
   :group 'org-export-w3ctr
   :type 'integer)
+
+(defcustom t-self-link-headlines t
+  "When non-nil, the headlines contain a hyperlink to themselves."
+  :group 'org-export-w3ctr
+  :type 'boolean
+  :safe #'booleanp)
 
 ;;;; LaTeX
 
@@ -653,6 +672,24 @@ This option will override `org-export-use-babel'"
 
 (defcustom t-back-to-top t
   "add back-to-top arrow at the end of html file"
+  :group 'org-export-w3ctr
+  :type '(boolean))
+
+(defcustom t-headline-level 5
+  "max level of export headline"
+  :group 'org-export-w3ctr
+  :type '(natnum))
+
+(defcustom t-with-todo-keywords nil
+  "Export headline with TODO keywords"
+  :group 'org-export-w3ctr
+  :type '(boolean))
+(defcustom t-with-priority nil
+  "Export headline with [#A] priority"
+  :group 'org-export-w3ctr
+  :type '(boolean))
+(defcustom t-with-tags nil
+  "Export headline with :a: tags"
   :group 'org-export-w3ctr
   :type '(boolean))
 
@@ -1126,6 +1163,42 @@ holding export options."
   (let* ((attributes (concat (and id (format " id=\"%s\"" id))
 			     attributes)))
     (format "<span%s>%s</span>" attributes (or desc ""))))
+
+;;;; Todo
+
+(defun t--todo (todo info)
+  "Format TODO keywords into HTML.
+TODO is the keyword, as a string.
+INFO is the info plist."
+  (when todo
+    (format "<span class=\"%s %s%s\">%s</span>"
+	    (if (member todo org-done-keywords) "done" "todo")
+	    (or (plist-get info :html-todo-kwd-class-prefix) "")
+	    (org-html-fix-class-name todo)
+	    todo)))
+
+;;;; Priority
+
+(defun t--priority (priority _info)
+  "Format a priority into HTML.
+PRIORITY is the character code of the priority or nil.  INFO is
+a plist containing export options."
+  (and priority (format "<span class=\"priority\">[%c]</span>" priority)))
+
+;;;; Tags
+
+(defun t--tags (tags info)
+  "Format TAGS into HTML.
+INFO is a plist containing export options."
+  (when tags
+    (format "<span class=\"tag\">%s</span>"
+	    (mapconcat
+	     (lambda (tag)
+	       (format "<span class=\"%s\">%s</span>"
+		       (concat (plist-get info :html-tag-class-prefix)
+			       (org-html-fix-class-name tag))
+		       tag))
+	     tags "&#xa0;"))))
 
 ;;;; src-block export backend
 
@@ -1259,10 +1332,10 @@ CODE is a string representing the source code to colorize.  LANG
 is the language used for CODE, as a string, or nil."
   (cond
    ((or (string= code "") (not lang) (not t-fontify-method))
-    (t-encode-plain-text code))
+    (format "<code>%s</code>" (t-encode-plain-text code)))
    ((eq t-fontify-method 'engrave)
     (t-faces-fontify-code code lang))
-   (t (t-encode-plain-text code))))
+   (t (format "<code>%s</code>" (t-encode-plain-text code)))))
 
 (defun t-format-src-block-code (element _info)
   (let* ((lang (org-element-property :language element))
@@ -1432,6 +1505,21 @@ information."
   (format (or (cdr (assq 'code (plist-get info :html-text-markup-alist))) "%s")
 	  (t-encode-plain-text (org-element-property :value code))))
 
+;;;; Drawer
+(defun t-drawer (drawer contents info)
+  "Transcode a DRAWER element from Org to HTML.
+CONTENTS holds the contents of the block.  INFO is a plist
+holding contextual information."
+  (let* ((drawer-name (org-element-property :drawer-name drawer))
+	 (state (if (string-match-p "^open" drawer-name) " open" ""))
+	 (cap (if-let ((cap (org-export-get-caption drawer)))
+		  (org-export-data cap info) drawer-name))
+	 (id (t--reference drawer info t))
+	 (attrs (let ((a (org-export-read-attribute :attr_html drawer)))
+		  (if id (plist-put a :id id) a))))
+    (format "<details%s%s>\n<summary>%s</summary>\n%s</details>"
+	    state (concat " " (t--make-attribute-string attrs)) cap contents)))
+
 ;;;; Dynamic Block
 
 (defun t-dynamic-block (dynamic-block contents info)
@@ -1439,11 +1527,32 @@ information."
 CONTENTS holds the contents of the block.  INFO is a plist
 holding contextual information.  See `org-export-data'."
   (let* ((block-name (org-element-property :block-name dynamic-block))
-	 (args (read (concat "(" (org-element-property :arguments dynamic-block) ")")))
-	 (func (intern (concat "org-w3ctr-dynamic-block:" block-name))))
-    (if (fboundp func)
-	(funcall func dynamic-block contents info args))
-      contents))
+	 (element (if (member block-name t-dynamic-block-elements) block-name "div"))
+	 (id (t--reference dynamic-block info
+			   (unless (member element '("example" "issue")))))
+	 (args (if-let ((a (org-element-property :arguments dynamic-block)))
+		   (org-trim a)))
+	 (attr-cls (org-export-read-attribute :attr_html dynamic-block :class))
+	 (cls (cl-reduce (lambda (s a) (if a (concat s " " a) s))
+			 (if (equal element "div")
+			     (list block-name args attr-cls)
+			   (list args attr-cls))))
+	 (attrs (let ((a (org-export-read-attribute :attr_html dynamic-block)))
+		  (cl-remf a :id) (cl-remf a :class)
+		  (t--make-attribute-string a)))
+	 (cap (if-let ((c (org-export-get-caption dynamic-block)))
+		  (org-export-data c info))))
+    (format "<%s%s%s%s>\n%s\n\n%s\n%s\n</%s>"
+	    element
+	    (if id (format " id=\"%s\"" id) "")
+	    (if cls (format " class=\"%s\"" cls) "")
+	    (or attrs "")
+	    (if (not cap) "" cap)
+	    (if (not id) ""
+	      (format "<a class=\"self-link\" href=\"#%s\" aria-label=\"%s-block\"></a>"
+		      id block-name))
+	    contents
+	    element)))
 
 ;;;; Entity
 
@@ -1462,9 +1571,6 @@ information."
   (let ((attributes (org-export-read-attribute :attr_html example-block)))
     (if (plist-get attributes :textarea)
 	(t--textarea-block example-block)
-      (if-let ((class-val (plist-get attributes :class)))
-	  (setq attributes (plist-put attributes :class (concat "example " class-val)))
-	(setq attributes (plist-put attributes :class "example")))
       (format "<pre%s>\n%s</pre>"
 	      (let* ((reference (t--reference example-block info t))
 		     (a (t--make-attribute-string
@@ -1472,7 +1578,7 @@ information."
 			     attributes
 			   (plist-put attributes :id reference)))))
 		(if (org-string-nw-p a) (concat " " a) ""))
-	      (t-format-code example-block info)))))
+	      (t-format-src-block-code example-block info)))))
 
 ;;;; Export Snippet
 
@@ -1493,13 +1599,14 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;;; Fixed Width
 
-(defun t-fixed-width (fixed-width _contents _info)
+(defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual information."
-  (format "<pre class=\"example\">\n%s</pre>"
-	  (t-do-format-code
+  (format "<pre>\n%s</pre>"
+	  (t-fontify-code
 	   (org-remove-indentation
-	    (org-element-property :value fixed-width)))))
+	    (org-element-property :value fixed-width))
+	   nil)))
 
 ;;;; Footnote Reference
 
@@ -1525,6 +1632,24 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;;; Headline
 
+(defun t--format-headline (todo _todo-type priority text tags info)
+  (let ((todo (t--todo todo info))
+	(priority (t--priority priority info))
+	(tags (t--tags tags info)))
+    (concat todo (and todo " ")
+	    priority (and priority " ")
+	    text
+	    (and tags "&#xa0;&#xa0;&#xa0;") tags)))
+
+(defun t--format-head-wrapper (tag id cls secno headline info)
+  (format
+   (concat "<div class=\"header-wrapper\">\n"
+	   "<%s id=\"x-%s\"%s>%s</%s>\n"
+	   (when (plist-get info :html-self-link-headlines)
+	     "<a class=\"self-link\" href=\"#%s\" aria-label=\"Permalink for Section %s\"></a>\n")
+	   "</div>\n")
+   tag id cls headline tag id secno))
+
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
 CONTENTS holds the contents of the headline.  INFO is a plist
@@ -1534,7 +1659,17 @@ holding contextual information."
            (numbers (org-export-get-headline-number headline info))
            (level (+ (org-export-get-relative-level headline info)
                      (1- (plist-get info :html-toplevel-hlevel))))
+	   (todo (and (plist-get info :with-todo-keywords)
+                      (let ((todo (org-element-property :todo-keyword headline)))
+                        (and todo (org-export-data todo info)))))
+	   (todo-type (and todo (org-element-property :todo-type headline)))
+	   (priority (and (plist-get info :with-priority)
+                          (org-element-property :priority headline)))
            (text (org-export-data (org-element-property :title headline) info))
+	   (tags (and (plist-get info :with-tags)
+                      (org-export-get-tags headline info)))
+	   (full-text (t--format-headline
+                       todo todo-type priority text tags info))
            (contents (or contents ""))
 	   (id (t--reference headline info)))
       (if (org-export-low-level-p headline info)
@@ -1547,37 +1682,31 @@ holding contextual information."
 	     (t-format-list-item
 	      contents (if numberedp 'ordered 'unordered)
 	      nil info nil
-	      (concat (t--anchor id nil nil info) text)) "\n"
+	      (concat (t--anchor id nil nil info) full-text))
+	     "\n"
 	     (and (org-export-last-sibling-p headline info)
 		  (format "</%s>\n" html-type))))
 	;; Standard headline.  Export it as a section.
-        (let ((extra-class
-	       (org-element-property :HTML_CONTAINER_CLASS headline))
-	      (headline-class
-	       (org-element-property :HTML_HEADLINE_CLASS headline)))
+        (let* ((extra-class
+		(org-element-property :HTML_CONTAINER_CLASS headline))
+	       (headline-class
+		(org-element-property :HTML_HEADLINE_CLASS headline))
+	       (secno (if (not numberedp) ""
+			(mapconcat #'number-to-string numbers ".")))
+	       (hd (concat (if (equal "" secno) ""
+			     (format "<span class=\"secno\">%s. </span>" secno))
+			   full-text)))
           (format "<%s id=\"%s\"%s>%s%s</%s>\n"
                   (t--container headline info)
 		  id
 		  (if (not extra-class) ""
 		    (format " class=\"%s\"" extra-class))
-                  (format "
-<div class=\"header-wrapper\">
-<h%d id=\"%s\"%s>%s</h%d>
-<a class=\"self-link\" href=\"#%s\" aria-label=\"Permalink for Section %s\"></a>
-</div>\n"
-                          level
-                          (concat "x-" id)
-			  (if (not headline-class) ""
-			    (format " class=\"%s\"" headline-class))
-                          (concat
-                           (and numberedp
-                                (format
-                                 "<span class=\"secno\">%s</span> "
-                                 (mapconcat #'number-to-string numbers ".")))
-                           text)
-                          level
-			  id
-			  (concat (mapconcat #'number-to-string numbers ".") "."))
+		  (t--format-head-wrapper
+		   (format "h%s" level)
+		   id
+		   (if (not headline-class) ""
+		     (format " class=\"%s\"" headline-class))
+		   secno hd info)
                   contents
                   (t--container headline info)))))))
 
@@ -2263,7 +2392,7 @@ contextual information."
 	(let ((code (t-format-src-block-code src-block info))
 	      (id (t--reference src-block info t))
 	      (cls (org-export-read-attribute :attr_html src-block :class)))
-	  (format "<pre%s%s>\n%s\n</pre>"
+	  (format "<pre%s%s>%s</pre>"
 		  (if id (format " id=\"%s\"" id) "")
 		  (if cls (format " class=\"%s\"" cls) "")
 		  code))
@@ -2272,13 +2401,14 @@ contextual information."
 	     (cls (org-export-read-attribute :attr_html src-block :class))
 	     (caption (let ((cap (org-export-get-caption src-block)))
 			(if cap (org-trim (org-export-data cap info) nil))))
-	     (class (if (org-string-nw-p cls) cls "example")))
-	(format "<div%s%s>\n%s\n%s\n<pre>\n%s</pre></div>"
+	     (class (if (org-string-nw-p cls) (concat "example " cls) "example")))
+	(format "<div%s%s>\n%s\n%s\n<pre>%s</pre></div>"
 		(format " id=\"%s\"" id)
 		(format " class=\"%s\"" class)
 		(format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
 			"aria-label=\"source block\"")
-		(if caption (format "<div class=\"marker\">%s</div>" caption) "")
+		(if (not caption) ""
+		  (format "<span class=\"example-title\">%s</span>" caption))
 		code)))))
 
 ;;;; Statistics Cookie
