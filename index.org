@@ -1,0 +1,15 @@
+#+TITLE: test for ox-w3ctr.el
+#+SUBTITLE: let's test the subtitle
+#+DATE: [2024-04-19 Thu 01:27]
+
+#+HTML_HEAD: <link rel="icon" type="image/png" sizes="192x192" href="./lili.png">
+
+本文档是对 ox-w3ctr.el 这一 org 文档导出后端的测试，这一节属于 zeroth section，我采用了不同于 ox-html 的处理方法。
+
+Let's Start.
+
+* 关于本文档的说明
+
+严格来说，想要测试 ox-w3ctr 是否可用，我应该编写一些测试样例，但是 org 的导出框架已经足够鲁棒，如果在使用中碰到问题很容易进行修正，而且一些不常用功能中的 bug 如果不使用根本不会发现，因此我只编写了这一个简单的测试文件，在其中，我会测试几乎所有 ox-w3ctr 提供的导出元素功能，以及一些由 W3C 技术报告文档 CSS 提供的类。
+
+
