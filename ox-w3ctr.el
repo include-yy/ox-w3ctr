@@ -40,7 +40,9 @@
 
 ;;; Dependencies
 (require 'cl-lib)
+(require 'format-spec)
 (require 'ox)
+(require 'ox-publish)
 (require 'table)
 
 
@@ -588,7 +590,7 @@ This option can also be set on with the CREATOR keyword."
 <dl>
 <dt>Create Date:</dt> <dd>%d</dd>
 <dt>Publish Date:</dt> <dd>%f</dd>
-<dt>Update Date:</dt> <dd>%C</dt>
+<dt>Update Date:</dt> <dd>%C</dd>
 <dt>Creator:</dt> <dd>%c</dd>
 <dt>License:</dt> <dd>This work is licensed under <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a></dd>
 </dl>
@@ -1104,6 +1106,11 @@ communication channel."
 	     (cond
 	      ((functionp section) (funcall section info))
 	      ((stringp section) (format-spec section spec))
+	      ((symbolp section)
+	       (if (fboundp section) (funcall section info)
+		 (if (not (boundp section))
+		     (error "pre/postamble not exist: %s" section)
+		   (format-spec (symbol-value section) spec))))
 	      (t ""))))
 	(if (org-string-nw-p section-contents)
 	    (org-element-normalize-string section-contents) ""))
@@ -1506,7 +1513,7 @@ holding contextual information.  See `org-export-data'."
   (let* ((block-name (org-element-property :block-name dynamic-block))
 	 (element (if (member block-name t-dynamic-block-elements) block-name "div"))
 	 (id (t--reference dynamic-block info
-			   (unless (member element '("example" "issue")))))
+			   (not (member element '("example" "issue")))))
 	 (args (if-let ((a (org-element-property :arguments dynamic-block)))
 		   (org-trim a)))
 	 (attr-cls (org-export-read-attribute :attr_html dynamic-block :class))
@@ -1576,7 +1583,7 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 
 ;;;; Fixed Width
 
-(defun t-fixed-width (fixed-width _contents info)
+(defun t-fixed-width (fixed-width _contents _info)
   "Transcode a FIXED-WIDTH element from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual information."
   (format "<pre>\n%s</pre>"
@@ -2540,8 +2547,6 @@ contextual information."
       (t-table--table.el-table table info)
     ;; Standard table.
     (let* ((caption (org-export-get-caption table))
-	   (number (org-export-get-ordinal
-		    table info nil #'t--has-caption-p))
 	   (attributes
 	    (t--make-attribute-string
 	     (org-combine-plists

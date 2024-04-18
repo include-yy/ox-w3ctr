@@ -12,4 +12,174 @@ Let's Start.
 
 严格来说，想要测试 ox-w3ctr 是否可用，我应该编写一些测试样例，但是 org 的导出框架已经足够鲁棒，如果在使用中碰到问题很容易进行修正，而且一些不常用功能中的 bug 如果不使用根本不会发现，因此我只编写了这一个简单的测试文件，在其中，我会测试几乎所有 ox-w3ctr 提供的导出元素功能，以及一些由 W3C 技术报告文档 CSS 提供的类。
 
+本文所使用的 CSS 文件来自 W3C TR 2021，即 https://www.w3.org/StyleSheets/TR/2021/ 中的 [[https://www.w3.org/StyleSheets/TR/2021/base.css][base.css]]。最新的 base.css 可从该 CSS 的 github [[https://github.com/w3c/tr-design][repo]] 获取。以下 W3C TR 可以作为简单用例：
 
+- https://www.w3.org/TR/CSP3/
+- https://www.w3.org/TR/selectors-4/
+- https://respec.org/docs/
+- https://www.w3.org/TR/rdf12-concepts/
+
+关于 org 的语法以及导出框架，可以参考以下资料：
+
+- https://orgmode.org/worg/org-syntax.html
+- https://orgmode.org/worg/dev/org-element-api.html
+- https://orgmode.org/worg/dev/org-export-reference.html
+
+* 测试 headline
+
+=ox-w3ctr= 支持 =*= 到 =*****= 这些标题，高于五级的 headline 将会以列表的形式出现。以下是二到五级标题：
+
+** 我是二级标题
+*** 我是三级标题
+**** 我是四级标题
+***** 我是五级标题
+****** 我是六级标题，因为没有 =<h7>= 所以是列表
+** （为了没有缩进，从二级标题开始）
+
+在 =ox-w3ctr= 的 headline 导出中，标题在 HTML 中的级数起始由 =org-w3ctr-headline-level= 决定。在默认情况下它为 2，对应于 =<h2>= ， =<h1>= 留给了整个 HTML 的 =title= 。 =org-w3ctr-headline-level= 覆盖了默认确定起始级数的 =org-export-headline-levels= 。
+
+在 org 语法文档中对 headline 的描述如下：
+
+#+attr_html: :class example
+#+begin_example
+STARS KEYWORD PRIORITY COMMENT TITLE TAGS
+#+end_example
+
+整个 headline 由级数 =STARS= ，GTD 关键字 =KEYWORDS= ，优先级 =PRIORITY= ，注释标志 =COMMENT= ，标题内容 =TITLE= 和标签 =TAGS= 组成。其中 GTD，优先级和标签的导出都是可选的，我使用了三个变量来控制是否导出这些内容，默认情况下都为 =nil= ，即都不导出：
+
+#+caption:
+#+begin_src elisp
+  ;; <yy> control todo, priority and tags export
+  (:with-todo-keywords nil "todo" t-with-todo-keywords)
+  (:with-priority nil "pri" t-with-priority)
+  (:with-tags nil "tags" t-with-tags)
+  ...
+#+end_src
+
+因为 headline 要求以 =*= 开头且与行首之间不能有空格，我们也就不能直接在段落的开头使用 =*= 。对此直接的方法是添加空格或零宽空格，不过正确做法是使用 =,= 转义，即 =,*= 。如果我们加载了 =org-inlinetask= ，那么 =*= 的数量不应该超过 =org-inlinetask-min-level= ，它的默认值为 15。
+
+标准的 =org-todo-keywords= 为 =((sequence "TODO" "DONE"))= ，即默认可用的 =KEYWORD= 为 ="TODO"= 和 ="DONE"= 。读者可以参考 Org 文档的 [[https://orgmode.org/manual/TODO-Extensions.html][TODO Extensions]] 一节来扩展关键字。
+
+=PRIORITY= 可以用来记录 headline 的优先级，默认情况下 Org 支持 =[#A]=, =[#B]= 和 =[#C]= ，不写 =PRIORITY= 则默认为 =[#B]= 优先级。优先级的使用可以参考 [[https://orgmode.org/manual/Priorities.html][Priorities]]。
+
+=TITLE= 和 =TAGS= 没什么好说的，需要注意的是 tag 名不能包含 =-= 字符。另外 =TAGS= 的用法可以参考 [[https://orgmode.org/manual/Tags.html][Tags]]。
+
+以下是一些和 =headline= 操作相关的命令：
+
+- =TAB(org-cycle)= ，切换 headline 的显示 [[https://orgmode.org/manual/Global-and-local-cycling.html][Global and local cycling]]
+- =C-c C-n(org-next-visible-heading)=, =C-c C-p(org-previous-visible-heading)=, =C-c C-f(org-forward-heading-same-level)=, =C-c C-b(org-backward-heading-same-level)=, =C-c C-u(outline-up-heading)=, =C-c C-j(org-goto)= [[https://orgmode.org/manual/Motion.html][Motion]]
+- =M-LEFT(org-do-promote)=, =M-RIGHT(org-do-demote)=, =M-S-LEFT(org-promote-subtree)=, =M-S-RIGHT(org-demote-subtree)=, =M-UP(org-move-subtree-up)=, =M-DOWN(org-move-subtree-down)= [[https://orgmode.org/manual/Structure-Editing.html][Structure Editing]]
+- =C-c C-c(org-set-tags-command)= [[https://orgmode.org/manual/Setting-Tags.html][Setting Tags]]
+
+最后，文档提到了一些需要注意的点。如果在 =STARS= 后面紧跟着 =COMMENT= 字符串的话，整个 heading 会被视为“被注释”状态；如果 headline 带有 =ARCHIVE= tag，整个 heading 会被视为“归档”状态。这两个单词均需要全大写。我们可使用 =C-c ;(org-toggle-comment)= 轻松为 headline 添加 =COMMENT= 。
+
+* center-block, quote-block, special-block
+
+=center-block= 就是让其中内容居中的 block，在语义上有居中含义，不过在 Org-mode buffer 中并不会居中显示。以下是一个 =center block= 例子（来自 [[https://orgmode.org/manual/Paragraphs.html][Paragraphs]]）：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+,#+BEGIN_CENTER
+Everything should be made as simple as possible, \\
+but not any simpler
+,#+END_CENTER
+#+END_EXAMPLE
+
+其中 =\\= 表示段落内换行，它的效果如下：
+
+#+begin_center
+Everything should be made as simple as possible, \\
+but not any simpler
+#+END_center
+
+类似地， =quote block= 具有语义上的引用义：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+,#+BEGIN_QUOTE
+你说的对，但是《原神》是由米哈游自主研发的一款全新开放世界冒险游戏。游戏发生在一个被称作「提瓦特」的幻想世界，在这里，被神选中的人将被授予「神之眼」，导引元素之力。你将扮演一位名为「旅行者」的神秘角色，在自由的旅行中邂逅性格各异、能力独特的同伴们，和他们一起击败强敌，找回失散的亲人——同时，逐步发掘「原神」的真相。
+
+你说得对，但是这就是奎桑提，HP 4700，护甲 329，魔抗 201的英雄。有不可阻挡，有护盾，还能过墙。有控制，甚至冷却时间只有1秒，只要15点蓝。转换姿态时甚至可以刷新W的cd，还有真实伤害。然后，护甲和魔抗提升后还能获得技能加速，缩短Q的cd，还缩短释放时间，然后还有攻击力。W就啊啊啊啊啊啊!!!
+,#+END_QUOTE
+#+END_EXAMPLE
+
+#+begin_quote
+你说的对，但是《原神》是由米哈游自主研发的一款全新开放世界冒险游戏。游戏发生在一个被称作「提瓦特」的幻想世界，在这里，被神选中的人将被授予「神之眼」，导引元素之力。你将扮演一位名为「旅行者」的神秘角色，在自由的旅行中邂逅性格各异、能力独特的同伴们，和他们一起击败强敌，找回失散的亲人——同时，逐步发掘「原神」的真相。
+
+你说得对，但是这就是奎桑提，HP 4700，护甲 329，魔抗 201的英雄。有不可阻挡，有护盾，还能过墙。有控制，甚至冷却时间只有1秒，只要15点蓝。转换姿态时甚至可以刷新W的cd，还有真实伤害。然后，护甲和魔抗提升后还能获得技能加速，缩短Q的cd，还缩短释放时间，然后还有攻击力。W就啊啊啊啊啊啊!!!
+#+end_quote
+
+所谓 =special-block= 指的是它的 block 名为其他 org 未定义的名字，比如 =#+begin_aside= 。变量 =org-w3ctr-html5-elements= 记录了会被识别为 HTML 标签的名字，如果名字不属于其中的任意一个，那么名字将成为 =div= 标签的类。在 =ox-w3ctr= 中 =special-block= 的绝大部分作用都被 =dynamic-block= 替代了。
+
+#+caption: org-w3ctr-html5-elements 的具体定义
+#+begin_src elisp
+(defconst t-html5-elements
+  '("article" "aside" "audio" "canvas" "details" "figcaption" "div"
+    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
+    "output" "progress" "section" "summary" "video")
+  "Elements in html5.
+
+For blocks that should contain headlines, use the HTML_CONTAINER
+property on the headline itself.")
+#+end_src
+
+#+attr_html: :class example
+#+begin_example
+,#+begin_note
+This is a note.
+,#+end_note
+
+,#+begin_example
+This is an example.
+,#+end_example
+
+,#+begin_issue
+This is an issue.
+,#+end_issue
+
+,#+begin_advisement
+This is an advisement
+,#+end_advisement
+
+,#+begin_annoying-warning
+This is an annoying-warning
+,#+end_annoying-warning
+
+,#+begin_correction
+This is a correction
+,#+end_correction
+
+,#+begin_addition
+This is an addition
+,#+end_addition
+#+end_example
+
+#+begin_note
+This is a note.
+#+end_note
+
+#+begin_example
+This is an example.
+#+end_example
+
+#+begin_issue
+This is an issue.
+#+end_issue
+
+#+begin_advisement
+This is an advisement
+#+end_advisement
+
+#+begin_annoying-warning
+This is an annoying-warning
+#+end_annoying-warning
+
+#+begin_correction
+This is a correction
+#+end_correction
+
+#+begin_addition
+This is an addition
+#+end_addition
+
+* drawers

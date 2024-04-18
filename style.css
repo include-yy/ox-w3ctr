@@ -1808,13 +1808,18 @@ pre > code.src {
     background: rgba(0, 0, 0, 0.03);
 }
 
+.org-center {
+    display: flex;
+    justify-content: center;
+}
+
 /* source code highlight used by engrave-face.el */
 .ef-h { color: #7f7f7f; }
 .ef-sc { color: #a1db00; }
 .ef-w { color: #ff8700; font-weight: 700; }
 .ef-e { color: #ff4b4b; }
-.ef-c { color: #b2b2b2; text-decoration: italic; }
-.ef-cd { color: #b2b2b2;  text-decoration: italic; }
+.ef-c { color: #b2b2b2; font-style: italic; }
+.ef-cd { color: #b2b2b2; font-style: italic; }
 .ef-s { color: #ff1f8b; }
 .ef-d { color: #cc0000; }
 .ef-m { color: #1f5bff; }
