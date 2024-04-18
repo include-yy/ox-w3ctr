@@ -181,11 +181,11 @@
     (:with-todo-keywords nil "todo" t-with-todo-keywords)
     (:with-priority nil "pri" t-with-priority)
     (:with-tags nil "tags" t-with-tags)
+    ;; <yy> add timestamp format for timestamp
+    (:html-timestamp-format nil nil t-timestamp-format)
     ))
 
 ;;; Internal Variables
-
-(defvar t-format-table-no-css)
 
 (defconst t-html5-elements
   '("article" "aside" "audio" "canvas" "details" "figcaption" "div"
@@ -207,23 +207,35 @@ property on the headline itself.")
   "Prefix to use in ID attributes.
 This affects IDs that are determined from the ID property.")
 
-(defcustom t-style-default ""
+(defvar t-style-default ""
   "The default style specification for exported HTML files.
 You can use `t-head' and `t-head-extra' to add to
 this style.  If you don't want to include this default style,
-customize `t-head-include-default-style'."
-  :group 'org-export-w3ctr
-  :type 'string)
+customize `t-head-include-default-style'.")
+
+(defvar t-toc-js ""
+  "js code that control toc's hide and show")
 
 ;; load default CSS from style.css
-;; if style.css changed, rerun this code to update t-style-default
-(setq t-style-default
-      (let ((fname (if (not load-in-progress) (expand-file-name "style.css")
-		     (concat (file-name-directory load-file-name) "style.css"))))
-	(format "<style>\n%s\n</style>\n"
-		(with-temp-buffer
-		  (insert-file-contents fname)
-		  (buffer-string)))))
+(defun t-update-css-js ()
+  "update `t-style-default' and t-toc-js"
+  (interactive)
+  (setq t-style-default
+	(let ((fname (if (not load-in-progress) (expand-file-name "style.css")
+		       (concat (file-name-directory load-file-name) "style.css"))))
+	  (format "<style>\n%s\n</style>\n"
+		  (with-temp-buffer
+		    (insert-file-contents fname)
+		    (buffer-string)))))
+  (setq t-toc-js
+	(let ((fname (if (not load-in-progress) (expand-file-name "toc.js")
+		       (concat (file-name-directory load-file-name) "toc.js"))))
+	  (format "<script>\n%s\n</script>\n"
+		  (with-temp-buffer
+		    (insert-file-contents fname)
+		    (buffer-string))))))
+;; do update
+(t-update-css-js)
 
 (defconst t-toc-side-bottom "\
 <p id=\"toc-nav\">
@@ -482,7 +494,7 @@ option."
 	  (const :tag "Unicode characters" unicode)
 	  (const :tag "HTML checkboxes" html)))
 
-(defcustom t-metadata-timestamp-format "%Y-%m-%d %a %H:%M"
+(defcustom t-metadata-timestamp-format "%Y-%m-%d %H:%M"
   "Format used for timestamps in preamble, postamble and metadata.
 See `format-time-string' for more information on its components."
   :group 'org-export-w3ctr
@@ -570,7 +582,18 @@ This option can also be set on with the CREATOR keyword."
 
 ;;;; Template :: Preamble
 
-(defcustom t-preamble nil
+(defcustom t-preamble "\
+<details open>
+<summary>More details about this document</summary>
+<dl>
+<dt>Create Date:</dt> <dd>%d</dd>
+<dt>Publish Date:</dt> <dd>%f</dd>
+<dt>Update Date:</dt> <dd>%C</dt>
+<dt>Creator:</dt> <dd>%c</dd>
+<dt>License:</dt> <dd>This work is licensed under <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a></dd>
+</dl>
+</details>
+<hr>"
   "Non-nil means insert a preamble in HTML export.
 
 See `org-html-preamble' for more information"
@@ -692,6 +715,12 @@ This option will override `org-export-use-babel'"
   "Export headline with :a: tags"
   :group 'org-export-w3ctr
   :type '(boolean))
+
+(defcustom t-timestamp-format '("%Y-%m-%d" . "%Y-%m-%d %H:%M")
+  "Format used for timestamps in
+See `format-time-string' for more information on its components."
+  :group 'org-export-w3ctr
+  :type 'string)
 
 
 ;;; Internal Functions
@@ -1036,14 +1065,21 @@ INFO is a plist used as a communication channel."
                                    t
                                    t template 1)))))))))
 
+(defun t-get-date (info &optional boundary)
+  (let ((date (plist-get info :date)))
+    (cond
+     ((not date) nil)
+     ((not (eq (org-element-type (car date)) 'timestamp)) nil)
+     (t (t-timestamp (car date) nil info boundary)))))
+
 (defun t-format-spec (info)
   "Return format specification for preamble and postamble.
 INFO is a plist used as a communication channel."
   (let ((timestamp-format (plist-get info :html-metadata-timestamp-format)))
     `((?t . ,(org-export-data (plist-get info :title) info))
       (?s . ,(org-export-data (plist-get info :subtitle) info))
-      (?d . ,(org-export-data (org-export-get-date info timestamp-format)
-			      info))
+      (?d . ,(t-get-date info 'start))
+      (?f . ,(t-get-date info 'end))
       (?T . ,(format-time-string timestamp-format))
       (?a . ,(org-export-data (plist-get info :author) info))
       (?e . ,(mapconcat
@@ -1090,7 +1126,7 @@ See `org-html-inner-template' for more information"
 (defun t--build-toc (info)
   (when-let ((depth (plist-get info :with-toc)))
     (concat (t-toc depth info)
-	    "<script>window.addEventListener('load',()=>{let e=document.getElementById('toc-toggle'),n=e.children[0],t=e.children[1],i=document.body.classList,d=parseFloat(window.getComputedStyle(document.documentElement).fontSize),o=window.innerWidth/d,r=document.getElementById('toc').dataset.count;o>80&&r>=5&&(i.remove('toc-inline'),i.add('toc-sidebar'),n.innerHTML='←',t.innerHTML='Collapse Sidebar'),e.addEventListener('click',()=>{i.contains('toc-inline')?(i.remove('toc-inline'),i.add('toc-sidebar'),n.innerHTML='←',t.innerHTML='Collapse Sidebar'):i.contains('toc-sidebar')&&(i.remove('toc-sidebar'),i.add('toc-inline'),n.innerHTML='→',t.innerHTML='Pop Out Sidebar')})});</script>\n")))
+	    t-toc-js)))
 
 (defun t-format-home/up-default-function (info)
   "format the home/div element"
@@ -1117,7 +1153,7 @@ See `org-html-inner-template' for more information"
 	  (subtitle (plist-get info :subtitle)))
       (when title
 	(format
-	 "<header>\n<h1 id=\"title\">%s</h1>\n<h2>%s</h2>\n</header>\n"
+	 "<header>\n<h1 id=\"title\">%s</h1>\n<p id=\"w3c-state\">%s</p>\n</header>\n"
 	 (org-export-data title info)
 	 (if subtitle (org-export-data subtitle info) ""))))))
 
@@ -1309,7 +1345,7 @@ This function is lifted from engrave-faces [2024-04-12]"
   (let* ((lang-mode (and lang (intern (format "%s-mode" lang)))))
     (cond
      ((not (functionp lang-mode))
-      (format "<code class=\"src src-%s\">\n%s\n</code>" lang (t-encode-plain-text code)))
+      (format "<code class=\"src src-%s\">%s</code>" lang (t-encode-plain-text code)))
      (t
       (setq code
 	    (let ((inhibit-read-only t))
@@ -1322,7 +1358,7 @@ This function is lifted from engrave-faces [2024-04-12]"
 		(with-temp-buffer
 		  (org-w3ctr-faces-buffer inbuf (current-buffer))
 		  (buffer-string))))))
-      (format "<code class=\"src src-%s\">\n%s\n</code>" lang code)))))
+      (format "<code class=\"src src-%s\">%s</code>" lang code)))))
 
 ;;;; Src Code
 
@@ -1345,65 +1381,6 @@ is the language used for CODE, as a string, or nil."
     (let ((code (t-fontify-code code lang)))
       code)))
 
-(defun t-do-format-code
-    (code &optional lang refs retain-labels num-start wrap-lines)
-  "Format CODE string as source code.
-Optional arguments LANG, REFS, RETAIN-LABELS, NUM-START, WRAP-LINES
-are, respectively, the language of the source code, as a string, an
-alist between line numbers and references (as returned by
-`org-export-unravel-code'), a boolean specifying if labels should
-appear in the source code, the number associated to the first
-line of code, and a boolean specifying if lines of code should be
-wrapped in code elements."
-  (let* ((code-lines (split-string code "\n"))
-	 (code-length (length code-lines))
-	 (num-fmt
-	  (and num-start
-	       (format "%%%ds: "
-		       (length (number-to-string (+ code-length num-start))))))
-	 (code (t-fontify-code code lang)))
-    (org-export-format-code
-     code
-     (lambda (loc line-num ref)
-       (setq loc
-	     (concat
-	      ;; Add line number, if needed.
-	      (when num-start
-		(format "<span class=\"linenr\">%s</span>"
-			(format num-fmt line-num)))
-	      ;; Transcoded src line.
-	      (if wrap-lines
-		  (format "<code%s>%s</code>"
-			  (if num-start
-                              (format " data-ox-html-linenr=\"%s\"" line-num)
-                            "")
-			  loc)
-		loc)
-	      ;; Add label, if needed.
-	      (when (and ref retain-labels) (format " (%s)" ref))))
-       ;; Mark transcoded line as an anchor, if needed.
-       (if (not ref) loc
-	 (format "<span id=\"coderef-%s\" class=\"coderef-off\">%s</span>"
-		 ref loc)))
-     num-start refs)))
-
-(defun t-format-code (element info)
-  "Format contents of ELEMENT as source code.
-ELEMENT is either an example or a source block.  INFO is a plist
-used as a communication channel."
-  (let* ((lang (org-element-property :language element))
-	 ;; Extract code and references.
-	 (code-info (org-export-unravel-code element))
-	 (code (car code-info))
-	 (refs (cdr code-info))
-	 ;; Does the source block contain labels?
-	 (retain-labels (org-element-property :retain-labels element))
-	 ;; Does it have line numbers?
-	 (num-start (org-export-get-loc element info))
-	 ;; Should lines be wrapped in code elements?
-	 ;; mention
-	 (wrap-lines nil))
-    (t-do-format-code code lang refs retain-labels num-start wrap-lines)))
 
 ;;; Tables of Contents
 
@@ -1735,7 +1712,7 @@ contextual information."
 	 (label
 	  (let ((lbl (t--reference inline-src-block info t)))
 	    (if (not lbl) "" (format " id=\"%s\"" lbl)))))
-    (format "<code class=\"src src-%s\"%s>%s</code>" lang label code)))
+    (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
 
 ;;;; Italic
 
@@ -2453,12 +2430,7 @@ CONTENTS is nil.  INFO is a plist used as a communication
 channel."
   (let* ((table-row (org-export-get-parent table-cell))
 	 (table (org-export-get-parent-table table-cell))
-	 (cell-attrs
-	  (if (not (plist-get info :html-table-align-individual-fields)) ""
-	    (format (if (and (boundp 't-format-table-no-css)
-			     t-format-table-no-css)
-			" align=\"%s\"" " class=\"org-%s\"")
-		    (org-export-table-cell-alignment table-cell info)))))
+	 (cell-attrs ""))
     (when (or (not contents) (string= "" (org-trim contents)))
       (setq contents "&#xa0;"))
     (cond
@@ -2575,10 +2547,7 @@ contextual information."
 	     (org-combine-plists
 	      (list :id (t--reference table info t))
 	      (org-export-read-attribute :attr_html table))))
-	   (alignspec
-	    (if (bound-and-true-p t-format-table-no-css)
-		"align=\"%s\""
-	      "class=\"org-%s\""))
+	   (alignspec "class=\"org-%s\"")
 	   (table-column-specs
 	    (lambda (table info)
 	      (mapconcat
@@ -2605,10 +2574,7 @@ contextual information."
 		(format (if (plist-get info :html-table-caption-above)
 			    "<caption class=\"t-above\">%s</caption>"
 			  "<caption class=\"t-bottom\">%s</caption>")
-			(concat
-			 "<span class=\"table-number\">"
-			 (format "Table %d:" number)
-			 "</span> " (org-export-data caption info))))
+			(org-export-data caption info)))
 	      (funcall table-column-specs table info)
 	      contents))))
 
@@ -2623,13 +2589,35 @@ information."
 
 ;;;; Timestamp
 
-(defun t-timestamp (timestamp _contents info)
+(defun t-timestamp (timestamp _contents info &optional boundary)
   "Transcode a TIMESTAMP object from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
-  (let ((value (t-plain-text (org-timestamp-translate timestamp) info)))
-    (format "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">%s</span></span>"
-	    (replace-regexp-in-string "--" "&#x2013;" value))))
+  (let* ((type (org-element-property :type timestamp))
+	 (fmt (let ((org-time-stamp-custom-formats (plist-get info :html-timestamp-format)))
+		(org-time-stamp-format (org-timestamp-has-time-p timestamp)
+				       (member type '(inactive inactive-range)) 'custom)))
+	 (flag (org-timestamp-has-time-p timestamp))
+	 (utcfmt (if (org-timestamp-has-time-p timestamp) "%Y-%m-%dT%H:%MZ" "%Y-%m-%d")))
+    (if (eq type 'diary)
+	(format "<time>%s</time>" (org-element-interpret-data timestamp))
+      (pcase type
+	((or `active `inactive (guard boundary))
+	 (let* ((time (org-timestamp-to-time timestamp (eq boundary 'end)))
+		(utc0 (format-time-string utcfmt time flag)))
+	   (format "<time datetime=\"%s\">%s</time>"
+		   utc0 (org-format-timestamp timestamp fmt (eq boundary 'end)))))
+	((or `active-range `inactive-range)
+	 (let* ((time1 (org-timestamp-to-time timestamp))
+		(time2 (org-timestamp-to-time timestamp t))
+		(utc1 (format-time-string utcfmt time1 flag))
+		(utc2 (format-time-string utcfmt time2 flag)))
+	   (concat (format "<time datetime=\"%s\">%s</time>"
+			   utc1 (org-format-timestamp timestamp fmt))
+		   "&#x2013;"
+		   (format "<time datetime=\"%s\">%s</time>"
+			   utc2 (org-format-timestamp timestamp fmt t)))))
+	(_ (error "ox-w3ctr: Seems not a valid time type %s" type))))))
 
 ;;;; Underline
 
