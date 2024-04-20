@@ -190,7 +190,7 @@
 ;;; Internal Variables
 
 (defconst t-html5-elements
-  '("article" "aside" "audio" "canvas" "details" "figcaption" "div"
+  '("article" "aside" "audio" "canvas" "details" "figcaption"
     "figure" "footer" "header" "menu" "meter" "nav" "noscript"
     "output" "progress" "section" "summary" "video")
   "Elements in html5.
@@ -292,9 +292,9 @@ Warning: non-nil may break indentation of source code blocks."
 
 ;;;; Footnotes
 
-(defcustom t-footnotes-section "<div id=\"footnotes\">
-<h2 class=\"footnotes\">%s: </h2>
-<div id=\"text-footnotes\">\n%s\n</div>\n</div>"
+(defcustom t-footnotes-section "<div id=\"references\">
+<h2>%s</h2>
+<dl>%s</dl>\n</div>\n"
   "Format for the footnotes section.
 Should contain a two instances of %s.  The first will be replaced with the
 language-specific word for \"Footnotes\", the second one will be replaced
@@ -302,13 +302,13 @@ by the footnotes themselves."
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-footnote-format "<sup>%s</sup>"
+(defcustom t-footnote-format "[%s]"
   "The format for the footnote reference.
 %s will be replaced by the footnote reference itself."
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-footnote-separator "<sup>, </sup>"
+(defcustom t-footnote-separator ", "
   "Text used to separate footnotes."
   :group 'org-export-w3ctr
   :type 'string)
@@ -859,32 +859,19 @@ INFO is a plist used as a communication channel."
     (definitions
       (format
        (plist-get info :html-footnotes-section)
-       "Footnotes"
+       "References"
        (format
 	"\n%s\n"
 	(mapconcat
 	 (lambda (definition)
 	   (pcase definition
-	     (`(,n ,_ ,def)
-	      ;; `org-export-collect-footnote-definitions' can return
-	      ;; two kinds of footnote definitions: inline and blocks.
-	      ;; Since this should not make any difference in the HTML
-	      ;; output, we wrap the inline definitions within
-	      ;; a "footpara" class paragraph.
-	      (let ((inline? (not (org-element-map def org-element-all-elements
-				    #'identity nil t)))
-		    (anchor (t--anchor
-			     (format "fn.%d" n)
-			     n
-			     (format " class=\"footnum\" href=\"#fnr.%d\" role=\"doc-backlink\"" n)
-			     info))
-		    (contents (org-trim (org-export-data def info))))
-		(format "<div class=\"footdef\">%s %s</div>\n"
-			(format (plist-get info :html-footnote-format) anchor)
-			(format "<div class=\"footpara\" role=\"doc-footnote\">%s</div>"
-				(if (not inline?) contents
-				  (format "<p class=\"footpara\">%s</p>"
-					  contents))))))))
+	     (`(,n ,label ,def)
+	      (let* ((dt (format (plist-get info :html-footnote-format)
+				 (or label n)))
+		     (id (format "fn.%d" n))
+		     (contents (org-trim (org-export-data def info))))
+		(format "<dt id=\"%s\">%s</dt>\n<dd>\n%s\n</dd>"
+			id dt contents)))))
 	 definitions
 	 "\n"))))))
 
@@ -1205,7 +1192,7 @@ holding export options."
   "Format a HTML anchor."
   (let* ((attributes (concat (and id (format " id=\"%s\"" id))
 			     attributes)))
-    (format "<span%s>%s</span>" attributes (or desc ""))))
+    (format "<a%s>%s</a>" attributes (or desc ""))))
 
 ;;;; Todo
 
@@ -1338,7 +1325,11 @@ This function is lifted from engrave-faces [2024-04-12]"
     (font-lock-negation-char-face :slug "nc")
     (font-lock-preprocessor-face :slug "pp")
     (font-lock-regexp-grouping-construct :slug "rc")
-    (font-lock-regexp-grouping-backslash :slug "rb")))
+    (font-lock-regexp-grouping-backslash :slug "rb")
+    ;; font for css
+    (css-property :slug "f")
+    (css-selector :slug "k")
+    ))
 
 (defun org-w3ctr-faces-get-style (prop)
   (cond
@@ -1603,16 +1594,10 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
      (when (eq (org-element-type prev) 'footnote-reference)
        (plist-get info :html-footnote-separator)))
    (let* ((n (org-export-get-footnote-number footnote-reference info))
-	  (id (format "fnr.%d%s"
-		      n
-		      (if (org-export-footnote-first-reference-p
-			   footnote-reference info)
-			  ""
-			".100"))))
-     (format
-      (plist-get info :html-footnote-format)
+	  (label (org-element-property :label footnote-reference)))
       (t--anchor
-       id n (format " class=\"footref\" href=\"#fn.%d\" role=\"doc-backlink\"" n) info)))))
+       nil (format (plist-get info :html-footnote-format) (or label n))
+       (format " href=\"#fn.%d\" aria-label=\"reference to %s\"" n label) info))))
 
 ;;;; Headline
 
@@ -2208,12 +2193,9 @@ CONTENTS is the contents of the paragraph, as a string.  INFO is
 the plist used as a communication channel."
   (let* ((parent (org-export-get-parent paragraph))
 	 (parent-type (org-element-type parent))
-	 (style '((footnote-definition " class=\"footpara\"")
-		  (org-data " class=\"footpara\"")))
 	 (class (org-export-read-attribute :attr_html paragraph :class))
 	 (attrs (t--make-attribute-string
-		 (org-export-read-attribute :attr_html paragraph)))
-	 (extra (or (cadr (assq parent-type style)) "")))
+		 (org-export-read-attribute :attr_html paragraph))))
     (cond
      ((and (eq parent-type 'item)
 	   (not (org-export-get-previous-element paragraph info))
@@ -2229,13 +2211,13 @@ the plist used as a communication channel."
 	    (label (t--reference paragraph info t)))
 	(t--wrap-image contents info caption label class)))
      ;; Regular paragraph.
-     (t (format "<p%s%s%s>\n%s</p>"
+     (t (format "<p%s%s>\n%s</p>"
 		(let ((id (t--reference paragraph info t)))
 		  (if (org-string-nw-p id)
 		      (format " id=\"%s\"" id) ""))
 		(if (org-string-nw-p attrs)
 		    (concat " " attrs) "")
-		extra contents)))))
+		contents)))))
 
 ;;;; Plain List
 

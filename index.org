@@ -1,51 +1,104 @@
 #+TITLE: test for ox-w3ctr.el
-#+SUBTITLE: let's test the subtitle
+#+SUBTITLE: 对 org-mode 的简单总结
 #+DATE: [2024-04-19 Thu 01:27]
 
-#+HTML_HEAD: <link rel="icon" type="image/png" sizes="192x192" href="./lili.png">
+#+HTML_HEAD: <link rel="icon" type="image/png" sizes="192x192" href="./lily.svg">
+#+options: ^:{}
 
-本文档是对 ox-w3ctr.el 这一 org 文档导出后端的测试，这一节属于 zeroth section，我采用了不同于 ox-html 的处理方法。
+本文档是对 [[https://github.com/include-yy/ox-w3ctr][ox-w3ctr]] 这一 org-mode 导出后端的测试，内容基本覆盖了所有 org-mode 语法，并对每种语法给出了一些文档中有说明的使用方式。严格来说，想要测试 ox-w3ctr 是否可用，我应该编写一些测试样例，但是 org 的导出框架已经足够鲁棒，使用中碰到问题也很容易进行修正，而且一些不常用功能中的 bug 如果不使用根本不会发现，因此我只编写了这一个简单的测试文件。
 
-Let's Start.
-
-* 关于本文档的说明
-
-严格来说，想要测试 ox-w3ctr 是否可用，我应该编写一些测试样例，但是 org 的导出框架已经足够鲁棒，如果在使用中碰到问题很容易进行修正，而且一些不常用功能中的 bug 如果不使用根本不会发现，因此我只编写了这一个简单的测试文件，在其中，我会测试几乎所有 ox-w3ctr 提供的导出元素功能，以及一些由 W3C 技术报告文档 CSS 提供的类。
-
-本文所使用的 CSS 文件来自 W3C TR 2021，即 https://www.w3.org/StyleSheets/TR/2021/ 中的 [[https://www.w3.org/StyleSheets/TR/2021/base.css][base.css]]。最新的 base.css 可从该 CSS 的 github [[https://github.com/w3c/tr-design][repo]] 获取。以下 W3C TR 可以作为简单用例：
+本文所使用的 CSS 文件来自 W3C TR 2021，即 [[https://www.w3.org/StyleSheets/TR/2021/][TR/2021]] 的 [[https://www.w3.org/StyleSheets/TR/2021/base.css][base.css]]。最新的 base.css 可从该 CSS 的 github [[https://github.com/w3c/tr-design][repo]] 获取。以下 W3C TR 可以作为简单用例：
 
 - https://www.w3.org/TR/CSP3/
 - https://www.w3.org/TR/selectors-4/
-- https://respec.org/docs/
 - https://www.w3.org/TR/rdf12-concepts/
+- https://respec.org/docs/
 
-关于 org 的语法以及导出框架，可以参考以下资料：
+读者可以参考以下资料了解 org 的语法以及导出框架：
 
 - https://orgmode.org/worg/org-syntax.html
 - https://orgmode.org/worg/dev/org-element-api.html
 - https://orgmode.org/worg/dev/org-export-reference.html
 
-* 测试 headline
+这一节属于 zeroth section，在生成时我采用了不同于 ox-html 的方法。
 
-=ox-w3ctr= 支持 =*= 到 =*****= 这些标题，高于五级的 headline 将会以列表的形式出现。以下是二到五级标题：
+* Org 语法总览
+
+在 Org 语法文档的开头，它将 Org 文本格式称为一种简单，但用途广泛的纯文本格式，既便于使用又能够表示复杂的文档。与 Markdown 破碎的生态相比，Org 的语法非常统一。这大概是由于它内置的功能强于 Markdown 从而足以用于大多数目的，而不用像 Markdown 一样使用 HTML 标签或发明新东西。
+
+首先，Org 语法的组成可以分为对象（object）和元素（element）两类，如果以段落（paragraph）为基准，那么 /元素/ 就是层次大于等于 /段落/ 的组件，也就是不能被段落容纳； /对象/ 则是比 /段落/ 层次小的东西，可以被段落容纳。这里的段落会在 =ox-html= 后端中被导出为 =<p>= 标签。
+
+更进一步，元素可以从大到小分为 /heading/, /section/, /greater element/ 和 /lesser element/ 。元素确定了特定的语法环境，在所有元素中只有 /heading/, /section/, /property drawer/ 和 /planning line/ 是上下文无关的，其他的语法成分只能存在于特定的环境中。
+
+在所有这些元素中， /lesser element/ 不能容纳其他的元素。比如，段落可被认为是一个小元素，它的里面就不能包含另一个段落。 /greater element/ 可以包含它们自己，以及其他的 /greater element/ 和 /lesser element/ 。section 可以包含 /greater element/ 和 /lesser element/ ， /heading/ 可以包含 /section/ 和其他的 /heading/ 。
+
+** Org 语法中的元素
+
+变量 =org-element-all-elements= 提供了完整的元素列表：
+
+#+caption:
+#+begin_src elisp :lexical t
+  ( babel-call center-block clock comment comment-block diary-sexp drawer
+    dynamic-block example-block export-block fixed-width footnote-definition
+    headline horizontal-rule inlinetask item keyword latex-environment node-property
+    paragraph plain-list planning property-drawer quote-block section
+    special-block src-block table table-row verse-block)
+  (length org-element-all-elements) => 30
+#+end_src
+
+按照语法文档的分类，上面这些元素可以分为：
+
+- 最大的 =headline= 和 =section= ，共 2 个
+- /greater element/ ，包括 =center-block=, =quote-block=, =special-block=, =drawer=, =property-drawer=, =dynamic-block=, =footnote-definition=, =inlinetask=, =item=, =plain-list=, =table= ，共 11 个
+- /lesser element/ ，包括 =comment-block=, =example-block=, =export-block=, =src-block=, =verse-block=, =clock=, =diary-sexp=, =planning=, =comment=, =fixed-width=, =horizontal-rule=, =keyword=, =babel-call=, =latex-environment=, =node-property=, =paragraph=, =table-row= ，共 17 个
+
+** Org 语法中的对象
+
+变量 =org-element-all-objects= 提供了完整的对象列表：
+
+#+caption:
+#+BEGIN_SRC elisp :lexical t
+  ( bold citation citation-reference code entity export-snippet footnote-reference
+    inline-babel-call inline-src-block italic line-break latex-fragment link macro
+    radio-target statistics-cookie strike-through subscript superscript table-cell
+    target timestamp underline verbatim)
+  (length org-element-all-objects) => 24
+#+END_SRC
+
+在 Org 语法中，对象的分类不如元素那样细致，不过文档中给出了所谓的最小对象集合和标准对象集合，分别是：
+
+- /minimal set of objects/: =plain-text=, =text-markup=, =entity=, =latex-fragment=, =subscript=, =superscript=. 其中 =text-markup= 包括 =bold=, =italic=, =underline=, =verbatim=, =code= 和 =strike-through=. 共 11 个
+- /standard set of objects/: 除了 =citation= 和 =table-cell= 外的所有对象，共 22 个
+
+* headline 和 section
+
+org 本身最高支持无限级别的 headline，不过在导出时，最高的 headline 导出级别取决于 =org-export-headline-levels= ，它的默认值为 3。在 =ox-w3ctr= 中我使用 =org-w3ctr-headline-levels= 覆盖了该选项，且将默认值设置为 5，以下是不同级别的 headline 例子：
 
 ** 我是二级标题
 *** 我是三级标题
 **** 我是四级标题
 ***** 我是五级标题
 ****** 我是六级标题，因为没有 =<h7>= 所以是列表
-** （为了没有缩进，从二级标题开始）
+** headline
 
-在 =ox-w3ctr= 的 headline 导出中，标题在 HTML 中的级数起始由 =org-w3ctr-headline-level= 决定。在默认情况下它为 2，对应于 =<h2>= ， =<h1>= 留给了整个 HTML 的 =title= 。 =org-w3ctr-headline-level= 覆盖了默认确定起始级数的 =org-export-headline-levels= 。
+在 =ox-w3ctr= 的 =headline= 导出中，标题在 HTML 中的级数起始由 =org-w3ctr-toplevel-hlevel= 决定。在默认情况下它为 2，对应于 =<h2>= ， =<h1>= 留给了整个 HTML 的 =title= 。
 
-在 org 语法文档中对 headline 的描述如下：
+在 Org 中， =headline= 是一个无缩进的如下结构，Org 语法文档中对 =headline= 的描述如下：
 
 #+attr_html: :class example
 #+begin_example
 STARS KEYWORD PRIORITY COMMENT TITLE TAGS
 #+end_example
 
-整个 headline 由级数 =STARS= ，GTD 关键字 =KEYWORDS= ，优先级 =PRIORITY= ，注释标志 =COMMENT= ，标题内容 =TITLE= 和标签 =TAGS= 组成。其中 GTD，优先级和标签的导出都是可选的，我使用了三个变量来控制是否导出这些内容，默认情况下都为 =nil= ，即都不导出：
+=headline= 由级数 =STARS= ，GTD 关键字 =KEYWORDS= ，优先级 =PRIORITY= ，注释标志 =COMMENT= ，标题内容 =TITLE= 和标签 =TAGS= 组成。其中：
+
+- =STARS= 包含一个或多个星号 =*= ，并带有空格字符 =SPC= 后缀。星号的数量决定了 headline 的级别
+- =KEYWORD= 为 =org-todo-keywords= 中的一个字符串，它被称作 “todo keyword”
+- =PRIORITY= 为以 =#= 为前缀的带中括号单字符（比如 =[#A]= 和 =[#1]= ），它被称作 “priority cookie”
+- =TITLE= 为来自标准对象集合的对象，且不为断行对象
+- =TAGS= 为一系列由 =:= 分隔的 token，token 可包含 =[a-z-A-Z0-9_@#%]=
+
+GTD，优先级和标签的导出都是可选的，我使用了三个变量来控制是否导出这些内容，默认情况下都为 =nil= ，即都不导出：
 
 #+caption:
 #+begin_src elisp
@@ -56,24 +109,94 @@ STARS KEYWORD PRIORITY COMMENT TITLE TAGS
   ...
 #+end_src
 
-因为 headline 要求以 =*= 开头且与行首之间不能有空格，我们也就不能直接在段落的开头使用 =*= 。对此直接的方法是添加空格或零宽空格，不过正确做法是使用 =,= 转义，即 =,*= 。如果我们加载了 =org-inlinetask= ，那么 =*= 的数量不应该超过 =org-inlinetask-min-level= ，它的默认值为 15。
+因为 =headline= 要求以 =*= 开头且与行首之间不能有空格，我们也就不能直接在段落的开头使用 =*= 。要解决在一行的开头使用 =*= 这个问题，直接的方法是添加空格或零宽空格，不过正确做法是使用 =,= 转义，即 =,*= 。
+
+如果我们加载了 =org-inlinetask= ，那么 =*= 的数量不应该超过 =org-inlinetask-min-level= ，它的默认值为 15。超过该数量 =*= 的 =headline= 将成为 =inlinetask= 。
 
 标准的 =org-todo-keywords= 为 =((sequence "TODO" "DONE"))= ，即默认可用的 =KEYWORD= 为 ="TODO"= 和 ="DONE"= 。读者可以参考 Org 文档的 [[https://orgmode.org/manual/TODO-Extensions.html][TODO Extensions]] 一节来扩展关键字。
 
 =PRIORITY= 可以用来记录 headline 的优先级，默认情况下 Org 支持 =[#A]=, =[#B]= 和 =[#C]= ，不写 =PRIORITY= 则默认为 =[#B]= 优先级。优先级的使用可以参考 [[https://orgmode.org/manual/Priorities.html][Priorities]]。
 
-=TITLE= 和 =TAGS= 没什么好说的，需要注意的是 tag 名不能包含 =-= 字符。另外 =TAGS= 的用法可以参考 [[https://orgmode.org/manual/Tags.html][Tags]]。
+=TITLE= 和 =TAGS= 没什么好说的，需要注意的是 tag 名不能包含 =-= 字符。 =TAGS= 的用法可以参考 [[https://orgmode.org/manual/Tags.html][Tags]]。
 
 以下是一些和 =headline= 操作相关的命令：
 
-- =TAB(org-cycle)= ，切换 headline 的显示 [[https://orgmode.org/manual/Global-and-local-cycling.html][Global and local cycling]]
-- =C-c C-n(org-next-visible-heading)=, =C-c C-p(org-previous-visible-heading)=, =C-c C-f(org-forward-heading-same-level)=, =C-c C-b(org-backward-heading-same-level)=, =C-c C-u(outline-up-heading)=, =C-c C-j(org-goto)= [[https://orgmode.org/manual/Motion.html][Motion]]
-- =M-LEFT(org-do-promote)=, =M-RIGHT(org-do-demote)=, =M-S-LEFT(org-promote-subtree)=, =M-S-RIGHT(org-demote-subtree)=, =M-UP(org-move-subtree-up)=, =M-DOWN(org-move-subtree-down)= [[https://orgmode.org/manual/Structure-Editing.html][Structure Editing]]
-- =C-c C-c(org-set-tags-command)= [[https://orgmode.org/manual/Setting-Tags.html][Setting Tags]]
+- =TAB(org-cycle)= ，切换 =headline= 的显示 [[https://orgmode.org/manual/Global-and-local-cycling.html][Global and local cycling]]
+- =headline= 间的移动命令 [[https://orgmode.org/manual/Motion.html][Motion]]
+  - =C-c C-n(org-next-visible-heading)=
+  - =C-c C-p(org-previous-visible-heading)=
+  - =C-c C-f(org-forward-heading-same-level)=
+  - =C-c C-b(org-backward-heading-same-level)=
+  - =C-c C-u(outline-up-heading)=
+  - =C-c C-j(org-goto)=
+- 作用于 headline 的编辑命令 [[https://orgmode.org/manual/Structure-Editing.html][Structure Editing]]
+  - =M-LEFT(org-do-promote)=, =M-RIGHT(org-do-demote)=
+  - =M-S-LEFT(org-promote-subtree)=, =M-S-RIGHT(org-demote-subtree)=
+  - =M-UP(org-move-subtree-up)=, =M-DOWN(org-move-subtree-down)=
+- 设置 =headline= 的 tags =C-c C-c(org-set-tags-command)= [[https://orgmode.org/manual/Setting-Tags.html][Setting Tags]]
+- 切换 =headline= 的 =COMMENT= 状态 =C-;(org-toggle-comment=
+- 切换 =headline= 的 =ARCHIVE= 标签状态 =C-c C-x a(org-toggle-archive-tag)=
 
-最后，文档提到了一些需要注意的点。如果在 =STARS= 后面紧跟着 =COMMENT= 字符串的话，整个 heading 会被视为“被注释”状态；如果 headline 带有 =ARCHIVE= tag，整个 heading 会被视为“归档”状态。这两个单词均需要全大写。我们可使用 =C-c ;(org-toggle-comment)= 轻松为 headline 添加 =COMMENT= 。
+** section
 
-* center-block, quote-block, special-block
+
+=section= 包含一个或多个非 =heading= 元素。粗略来说， =section= 就是位于 =headline= 之间的内容。文档中给出的例子如下：
+
+#+attr_html: :class example
+#+begin_example
+An introduction.
+,* A Heading
+Some text.
+,** Sub-Topic 1
+,** Sub-Topic 2
+,*** Additional entry
+#+end_example
+
+上面内容对应的 AST 为：
+
+#+caption:
+#+BEGIN_SRC elisp
+  (document
+   (section)
+   (heading
+    (section)
+    (heading)
+    (heading
+     (heading))))
+#+END_SRC
+
+在第一个 =headline= 之前的内容组成的 =section= 被叫做 /zeroth section/ ，它与普通 =section= 的区别在于可以直接包含 /property drawer/ 元素，但不能含有 /planning/ 元素，也就是说它允许如下结构：
+
+#+attr_html: :class example
+#+begin_example
+BEGINNING-OF-FILE
+BLANK-LINES
+COMMENT
+PROPERTYDRAWER
+#+end_example
+
+其中 =BLANK-LINES= 和 =COMMENT= 不是必须的。
+
+* 对其余各元素的介绍
+
+在这一节中我们会介绍所有二十八个元素，加上上面的 headline 和 section 一共三十个。
+
+** greater blocks
+
+greater blocks 之所以 greater 自然是要与 lesser block 相对，它们允许包含其他的 greater element。所有的（就 3 种）greater block 都具有如下结构（其中的 =BEGIN= 也可为小写）：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+,#+BEGIN_NAME PARAMETERS
+CONTENTS
+,#+END_NAME
+#+END_EXAMPLE
+
+其中， =NAME= 是不含空格的字符串，可以为任意不属于 lesser block 的名字； =PARAMETERS= 是可选的参数，是不含换行的字符串； =CONTENTS= 为不含 =#+END_NAME= 行的任意内容。最后一条规则也就注定了它们不能自我嵌套（不过可以相互嵌套）。这些 block 用的最多的地方也许是导出时根据不同后端生成具有相同语义的产物。
+
+在编写 Org 导出后端时，也许我们可以考虑利用这些 =block= （特别是 =special block= ）以及它们的 =PARAMETERS= 参数来实现更加丰富的语义。
+
+*** center block
 
 =center-block= 就是让其中内容居中的 block，在语义上有居中含义，不过在 Org-mode buffer 中并不会居中显示。以下是一个 =center block= 例子（来自 [[https://orgmode.org/manual/Paragraphs.html][Paragraphs]]）：
 
@@ -92,6 +215,29 @@ Everything should be made as simple as possible, \\
 but not any simpler
 #+END_center
 
+在 =ox-html= 中， =center-block= 简单地实现为带有 =org-center= 类的 =div= 标签，这一实现在 =ox-w3ctr= 中未变：
+
+#+attr_html: :class example
+#+begin_src elisp :lexical t
+  (defun org-html-center-block (_center-block contents _info)
+    "Transcode a CENTER-BLOCK element from Org to HTML.
+  CONTENTS holds the contents of the block.  INFO is a plist
+  holding contextual information."
+    (format "<div class=\"org-center\">\n%s</div>" contents))
+#+end_src
+
+该类 =org-center= 在 =ox-w3ctr= 中的定义如下：
+
+#+caption:
+#+begin_src css
+  .org-center {
+      display: flex;
+      justify-content: center;
+  }
+#+end_src
+
+*** quote block
+
 类似地， =quote block= 具有语义上的引用义：
 
 #+attr_html: :class example
@@ -99,22 +245,33 @@ but not any simpler
 ,#+BEGIN_QUOTE
 你说的对，但是《原神》是由米哈游自主研发的一款全新开放世界冒险游戏。游戏发生在一个被称作「提瓦特」的幻想世界，在这里，被神选中的人将被授予「神之眼」，导引元素之力。你将扮演一位名为「旅行者」的神秘角色，在自由的旅行中邂逅性格各异、能力独特的同伴们，和他们一起击败强敌，找回失散的亲人——同时，逐步发掘「原神」的真相。
 
-你说得对，但是这就是奎桑提，HP 4700，护甲 329，魔抗 201的英雄。有不可阻挡，有护盾，还能过墙。有控制，甚至冷却时间只有1秒，只要15点蓝。转换姿态时甚至可以刷新W的cd，还有真实伤害。然后，护甲和魔抗提升后还能获得技能加速，缩短Q的cd，还缩短释放时间，然后还有攻击力。W就啊啊啊啊啊啊!!!
+你说得对，但是这就是奎桑提，HP 4700，护甲 329，魔抗 201 的英雄。有不可阻挡，有护盾，还能过墙。有控制，甚至冷却时间只有 1 秒，只要 15 点蓝。转换姿态时甚至可以刷新 W 的 cd，还有真实伤害。然后，护甲和魔抗提升后还能获得技能加速，缩短 Q 的 cd，还缩短释放时间，然后还有攻击力。W 就啊啊啊啊啊啊!!!
 ,#+END_QUOTE
 #+END_EXAMPLE
 
 #+begin_quote
 你说的对，但是《原神》是由米哈游自主研发的一款全新开放世界冒险游戏。游戏发生在一个被称作「提瓦特」的幻想世界，在这里，被神选中的人将被授予「神之眼」，导引元素之力。你将扮演一位名为「旅行者」的神秘角色，在自由的旅行中邂逅性格各异、能力独特的同伴们，和他们一起击败强敌，找回失散的亲人——同时，逐步发掘「原神」的真相。
 
-你说得对，但是这就是奎桑提，HP 4700，护甲 329，魔抗 201的英雄。有不可阻挡，有护盾，还能过墙。有控制，甚至冷却时间只有1秒，只要15点蓝。转换姿态时甚至可以刷新W的cd，还有真实伤害。然后，护甲和魔抗提升后还能获得技能加速，缩短Q的cd，还缩短释放时间，然后还有攻击力。W就啊啊啊啊啊啊!!!
+你说得对，但是这就是奎桑提，HP 4700，护甲 329，魔抗 201 的英雄。有不可阻挡，有护盾，还能过墙。有控制，甚至冷却时间只有 1 秒，只要 15 点蓝。转换姿态时甚至可以刷新 W 的 cd，还有真实伤害。然后，护甲和魔抗提升后还能获得技能加速，缩短 Q 的 cd，还缩短释放时间，然后还有攻击力。W 就啊啊啊啊啊啊!!!
 #+end_quote
 
-所谓 =special-block= 指的是它的 block 名为其他 org 未定义的名字，比如 =#+begin_aside= 。变量 =org-w3ctr-html5-elements= 记录了会被识别为 HTML 标签的名字，如果名字不属于其中的任意一个，那么名字将成为 =div= 标签的类。在 =ox-w3ctr= 中 =special-block= 的绝大部分作用都被 =dynamic-block= 替代了。
+*** special block
 
-#+caption: org-w3ctr-html5-elements 的具体定义
+=special block= 相对特殊一些，它的 =NAME= 可以为任意非 =lesser block= 以及 =quote= 和 =center= 的名字，比如 =#+begin_aside= 。它的意义取决于导出后端想要赋予它什么意义：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+,#+begin_hello
+hello world
+,#+end_hello
+#+END_EXAMPLE
+
+变量 =org-w3ctr-html5-elements= 记录了会被识别为 HTML 标签的名字，如果名字不属于其中的任意一个，那么名字将成为 =div= 标签的类。在 =ox-w3ctr= 中 =special-block= 的绝大部分作用都被 =dynamic-block= 替代了。
+
+#+caption: =org-w3ctr-html5-elements= 的具体定义
 #+begin_src elisp
 (defconst t-html5-elements
-  '("article" "aside" "audio" "canvas" "details" "figcaption" "div"
+  '("article" "aside" "audio" "canvas" "details" "figcaption"
     "figure" "footer" "header" "menu" "meter" "nav" "noscript"
     "output" "progress" "section" "summary" "video")
   "Elements in html5.
@@ -122,6 +279,8 @@ but not any simpler
 For blocks that should contain headlines, use the HTML_CONTAINER
 property on the headline itself.")
 #+end_src
+
+以下的 =special block= 在生成的 HTML 中均为形如 ~<div class="xxx">~ 的产物：
 
 #+attr_html: :class example
 #+begin_example
@@ -136,22 +295,6 @@ This is an example.
 ,#+begin_issue
 This is an issue.
 ,#+end_issue
-
-,#+begin_advisement
-This is an advisement
-,#+end_advisement
-
-,#+begin_annoying-warning
-This is an annoying-warning
-,#+end_annoying-warning
-
-,#+begin_correction
-This is a correction
-,#+end_correction
-
-,#+begin_addition
-This is an addition
-,#+end_addition
 #+end_example
 
 #+begin_note
@@ -166,20 +309,556 @@ This is an example.
 This is an issue.
 #+end_issue
 
-#+begin_advisement
-This is an advisement
-#+end_advisement
+以下 =special block= 会得到对应的元素产物（按下 F12 可以查看 HTML 代码）：
 
-#+begin_annoying-warning
-This is an annoying-warning
-#+end_annoying-warning
+#+attr_html: :class example
+#+begin_example
+#+attr_html: :class example
+,#+begin_aside
+This is an aside tag.
+,#+end_aside
+#+end_example
 
-#+begin_correction
-This is a correction
-#+end_correction
+#+attr_html: :class example
+#+begin_aside
+This is an aside tag.
+#+end_aside
 
-#+begin_addition
-This is an addition
-#+end_addition
+** drawers
 
-* drawers
+drawer 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+:NAME:
+CONTENTS
+:end:
+#+end_example
+
+在 Org Manual 的 [[https://orgmode.org/manual/Drawers.html][Drawers]] 一节是这样描述它的：
+
+#+BEGIN_QUOTE
+Sometimes you want to keep information associated with an entry, but
+you normally do not want to see it. For this, Org mode has
+/drawers/. They can contain anything but a headline and another
+/drawer/.
+#+END_QUOTE
+
+简单来说， =drawer= 提供了一种非 =headline= 的折叠展开内容方法。我们可以通过 =C-c C-x d(org-inser-drawer)= 插入 =drawer= 。当某个 region 被选中时，调用该命令会将当前 region 中的内容插入到 =drawer= 中；当带有前缀参时，该命令会调用 =org-insert-property-drawer= 来在当前 =headline= 插入 =PROPERTIES drawer= 。
+
+如果使用 =#+caption:= 作为 =<details>= 中的 =<summary>= 的话， =drawer= 将会非常适合作为 =details= 的对应物，就像这样：
+
+#+attr_html: :class example
+#+begin_example
+#+caption: This is a details
+:everything-here-is-ok:
+Contents are hidden
+:end:
+#+end_example
+
+#+caption: This is a details
+:everything-here-is-ok:
+Contents are hidden
+
+#+begin_src c
+  #include <stdio.h>
+  int main(void)
+  {
+	  print("hello world\n");
+	  return 0;
+  }
+#+end_src
+:end:
+
+如果要生成默认显示的 =details= ，可以让 =NAME= 以 =open= 开头：
+
+#+begin: example
+#+begin_example
+:open-this-details:
+这是个默认打开的 details，由于没有 caption，故使用 NAME 作为 summary
+:end:
+#+end_example
+#+end:
+
+:open-this-details:
+这是个默认打开的 details，由于没有 caption，故使用 NAME 作为 summary
+:end:
+
+*** property drawer
+:PROPERTIES:
+:CUSTOM_ID: property-drawer
+:END:
+
+=property drawer= 必须紧接着 =headline= 或 =inlinetask= ，作用是为它们提供属性信息：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+HEADLINE
+PROPERTYDRAWER
+
+HEADLINE
+PLANNING
+PROPERTYDRAWER
+#+END_EXAMPLE
+
+相比一般 =drawer= ， =property drawer= 的要求更严格一些，它的 =NAME= 必须为 =PROPERTIES= ，而且 =CONTENTS= 中不能含空行，只能是 =node property= 。以下是一个例子：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+,* Heading
+:PROPERTIES:
+:CUSTOM_ID: someid
+:END:
+#+END_EXAMPLE
+
+本节的标题 =property drawer= 就具有一个 =CUSTOM_ID= 属性，读者可以查看本 HTML 页面的源代码找到它的 ID。
+
+** dynamic block
+
+
+=dynamic block= 结构如下：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+,#+begin: NAME PARAMETERS
+CONTENTS
+,#+end:
+#+END_EXAMPLE
+
+其中 =NAME= 是不含空格的字符串； =PARAMETERS= 是可选的参数字符串，不含换行符； =CONTENTS= 是除 =dynamic block= 外的零个或多个其他元素。
+
+在 =dynamic block= 的文档 [[https://orgmode.org/manual/Dynamic-Blocks.html][Dyanmci Block]] 中对参数结构有更精细的描述，它应为 =:parameter1 value1 :parameter2 value2 ...= ，不过也不是非得这样，使用 =(org-element-property :arguments dynamic-block)= 获取到的参数就是一整个字符串。
+
+根据文档的说法， =dynamic block= 可以根据用户函数对块中的内容进行自动更新。我们可以通过 =C-c C-x x(org-dynamic-block-insert-dblock)= 来在当前位置插入 =dynamic block= ，并通过 =C-c C-x u(org-dblock-update)= 来更新块的内容。我们可以添加 =org-update-all-dblocks= 到某些 hook 中来在必要时触发所有 =dynamic block= 的更新。读者可以阅读文档以及 =org-dblock-write:clocktable= 来学习如何编写生成和更新 =dynamic block= 的函数。
+
+在 =ox-w3ctr= 中，我将 dynamic block 的功能实现为类似 =special block= 的效果。 =special block= 会影响块内部的块高亮，而 dynamic block 不会。以下代码可以生成类为 =example= 的 =div= ：
+
+#+attr_html: :class example
+#+begin_example
+#+begin: example
+这是个在 #+begin: example 中的内容。
+#+end:
+#+end_example
+
+#+begin: example
+这是个在 #+begin: example 中的内容。
+#+end:
+
+在 =#+begin:= 后面如果是 =org-w3ctr-dynamic-block-elements= 中的一个元素，那么会生成名为该元素的标签，这一点和 =special block= 很像。与 =special block= 的处理不同， =dynamic block= 后面的参数将作为块的类。以下代码会生成类为 =note= 的 =aside= 标签：
+
+#+attr_html: :class example
+#+begin_example
+#+begin: aside example
+this is an aside.
+#+end:
+#+end_example
+
+#+begin: aside example
+this is an aside.
+#+end:
+
+** footnote definition
+
+=footnote definition= 是脚注的定义部分，它和 =headline= 一样必须顶格，它的结构如下：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+[fn:LABEL] CONTENTS
+#+END_EXAMPLE
+
+其中 =LABEL= 是数字或由 =[[:word:]-_]= 组成的字符串，用来标识对应的脚注， =CONTENTS= 为脚注的内容，它在下一个 =footnote definition= 之前结束，或者是下一个 =headline= 、两个连续的换行、或 buffer 的末尾。这是一些例子，注意在第二个脚注中，隔了一行的字符串仍属于该脚注：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+[fn:1] A short footnote.
+
+[fn:2] This is a longer footnote.
+
+It even contains a single blank line.
+#+END_EXAMPLE
+
+Org-mode 支持三种形式的脚注，具体的用法可以参考 [[https://orgmode.org/manual/Creating-Footnotes.html][Creating Footnotes]]。
+
+下面是一段来自维基百科的内容，我改成了 org-mode 格式：
+
+#+attr_html: :class example
+#+begin_example
+Wikipe-tan (Japanese[fn:Japanese]: ウィキペたん) is a personification of Wikipedia[fn:Wikipedia] created in January 2006 by Japanese editor Kasuga[fn:Kasuga] She is an unofficial mascot of Wikipedia and is used at several WikiProjects. The -tan in "Wikipe-tan" is an affectionate suffix, in the form of a Japanese honorific. Like the OS-tans, she is a product of moe anthropomorphism.
+
+[fn:Japanese] Janapanese 的 wiki 链接：https://en.wikipedia.org/wiki/Japanese_language
+[fn:Wikipedia] Wikipedia 的链接：https://en.wikipedia.org/wiki/Wikipedia
+[fn:Kasuga] In the aftermath of the unified login finalization, the user now going by Kasuga on Commons and on English Wikipedia is a different person. The accounts of the creator of Wikipe-tan were renamed Kasuga~enwiki, Kasuga~jawiki and Kasuga~commonswiki.
+#+end_example
+
+Wikipe-tan (Japanese[fn:Japanese]: ウィキペたん) is a personification of Wikipedia[fn:Wikipedia] created in January 2006 by Japanese editor Kasuga[fn:Kasuga] She is an unofficial mascot of Wikipedia and is used at several WikiProjects. The -tan in "Wikipe-tan" is an affectionate suffix, in the form of a Japanese honorific. Like the OS-tans, she is a product of moe anthropomorphism.
+
+[fn:Japanese] Janapanese 的 wiki 链接：https://en.wikipedia.org/wiki/Japanese_language
+[fn:Wikipedia] Wikipedia 的链接：https://en.wikipedia.org/wiki/Wikipedia
+[fn:Kasuga] In the aftermath of the unified login finalization, the user now going by Kasuga on Commons and on English Wikipedia is a different person. The accounts of the creator of Wikipe-tan were renamed Kasuga~enwiki, Kasuga~jawiki and Kasuga~commonswiki.
+
+
+请点击脚注链接跳转到定义部分。
+
+除了上述标准脚注外，Org 还支持匿名脚注和内联脚注，它们的导出效果如下：
+
+#+attr_html: :class example
+#+begin_example
+来个匿名脚注[fn:: 芝士匿名脚注，以标号作为脚注名]，来个内联脚注[fn:芝士内联脚注: 以 :xxx: 作为脚注名，后面接脚注定义部分]
+#+end_example
+
+来个匿名脚注[fn:: 芝士匿名脚注，以标号作为脚注名]，来个内联脚注[fn:芝士内联脚注: 以 :xxx: 作为脚注名，后面接脚注定义部分]。
+
+** inlinetask
+
+当 =headline= 的星号数量大于等于 =org-inlinetask-min-level= 时，它就成了 =inlinetask= ，不过仅在 =org-inlinetask= 加载后才会有 =inlinetask= 。这个功能我从来没用使用过。下面是一个例子：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+,*************** TODO some tiny task
+This is a paragraph, it lies outside the inlinetask above.
+,*************** TODO some small task
+                 DEADLINE: <2009-03-30 Mon>
+                 :PROPERTIES:
+                   :SOMETHING: or other
+                 :END:
+                 And here is some extra text
+,*************** END
+#+END_EXAMPLE
+
+我在 Org Manual 中居然没有找到 =inlinetask= 的章节。在 =ox-w3ctr= 中， =inlinetask= 不导出。
+
+** item
+
+=item= 是单个列表项，它在内部可以嵌套 =item= ，结构如下：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+BULLET COUNTER-SET CHECK-BOX TAG CONTENTS
+#+END_EXAMPLE
+
+其中：
+
+- =BULLET= 是表头符号，对无序列表可以是 =*=, =-= 或 =+= 。注意顶格的 =*= 不能作为 =item= 开头，因为它会被识别为 =headline= ；对有序列表需要是一个数字或单个 =a-z= 的字符加上 =.= 或 =)= ，比如 =1.= 和 =a)=
+- =COUNTER-SET= 指定有序列表的序号值，格式为 =[@COUNTER]=
+- =CHECK-BOX= 选择框，可以为 =[ ]=, =[X]= 或 =[-]=
+- =TAG= 格式为 =TAG-TEXT ::= ，其中 =TAG-TEXT= 会作为标准集合对象解析
+- =CONTENTS= 为零个或多个元素，并在遇到以下情况时结束
+  - 下一个 =item=
+  - 相比起始行具有更浅或相同缩进的行，这不计算其他非段落元素或 inlinetask 边界内的行
+  - 两个连续的换行
+
+下面是文档中给出的例子：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+- item
+3. [@3] set to three
++ [-] tag :: item contents
+ * item, note whitespace in front
+,* not an item, but heading - heading takes precedence
+#+END_EXAMPLE
+
+Org Manual 的 [[https://orgmode.org/manual/Plain-Lists.html][Plain Lists]] 一节对列表进行了更为细致的描述。上面提到的 =TAG= 用于生成所谓的 /description list/ ，在 HTML 导出后端中，它会使用不同于 =ol= 和 =ul= 的标签。
+
+这是一个无序列表例子：
+
+#+attr_html: :class example
+#+begin_example
+- 第一项
+- 第二项
+- 第三项
+#+end_example
+
+- 第一项
+- 第二项
+- 第三项
+
+这是一个有序列表的例子：
+
+#+attr_html: :class example
+#+begin_example
+1. いいよ，こいよ
+1. [@1] 伊已逝，吾亦逝
+4. [@4] 意易失，吾亦逝
+5. [@5] 逸一时，误一世
+1. [@1] 疑一时，误一世
+4. [@4] こめいじ　こいし
+#+end_example
+
+1. いいよ，こいよ
+1. [@1] 伊已逝，吾亦逝
+4. [@4] 意易失，吾亦逝
+5. [@5] 逸一时，误一世
+1. [@1] 疑一时，误一世
+4. [@4] こめいじ　こいし
+
+这是一个描述性列表的例子：
+
+#+attr_html: :class example
+#+begin_example
+- 你好 :: 今日は
+- 再见 :: また明日
+#+end_example
+
+- 你好 :: 今日は
+- 再见 :: また明日
+
+** plain list
+
+=plain list= 就是一系列具有相同缩进的连续 =item= 。文档中给出了一个 =plain list= 对应的 AST：
+
+#+attr_html: :class example
+#+BEGIN_EXAMPLE
+1. item 1
+2. [X] item 2
+   - some tag :: item 2.1
+#+END_EXAMPLE
+
+#+caption:
+#+BEGIN_SRC elisp
+  (ordered-plain-list
+   (item
+     (paragraph))
+   (item
+    (paragraph)
+    (descriptive-plain-list
+     (item
+       (paragraph)))))
+#+END_SRC
+
+Org Manual 在 Plain Lists 一节给出了一些方便的命令，这里简单列出部分：
+
+- =S-UP= =S-DOWN= ，移动到当前列表的下一个/上一个 =item=
+- =M-UP= =M-DOWN= ，将当前 =item= 上移/下移一位
+- =M-LEFT= =M-RIGHT= ，减少/增加当前 =item= 的缩进，不处理子 =item=
+- =C-c C-c= ，切换 =Checkbox= 的状态
+
+** table
+
+Org-mode 支持两种表格，一种来自 Org-mode 自己，另一种来自 Emacs 的 table.el，这两种表格的性状略有不同。Org-mode 表格以 =|= 开头而 tabel.el 以 =+-= 开头。以下代码展示了两者的不同之处：
+
+#+attr_html: :class example
+#+begin_example
+|   |   |   |    +---+---+---+
+|   |   |   |	 |   |   |   |
+		 +---+---+---+
+		 |   |   |   |
+		 +---+---+---+
+#+end_example
+
+表格由一行行的 lesser element =table row= 组成，我们会在后文介绍它。以下是一个表格例子：
+
+#+attr_html: :class example
+#+begin_example
+| Name  | Phone | Age |
+|-------+-------+-----|
+| Peter |  1234 |  24 |
+| Anna  |  4321 |  25 |
+#+end_example
+
+| Name  | Phone | Age |
+|-------+-------+-----|
+| Peter |  1234 |  24 |
+| Anna  |  4321 |  25 |
+
+Org-mode 的表格功能非常强大，支持一定程度的运算功能，可以看作是“穷人的 Excel”。 =table= 的具体用法可以参考 Org Manual 的 [[https://orgmode.org/manual/Tables.html][Tables]] 一章。
+
+** COMMENT *blocks*
+
+（从 =block= 开始就是 lesser block 了，因此我加粗了标题）
+
+类似 =greater block= ， =lesser block= 也具有相似的结构：
+
+#+BEGIN_EXAMPLE
+,#+BEGIN_NAME DATA
+CONTENTS
+,#+END_NAME
+#+END_EXAMPLE
+
+其中， =NAME= 只能为以下小节标题其中之一， =DATA= 同样是一个不含断行的字符串， =CONTENTS= 不含 =#+END_NAME= 。关于各 =lesser block= 的文档如下列表所示：
+
+- [[https://orgmode.org/manual/Comment-Lines.html][Comment Lines]]
+- [[https://orgmode.org/manual/Literal-Examples.html][Literal Examples]]
+- [[https://orgmode.org/manual/Quoting-HTML-tags.html][Quoting HTML tags]]
+- [[https://orgmode.org/manual/Working-with-Source-Code.html][Working with Source Code]]
+- [[https://orgmode.org/manual/Paragraphs.html][Paragraphs]]
+
+*** comment block
+
+=comment block= 即注释块。在导出时它们不会被导出。
+
+#+BEGIN_EXAMPLE
+,#+BEGIN_COMMENT
+I'll not be exported
+,#+END_COMMENT
+#+END_EXAMPLE
+
+*** example block
+
+=example block= 通常用于显示代码或文字的样例，它会保留原始样式，包括空格和换行，以便准确显示内容。
+
+#+BEGIN_EXAMPLE
+,#+BEGIN_EXAMPLE
+  Some example from a text file.
+,#+END_EXAMPLE
+#+END_EXAMPLE
+
+*** export block
+
+我们可以通过 =export block= 指定一段内容针对特定导出后端的内容，这允许在同一文档中为不同的导出格式定制内容。对 HTML 后端来说，我们可以有如下做法：
+
+#+BEGIN_EXAMPLE
+,#+BEGIN_EXPORT html
+<div><p>123<br>456</p></div>
+,#+END_EXPORT
+#+END_EXAMPLE
+
+*** src block
+
+=src block= 算是 Org-mode 的重量级特性，在 Org Manual 中专门有一章介绍它的用法。在 =src block= 中， =DATA= 的格式如下：
+
+#+BEGIN_EXAMPLE
+LANGUAGE SWITCHES ARGUMENTS
+#+END_EXAMPLE
+
+其中 =LANGUAGE= 是源代码块的语言，为一无空格字符串； =SWITCHES= 是由空格分隔的任意数量 =SWITCH= 模式；最后的 =ARGUMENTS= 为无折行字符串。其中 =SWITCH= 的写法可以参考上面给出的 Literal Examples 文档，而 =ARGUMENTS= 参数可以参考 [[https://orgmode.org/manual/Using-Header-Arguments.html][Using Header Arguments]]。
+
+和导出相关的 =ARGUMENTS= 为 =:exports= ，可以指定 =code=, =results=, =both= 和 =none= 四种选项。其中 =code= 为默认选项，即导出代码， =results= 为导出代码的执行结果， =both= 为导出两者， =none= 则不导出代码块。
+
+以下是一个 =src block= 例子：
+
+#+BEGIN_EXAMPLE
+,#+begin_src emacs-lisp
+"This string
+,* has "*" escaped.
+Otherwise, '* has "*" escaped.' would be treated as a heading (which
+is context-free)."
+
+"#+ lines may or may not need to be escaped:
+#+end_src if not escaped, would be this source block.
+However,
+,#+keyword: does not interfere with code block end and may be left as is.
+,#+keyword may be escaped as well, optionally - parser removes all the
+commas in ,* and ,#+ lines."
+,#+end_src
+#+END_EXAMPLE
+
+*** verse block
+
+=verse block= 的功能非常简单，就是保持文本的结构，但它没有 =example block= 那么强，除了换行和缩进外它不会改变其他对象的格式。在以下例子中，若代码块环境为 =example= ，那么 === 内容在 HTML 导出中会直接显示等于号，而不是生成 =<code>= 标签：
+
+#+BEGIN_EXAMPLE
+,#+BEGIN_VERSE
+ Great clouds overhead
+ Tiny black birds rise and fall
+ Snow covers Emacs
+
+    ---AlexSchroeder, =hello=
+,#+END_VERSE
+#+END_EXAMPLE
+
+** COMMENT clock
+
+=clock= 元素的形状如下：
+
+#+BEGIN_EXAMPLE
+clock: INACTIVE-TIMESTAMP
+clock: INACTIVE-TIMESTAMP-RANGE DURATION
+#+END_EXAMPLE
+
+其中的 =INACTIVE-TIMESTAMP= 和 =INACTIVE-TIMESTAMP-RANGE= 都是 =timestamp= 对象。会在下文介绍； =DURATION= 的格式为 =HH:MM= 。一个简单的例子如下：
+
+#+BEGIN_EXAMPLE
+clock: [2024-10-12]
+#+END_EXAMPLE
+
+** COMMENT diary sexp
+
+=diary sexp= 是一个无缩进的如下结构：
+
+#+BEGIN_EXAMPLE
+%%SEXP
+#+END_EXAMPLE
+
+例子如下：
+
+#+BEGIN_EXAMPLE
+%%(org-calendar-holiday)
+#+END_EXAMPLE
+
+=diary-sexp= 的具体用法可以参考 [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Sexp-Diary-Entries.html][Sexp Entries and the Fancy Diary Display]]。
+
+** COMMENT planning
+
+=planning= 元素具有如下结构：
+
+#+BEGIN_EXAMPLE
+HEADING
+PLANNING
+#+END_EXAMPLE
+
+其中 =PALNNING= 一行包含一个或多个 =KEYWORD: TIMESTAMP= 模式， =KEYWORD= 可为 =DEADLINE=, =SCHEDULED= 或 =CLOSED= ， =TIMESTAMP= 为一个 =timestamp= 对象。 =planning= 必须紧随 =heading= ，两者之间不能有空行。
+
+文档给出的例子如下：
+
+#+BEGIN_EXAMPLE
+,*** TODO watch "The Matrix"
+    SCHEDULED: <1999-03-31 Wed>
+,#+END_SRC
+#+END_EXAMPLE
+
+** COMMENT comment
+** COMMENT fixed width
+** COMMENT horizontal rule
+** COMMENT keywords
+*** keyword
+*** babel call
+** COMMENT latex environment
+** COMMENT node property
+** COMMENT paragraph
+** COMMENT table row
+
+* 对各对象的详细介绍 :ARCHIVE:
+* org-element :ARCHIVE:
+
+=org-element-affiliated-keyword= 给出了可用的 affiliated 关键字：
+
+#+BEGIN_SRC elisp
+(defconst org-element-affiliated-keywords
+  '("CAPTION" "DATA" "HEADER" "HEADERS" "LABEL" "NAME" "PLOT" "RESNAME" "RESULT"
+    "RESULTS" "SOURCE" "SRCNAME" "TBLNAME"))
+#+END_SRC
+
+需要注意的是，某些关键字已经过时了：
+
+#+BEGIN_SRC elisp
+  (defconst org-element-keyword-translation-alist
+    '(("DATA" . "NAME")  ("LABEL" . "NAME") ("RESNAME" . "NAME")
+      ("SOURCE" . "NAME") ("SRCNAME" . "NAME") ("TBLNAME" . "NAME")
+      ("RESULT" . "RESULTS") ("HEADERS" . "HEADER")))
+#+END_SRC
+
+根据翻译表，现在推荐使用的 affiliated 关键字有：
+
+- CAPTION (dual)
+- NAME
+- HEADER
+- PLOT
+- RESULTS (dual)
+
+#+BEGIN_QUOTE
+With the exception of comments, clocks, headings, inlinetasks, items, node properties, planning, property drawers, sections, and table rows, every other element type can be assigned attributes.
+
+Repeating an affiliated keyword before an element will usually result in the prior VALUEs being overwritten by the last instance of KEY. The sole exception to this is #+header: keywords, where in the case of multiple :opt val declarations the last declaration on the first line it occurs on has priority.
+
+There are two situations under which the VALUEs will be concatenated:
+
+1. If KEY is a member of org-element-dual-keywords.
+2. If the affiliated keyword is an instance of the pattern #+attr_BACKEND: VALUE.
+
+When no element immediately follows an instance of the “affiliated keyword” pattern, the keyword is a normal, non-affiliated keyword.
+
+https://orgmode.org/worg/org-syntax.html#Keywords
+#+END_QUOTE
+
+注释，clock，标题，inlinetask，item（组成列表的项），各种 property，planning，section，table rows 无法附加关键字。
