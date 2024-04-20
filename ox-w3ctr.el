@@ -1334,8 +1334,8 @@ This function is lifted from engrave-faces [2024-04-12]"
 (defun org-w3ctr-faces-get-style (prop)
   (cond
    ((null prop) nil)
-   ((and (listp prop) (eq (car prop) 'quote))
-    (assoc (eval prop t) org-w3ctr-faces-style-plist))
+   ((listp prop)
+    (assoc (car prop) org-w3ctr-faces-style-plist))
    (t (assoc prop org-w3ctr-faces-style-plist))))
 
 (defun t-faces-fontify-code (code lang)

@@ -663,12 +663,13 @@ Org-mode 支持两种表格，一种来自 Org-mode 自己，另一种来自 Ema
 
 Org-mode 的表格功能非常强大，支持一定程度的运算功能，可以看作是“穷人的 Excel”。 =table= 的具体用法可以参考 Org Manual 的 [[https://orgmode.org/manual/Tables.html][Tables]] 一章。
 
-** COMMENT *blocks*
+** *blocks*
 
 （从 =block= 开始就是 lesser block 了，因此我加粗了标题）
 
-类似 =greater block= ， =lesser block= 也具有相似的结构：
+=lesser block= 具有与 =greater block= 相似的结构：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 ,#+BEGIN_NAME DATA
 CONTENTS
@@ -687,36 +688,52 @@ CONTENTS
 
 =comment block= 即注释块。在导出时它们不会被导出。
 
-#+BEGIN_EXAMPLE
+#+attr_html: :class example
+#+begin_example
 ,#+BEGIN_COMMENT
 I'll not be exported
 ,#+END_COMMENT
-#+END_EXAMPLE
+#+end_example
 
 *** example block
 
 =example block= 通常用于显示代码或文字的样例，它会保留原始样式，包括空格和换行，以便准确显示内容。
 
-#+BEGIN_EXAMPLE
+#+attr_html: :class example
+#+begin_example
 ,#+BEGIN_EXAMPLE
   Some example from a text file.
 ,#+END_EXAMPLE
-#+END_EXAMPLE
+#+end_example
 
 *** export block
 
 我们可以通过 =export block= 指定一段内容针对特定导出后端的内容，这允许在同一文档中为不同的导出格式定制内容。对 HTML 后端来说，我们可以有如下做法：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 ,#+BEGIN_EXPORT html
 <div><p>123<br>456</p></div>
 ,#+END_EXPORT
 #+END_EXAMPLE
 
+以下代码可以导出颜色为红色的 hello world：
+#+attr_html: :class example
+#+begin_example
+,#+begin_export html
+<span style="color:red;">hello world</span>
+,#+end_export
+#+end_example
+
+#+begin_export html
+<span style="color:red;">hello world</span>
+#+end_export
+
 *** src block
 
 =src block= 算是 Org-mode 的重量级特性，在 Org Manual 中专门有一章介绍它的用法。在 =src block= 中， =DATA= 的格式如下：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 LANGUAGE SWITCHES ARGUMENTS
 #+END_EXAMPLE
@@ -727,6 +744,7 @@ LANGUAGE SWITCHES ARGUMENTS
 
 以下是一个 =src block= 例子：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 ,#+begin_src emacs-lisp
 "This string
@@ -743,10 +761,13 @@ commas in ,* and ,#+ lines."
 ,#+end_src
 #+END_EXAMPLE
 
+我们可以使用 =org-export-use-babel= 来控制代码导出时是否使用 babel 处理代码，我发现设置它为 =nil= 能缩短不少的时间，因此我用 =org-w3ctr-use-babel= 覆盖了这个选项，并设置其默认值为 =nil= 。
+
 *** verse block
 
 =verse block= 的功能非常简单，就是保持文本的结构，但它没有 =example block= 那么强，除了换行和缩进外它不会改变其他对象的格式。在以下例子中，若代码块环境为 =example= ，那么 === 内容在 HTML 导出中会直接显示等于号，而不是生成 =<code>= 标签：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 ,#+BEGIN_VERSE
  Great clouds overhead
@@ -757,41 +778,56 @@ commas in ,* and ,#+ lines."
 ,#+END_VERSE
 #+END_EXAMPLE
 
-** COMMENT clock
+#+BEGIN_VERSE
+Great clouds overhead
+Tiny black birds rise and fall
+Snow covers Emacs
+
+   ---AlexSchroeder, =hello=
+#+END_VERSE
+
+** clock
 
 =clock= 元素的形状如下：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 clock: INACTIVE-TIMESTAMP
 clock: INACTIVE-TIMESTAMP-RANGE DURATION
 #+END_EXAMPLE
 
-其中的 =INACTIVE-TIMESTAMP= 和 =INACTIVE-TIMESTAMP-RANGE= 都是 =timestamp= 对象。会在下文介绍； =DURATION= 的格式为 =HH:MM= 。一个简单的例子如下：
+其中的 =INACTIVE-TIMESTAMP= 和 =INACTIVE-TIMESTAMP-RANGE= 都是 =timestamp= 对象（下文会介绍）。 =DURATION= 的格式为 =HH:MM= 。一个简单的例子如下：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 clock: [2024-10-12]
 #+END_EXAMPLE
 
-** COMMENT diary sexp
+在 =ox-w3ctr= 中该元素不导出。
+
+** diary sexp
 
 =diary sexp= 是一个无缩进的如下结构：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 %%SEXP
 #+END_EXAMPLE
 
 例子如下：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 %%(org-calendar-holiday)
 #+END_EXAMPLE
 
-=diary-sexp= 的具体用法可以参考 [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Sexp-Diary-Entries.html][Sexp Entries and the Fancy Diary Display]]。
+=diary-sexp= 的具体用法可以参考 [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Sexp-Diary-Entries.html][Sexp Entries and the Fancy Diary Display]]。该元素在 =ox-w3ctr= 中不导出。
 
-** COMMENT planning
+** planning
 
 =planning= 元素具有如下结构：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 HEADING
 PLANNING
@@ -801,36 +837,135 @@ PLANNING
 
 文档给出的例子如下：
 
+#+attr_html: :class example
 #+BEGIN_EXAMPLE
 ,*** TODO watch "The Matrix"
     SCHEDULED: <1999-03-31 Wed>
 ,#+END_SRC
 #+END_EXAMPLE
 
-** COMMENT comment
-** COMMENT fixed width
-** COMMENT horizontal rule
-** COMMENT keywords
-*** keyword
-*** babel call
-** COMMENT latex environment
-** COMMENT node property
-** COMMENT paragraph
-** COMMENT table row
+=planning= 元素在 =ox-w3ctr= 中不导出。
 
-* 对各对象的详细介绍 :ARCHIVE:
-* org-element :ARCHIVE:
+** comment
+
+除了上面提到的 =comment block= ，Org 也支持单行注释，只需要一个顶格 =#= 加上空格即可：
+
+#+attr_html: :class example
+#+begin_example
+# This is a line comment.
+#+end_example
+
+自然，注释是不会导出的。
+
+** fixed width
+
+以 =:= 加空格开头的行将成为单行 =example block= ，不过我们无法通过 =attr_html= 为其添加其他 HTML 属性。
+
+#+attr_html: :class example
+#+begin_example
+: This is a fixed width.
+#+end_example
+
+: This is a fixed width.
+
+** horizontal rule
+
+如果一行以 =-= 开头且至少有 5 个连续的 =-= 符号，那么它会成为一个 =horizontal rule= ，在 =ox-html= 中它导出为 =<hr>= 标签，在 =ox-w3ctr= 中同样也是。
+
+#+attr_html: :class example
+#+begin_example
+-----
+#+end_example
+
+-----
+
+** keywords
+
+=keywords= 的形式如下：
+
+#+attr_html: :class example
+#+begin_example
+#+KEY: VALUE
+#+end_example
+
+其中：
+
+- =KEY= :: 一个除 =call= 外含无空格字符的字符串
+- =VALUE= :: 不含换行符的任意字符串
+
+当 =KEY= 是 =org-element-parsed-keywords= 中的任一成员时， =VALUE= 可以包含除 =footnote reference= 的任意标准对象（第一节提到的标准对象集合）。 =org-element-parsed-keywords= 的值如下所示：
+
+#+caption:
+#+begin_src elisp
+  org-element-parsed-keywords => ("CAPTION")
+#+end_src
+
+在 =ox-html= 中， =org-html-keyword= 实现为可以导出 =HTML= 和 =TOC= 关键字，前者用于导出 =HTML= 代码片段，后者用于导出局部目录，我在 =ox-w3ctr= 中仅保留了 =HTML= 代码的导出：
+
+#+caption:
+#+begin_src elisp
+  (defun t-keyword (keyword _contents _info)
+    "Transcode a KEYWORD element from Org to HTML.
+  CONTENTS is nil.  INFO is a plist holding contextual information."
+    (let ((key (org-element-property :key keyword))
+	  (value (org-element-property :value keyword)))
+      (cond
+       ((string= key "HTML") value))))
+#+end_src
+
+*** babel call
+
+如果 =KEY= 为 =call= 那么 =keywords= 就是 =babel call= ，它具有以下几种可能的形式：
+
+#+attr_html: :class example
+#+begin_example
+#+call: NAME(ARGUMENTS)
+#+call: NAME[HEADER1](ARGUMENTS)
+#+call: NAME(ARGUMENTS)[HEADER2]
+#+call: NAME[HEADER1](ARGUMENTS)[HEADER2]
+#+end_example
+
+其中， =NAME= 是不含换行符和 =[]()= 的任意字符串； =ARGUMENTS= 是可选的参数，包含任意非换行符字符，不过开括号和回括号必须配平； =HEADER1= 和 =HEADER2= 是可选的参数，同样它们由非换行符组成，且要求括号配平。
+
+我几乎没有使用过 Org 的 babel 功能，而且在 =ox-w3ctr= 中 =use-babel= 默认关闭，此处不再详细展开。
+
+*** affiliated keywords
+
+所谓的 =affiliated keyword= （关联关键字）可以依附于某个元素来提供一些额外的信息，比如 =#+attr_html= 可以为某个元素提供一些 =HTML= 属性。 =affiliated keywords= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+#+KEY: VALUE
+#+KEY[OPTVAL]: VALUE
+#+attr_BACKEND: VALUE
+#+end_example
+
+其中， =KEY= 是一个位于 =org-element-affiliated-keywords= 中的成员； =BACKEND= 是一个由 =[a-zA-Z0-9-_]= 组成的字符串，对 =HTML= 后端就是 =html= ； =OPTVAL= 是不含换行符的字符串，且括号必须配平，它仅在 =KEY= 属于 =org-element-dual-keywords= 时有效； =VALUE= 是不含换行符的字符串，不过当 =KEY= 属于 =org-element-parsed-keywords= 时有例外可以换行。
 
 =org-element-affiliated-keyword= 给出了可用的 affiliated 关键字：
 
+#+caption:
 #+BEGIN_SRC elisp
-(defconst org-element-affiliated-keywords
-  '("CAPTION" "DATA" "HEADER" "HEADERS" "LABEL" "NAME" "PLOT" "RESNAME" "RESULT"
-    "RESULTS" "SOURCE" "SRCNAME" "TBLNAME"))
+  (defconst org-element-affiliated-keywords
+    '("CAPTION" "DATA" "HEADER" "HEADERS" "LABEL" "NAME" "PLOT" "RESNAME" "RESULT"
+      "RESULTS" "SOURCE" "SRCNAME" "TBLNAME"))
+
+  (defconst org-element-dual-keywords '("CAPTION" "RESULTS")
+    "List of affiliated keywords which can have a secondary value.
+
+  In Org syntax, they can be written with optional square brackets
+  before the colons.  For example, RESULTS keyword can be
+  associated to a hash value with the following:
+
+    ,#+RESULTS[hash-string]: some-source
+
+  This list is checked after translations have been applied.  See
+  `org-element-keyword-translation-alist'.")
 #+END_SRC
 
 需要注意的是，某些关键字已经过时了：
 
+#+caption:
 #+BEGIN_SRC elisp
   (defconst org-element-keyword-translation-alist
     '(("DATA" . "NAME")  ("LABEL" . "NAME") ("RESNAME" . "NAME")
@@ -846,19 +981,75 @@ PLANNING
 - PLOT
 - RESULTS (dual)
 
-#+BEGIN_QUOTE
-With the exception of comments, clocks, headings, inlinetasks, items, node properties, planning, property drawers, sections, and table rows, every other element type can be assigned attributes.
+除了 =comments=, =clocks=, =headings=, =inlinetasks=, =items=, =node properties=, =planning=, =property drawers=, =sections= 和 =table rows= 外，其他的元素都可以被赋予 =affiliated keyword= 。
 
-Repeating an affiliated keyword before an element will usually result in the prior VALUEs being overwritten by the last instance of KEY. The sole exception to this is #+header: keywords, where in the case of multiple :opt val declarations the last declaration on the first line it occurs on has priority.
+在一个元素上重复使用某个 =affiliated keyword= 将会导致先前的值被最后一个值覆盖。唯一的例外是 =header= ：
 
-There are two situations under which the VALUEs will be concatenated:
+#+begin_quote
+The sole exception to this is #+header: keywords, where in the case of multiple :opt val declarations the last declaration on the first line it occurs on has priority.
+#+end_quote
 
-1. If KEY is a member of org-element-dual-keywords.
-2. If the affiliated keyword is an instance of the pattern #+attr_BACKEND: VALUE.
+此外，如果 =KEY= 属于 =org-element-dual-keywords= 或 =KEY= 为 =#+attr_BACKEND= ，那么多个 =VALUE= 会被连接起来得到最终的 =VALUE= 。文档给出了这样的例子：
 
-When no element immediately follows an instance of the “affiliated keyword” pattern, the keyword is a normal, non-affiliated keyword.
+#+attr_html: :class example
+#+begin_example
+#+name: image-name
+#+caption: This is a caption for
+#+caption: the image linked below
+[[file:some/image.png]]
+#+end_example
 
-https://orgmode.org/worg/org-syntax.html#Keywords
-#+END_QUOTE
+** latex environment
 
-注释，clock，标题，inlinetask，item（组成列表的项），各种 property，planning，section，table rows 无法附加关键字。
+=latex environment= 具有以下结构：
+
+#+attr_html: :class example
+#+begin_example
+\begin{NAME}EXTRA
+CONTENTS
+\end{NAME}
+#+end_example
+
+其中， =NAME= 是一个包含字母数字或 =*= 的字符串， =EXTRA= 是不含 =\end{NAME}= 内容的字符串， =CONTENTS= 是不含 =\end{NAME}= 的字符串。以下是一个简单的例子：
+
+#+attr_html: :class example
+#+begin_example
+\begin{align*}
+2x - 5y &= 8 \\
+3x + 9y &= -12
+\end{align*}
+#+end_example
+
+\begin{align*}
+2x - 5y &= 8 \\
+3x + 9y &= -12
+\end{align*}
+
+** node property
+
+=node property= 只能存在于 =property drawer= 中，它具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+:NAME: VALUE
+:NAME:
+:NAME+: VALUE
+:NAME+:
+#+end_example
+
+其中， =NAME= 是不含空白字符且不以 =+= 结尾的字符串， =VALUE= 是不含换行符的字符串。
+
+** paragraph
+
+=paragraph= 是默认的元素，空行和其他元素会终止段落。
+
+** table row
+
+=table row= 由 =|= 跟着以下情况组成：
+
+- 任意数量的 =table cell=
+- 一个 =-= ，表示这是一行“规则”行
+
+=table row= 只能存在于 =table= 中。
+
+* 对各对象的详细介绍 :ARCHIVE:

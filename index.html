@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2024-04-20 22:25 -->
+<!-- 2024-04-21 03:03 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>test for ox-w3ctr.el</title>
@@ -1846,6 +1846,38 @@ pre > code.src {
 
 </style>
 <link rel="icon" type="image/png" sizes="192x192" href="./lily.svg">
+<script>
+  window.MathJax = {
+    tex: {
+      ams: {
+        multlineWidth: '85%'
+      },
+      tags: 'ams',
+      tagSide: 'right',
+      tagIndent: '.8em'
+    },
+    chtml: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    svg: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    output: {
+      font: 'mathjax-modern',
+      displayOverflow: 'overflow'
+    }
+  };
+</script>
+
+<script
+  id="MathJax-script"
+  async
+  src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
+</script>
 </head>
 <body class="toc-inline">
 <p id="toc-nav">
@@ -1867,7 +1899,7 @@ pre > code.src {
 <dl>
 <dt>Create Date:</dt> <dd><time datetime="2024-04-18T16:27Z">[2024-04-19 01:27]</time></dd>
 <dt>Publish Date:</dt> <dd><time datetime="2024-04-18T16:27Z">[2024-04-19 01:27]</time></dd>
-<dt>Update Date:</dt> <dd>2024-04-20 22:25</dd>
+<dt>Update Date:</dt> <dd>2024-04-21 03:03</dd>
 <dt>Creator:</dt> <dd><a href="https://www.gnu.org/software/emacs/">Emacs</a> 29.2 (<a href="https://orgmode.org">Org</a> mode 9.6.15)</dd>
 <dt>License:</dt> <dd>This work is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></dd>
 </dl>
@@ -1905,7 +1937,7 @@ pre > code.src {
 这一节属于 zeroth section，在生成时我采用了不同于 ox-html 的方法。
 </p>
 </div>
-<nav id="toc" data-count="26">
+<nav id="toc" data-count="44">
 <h2 id="table-of-contents">Table of Contents</h2>
 
 <ul class="toc">
@@ -1955,10 +1987,34 @@ pre > code.src {
 <li class="tocline"><a href="#orgnh-3.6"><span class="secno">3.6</span>item</a></li>
 <li class="tocline"><a href="#orgnh-3.7"><span class="secno">3.7</span>plain list</a></li>
 <li class="tocline"><a href="#orgnh-3.8"><span class="secno">3.8</span>table</a></li>
+<li class="tocline"><a href="#orgnh-3.9"><span class="secno">3.9</span><b>blocks</b></a>
+<ul class="toc">
+<li class="tocline"><a href="#orgnh-3.9.1"><span class="secno">3.9.1</span>comment block</a></li>
+<li class="tocline"><a href="#orgnh-3.9.2"><span class="secno">3.9.2</span>example block</a></li>
+<li class="tocline"><a href="#orgnh-3.9.3"><span class="secno">3.9.3</span>export block</a></li>
+<li class="tocline"><a href="#orgnh-3.9.4"><span class="secno">3.9.4</span>src block</a></li>
+<li class="tocline"><a href="#orgnh-3.9.5"><span class="secno">3.9.5</span>verse block</a></li>
+</ul>
+</li>
+<li class="tocline"><a href="#orgnh-3.10"><span class="secno">3.10</span>clock</a></li>
+<li class="tocline"><a href="#orgnh-3.11"><span class="secno">3.11</span>diary sexp</a></li>
+<li class="tocline"><a href="#orgnh-3.12"><span class="secno">3.12</span>planning</a></li>
+<li class="tocline"><a href="#orgnh-3.13"><span class="secno">3.13</span>comment</a></li>
+<li class="tocline"><a href="#orgnh-3.14"><span class="secno">3.14</span>fixed width</a></li>
+<li class="tocline"><a href="#orgnh-3.15"><span class="secno">3.15</span>horizontal rule</a></li>
+<li class="tocline"><a href="#orgnh-3.16"><span class="secno">3.16</span>keywords</a>
+<ul class="toc">
+<li class="tocline"><a href="#orgnh-3.16.1"><span class="secno">3.16.1</span>babel call</a></li>
+<li class="tocline"><a href="#orgnh-3.16.2"><span class="secno">3.16.2</span>affiliated keywords</a></li>
+</ul>
+</li>
+<li class="tocline"><a href="#orgnh-3.17"><span class="secno">3.17</span>latex environment</a></li>
+<li class="tocline"><a href="#orgnh-3.18"><span class="secno">3.18</span>node property</a></li>
+<li class="tocline"><a href="#orgnh-3.19"><span class="secno">3.19</span>paragraph</a></li>
+<li class="tocline"><a href="#orgnh-3.20"><span class="secno">3.20</span>table row</a></li>
 </ul>
 </li>
 <li class="tocline"><a href="#orgnh-4"><span class="secno">4</span>对各对象的详细介绍</a></li>
-<li class="tocline"><a href="#orgnh-5"><span class="secno">5</span>org-element</a></li>
 </ul>
 </nav>
 <script>
@@ -2027,8 +2083,8 @@ pre > code.src {
 变量 <code>org-element-all-elements</code> 提供了完整的元素列表：
 </p>
 
-<div id="orge81f968" class="example">
-<a class="self-link" href="#orge81f968" aria-label="source block"></a>
+<div id="orgdab6f0c" class="example">
+<a class="self-link" href="#orgdab6f0c" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">( babel-call center-block clock comment comment-block diary-sexp drawer
   dynamic-block example-block export-block fixed-width footnote-definition
@@ -2056,8 +2112,8 @@ pre > code.src {
 变量 <code>org-element-all-objects</code> 提供了完整的对象列表：
 </p>
 
-<div id="org92eae53" class="example">
-<a class="self-link" href="#org92eae53" aria-label="source block"></a>
+<div id="orga288337" class="example">
+<a class="self-link" href="#orga288337" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">( bold citation citation-reference code entity export-snippet footnote-reference
   inline-babel-call inline-src-block italic line-break latex-fragment link macro
@@ -2138,8 +2194,8 @@ org 本身最高支持无限级别的 headline，不过在导出时，最高的 
 GTD，优先级和标签的导出都是可选的，我使用了三个变量来控制是否导出这些内容，默认情况下都为 <code>nil</code> ，即都不导出：
 </p>
 
-<div id="org16f321b" class="example">
-<a class="self-link" href="#org16f321b" aria-label="source block"></a>
+<div id="orgecdaa6b" class="example">
+<a class="self-link" href="#orgecdaa6b" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp"><span class="ef-cd">;; </span><span class="ef-c">&lt;yy&gt; control todo, priority and tags export
 </span>(<span class="ef-b">:with-todo-keywords</span> nil <span class="ef-s">"todo"</span> t-with-todo-keywords)
@@ -2214,8 +2270,8 @@ Some text.
 上面内容对应的 AST 为：
 </p>
 
-<div id="orgcfef1a1" class="example">
-<a class="self-link" href="#orgcfef1a1" aria-label="source block"></a>
+<div id="orgbca6f0d" class="example">
+<a class="self-link" href="#orgbca6f0d" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(document
  (section)
@@ -2309,8 +2365,8 @@ holding contextual information."</span>
 该类 <code>org-center</code> 在 <code>ox-w3ctr</code> 中的定义如下：
 </p>
 
-<div id="org27941d7" class="example">
-<a class="self-link" href="#org27941d7" aria-label="source block"></a>
+<div id="org988ecdd" class="example">
+<a class="self-link" href="#org988ecdd" aria-label="source block"></a>
 
 <pre><code class="src src-css"><span class="ef-k">.org-center</span> {
     <span class="ef-f">display</span>: flex;
@@ -2361,8 +2417,8 @@ hello world
 变量 <code>org-w3ctr-html5-elements</code> 记录了会被识别为 HTML 标签的名字，如果名字不属于其中的任意一个，那么名字将成为 <code>div</code> 标签的类。在 <code>ox-w3ctr</code> 中 <code>special-block</code> 的绝大部分作用都被 <code>dynamic-block</code> 替代了。
 </p>
 
-<div id="org72de1eb" class="example">
-<a class="self-link" href="#org72de1eb" aria-label="source block"></a>
+<div id="org420313a" class="example">
+<a class="self-link" href="#org420313a" aria-label="source block"></a>
 <code>org-w3ctr-html5-elements</code> 的具体定义
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">t-html5-elements</span>
   '(<span class="ef-s">"article"</span> <span class="ef-s">"aside"</span> <span class="ef-s">"audio"</span> <span class="ef-s">"canvas"</span> <span class="ef-s">"details"</span> <span class="ef-s">"figcaption"</span>
@@ -2635,7 +2691,7 @@ Org-mode 支持三种形式的脚注，具体的用法可以参考 <a href="http
 [fn:Kasuga] In the aftermath of the unified login finalization, the user now going by Kasuga on Commons and on English Wikipedia is a different person. The accounts of the creator of Wikipe-tan were renamed Kasuga~enwiki, Kasuga~jawiki and Kasuga~commonswiki.</code></pre>
 
 <p>
-Wikipe-tan (Japanese<a href="#fn.1" aria-label="footnote to Japanese">[Japanese]</a>: ウィキペたん) is a personification of Wikipedia<a href="#fn.2" aria-label="footnote to Wikipedia">[Wikipedia]</a> created in January 2006 by Japanese editor Kasuga<a href="#fn.3" aria-label="footnote to Kasuga">[Kasuga]</a> She is an unofficial mascot of Wikipedia and is used at several WikiProjects. The -tan in "Wikipe-tan" is an affectionate suffix, in the form of a Japanese honorific. Like the OS-tans, she is a product of moe anthropomorphism.
+Wikipe-tan (Japanese<a href="#fn.1" aria-label="reference to Japanese">[Japanese]</a>: ウィキペたん) is a personification of Wikipedia<a href="#fn.2" aria-label="reference to Wikipedia">[Wikipedia]</a> created in January 2006 by Japanese editor Kasuga<a href="#fn.3" aria-label="reference to Kasuga">[Kasuga]</a> She is an unofficial mascot of Wikipedia and is used at several WikiProjects. The -tan in "Wikipe-tan" is an affectionate suffix, in the form of a Japanese honorific. Like the OS-tans, she is a product of moe anthropomorphism.
 </p>
 
 <p>
@@ -2650,7 +2706,7 @@ Wikipe-tan (Japanese<a href="#fn.1" aria-label="footnote to Japanese">[Japanese]
 <code>来个匿名脚注[fn:: 芝士匿名脚注，以标号作为脚注名]，来个内联脚注[fn:芝士内联脚注: 以 :xxx: 作为脚注名，后面接脚注定义部分]</code></pre>
 
 <p>
-来个匿名脚注<a href="#fn.4" aria-label="footnote to nil">[4]</a>，来个内联脚注<a href="#fn.5" aria-label="footnote to 芝士内联脚注">[芝士内联脚注]</a>。
+来个匿名脚注<a href="#fn.4" aria-label="reference to nil">[4]</a>，来个内联脚注<a href="#fn.5" aria-label="reference to 芝士内联脚注">[芝士内联脚注]</a>。
 </p>
 </section>
 
@@ -2784,8 +2840,8 @@ Org Manual 的 <a href="https://orgmode.org/manual/Plain-Lists.html">Plain Lists
 2. [X] item 2
    - some tag :: item 2.1</code></pre>
 
-<div id="org65932f6" class="example">
-<a class="self-link" href="#org65932f6" aria-label="source block"></a>
+<div id="org651ca83" class="example">
+<a class="self-link" href="#org651ca83" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(ordered-plain-list
  (item
@@ -2869,16 +2925,516 @@ Org-mode 支持两种表格，一种来自 Org-mode 自己，另一种来自 Ema
 Org-mode 的表格功能非常强大，支持一定程度的运算功能，可以看作是“穷人的 Excel”。 <code>table</code> 的具体用法可以参考 Org Manual 的 <a href="https://orgmode.org/manual/Tables.html">Tables</a> 一章。
 </p>
 </section>
+
+<section id="orgnh-3.9"><div class="header-wrapper">
+<h3 id="x-orgnh-3.9"><span class="secno">3.9. </span><b>blocks</b></h3>
+<a class="self-link" href="#orgnh-3.9" aria-label="Permalink for Section 3.9"></a>
+</div>
+<p>
+（从 <code>block</code> 开始就是 lesser block 了，因此我加粗了标题）
+</p>
+
+<p>
+<code>lesser block</code> 具有与 <code>greater block</code> 相似的结构：
+</p>
+
+<pre class="example">
+<code>#+BEGIN_NAME DATA
+CONTENTS
+#+END_NAME</code></pre>
+
+<p>
+其中， <code>NAME</code> 只能为以下小节标题其中之一， <code>DATA</code> 同样是一个不含断行的字符串， <code>CONTENTS</code> 不含 <code>#+END_NAME</code> 。关于各 <code>lesser block</code> 的文档如下列表所示：
+</p>
+
+<ul class="org-ul">
+<li><a href="https://orgmode.org/manual/Comment-Lines.html">Comment Lines</a></li>
+<li><a href="https://orgmode.org/manual/Literal-Examples.html">Literal Examples</a></li>
+<li><a href="https://orgmode.org/manual/Quoting-HTML-tags.html">Quoting HTML tags</a></li>
+<li><a href="https://orgmode.org/manual/Working-with-Source-Code.html">Working with Source Code</a></li>
+<li><a href="https://orgmode.org/manual/Paragraphs.html">Paragraphs</a></li>
+</ul>
+
+<section id="orgnh-3.9.1"><div class="header-wrapper">
+<h4 id="x-orgnh-3.9.1"><span class="secno">3.9.1. </span>comment block</h4>
+<a class="self-link" href="#orgnh-3.9.1" aria-label="Permalink for Section 3.9.1"></a>
+</div>
+<p>
+<code>comment block</code> 即注释块。在导出时它们不会被导出。
+</p>
+
+<pre class="example">
+<code>#+BEGIN_COMMENT
+I'll not be exported
+#+END_COMMENT</code></pre>
+</section>
+
+<section id="orgnh-3.9.2"><div class="header-wrapper">
+<h4 id="x-orgnh-3.9.2"><span class="secno">3.9.2. </span>example block</h4>
+<a class="self-link" href="#orgnh-3.9.2" aria-label="Permalink for Section 3.9.2"></a>
+</div>
+<p>
+<code>example block</code> 通常用于显示代码或文字的样例，它会保留原始样式，包括空格和换行，以便准确显示内容。
+</p>
+
+<pre class="example">
+<code>#+BEGIN_EXAMPLE
+  Some example from a text file.
+#+END_EXAMPLE</code></pre>
+</section>
+
+<section id="orgnh-3.9.3"><div class="header-wrapper">
+<h4 id="x-orgnh-3.9.3"><span class="secno">3.9.3. </span>export block</h4>
+<a class="self-link" href="#orgnh-3.9.3" aria-label="Permalink for Section 3.9.3"></a>
+</div>
+<p>
+我们可以通过 <code>export block</code> 指定一段内容针对特定导出后端的内容，这允许在同一文档中为不同的导出格式定制内容。对 HTML 后端来说，我们可以有如下做法：
+</p>
+
+<pre class="example">
+<code>#+BEGIN_EXPORT html
+&lt;div&gt;&lt;p&gt;123&lt;br&gt;456&lt;/p&gt;&lt;/div&gt;
+#+END_EXPORT</code></pre>
+
+<p>
+以下代码可以导出颜色为红色的 hello world：
+</p>
+<pre class="example">
+<code>#+begin_export html
+&lt;span style="color:red;"&gt;hello world&lt;/span&gt;
+#+end_export</code></pre>
+
+<span style="color:red;">hello world</span>
+</section>
+
+<section id="orgnh-3.9.4"><div class="header-wrapper">
+<h4 id="x-orgnh-3.9.4"><span class="secno">3.9.4. </span>src block</h4>
+<a class="self-link" href="#orgnh-3.9.4" aria-label="Permalink for Section 3.9.4"></a>
+</div>
+<p>
+<code>src block</code> 算是 Org-mode 的重量级特性，在 Org Manual 中专门有一章介绍它的用法。在 <code>src block</code> 中， <code>DATA</code> 的格式如下：
+</p>
+
+<pre class="example">
+<code>LANGUAGE SWITCHES ARGUMENTS</code></pre>
+
+<p>
+其中 <code>LANGUAGE</code> 是源代码块的语言，为一无空格字符串； <code>SWITCHES</code> 是由空格分隔的任意数量 <code>SWITCH</code> 模式；最后的 <code>ARGUMENTS</code> 为无折行字符串。其中 <code>SWITCH</code> 的写法可以参考上面给出的 Literal Examples 文档，而 <code>ARGUMENTS</code> 参数可以参考 <a href="https://orgmode.org/manual/Using-Header-Arguments.html">Using Header Arguments</a>。
+</p>
+
+<p>
+和导出相关的 <code>ARGUMENTS</code> 为 <code>:exports</code> ，可以指定 <code>code</code>, <code>results</code>, <code>both</code> 和 <code>none</code> 四种选项。其中 <code>code</code> 为默认选项，即导出代码， <code>results</code> 为导出代码的执行结果， <code>both</code> 为导出两者， <code>none</code> 则不导出代码块。
+</p>
+
+<p>
+以下是一个 <code>src block</code> 例子：
+</p>
+
+<pre class="example">
+<code>#+begin_src emacs-lisp
+"This string
+* has "*" escaped.
+Otherwise, '* has "*" escaped.' would be treated as a heading (which
+is context-free)."
+
+"#+ lines may or may not need to be escaped:
+#+end_src if not escaped, would be this source block.
+However,
+#+keyword: does not interfere with code block end and may be left as is.
+#+keyword may be escaped as well, optionally - parser removes all the
+commas in ,* and ,#+ lines."
+#+end_src</code></pre>
+
+<p>
+我们可以使用 <code>org-export-use-babel</code> 来控制代码导出时是否使用 babel 处理代码，我发现设置它为 <code>nil</code> 能缩短不少的时间，因此我用 <code>org-w3ctr-use-babel</code> 覆盖了这个选项，并设置其默认值为 <code>nil</code> 。
+</p>
+</section>
+
+<section id="orgnh-3.9.5"><div class="header-wrapper">
+<h4 id="x-orgnh-3.9.5"><span class="secno">3.9.5. </span>verse block</h4>
+<a class="self-link" href="#orgnh-3.9.5" aria-label="Permalink for Section 3.9.5"></a>
+</div>
+<p>
+<code>verse block</code> 的功能非常简单，就是保持文本的结构，但它没有 <code>example block</code> 那么强，除了换行和缩进外它不会改变其他对象的格式。在以下例子中，若代码块环境为 <code>example</code> ，那么 <code>=</code> 内容在 HTML 导出中会直接显示等于号，而不是生成 <code>&lt;code&gt;</code> 标签：
+</p>
+
+<pre class="example">
+<code>#+BEGIN_VERSE
+ Great clouds overhead
+ Tiny black birds rise and fall
+ Snow covers Emacs
+
+    ---AlexSchroeder, =hello=
+#+END_VERSE</code></pre>
+
+<p class="verse">
+Great clouds overhead<br>
+Tiny black birds rise and fall<br>
+Snow covers Emacs<br>
+<br>
+&#xa0;&#xa0;&#xa0;&#x2014;AlexSchroeder, <code>hello</code><br>
+</p>
+</section>
+</section>
+
+<section id="orgnh-3.10"><div class="header-wrapper">
+<h3 id="x-orgnh-3.10"><span class="secno">3.10. </span>clock</h3>
+<a class="self-link" href="#orgnh-3.10" aria-label="Permalink for Section 3.10"></a>
+</div>
+<p>
+<code>clock</code> 元素的形状如下：
+</p>
+
+<pre class="example">
+<code>clock: INACTIVE-TIMESTAMP
+clock: INACTIVE-TIMESTAMP-RANGE DURATION</code></pre>
+
+<p>
+其中的 <code>INACTIVE-TIMESTAMP</code> 和 <code>INACTIVE-TIMESTAMP-RANGE</code> 都是 <code>timestamp</code> 对象（下文会介绍）。 <code>DURATION</code> 的格式为 <code>HH:MM</code> 。一个简单的例子如下：
+</p>
+
+<pre class="example">
+<code>clock: [2024-10-12]</code></pre>
+
+<p>
+在 <code>ox-w3ctr</code> 中该元素不导出。
+</p>
+</section>
+
+<section id="orgnh-3.11"><div class="header-wrapper">
+<h3 id="x-orgnh-3.11"><span class="secno">3.11. </span>diary sexp</h3>
+<a class="self-link" href="#orgnh-3.11" aria-label="Permalink for Section 3.11"></a>
+</div>
+<p>
+<code>diary sexp</code> 是一个无缩进的如下结构：
+</p>
+
+<pre class="example">
+<code>%%SEXP</code></pre>
+
+<p>
+例子如下：
+</p>
+
+<pre class="example">
+<code>%%(org-calendar-holiday)</code></pre>
+
+<p>
+<code>diary-sexp</code> 的具体用法可以参考 <a href="https://www.gnu.org/software/emacs/manual/html_node/emacs/Sexp-Diary-Entries.html">Sexp Entries and the Fancy Diary Display</a>。该元素在 <code>ox-w3ctr</code> 中不导出。
+</p>
+</section>
+
+<section id="orgnh-3.12"><div class="header-wrapper">
+<h3 id="x-orgnh-3.12"><span class="secno">3.12. </span>planning</h3>
+<a class="self-link" href="#orgnh-3.12" aria-label="Permalink for Section 3.12"></a>
+</div>
+<p>
+<code>planning</code> 元素具有如下结构：
+</p>
+
+<pre class="example">
+<code>HEADING
+PLANNING</code></pre>
+
+<p>
+其中 <code>PALNNING</code> 一行包含一个或多个 <code>KEYWORD: TIMESTAMP</code> 模式， <code>KEYWORD</code> 可为 <code>DEADLINE</code>, <code>SCHEDULED</code> 或 <code>CLOSED</code> ， <code>TIMESTAMP</code> 为一个 <code>timestamp</code> 对象。 <code>planning</code> 必须紧随 <code>heading</code> ，两者之间不能有空行。
+</p>
+
+<p>
+文档给出的例子如下：
+</p>
+
+<pre class="example">
+<code>*** TODO watch "The Matrix"
+    SCHEDULED: &lt;1999-03-31 Wed&gt;
+#+END_SRC</code></pre>
+
+<p>
+<code>planning</code> 元素在 <code>ox-w3ctr</code> 中不导出。
+</p>
+</section>
+
+<section id="orgnh-3.13"><div class="header-wrapper">
+<h3 id="x-orgnh-3.13"><span class="secno">3.13. </span>comment</h3>
+<a class="self-link" href="#orgnh-3.13" aria-label="Permalink for Section 3.13"></a>
+</div>
+<p>
+除了上面提到的 <code>comment block</code> ，Org 也支持单行注释，只需要一个顶格 <code>#</code> 加上空格即可：
+</p>
+
+<pre class="example">
+<code># This is a line comment.</code></pre>
+
+<p>
+自然，注释是不会导出的。
+</p>
+</section>
+
+<section id="orgnh-3.14"><div class="header-wrapper">
+<h3 id="x-orgnh-3.14"><span class="secno">3.14. </span>fixed width</h3>
+<a class="self-link" href="#orgnh-3.14" aria-label="Permalink for Section 3.14"></a>
+</div>
+<p>
+以 <code>:</code> 加空格开头的行将成为单行 <code>example block</code> ，不过我们无法通过 <code>attr_html</code> 为其添加其他 HTML 属性。
+</p>
+
+<pre class="example">
+<code>: This is a fixed width.</code></pre>
+
+<pre>
+<code>This is a fixed width.</code></pre>
+</section>
+
+<section id="orgnh-3.15"><div class="header-wrapper">
+<h3 id="x-orgnh-3.15"><span class="secno">3.15. </span>horizontal rule</h3>
+<a class="self-link" href="#orgnh-3.15" aria-label="Permalink for Section 3.15"></a>
+</div>
+<p>
+如果一行以 <code>-</code> 开头且至少有 5 个连续的 <code>-</code> 符号，那么它会成为一个 <code>horizontal rule</code> ，在 <code>ox-html</code> 中它导出为 <code>&lt;hr&gt;</code> 标签，在 <code>ox-w3ctr</code> 中同样也是。
+</p>
+
+<pre class="example">
+<code>-----</code></pre>
+
+<hr>
+</section>
+
+<section id="orgnh-3.16"><div class="header-wrapper">
+<h3 id="x-orgnh-3.16"><span class="secno">3.16. </span>keywords</h3>
+<a class="self-link" href="#orgnh-3.16" aria-label="Permalink for Section 3.16"></a>
+</div>
+<p>
+<code>keywords</code> 的形式如下：
+</p>
+
+<pre class="example">
+<code>#+KEY: VALUE</code></pre>
+
+<p>
+其中：
+</p>
+
+<dl class="org-dl">
+<dt><code>KEY</code></dt><dd>一个除 <code>call</code> 外含无空格字符的字符串</dd>
+<dt><code>VALUE</code></dt><dd>不含换行符的任意字符串</dd>
+</dl>
+
+<p>
+当 <code>KEY</code> 是 <code>org-element-parsed-keywords</code> 中的任一成员时， <code>VALUE</code> 可以包含除 <code>footnote reference</code> 的任意标准对象（第一节提到的标准对象集合）。 <code>org-element-parsed-keywords</code> 的值如下所示：
+</p>
+
+<div id="orgf016ad2" class="example">
+<a class="self-link" href="#orgf016ad2" aria-label="source block"></a>
+
+<pre><code class="src src-emacs-lisp">org-element-parsed-keywords =&gt; (<span class="ef-s">"CAPTION"</span>)</code></pre></div>
+
+<p>
+在 <code>ox-html</code> 中， <code>org-html-keyword</code> 实现为可以导出 <code>HTML</code> 和 <code>TOC</code> 关键字，前者用于导出 <code>HTML</code> 代码片段，后者用于导出局部目录，我在 <code>ox-w3ctr</code> 中仅保留了 <code>HTML</code> 代码的导出：
+</p>
+
+<div id="orge0e1d19" class="example">
+<a class="self-link" href="#orge0e1d19" aria-label="source block"></a>
+
+<pre><code class="src src-emacs-lisp">(<span class="ef-k">defun</span> <span class="ef-f">t-keyword</span> (keyword _contents _info)
+  <span class="ef-d">"Transcode a KEYWORD element from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information."</span>
+  (<span class="ef-k">let</span> ((key (org-element-property <span class="ef-b">:key</span> keyword))
+	(value (org-element-property <span class="ef-b">:value</span> keyword)))
+    (<span class="ef-k">cond</span>
+     ((string= key <span class="ef-s">"HTML"</span>) value))))</code></pre></div>
+
+<section id="orgnh-3.16.1"><div class="header-wrapper">
+<h4 id="x-orgnh-3.16.1"><span class="secno">3.16.1. </span>babel call</h4>
+<a class="self-link" href="#orgnh-3.16.1" aria-label="Permalink for Section 3.16.1"></a>
+</div>
+<p>
+如果 <code>KEY</code> 为 <code>call</code> 那么 <code>keywords</code> 就是 <code>babel call</code> ，它具有以下几种可能的形式：
+</p>
+
+<pre class="example">
+<code>#+call: NAME(ARGUMENTS)
+#+call: NAME[HEADER1](ARGUMENTS)
+#+call: NAME(ARGUMENTS)[HEADER2]
+#+call: NAME[HEADER1](ARGUMENTS)[HEADER2]</code></pre>
+
+<p>
+其中， <code>NAME</code> 是不含换行符和 <code>[]()</code> 的任意字符串； <code>ARGUMENTS</code> 是可选的参数，包含任意非换行符字符，不过开括号和回括号必须配平； <code>HEADER1</code> 和 <code>HEADER2</code> 是可选的参数，同样它们由非换行符组成，且要求括号配平。
+</p>
+
+<p>
+我几乎没有使用过 Org 的 babel 功能，而且在 <code>ox-w3ctr</code> 中 <code>use-babel</code> 默认关闭，此处不再详细展开。
+</p>
+</section>
+
+<section id="orgnh-3.16.2"><div class="header-wrapper">
+<h4 id="x-orgnh-3.16.2"><span class="secno">3.16.2. </span>affiliated keywords</h4>
+<a class="self-link" href="#orgnh-3.16.2" aria-label="Permalink for Section 3.16.2"></a>
+</div>
+<p>
+所谓的 <code>affiliated keyword</code> （关联关键字）可以依附于某个元素来提供一些额外的信息，比如 <code>#+attr_html</code> 可以为某个元素提供一些 <code>HTML</code> 属性。 <code>affiliated keywords</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>#+KEY: VALUE
+#+KEY[OPTVAL]: VALUE
+#+attr_BACKEND: VALUE</code></pre>
+
+<p>
+其中， <code>KEY</code> 是一个位于 <code>org-element-affiliated-keywords</code> 中的成员； <code>BACKEND</code> 是一个由 <code>[a-zA-Z0-9-_]</code> 组成的字符串，对 <code>HTML</code> 后端就是 <code>html</code> ； <code>OPTVAL</code> 是不含换行符的字符串，且括号必须配平，它仅在 <code>KEY</code> 属于 <code>org-element-dual-keywords</code> 时有效； <code>VALUE</code> 是不含换行符的字符串，不过当 <code>KEY</code> 属于 <code>org-element-parsed-keywords</code> 时有例外可以换行。
+</p>
+
+<p>
+<code>org-element-affiliated-keyword</code> 给出了可用的 affiliated 关键字：
+</p>
+
+<div id="orgd769be4" class="example">
+<a class="self-link" href="#orgd769be4" aria-label="source block"></a>
+
+<pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">org-element-affiliated-keywords</span>
+  '(<span class="ef-s">"CAPTION"</span> <span class="ef-s">"DATA"</span> <span class="ef-s">"HEADER"</span> <span class="ef-s">"HEADERS"</span> <span class="ef-s">"LABEL"</span> <span class="ef-s">"NAME"</span> <span class="ef-s">"PLOT"</span> <span class="ef-s">"RESNAME"</span> <span class="ef-s">"RESULT"</span>
+    <span class="ef-s">"RESULTS"</span> <span class="ef-s">"SOURCE"</span> <span class="ef-s">"SRCNAME"</span> <span class="ef-s">"TBLNAME"</span>))
+
+(<span class="ef-k">defconst</span> <span class="ef-v">org-element-dual-keywords</span> '(<span class="ef-s">"CAPTION"</span> <span class="ef-s">"RESULTS"</span>)
+  <span class="ef-d">"List of affiliated keywords which can have a secondary value.
+
+In Org syntax, they can be written with optional square brackets
+before the colons.  For example, RESULTS keyword can be
+associated to a hash value with the following:
+
+  #+RESULTS[hash-string]: some-source
+
+This list is checked after translations have been applied.  See
+`</span><span class="ef-o">org-element-keyword-translation-alist</span><span class="ef-d">'."</span>)</code></pre></div>
+
+<p>
+需要注意的是，某些关键字已经过时了：
+</p>
+
+<div id="org49c51bd" class="example">
+<a class="self-link" href="#org49c51bd" aria-label="source block"></a>
+
+<pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">org-element-keyword-translation-alist</span>
+  '((<span class="ef-s">"DATA"</span> . <span class="ef-s">"NAME"</span>)  (<span class="ef-s">"LABEL"</span> . <span class="ef-s">"NAME"</span>) (<span class="ef-s">"RESNAME"</span> . <span class="ef-s">"NAME"</span>)
+    (<span class="ef-s">"SOURCE"</span> . <span class="ef-s">"NAME"</span>) (<span class="ef-s">"SRCNAME"</span> . <span class="ef-s">"NAME"</span>) (<span class="ef-s">"TBLNAME"</span> . <span class="ef-s">"NAME"</span>)
+    (<span class="ef-s">"RESULT"</span> . <span class="ef-s">"RESULTS"</span>) (<span class="ef-s">"HEADERS"</span> . <span class="ef-s">"HEADER"</span>)))</code></pre></div>
+
+<p>
+根据翻译表，现在推荐使用的 affiliated 关键字有：
+</p>
+
+<ul class="org-ul">
+<li>CAPTION (dual)</li>
+<li>NAME</li>
+<li>HEADER</li>
+<li>PLOT</li>
+<li>RESULTS (dual)</li>
+</ul>
+
+<p>
+除了 <code>comments</code>, <code>clocks</code>, <code>headings</code>, <code>inlinetasks</code>, <code>items</code>, <code>node properties</code>, <code>planning</code>, <code>property drawers</code>, <code>sections</code> 和 <code>table rows</code> 外，其他的元素都可以被赋予 <code>affiliated keyword</code> 。
+</p>
+
+<p>
+在一个元素上重复使用某个 <code>affiliated keyword</code> 将会导致先前的值被最后一个值覆盖。唯一的例外是 <code>header</code> ：
+</p>
+
+<blockquote>
+<p>
+The sole exception to this is #+header: keywords, where in the case of multiple :opt val declarations the last declaration on the first line it occurs on has priority.
+</p>
+</blockquote>
+
+<p>
+此外，如果 <code>KEY</code> 属于 <code>org-element-dual-keywords</code> 或 <code>KEY</code> 为 <code>#+attr_BACKEND</code> ，那么多个 <code>VALUE</code> 会被连接起来得到最终的 <code>VALUE</code> 。文档给出了这样的例子：
+</p>
+
+<pre class="example">
+<code>#+name: image-name
+#+caption: This is a caption for
+#+caption: the image linked below
+[[file:some/image.png]]</code></pre>
+</section>
+</section>
+
+<section id="orgnh-3.17"><div class="header-wrapper">
+<h3 id="x-orgnh-3.17"><span class="secno">3.17. </span>latex environment</h3>
+<a class="self-link" href="#orgnh-3.17" aria-label="Permalink for Section 3.17"></a>
+</div>
+<p>
+<code>latex environment</code> 具有以下结构：
+</p>
+
+<pre class="example">
+<code>\begin{NAME}EXTRA
+CONTENTS
+\end{NAME}</code></pre>
+
+<p>
+其中， <code>NAME</code> 是一个包含字母数字或 <code>*</code> 的字符串， <code>EXTRA</code> 是不含 <code>\end{NAME}</code> 内容的字符串， <code>CONTENTS</code> 是不含 <code>\end{NAME}</code> 的字符串。以下是一个简单的例子：
+</p>
+
+<pre class="example">
+<code>\begin{align*}
+2x - 5y &amp;= 8 \\
+3x + 9y &amp;= -12
+\end{align*}</code></pre>
+
+\begin{align*}
+2x - 5y &= 8 \\
+3x + 9y &= -12
+\end{align*}
+</section>
+
+<section id="orgnh-3.18"><div class="header-wrapper">
+<h3 id="x-orgnh-3.18"><span class="secno">3.18. </span>node property</h3>
+<a class="self-link" href="#orgnh-3.18" aria-label="Permalink for Section 3.18"></a>
+</div>
+<p>
+<code>node property</code> 只能存在于 <code>property drawer</code> 中，它具有如下结构：
+</p>
+
+<pre class="example">
+<code>:NAME: VALUE
+:NAME:
+:NAME+: VALUE
+:NAME+:</code></pre>
+
+<p>
+其中， <code>NAME</code> 是不含空白字符且不以 <code>+</code> 结尾的字符串， <code>VALUE</code> 是不含换行符的字符串。
+</p>
+</section>
+
+<section id="orgnh-3.19"><div class="header-wrapper">
+<h3 id="x-orgnh-3.19"><span class="secno">3.19. </span>paragraph</h3>
+<a class="self-link" href="#orgnh-3.19" aria-label="Permalink for Section 3.19"></a>
+</div>
+<p>
+<code>paragraph</code> 是默认的元素，空行和其他元素会终止段落。
+</p>
+</section>
+
+<section id="orgnh-3.20"><div class="header-wrapper">
+<h3 id="x-orgnh-3.20"><span class="secno">3.20. </span>table row</h3>
+<a class="self-link" href="#orgnh-3.20" aria-label="Permalink for Section 3.20"></a>
+</div>
+<p>
+<code>table row</code> 由 <code>|</code> 跟着以下情况组成：
+</p>
+
+<ul class="org-ul">
+<li>任意数量的 <code>table cell</code></li>
+<li>一个 <code>-</code> ，表示这是一行“规则”行</li>
+</ul>
+
+<p>
+<code>table row</code> 只能存在于 <code>table</code> 中。
+</p>
+</section>
 </section>
 
 <section id="orgnh-4"><div class="header-wrapper">
 <h2 id="x-orgnh-4"><span class="secno">4. </span>对各对象的详细介绍</h2>
 <a class="self-link" href="#orgnh-4" aria-label="Permalink for Section 4"></a>
-</div>
-</section>
-<section id="orgnh-5"><div class="header-wrapper">
-<h2 id="x-orgnh-5"><span class="secno">5. </span>org-element</h2>
-<a class="self-link" href="#orgnh-5" aria-label="Permalink for Section 5"></a>
 </div>
 </section>
 </main>
