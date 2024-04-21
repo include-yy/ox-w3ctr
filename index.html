@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2024-04-21 03:03 -->
+<!-- 2024-04-21 19:36 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>test for ox-w3ctr.el</title>
@@ -1899,7 +1899,7 @@ pre > code.src {
 <dl>
 <dt>Create Date:</dt> <dd><time datetime="2024-04-18T16:27Z">[2024-04-19 01:27]</time></dd>
 <dt>Publish Date:</dt> <dd><time datetime="2024-04-18T16:27Z">[2024-04-19 01:27]</time></dd>
-<dt>Update Date:</dt> <dd>2024-04-21 03:03</dd>
+<dt>Update Date:</dt> <dd>2024-04-21 19:36</dd>
 <dt>Creator:</dt> <dd><a href="https://www.gnu.org/software/emacs/">Emacs</a> 29.2 (<a href="https://orgmode.org">Org</a> mode 9.6.15)</dd>
 <dt>License:</dt> <dd>This work is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></dd>
 </dl>
@@ -1937,7 +1937,7 @@ pre > code.src {
 这一节属于 zeroth section，在生成时我采用了不同于 ox-html 的方法。
 </p>
 </div>
-<nav id="toc" data-count="44">
+<nav id="toc" data-count="66">
 <h2 id="table-of-contents">Table of Contents</h2>
 
 <ul class="toc">
@@ -2014,7 +2014,38 @@ pre > code.src {
 <li class="tocline"><a href="#orgnh-3.20"><span class="secno">3.20</span>table row</a></li>
 </ul>
 </li>
-<li class="tocline"><a href="#orgnh-4"><span class="secno">4</span>对各对象的详细介绍</a></li>
+<li class="tocline"><a href="#orgnh-4"><span class="secno">4</span>对各对象的详细介绍</a>
+<ul class="toc">
+<li class="tocline"><a href="#orgnh-4.1"><span class="secno">4.1</span>entity</a></li>
+<li class="tocline"><a href="#orgnh-4.2"><span class="secno">4.2</span>LaTeX fragment</a></li>
+<li class="tocline"><a href="#orgnh-4.3"><span class="secno">4.3</span>export snippet</a></li>
+<li class="tocline"><a href="#orgnh-4.4"><span class="secno">4.4</span>footnote reference</a></li>
+<li class="tocline"><a href="#orgnh-4.5"><span class="secno">4.5</span>citation</a></li>
+<li class="tocline"><a href="#orgnh-4.6"><span class="secno">4.6</span>citation reference</a></li>
+<li class="tocline"><a href="#orgnh-4.7"><span class="secno">4.7</span>inline babel call</a></li>
+<li class="tocline"><a href="#orgnh-4.8"><span class="secno">4.8</span>inline source block</a></li>
+<li class="tocline"><a href="#orgnh-4.9"><span class="secno">4.9</span>line break</a></li>
+<li class="tocline"><a href="#orgnh-4.10"><span class="secno">4.10</span>link</a>
+<ul class="toc">
+<li class="tocline"><a href="#orgnh-4.10.1"><span class="secno">4.10.1</span>radio link</a></li>
+<li class="tocline"><a href="#orgnh-4.10.2"><span class="secno">4.10.2</span>plain link</a></li>
+<li class="tocline"><a href="#orgnh-4.10.3"><span class="secno">4.10.3</span>angle link</a></li>
+<li class="tocline"><a href="#orgnh-4.10.4"><span class="secno">4.10.4</span>regular link</a></li>
+</ul>
+</li>
+<li class="tocline"><a href="#orgnh-4.11"><span class="secno">4.11</span>macro</a></li>
+<li class="tocline"><a href="#orgnh-4.12"><span class="secno">4.12</span>target and radio target</a></li>
+<li class="tocline"><a href="#orgnh-4.13"><span class="secno">4.13</span>statistics cookie</a></li>
+<li class="tocline"><a href="#orgnh-4.14"><span class="secno">4.14</span>subscript and superscript</a></li>
+<li class="tocline"><a href="#orgnh-4.15"><span class="secno">4.15</span>table cell</a></li>
+<li class="tocline"><a href="#orgnh-4.16"><span class="secno">4.16</span>timestamp</a></li>
+<li class="tocline"><a href="#orgnh-4.17"><span class="secno">4.17</span>text markup</a>
+<ul class="toc">
+<li class="tocline"><a href="#orgnh-4.17.1"><span class="secno">4.17.1</span>plain text</a></li>
+</ul>
+</li>
+</ul>
+</li>
 </ul>
 </nav>
 <script>
@@ -2083,8 +2114,8 @@ pre > code.src {
 变量 <code>org-element-all-elements</code> 提供了完整的元素列表：
 </p>
 
-<div id="orgdab6f0c" class="example">
-<a class="self-link" href="#orgdab6f0c" aria-label="source block"></a>
+<div id="org48656ce" class="example">
+<a class="self-link" href="#org48656ce" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">( babel-call center-block clock comment comment-block diary-sexp drawer
   dynamic-block example-block export-block fixed-width footnote-definition
@@ -2112,8 +2143,8 @@ pre > code.src {
 变量 <code>org-element-all-objects</code> 提供了完整的对象列表：
 </p>
 
-<div id="orga288337" class="example">
-<a class="self-link" href="#orga288337" aria-label="source block"></a>
+<div id="org102676f" class="example">
+<a class="self-link" href="#org102676f" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">( bold citation citation-reference code entity export-snippet footnote-reference
   inline-babel-call inline-src-block italic line-break latex-fragment link macro
@@ -2194,8 +2225,8 @@ org 本身最高支持无限级别的 headline，不过在导出时，最高的 
 GTD，优先级和标签的导出都是可选的，我使用了三个变量来控制是否导出这些内容，默认情况下都为 <code>nil</code> ，即都不导出：
 </p>
 
-<div id="orgecdaa6b" class="example">
-<a class="self-link" href="#orgecdaa6b" aria-label="source block"></a>
+<div id="orga0fd595" class="example">
+<a class="self-link" href="#orga0fd595" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp"><span class="ef-cd">;; </span><span class="ef-c">&lt;yy&gt; control todo, priority and tags export
 </span>(<span class="ef-b">:with-todo-keywords</span> nil <span class="ef-s">"todo"</span> t-with-todo-keywords)
@@ -2270,8 +2301,8 @@ Some text.
 上面内容对应的 AST 为：
 </p>
 
-<div id="orgbca6f0d" class="example">
-<a class="self-link" href="#orgbca6f0d" aria-label="source block"></a>
+<div id="orgb6951ae" class="example">
+<a class="self-link" href="#orgb6951ae" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(document
  (section)
@@ -2365,8 +2396,8 @@ holding contextual information."</span>
 该类 <code>org-center</code> 在 <code>ox-w3ctr</code> 中的定义如下：
 </p>
 
-<div id="org988ecdd" class="example">
-<a class="self-link" href="#org988ecdd" aria-label="source block"></a>
+<div id="org508b8f8" class="example">
+<a class="self-link" href="#org508b8f8" aria-label="source block"></a>
 
 <pre><code class="src src-css"><span class="ef-k">.org-center</span> {
     <span class="ef-f">display</span>: flex;
@@ -2417,8 +2448,8 @@ hello world
 变量 <code>org-w3ctr-html5-elements</code> 记录了会被识别为 HTML 标签的名字，如果名字不属于其中的任意一个，那么名字将成为 <code>div</code> 标签的类。在 <code>ox-w3ctr</code> 中 <code>special-block</code> 的绝大部分作用都被 <code>dynamic-block</code> 替代了。
 </p>
 
-<div id="org420313a" class="example">
-<a class="self-link" href="#org420313a" aria-label="source block"></a>
+<div id="org0a8b416" class="example">
+<a class="self-link" href="#org0a8b416" aria-label="source block"></a>
 <code>org-w3ctr-html5-elements</code> 的具体定义
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">t-html5-elements</span>
   '(<span class="ef-s">"article"</span> <span class="ef-s">"aside"</span> <span class="ef-s">"audio"</span> <span class="ef-s">"canvas"</span> <span class="ef-s">"details"</span> <span class="ef-s">"figcaption"</span>
@@ -2840,8 +2871,8 @@ Org Manual 的 <a href="https://orgmode.org/manual/Plain-Lists.html">Plain Lists
 2. [X] item 2
    - some tag :: item 2.1</code></pre>
 
-<div id="org651ca83" class="example">
-<a class="self-link" href="#org651ca83" aria-label="source block"></a>
+<div id="orga991da4" class="example">
+<a class="self-link" href="#orga991da4" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(ordered-plain-list
  (item
@@ -2997,7 +3028,7 @@ I'll not be exported
 #+END_EXPORT</code></pre>
 
 <p>
-以下代码可以导出颜色为红色的 hello world：
+以下代码可以导出颜色为红色的 hello <a href="#world">world</a>：
 </p>
 <pre class="example">
 <code>#+begin_export html
@@ -3223,8 +3254,8 @@ PLANNING</code></pre>
 当 <code>KEY</code> 是 <code>org-element-parsed-keywords</code> 中的任一成员时， <code>VALUE</code> 可以包含除 <code>footnote reference</code> 的任意标准对象（第一节提到的标准对象集合）。 <code>org-element-parsed-keywords</code> 的值如下所示：
 </p>
 
-<div id="orgf016ad2" class="example">
-<a class="self-link" href="#orgf016ad2" aria-label="source block"></a>
+<div id="org3e5d975" class="example">
+<a class="self-link" href="#org3e5d975" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">org-element-parsed-keywords =&gt; (<span class="ef-s">"CAPTION"</span>)</code></pre></div>
 
@@ -3232,8 +3263,8 @@ PLANNING</code></pre>
 在 <code>ox-html</code> 中， <code>org-html-keyword</code> 实现为可以导出 <code>HTML</code> 和 <code>TOC</code> 关键字，前者用于导出 <code>HTML</code> 代码片段，后者用于导出局部目录，我在 <code>ox-w3ctr</code> 中仅保留了 <code>HTML</code> 代码的导出：
 </p>
 
-<div id="orge0e1d19" class="example">
-<a class="self-link" href="#orge0e1d19" aria-label="source block"></a>
+<div id="org0d17f2f" class="example">
+<a class="self-link" href="#org0d17f2f" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defun</span> <span class="ef-f">t-keyword</span> (keyword _contents _info)
   <span class="ef-d">"Transcode a KEYWORD element from Org to HTML.
@@ -3287,8 +3318,8 @@ CONTENTS is nil.  INFO is a plist holding contextual information."</span>
 <code>org-element-affiliated-keyword</code> 给出了可用的 affiliated 关键字：
 </p>
 
-<div id="orgd769be4" class="example">
-<a class="self-link" href="#orgd769be4" aria-label="source block"></a>
+<div id="orgcfd34d5" class="example">
+<a class="self-link" href="#orgcfd34d5" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">org-element-affiliated-keywords</span>
   '(<span class="ef-s">"CAPTION"</span> <span class="ef-s">"DATA"</span> <span class="ef-s">"HEADER"</span> <span class="ef-s">"HEADERS"</span> <span class="ef-s">"LABEL"</span> <span class="ef-s">"NAME"</span> <span class="ef-s">"PLOT"</span> <span class="ef-s">"RESNAME"</span> <span class="ef-s">"RESULT"</span>
@@ -3310,8 +3341,8 @@ This list is checked after translations have been applied.  See
 需要注意的是，某些关键字已经过时了：
 </p>
 
-<div id="org49c51bd" class="example">
-<a class="self-link" href="#org49c51bd" aria-label="source block"></a>
+<div id="org7a5b774" class="example">
+<a class="self-link" href="#org7a5b774" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">org-element-keyword-translation-alist</span>
   '((<span class="ef-s">"DATA"</span> . <span class="ef-s">"NAME"</span>)  (<span class="ef-s">"LABEL"</span> . <span class="ef-s">"NAME"</span>) (<span class="ef-s">"RESNAME"</span> . <span class="ef-s">"NAME"</span>)
@@ -3436,6 +3467,612 @@ CONTENTS
 <h2 id="x-orgnh-4"><span class="secno">4. </span>对各对象的详细介绍</h2>
 <a class="self-link" href="#orgnh-4" aria-label="Permalink for Section 4"></a>
 </div>
+<p>
+对象可以出现在以下元素中：
+</p>
+
+<ul class="org-ul">
+<li><code>keyword</code> 的 <code>VALUES</code> 中，要求 <code>KEY</code> 属于 <code>org-element-parsed-keywords</code></li>
+<li><code>headline</code> 的 <code>TITLE</code></li>
+<li><code>inlinetask</code> 的 <code>TTILE</code></li>
+<li><code>item</code> 的 <code>TAG</code></li>
+<li><code>clock</code> 的 <code>INACTIVE-TIMESTAMP</code> 和 <code>INACTIVE-TIMESTAMP-RANGE</code> ，不过只能包含 inactive timestamp</li>
+<li><code>planning</code> 的 <code>TIMESTAMP</code> ，只能是 timestamp</li>
+<li><code>paragraph</code></li>
+<li><code>table cell</code></li>
+<li><code>table row</code> ，只能是 <code>table cell</code> 对象</li>
+<li><code>verse block</code></li>
+</ul>
+
+<section id="orgnh-4.1"><div class="header-wrapper">
+<h3 id="x-orgnh-4.1"><span class="secno">4.1. </span>entity</h3>
+<a class="self-link" href="#orgnh-4.1" aria-label="Permalink for Section 4.1"></a>
+</div>
+<p>
+在 Org 中， <code>entity</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>\NAME POST
+\NAME{}
+\_SPACES</code></pre>
+
+<p>
+其中， <code>NAME</code> 是一个存在于 <code>org-entities</code> 或 <code>org-entities-user</code> alist 中的键； <code>POST</code> 是一个非字母（non-alphabetic）字符， <code>SPACES</code> 是一个或多个空格。以下是文档给出的例子：
+</p>
+
+<pre class="example">
+<code>1\cent.
+1.5em space:\_   here, all three spaces in =\_   = constitute the entity name.</code></pre>
+
+<p>
+1&cent;.
+1.5em space:&ensp;&ensp;&ensp;here, all three spaces in =&ensp;&ensp;= constitute the entity name.
+</p>
+
+<p>
+<code>org-entities</code> 和 <code>org-entities-user</code> 的值分别如下：
+</p>
+
+<div id="org510f662" class="example">
+<a class="self-link" href="#org510f662" aria-label="source block"></a>
+
+<pre><code class="src src-emacs-lisp">org-entities =&gt;
+(<span class="ef-s">"* Letters"</span> <span class="ef-s">"** Latin"</span> (<span class="ef-s">"Agrave"</span> <span class="ef-s">"\\`{A}"</span> nil <span class="ef-s">"&amp;Agrave;"</span> <span class="ef-s">"A"</span> <span class="ef-s">"À"</span> <span class="ef-s">"À"</span>)
+ (<span class="ef-s">"agrave"</span> <span class="ef-s">"\\`{a}"</span> nil <span class="ef-s">"&amp;agrave;"</span> <span class="ef-s">"a"</span> <span class="ef-s">"à"</span> <span class="ef-s">"à"</span>) (<span class="ef-s">"Aacute"</span> <span class="ef-s">"\\'{A}"</span> nil <span class="ef-s">"&amp;Aacute;"</span> <span class="ef-s">"A"</span> <span class="ef-s">"Á"</span> <span class="ef-s">"Á"</span>)
+ (<span class="ef-s">"aacute"</span> <span class="ef-s">"\\'{a}"</span> nil <span class="ef-s">"&amp;aacute;"</span> <span class="ef-s">"a"</span> <span class="ef-s">"á"</span> <span class="ef-s">"á"</span>) (<span class="ef-s">"Acirc"</span> <span class="ef-s">"\\^{A}"</span> nil <span class="ef-s">"&amp;Acirc;"</span> <span class="ef-s">"A"</span> <span class="ef-s">"Â"</span> <span class="ef-s">"Â"</span>)
+ (<span class="ef-s">"acirc"</span> <span class="ef-s">"\\^{a}"</span> nil <span class="ef-s">"&amp;acirc;"</span> <span class="ef-s">"a"</span> <span class="ef-s">"â"</span> <span class="ef-s">"â"</span>) (<span class="ef-s">"Amacr"</span> <span class="ef-s">"</span><span class="ef-b">\\=</span><span class="ef-s">{A}"</span> nil <span class="ef-s">"&amp;Amacr;"</span> <span class="ef-s">"A"</span> <span class="ef-s">"Ã"</span> <span class="ef-s">"Ã"</span>)
+ (<span class="ef-s">"amacr"</span> <span class="ef-s">"</span><span class="ef-b">\\=</span><span class="ef-s">{a}"</span> nil <span class="ef-s">"&amp;amacr;"</span> <span class="ef-s">"a"</span> <span class="ef-s">"ã"</span> <span class="ef-s">"ã"</span>) (<span class="ef-s">"Atilde"</span> <span class="ef-s">"\\~{A}"</span> nil <span class="ef-s">"&amp;Atilde;"</span> <span class="ef-s">"A"</span> <span class="ef-s">"Ã"</span> <span class="ef-s">"Ã"</span>)
+ (<span class="ef-s">"atilde"</span> <span class="ef-s">"\\~{a}"</span> nil <span class="ef-s">"&amp;atilde;"</span> <span class="ef-s">"a"</span> <span class="ef-s">"ã"</span> <span class="ef-s">"ã"</span>) ...)
+(length org-entities) =&gt; 435
+
+org-entities-user =&gt; nil</code></pre></div>
+</section>
+
+<section id="orgnh-4.2"><div class="header-wrapper">
+<h3 id="x-orgnh-4.2"><span class="secno">4.2. </span>LaTeX fragment</h3>
+<a class="self-link" href="#orgnh-4.2" aria-label="Permalink for Section 4.2"></a>
+</div>
+<p>
+<code>LaTex fragment</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>\NAME BRACKETS
+\(CONTENTS\)
+\[CONTENTS\]</code></pre>
+
+<p>
+其中， <code>NAME</code> 是不存在于 <code>org-entites</code> 和 <code>org-entites-user</code> alist 的字符串， <code>BRACKETS</code> 是以下结构，它与 <code>NAME</code> 间不能存在空格：
+</p>
+
+<pre class="example">
+<code>[CONTENTS1]
+{CONTENTS1}</code></pre>
+
+<p>
+<code>CONTENTS1</code> 不能包含 <code>{}[]</code> 和换行符， <code>CONTENTS2</code> 不能包含 <code>{}</code> 和换行符。以下是一些例子：
+</p>
+
+<pre class="example">
+<code>\enlargethispage{2\baselineskip}
+\caption{Emacs development timeline}</code></pre>
+
+<p>
+但是，这种 <code>LaTeX fragment</code> 似乎在 LaTeX 后端会更加有用，在 HTML 后端中它们保持了原样。
+</p>
+
+<p>
+对于第二种和第三种 <code>LaTeX fragment</code> ， <code>CONTENTS</code> 是可以包含任意字符的字符串，不过第二种不能包含 <code>\)</code> ，第三种不能包含 <code>\]</code> ，以下是两个简单的例子：
+</p>
+
+<pre class="example">
+<code>\(\left(\begin{matrix}y_0\\y_1\\y_2\\\vdots\\y_{N-1}\end{matrix}\right) = \left(\begin{matrix}1&amp;1&amp;1&amp;\dots&amp;1\\1&amp;W_N^1&amp;W_N^2&amp;\dots&amp;W_N^{N-1}\\1&amp;W_N^2&amp;W_N^4&amp;\dots&amp;W_N^{2(N-1)}\\\vdots&amp;\vdots&amp;\vdots&amp;\cdots&amp;\vdots\\1&amp;W_N^{N-1}&amp;W_N^{2(N-1)}&amp;\dots&amp;W_N^{(N-1)^2}\end{matrix}\right) \left(\begin{matrix}x_0\\x_1\\x_2\\\vdots\\x_{N-1}\end{matrix}\right)\)
+
+\[x_n = \frac1N \sum\limits_{k=0}^{N-1}e^{2\pi ik\frac nN}y_k \quad (n=0, 1, 2, \dots, N-1)\]</code></pre>
+
+<p>
+\(\left(\begin{matrix}y_0\\y_1\\y_2\\\vdots\\y_{N-1}\end{matrix}\right) = \left(\begin{matrix}1&1&1&\dots&1\\1&W_N^1&W_N^2&\dots&W_N^{N-1}\\1&W_N^2&W_N^4&\dots&W_N^{2(N-1)}\\\vdots&\vdots&\vdots&\cdots&\vdots\\1&W_N^{N-1}&W_N^{2(N-1)}&\dots&W_N^{(N-1)^2}\end{matrix}\right) \left(\begin{matrix}x_0\\x_1\\x_2\\\vdots\\x_{N-1}\end{matrix}\right)\)
+</p>
+
+<p>
+\[x_n = \frac1N \sum\limits_{k=0}^{N-1}e^{2\pi ik\frac nN}y_k \quad (n=0, 1, 2, \dots, N-1)\]
+</p>
+
+<p>
+除了上面几种形式，Org 也支持 TeX 风格的 <code>LaTeX fragment</code> ：
+</p>
+
+<pre class="example">
+<code>$$CONTENTS$$
+PRE$CHAR$POST
+PRE$BORDER1 BODY BORDER2$POST</code></pre>
+
+<p>
+其中：
+</p>
+
+<dl class="org-dl">
+<dt>PRE</dt><dd>一行的开头或任意非 <code>$</code> 符号的字符</dd>
+<dt>CHAR</dt><dd>不是 <code>.,?;"</code> 的非空白字符</dd>
+<dt>POST</dt><dd>任何标点符号（包括括号和引号）、空格字符或行尾</dd>
+<dt>BORDER1</dt><dd>不是 <code>.,;$</code> 的非空白字符</dd>
+<dt>BODY</dt><dd>不含 <code>$</code> 的任意字符串</dd>
+<dt>BORDER2</dt><dd>不是 <code>.,;$</code> 的非空白字符</dd>
+</dl>
+</section>
+
+<section id="orgnh-4.3"><div class="header-wrapper">
+<h3 id="x-orgnh-4.3"><span class="secno">4.3. </span>export snippet</h3>
+<a class="self-link" href="#orgnh-4.3" aria-label="Permalink for Section 4.3"></a>
+</div>
+<p>
+<code>export snippet</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>@@BACKEND:VALUE@@</code></pre>
+
+<p>
+其中 <code>BACKEND</code> 是某导出后端的名字， <code>VALUE</code> 是不含 <code>@@</code> 的任意字符串。简单的例子如下：
+</p>
+
+<pre class="example">
+<code>@@html:&lt;ins&gt;我是插入标签&lt;/ins&gt;@@ @@html:&lt;del&gt;我是删除标签&lt;/del&gt;@@</code></pre>
+
+<p>
+<ins>我是插入标签</ins> <del>我是删除标签</del>
+</p>
+</section>
+
+<section id="orgnh-4.4"><div class="header-wrapper">
+<h3 id="x-orgnh-4.4"><span class="secno">4.4. </span>footnote reference</h3>
+<a class="self-link" href="#orgnh-4.4" aria-label="Permalink for Section 4.4"></a>
+</div>
+<p>
+<code>footnote reference</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>[fn:LABEL]
+[fn:LABEL:DEFINITION]
+[fn::DEFINITION]</code></pre>
+
+<p>
+其中， <code>LABEL</code> 是一个不含空格的字符串，可包含 <code>-_</code> ； <code>DEFINITION</code> 是标准对象，我们已经在 <code>footnote definition</code> 对这种对象进行了简单的举例，此处不再赘述。
+</p>
+</section>
+
+<section id="orgnh-4.5"><div class="header-wrapper">
+<h3 id="x-orgnh-4.5"><span class="secno">4.5. </span>citation</h3>
+<a class="self-link" href="#orgnh-4.5" aria-label="Permalink for Section 4.5"></a>
+</div>
+<p>
+<code>citation</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>[cite CITESTYLE: REFERENCES]
+[cite CITESTYLE: GLOBALPREFIX;REFERENCES]
+[cite CITESTYLE: REFERENCES;GLOBALSUFFIX]
+[cite CITESTYLE: GLOBALPREFIX;REFERENCES;GLOBALSUFFIX]</code></pre>
+
+<p>
+文档中给出了如下例子：
+</p>
+
+<pre class="example">
+<code>[cite:@key]
+[cite/t: see;@source1;@source2;by Smith /et al./]</code></pre>
+
+<p>
+<code>ox-html</code> 没有导出 <code>citation</code> ， <code>ox-w3ctr</code> 也是。
+</p>
+</section>
+
+<section id="orgnh-4.6"><div class="header-wrapper">
+<h3 id="x-orgnh-4.6"><span class="secno">4.6. </span>citation reference</h3>
+<a class="self-link" href="#orgnh-4.6" aria-label="Permalink for Section 4.6"></a>
+</div>
+<p>
+<code>citation reference</code> 只能存在于 <code>citation</code> 中，且具有如下结构：
+</p>
+
+<pre class="example">
+<code>KEYPREFIX @KEY KEYSUFFIX</code></pre>
+
+<p>
+文档给出了如下例子：
+</p>
+
+<pre class="example">
+<code>[cite:@key]
+[cite/t:see;@foo p. 7;@bar pp. 4;by foo]
+[cite/a/f:c.f.;the very important @@atkey @ once;the crucial @baz vol. 3]</code></pre>
+
+<p>
+同样， <code>ox-html</code> 不导出 <code>citation reference</code> 。
+</p>
+</section>
+
+<section id="orgnh-4.7"><div class="header-wrapper">
+<h3 id="x-orgnh-4.7"><span class="secno">4.7. </span>inline babel call</h3>
+<a class="self-link" href="#orgnh-4.7" aria-label="Permalink for Section 4.7"></a>
+</div>
+<p>
+<code>inline babel call</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>call_NAME(ARGUMENTS)
+call_NAME[HEADER1](ARGUMENTS)
+call_NAME(ARGUMENTS)[HEADER2]
+call_NAME[HEADER1](ARGUMENTS)[HEADER2]</code></pre>
+
+<p>
+其中， <code>NAME</code> 是包含除 <code>[]()</code> 字符外任意字符的字符串， <code>ARGUMENTS</code>, <code>HEADER1</code> 和 <code>HEADER2</code> 是不含换行符的字符串，且括号必须配平。
+</p>
+</section>
+
+<section id="orgnh-4.8"><div class="header-wrapper">
+<h3 id="x-orgnh-4.8"><span class="secno">4.8. </span>inline source block</h3>
+<a class="self-link" href="#orgnh-4.8" aria-label="Permalink for Section 4.8"></a>
+</div>
+<p>
+<code>inline source block</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>src_LANG{BODY}
+src_LANG[HEADERS]{BODY}</code></pre>
+
+<p>
+其中， <code>LANG</code> 是不含空格和 <code>[{</code> 的字符串，表示块中的语言； <code>HEADERS</code> 和 <code>BODY</code> 是不含换行符的字符串， <code>HEADER</code> 中的方括号要求配平， <code>BODY</code> 中的大括号要求配平。
+</p>
+
+<p>
+以下是一段简单的 C 代码例子：
+</p>
+
+<pre class="example">
+<code>src_c{int a = 114514; printf("%d\n", a);}</code></pre>
+
+<p>
+<code class="src-inline src-c"><code class="src src-c"><span class="ef-t">int</span> <span class="ef-v">a</span> = 114514; printf(<span class="ef-s">"%d\n"</span>, a);</code></code>
+</p>
+</section>
+
+<section id="orgnh-4.9"><div class="header-wrapper">
+<h3 id="x-orgnh-4.9"><span class="secno">4.9. </span>line break</h3>
+<a class="self-link" href="#orgnh-4.9" aria-label="Permalink for Section 4.9"></a>
+</div>
+<p>
+<code>line break</code> 即换行符，它具有以下结构：
+</p>
+
+<pre class="example">
+<code>PRE\\SPACE</code></pre>
+
+<p>
+其中， <code>PRE</code> 是除 <code>\</code> 外的任意东西， <code>SPACE</code> 是 0 个或多个 <code>TAB</code> 或 <code>SPACE</code> 字符。以下是一个简单的例子：
+</p>
+
+<pre class="example">
+<code>1 \\
+2 \\
+3</code></pre>
+
+<p>
+1 <br>
+2 <br>
+3
+</p>
+
+<p>
+在 <code>ox-html</code> 中， <code>line break</code> 实现为 <code>&lt;br&gt;</code> 标签。
+</p>
+</section>
+
+<section id="orgnh-4.10"><div class="header-wrapper">
+<h3 id="x-orgnh-4.10"><span class="secno">4.10. </span>link</h3>
+<a class="self-link" href="#orgnh-4.10" aria-label="Permalink for Section 4.10"></a>
+</div>
+<p>
+在 Org 中 link 的种类很多，包括 <code>radio</code>, <code>angle</code>, <code>plain</code> 和 <code>regular</code> 。
+</p>
+
+<section id="orgnh-4.10.1"><div class="header-wrapper">
+<h4 id="x-orgnh-4.10.1"><span class="secno">4.10.1. </span>radio link</h4>
+<a class="self-link" href="#orgnh-4.10.1" aria-label="Permalink for Section 4.10.1"></a>
+</div>
+<p>
+<code>radio link</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>PRE RADIO POST</code></pre>
+
+<p>
+其中 <code>PRE</code> 是非字母字符， <code>RADIO</code> 是一个或多个由 <code>radio target</code> 匹配的对象，它只能是最小对象（见第一节对最小对象的描述）， <code>POST</code> 是非字母字符。下面是一个简单的例子：
+</p>
+
+<pre class="example">
+<code>This is some &lt;&lt;&lt;*important* information&gt;&gt;&gt; which we refer to lots.
+Make sure you remember the *important* information.</code></pre>
+
+<p>
+This is some <a id="org119067d"><b>important</b> information</a> which we refer to lots. Make sure you remember the <a href="#org119067d"><b>important</b> information</a>. 读者可打开 HTML 源代码查看链接及标签的 id 属性。
+</p>
+
+<p>
+在 <code>ox-html</code> 中，若 <code>:html-prefer-user-labels</code> 在导出过程中的值非 <code>nil</code> ，那么 <code>radio target</code> 的 id 会使用它的字符串内容，但是标准 HTML id 要求满足 <code>[a-zA-Z][a-zA-Z0-9-_]*</code> 正则匹配，生成的 id 可能不和规范。在 <code>ox-w3ctr</code> 中我默认 <code>:html-prefer-user-labels</code> 为 <code>t</code> ，并检测 <code>radio target</code> 内容是否符合 id 要求，若不符合则生成随机 id。
+</p>
+</section>
+
+<section id="orgnh-4.10.2"><div class="header-wrapper">
+<h4 id="x-orgnh-4.10.2"><span class="secno">4.10.2. </span>plain link</h4>
+<a class="self-link" href="#orgnh-4.10.2" aria-label="Permalink for Section 4.10.2"></a>
+</div>
+<p>
+<code>plain link</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>PRE LINKTYPE:PATHPLAIN POST</code></pre>
+
+<p>
+其中， <code>PRE</code> 是一个不组成 word 的字符， <code>LINKTYPE</code> 是 <code>org-link-parameters</code> 中的一种链接类型， <code>PATHPLAIN</code> 是链接， <code>POST</code> 和 <code>PRE</code> 同理。以下是一个简单的例子：
+</p>
+
+<pre class="example">
+<code>Be sure to look at https://orgmode.org.</code></pre>
+
+<p>
+Be sure to look at <a href="https://orgmode.org">https://orgmode.org</a>.
+</p>
+</section>
+
+<section id="orgnh-4.10.3"><div class="header-wrapper">
+<h4 id="x-orgnh-4.10.3"><span class="secno">4.10.3. </span>angle link</h4>
+<a class="self-link" href="#orgnh-4.10.3" aria-label="Permalink for Section 4.10.3"></a>
+</div>
+<p>
+<code>angle link</code> 可以用来消除 <code>plain link</code> 与周围文本的歧义，具有如下结构：
+</p>
+
+<pre class="example">
+<code>&lt;LINKTYPE:PATHANGLE&gt;</code></pre>
+
+<p>
+其中的 <code>LINKTYPE</code> 和 <code>PATHANGLE</code> 和 <code>plain link</code> 具有相同含义。
+</p>
+</section>
+
+<section id="orgnh-4.10.4"><div class="header-wrapper">
+<h4 id="x-orgnh-4.10.4"><span class="secno">4.10.4. </span>regular link</h4>
+<a class="self-link" href="#orgnh-4.10.4" aria-label="Permalink for Section 4.10.4"></a>
+</div>
+<p>
+<code>regular link</code> 具有以下两种形式：
+</p>
+
+<pre class="example">
+<code>[[PATHREG]]
+[[PATHREG][DESCRIPTION]]</code></pre>
+
+<p>
+其中， <code>PATHREG</code> 可以是以下形式：
+</p>
+
+<pre class="example">
+<code>FILENAME               ("file" type)
+LINKTYPE:PATHINNER     ("LINKTYPE" type)
+LINKTYPE://PATHINNER   ("LINKTYPE" type)
+id:ID                  ("id" type)
+#CUSTOM-ID             ("custom-id" type)
+(CODEREF)              ("coderef" type)
+FUZZY                  ("fuzzy" type)</code></pre>
+
+<p>
+以下是一些例子：
+</p>
+
+<pre class="example">
+<code>[[https://orgmode.org][The Org project homepage]]
+[[file:orgmanual.org]]
+[[Regular links]]</code></pre>
+</section>
+</section>
+
+<section id="orgnh-4.11"><div class="header-wrapper">
+<h3 id="x-orgnh-4.11"><span class="secno">4.11. </span>macro</h3>
+<a class="self-link" href="#orgnh-4.11" aria-label="Permalink for Section 4.11"></a>
+</div>
+<p>
+<code>macro</code> 调用具有以下两种形式：
+</p>
+
+<pre class="example">
+<code>{{{NAME}}}
+{{{NAME(ARGUMENTS)}}}</code></pre>
+
+<p>
+其中， <code>NAME</code> 是宏的名字，满足正则 <code>[a-zA-Z0-9-_]</code> ， <code>ARGUMENTS</code> 是宏参数。以下是一些例子：
+</p>
+
+<pre class="example">
+<code>{{{title}}}
+{{{one_arg_macro(1)}}}
+{{{two_arg_macro(1, 2)}}}
+{{{two_arg_macro(1\,a, 2)}}}</code></pre>
+</section>
+
+<section id="orgnh-4.12"><div class="header-wrapper">
+<h3 id="x-orgnh-4.12"><span class="secno">4.12. </span>target and radio target</h3>
+<a class="self-link" href="#orgnh-4.12" aria-label="Permalink for Section 4.12"></a>
+</div>
+<p>
+<code>target</code> 具有如下形式：
+</p>
+
+<pre class="example">
+<code>&lt;&lt;TARGET&gt;&gt;</code></pre>
+
+<p>
+其中 <code>TARGET</code> 不能包含 <code>&lt;&gt;</code> 和换行符，且不能以空白字符起始或结尾。
+</p>
+
+<p>
+<code>radio target</code> 具有以下形式：
+</p>
+
+<pre class="example">
+<code>&lt;&lt;&lt;CONTENTS&gt;&gt;&gt;</code></pre>
+
+<p>
+其中的 <code>CONTENTS</code> 必须来自最小对象集合，且不含 <code>&lt;&gt;</code> 和换行符。
+</p>
+
+<p>
+以下是 <code>target</code> 和 <code>radio target</code> 的两个简单例子，读者可以打开 HTML 源代码查看其 id 以及标签：
+</p>
+
+<pre class="example">
+<code>&lt;&lt;hello&gt;&gt;, &lt;&lt;&lt;world&gt;&gt;&gt; &lt;&lt;this is a target&gt;&gt;, &lt;&lt;&lt;me too&gt;&gt;&gt;</code></pre>
+
+<p>
+<a id="hello"></a>, <a id="world">world</a> <a id="orgb116512"></a>, <a id="orgb1e8c01">me too</a>
+</p>
+</section>
+
+<section id="orgnh-4.13"><div class="header-wrapper">
+<h3 id="x-orgnh-4.13"><span class="secno">4.13. </span>statistics cookie</h3>
+<a class="self-link" href="#orgnh-4.13" aria-label="Permalink for Section 4.13"></a>
+</div>
+<p>
+<code>statistics cookie</code> 具有如下结构：
+</p>
+
+<pre class="example">
+<code>[PERCENT%]
+[NUM1/NUM2]</code></pre>
+
+<p>
+它可以用来统计完成情况，比如如下列表：
+</p>
+
+<pre class="example">
+<code>- Hello [2/3] [66%]
+  - [X] one
+  - [X] two
+  - [ ] three</code></pre>
+
+<ul class="org-ul">
+<li>Hello <code>[2/3]</code> <code>[66%]</code>
+<ul class="org-ul">
+<li class="on">&#x2611; one</li>
+<li class="on">&#x2611; two</li>
+<li class="off">&#x2610; three</li>
+</ul></li>
+</ul>
+
+<p>
+在 <code>ox-html</code> 中它实现为 <code>&lt;code&gt;</code> 标签包围的文本。
+</p>
+</section>
+
+<section id="orgnh-4.14"><div class="header-wrapper">
+<h3 id="x-orgnh-4.14"><span class="secno">4.14. </span>subscript and superscript</h3>
+<a class="self-link" href="#orgnh-4.14" aria-label="Permalink for Section 4.14"></a>
+</div>
+<p>
+<code>subscript</code> 和 <code>superscript</code> 的结构如下：
+</p>
+
+<pre class="example">
+<code>CHAR_SCRIPT
+CHAR^SCRIPT</code></pre>
+
+<p>
+其中 <code>CHAR</code> 为任意非空格字符， <code>SCRIPT</code> 可以是如下情况：
+</p>
+
+<ul class="org-ul">
+<li>单个 <code>*</code> 号</li>
+<li>使用大括号包围的表达式，表达式本身应该是大括号配平的，且属于标准对象集合</li>
+<li><p>
+如下形式：
+</p>
+<pre class="example">
+<code>SIGN CHARS FINAL</code></pre>
+
+<p>
+其中 <code>SIGN</code> 可以是 <code>+</code> 或 <code>-</code> 或空字符串， <code>CHARS</code> 由任意数量的 <code>[a-zA-Z0-9]</code>, <code>,</code>, <code>\</code> 和 <code>.</code> 组成, <code>FINAL</code> 是一个 <code>[a-zA-Z0-9]</code> 字符
+</p></li>
+</ul>
+</section>
+
+
+<section id="orgnh-4.15"><div class="header-wrapper">
+<h3 id="x-orgnh-4.15"><span class="secno">4.15. </span>table cell</h3>
+<a class="self-link" href="#orgnh-4.15" aria-label="Permalink for Section 4.15"></a>
+</div>
+<p>
+<code>table cell</code> 为如下形式：
+</p>
+
+<pre class="example">
+<code>CONTENTS SPACES|
+CONTENTS SPACES END-OF-LINE</code></pre>
+
+<p>
+其中 <code>CONTENTS</code> 不能包含 <code>|</code> 字符，且必须只能包含最小对象集合内的对象加上 <code>citation</code>, <code>export snippet</code>, <code>footnote reference</code>, <code>link</code>, <code>macro</code>, <code>radio target</code>, <code>target</code> 和 <code>timestamp</code> 。
+</p>
+</section>
+
+<section id="orgnh-4.16"><div class="header-wrapper">
+<h3 id="x-orgnh-4.16"><span class="secno">4.16. </span>timestamp</h3>
+<a class="self-link" href="#orgnh-4.16" aria-label="Permalink for Section 4.16"></a>
+</div>
+<p>
+<code>timestamp</code> 可以是如下形式：
+</p>
+
+<pre class="example">
+<code>&lt;%%(SEXP)&gt;                                                     (diary)
+&lt;DATE TIME REPEATER-OR-DELAY&gt;                                  (active)
+[DATE TIME REPEATER-OR-DELAY]                                  (inactive)
+&lt;DATE TIME REPEATER-OR-DELAY&gt;--&lt;DATE TIME REPEATER-OR-DELAY&gt;   (active range)
+&lt;DATE TIME-TIME REPEATER-OR-DELAY&gt;                             (active range)
+[DATE TIME REPEATER-OR-DELAY]--[DATE TIME REPEATER-OR-DELAY]   (inactive range)
+[DATE TIME-TIME REPEATER-OR-DELAY]                             (inactive range)</code></pre>
+</section>
+
+<section id="orgnh-4.17"><div class="header-wrapper">
+<h3 id="x-orgnh-4.17"><span class="secno">4.17. </span>text markup</h3>
+<a class="self-link" href="#orgnh-4.17" aria-label="Permalink for Section 4.17"></a>
+</div>
+<pre class="example">
+<code>PRE MARKER CONTENTS MARKER POST</code></pre>
+
+<ul class="org-ul">
+<li><code>*</code>, a bold object, <b>粗体</b></li>
+<li><code>/</code>, an italic object, <i>斜体</i></li>
+<li><code>_</code>, an underline object, <span class="underline">下划线</span></li>
+<li><code>=</code>, a verbatim object, <code>引述</code></li>
+<li><code>~</code>, a code object, <code>代码</code></li>
+<li><code>+</code>, a strike-through object. <del>删除线</del></li>
+</ul>
+
+<section id="orgnh-4.17.1"><div class="header-wrapper">
+<h4 id="x-orgnh-4.17.1"><span class="secno">4.17.1. </span>plain text</h4>
+<a class="self-link" href="#orgnh-4.17.1" aria-label="Permalink for Section 4.17.1"></a>
+</div>
+<p>
+什么对象也不是的对象就是 <code>plain text</code> 。
+</p>
+</section>
+</section>
 </section>
 </main>
 <div id="references">

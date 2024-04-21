@@ -1052,4 +1052,477 @@ CONTENTS
 
 =table row= 只能存在于 =table= 中。
 
-* 对各对象的详细介绍 :ARCHIVE:
+* 对各对象的详细介绍
+
+对象可以出现在以下元素中：
+
+- =keyword= 的 =VALUES= 中，要求 =KEY= 属于 =org-element-parsed-keywords=
+- =headline= 的 =TITLE=
+- =inlinetask= 的 =TTILE=
+- =item= 的 =TAG=
+- =clock= 的 =INACTIVE-TIMESTAMP= 和 =INACTIVE-TIMESTAMP-RANGE= ，不过只能包含 inactive timestamp
+- =planning= 的 =TIMESTAMP= ，只能是 timestamp
+- =paragraph=
+- =table cell=
+- =table row= ，只能是 =table cell= 对象
+- =verse block=
+
+** entity
+
+在 Org 中， =entity= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+\NAME POST
+\NAME{}
+\_SPACES
+#+end_example
+
+其中， =NAME= 是一个存在于 =org-entities= 或 =org-entities-user= alist 中的键； =POST= 是一个非字母（non-alphabetic）字符， =SPACES= 是一个或多个空格。以下是文档给出的例子：
+
+#+attr_html: :class example
+#+begin_example
+1\cent.
+1.5em space:\_   here, all three spaces in =\_   = constitute the entity name.
+#+end_example
+
+1\cent.
+1.5em space:\_   here, all three spaces in =\_  = constitute the entity name.
+
+=org-entities= 和 =org-entities-user= 的值分别如下：
+
+#+caption:
+#+begin_src elisp
+  org-entities =>
+  ("* Letters" "** Latin" ("Agrave" "\\`{A}" nil "&Agrave;" "A" "À" "À")
+   ("agrave" "\\`{a}" nil "&agrave;" "a" "à" "à") ("Aacute" "\\'{A}" nil "&Aacute;" "A" "Á" "Á")
+   ("aacute" "\\'{a}" nil "&aacute;" "a" "á" "á") ("Acirc" "\\^{A}" nil "&Acirc;" "A" "Â" "Â")
+   ("acirc" "\\^{a}" nil "&acirc;" "a" "â" "â") ("Amacr" "\\={A}" nil "&Amacr;" "A" "Ã" "Ã")
+   ("amacr" "\\={a}" nil "&amacr;" "a" "ã" "ã") ("Atilde" "\\~{A}" nil "&Atilde;" "A" "Ã" "Ã")
+   ("atilde" "\\~{a}" nil "&atilde;" "a" "ã" "ã") ...)
+  (length org-entities) => 435
+
+  org-entities-user => nil
+#+end_src
+
+** LaTeX fragment
+
+=LaTex fragment= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+\NAME BRACKETS
+\(CONTENTS\)
+\[CONTENTS\]
+#+end_example
+
+其中， =NAME= 是不存在于 =org-entites= 和 =org-entites-user= alist 的字符串， =BRACKETS= 是以下结构，它与 =NAME= 间不能存在空格：
+
+#+attr_html: :class example
+#+begin_example
+[CONTENTS1]
+{CONTENTS1}
+#+end_example
+
+=CONTENTS1= 不能包含 ={}[]= 和换行符， =CONTENTS2= 不能包含 ={}= 和换行符。以下是一些例子：
+
+#+attr_html: :class example
+#+begin_example
+\enlargethispage{2\baselineskip}
+\caption{Emacs development timeline}
+#+end_example
+
+但是，这种 =LaTeX fragment= 似乎在 LaTeX 后端会更加有用，在 HTML 后端中它们保持了原样。
+
+对于第二种和第三种 =LaTeX fragment= ， =CONTENTS= 是可以包含任意字符的字符串，不过第二种不能包含 =\)= ，第三种不能包含 =\]= ，以下是两个简单的例子：
+
+#+attr_html: :class example
+#+begin_example
+\(\left(\begin{matrix}y_0\\y_1\\y_2\\\vdots\\y_{N-1}\end{matrix}\right) = \left(\begin{matrix}1&1&1&\dots&1\\1&W_N^1&W_N^2&\dots&W_N^{N-1}\\1&W_N^2&W_N^4&\dots&W_N^{2(N-1)}\\\vdots&\vdots&\vdots&\cdots&\vdots\\1&W_N^{N-1}&W_N^{2(N-1)}&\dots&W_N^{(N-1)^2}\end{matrix}\right) \left(\begin{matrix}x_0\\x_1\\x_2\\\vdots\\x_{N-1}\end{matrix}\right)\)
+
+\[x_n = \frac1N \sum\limits_{k=0}^{N-1}e^{2\pi ik\frac nN}y_k \quad (n=0, 1, 2, \dots, N-1)\]
+#+end_example
+
+\(\left(\begin{matrix}y_0\\y_1\\y_2\\\vdots\\y_{N-1}\end{matrix}\right) = \left(\begin{matrix}1&1&1&\dots&1\\1&W_N^1&W_N^2&\dots&W_N^{N-1}\\1&W_N^2&W_N^4&\dots&W_N^{2(N-1)}\\\vdots&\vdots&\vdots&\cdots&\vdots\\1&W_N^{N-1}&W_N^{2(N-1)}&\dots&W_N^{(N-1)^2}\end{matrix}\right) \left(\begin{matrix}x_0\\x_1\\x_2\\\vdots\\x_{N-1}\end{matrix}\right)\)
+
+\[x_n = \frac1N \sum\limits_{k=0}^{N-1}e^{2\pi ik\frac nN}y_k \quad (n=0, 1, 2, \dots, N-1)\]
+
+除了上面几种形式，Org 也支持 TeX 风格的 =LaTeX fragment= ：
+
+#+attr_html: :class example
+#+begin_example
+$$CONTENTS$$
+PRE$CHAR$POST
+PRE$BORDER1 BODY BORDER2$POST
+#+end_example
+
+其中：
+
+- PRE :: 一行的开头或任意非 =$= 符号的字符
+- CHAR :: 不是 =.,?;"= 的非空白字符
+- POST :: 任何标点符号（包括括号和引号）、空格字符或行尾
+- BORDER1 :: 不是 =.,;$= 的非空白字符
+- BODY :: 不含 =$= 的任意字符串
+- BORDER2 :: 不是 =.,;$= 的非空白字符
+
+** export snippet
+
+=export snippet= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+@@BACKEND:VALUE@@
+#+end_example
+
+其中 =BACKEND= 是某导出后端的名字， =VALUE= 是不含 =@@= 的任意字符串。简单的例子如下：
+
+#+attr_html: :class example
+#+begin_example
+@@html:<ins>我是插入标签</ins>@@ @@html:<del>我是删除标签</del>@@
+#+end_example
+
+@@html:<ins>我是插入标签</ins>@@ @@html:<del>我是删除标签</del>@@
+
+** footnote reference
+
+=footnote reference= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+[fn:LABEL]
+[fn:LABEL:DEFINITION]
+[fn::DEFINITION]
+#+end_example
+
+其中， =LABEL= 是一个不含空格的字符串，可包含 =-_= ； =DEFINITION= 是标准对象，我们已经在 =footnote definition= 对这种对象进行了简单的举例，此处不再赘述。
+
+** citation
+
+=citation= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+[cite CITESTYLE: REFERENCES]
+[cite CITESTYLE: GLOBALPREFIX;REFERENCES]
+[cite CITESTYLE: REFERENCES;GLOBALSUFFIX]
+[cite CITESTYLE: GLOBALPREFIX;REFERENCES;GLOBALSUFFIX]
+#+end_example
+
+文档中给出了如下例子：
+
+#+attr_html: :class example
+#+begin_example
+[cite:@key]
+[cite/t: see;@source1;@source2;by Smith /et al./]
+#+end_example
+
+=ox-html= 没有导出 =citation= ， =ox-w3ctr= 也是。
+
+** citation reference
+
+=citation reference= 只能存在于 =citation= 中，且具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+KEYPREFIX @KEY KEYSUFFIX
+#+end_example
+
+文档给出了如下例子：
+
+#+attr_html: :class example
+#+begin_example
+[cite:@key]
+[cite/t:see;@foo p. 7;@bar pp. 4;by foo]
+[cite/a/f:c.f.;the very important @@atkey @ once;the crucial @baz vol. 3]
+#+end_example
+
+同样， =ox-html= 不导出 =citation reference= 。
+
+** inline babel call
+
+=inline babel call= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+call_NAME(ARGUMENTS)
+call_NAME[HEADER1](ARGUMENTS)
+call_NAME(ARGUMENTS)[HEADER2]
+call_NAME[HEADER1](ARGUMENTS)[HEADER2]
+#+end_example
+
+其中， =NAME= 是包含除 =[]()= 字符外任意字符的字符串， =ARGUMENTS=, =HEADER1= 和 =HEADER2= 是不含换行符的字符串，且括号必须配平。
+
+** inline source block
+
+=inline source block= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+src_LANG{BODY}
+src_LANG[HEADERS]{BODY}
+#+end_example
+
+其中， =LANG= 是不含空格和 =[{= 的字符串，表示块中的语言； =HEADERS= 和 =BODY= 是不含换行符的字符串， =HEADER= 中的方括号要求配平， =BODY= 中的大括号要求配平。
+
+以下是一段简单的 C 代码例子：
+
+#+attr_html: :class example
+#+begin_example
+src_c{int a = 114514; printf("%d\n", a);}
+#+end_example
+
+src_c{int a = 114514; printf("%d\n", a);}
+
+** line break
+
+=line break= 即换行符，它具有以下结构：
+
+#+attr_html: :class example
+#+begin_example
+PRE\\SPACE
+#+end_example
+
+其中， =PRE= 是除 =\= 外的任意东西， =SPACE= 是 0 个或多个 =TAB= 或 =SPACE= 字符。以下是一个简单的例子：
+
+#+attr_html: :class example
+#+begin_example
+1 \\
+2 \\
+3
+#+end_example
+
+1 \\
+2 \\
+3
+
+在 =ox-html= 中， =line break= 实现为 =<br>= 标签。
+
+** link
+
+在 Org 中 link 的种类很多，包括 =radio=, =angle=, =plain= 和 =regular= 。
+
+*** radio link
+
+=radio link= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+PRE RADIO POST
+#+end_example
+
+其中 =PRE= 是非字母字符， =RADIO= 是一个或多个由 =radio target= 匹配的对象，它只能是最小对象（见第一节对最小对象的描述）， =POST= 是非字母字符。下面是一个简单的例子：
+
+#+attr_html: :class example
+#+begin_example
+This is some <<<*important* information>>> which we refer to lots.
+Make sure you remember the *important* information.
+#+end_example
+
+This is some <<<*important* information>>> which we refer to lots. Make sure you remember the *important* information. 读者可打开 HTML 源代码查看链接及标签的 id 属性。
+
+在 =ox-html= 中，若 =:html-prefer-user-labels= 在导出过程中的值非 =nil= ，那么 =radio target= 的 id 会使用它的字符串内容，但是标准 HTML id 要求满足 =[a-zA-Z][a-zA-Z0-9-_]*= 正则匹配，生成的 id 可能不和规范。在 =ox-w3ctr= 中我默认 =:html-prefer-user-labels= 为 =t= ，并检测 =radio target= 内容是否符合 id 要求，若不符合则生成随机 id。
+
+*** plain link
+
+=plain link= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+PRE LINKTYPE:PATHPLAIN POST
+#+end_example
+
+其中， =PRE= 是一个不组成 word 的字符， =LINKTYPE= 是 =org-link-parameters= 中的一种链接类型， =PATHPLAIN= 是链接， =POST= 和 =PRE= 同理。以下是一个简单的例子：
+
+#+attr_html: :class example
+#+begin_example
+Be sure to look at https://orgmode.org.
+#+end_example
+
+Be sure to look at https://orgmode.org.
+
+*** angle link
+
+=angle link= 可以用来消除 =plain link= 与周围文本的歧义，具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+<LINKTYPE:PATHANGLE>
+#+end_example
+
+其中的 =LINKTYPE= 和 =PATHANGLE= 和 =plain link= 具有相同含义。
+
+*** regular link
+
+=regular link= 具有以下两种形式：
+
+#+attr_html: :class example
+#+begin_example
+[[PATHREG]]
+[[PATHREG][DESCRIPTION]]
+#+end_example
+
+其中， =PATHREG= 可以是以下形式：
+
+#+attr_html: :class example
+#+begin_example
+FILENAME               ("file" type)
+LINKTYPE:PATHINNER     ("LINKTYPE" type)
+LINKTYPE://PATHINNER   ("LINKTYPE" type)
+id:ID                  ("id" type)
+#CUSTOM-ID             ("custom-id" type)
+(CODEREF)              ("coderef" type)
+FUZZY                  ("fuzzy" type)
+#+end_example
+
+以下是一些例子：
+
+#+attr_html: :class example
+#+begin_example
+[[https://orgmode.org][The Org project homepage]]
+[[file:orgmanual.org]]
+[[Regular links]]
+#+end_example
+
+** macro
+
+=macro= 调用具有以下两种形式：
+
+#+attr_html: :class example
+#+begin_example
+{{{NAME}}}
+{{{NAME(ARGUMENTS)}}}
+#+end_example
+
+其中， =NAME= 是宏的名字，满足正则 =[a-zA-Z0-9-_]= ， =ARGUMENTS= 是宏参数。以下是一些例子：
+
+#+attr_html: :class example
+#+begin_example
+{{{title}}}
+{{{one_arg_macro(1)}}}
+{{{two_arg_macro(1, 2)}}}
+{{{two_arg_macro(1\,a, 2)}}}
+#+end_example
+
+** target and radio target
+
+=target= 具有如下形式：
+
+#+attr_html: :class example
+#+begin_example
+<<TARGET>>
+#+end_example
+
+其中 =TARGET= 不能包含 =<>= 和换行符，且不能以空白字符起始或结尾。
+
+=radio target= 具有以下形式：
+
+#+attr_html: :class example
+#+begin_example
+<<<CONTENTS>>>
+#+end_example
+
+其中的 =CONTENTS= 必须来自最小对象集合，且不含 =<>= 和换行符。
+
+以下是 =target= 和 =radio target= 的两个简单例子，读者可以打开 HTML 源代码查看其 id 以及标签：
+
+#+attr_html: :class example
+#+begin_example
+<<hello>>, <<<world>>> <<this is a target>>, <<<me too>>>
+#+end_example
+
+<<hello>>, <<<world>>> <<this is a target>>, <<<me too>>>
+
+** statistics cookie
+
+=statistics cookie= 具有如下结构：
+
+#+attr_html: :class example
+#+begin_example
+[PERCENT%]
+[NUM1/NUM2]
+#+end_example
+
+它可以用来统计完成情况，比如如下列表：
+
+#+attr_html: :class example
+#+begin_example
+- Hello [2/3] [66%]
+  - [X] one
+  - [X] two
+  - [ ] three
+#+end_example
+
+- Hello [2/3] [66%]
+  - [X] one
+  - [X] two
+  - [ ] three
+
+在 =ox-html= 中它实现为 =<code>= 标签包围的文本。
+
+** subscript and superscript
+
+=subscript= 和 =superscript= 的结构如下：
+
+#+attr_html: :class example
+#+begin_example
+CHAR_SCRIPT
+CHAR^SCRIPT
+#+end_example
+
+其中 =CHAR= 为任意非空格字符， =SCRIPT= 可以是如下情况：
+
+- 单个 =*= 号
+- 使用大括号包围的表达式，表达式本身应该是大括号配平的，且属于标准对象集合
+- 如下形式：
+  #+attr_html: :class example
+  #+begin_example
+  SIGN CHARS FINAL
+  #+end_example
+
+  其中 =SIGN= 可以是 =+= 或 =-= 或空字符串， =CHARS= 由任意数量的 =[a-zA-Z0-9]=, =,=, =\= 和 =.= 组成, =FINAL= 是一个 =[a-zA-Z0-9]= 字符
+
+
+** table cell
+
+=table cell= 为如下形式：
+
+#+attr_html: :class example
+#+begin_example
+CONTENTS SPACES|
+CONTENTS SPACES END-OF-LINE
+#+end_example
+
+其中 =CONTENTS= 不能包含 =|= 字符，且必须只能包含最小对象集合内的对象加上 =citation=, =export snippet=, =footnote reference=, =link=, =macro=, =radio target=, =target= 和 =timestamp= 。
+
+** timestamp
+
+=timestamp= 可以是如下形式：
+
+#+attr_html: :class example
+#+begin_example
+<%%(SEXP)>                                                     (diary)
+<DATE TIME REPEATER-OR-DELAY>                                  (active)
+[DATE TIME REPEATER-OR-DELAY]                                  (inactive)
+<DATE TIME REPEATER-OR-DELAY>--<DATE TIME REPEATER-OR-DELAY>   (active range)
+<DATE TIME-TIME REPEATER-OR-DELAY>                             (active range)
+[DATE TIME REPEATER-OR-DELAY]--[DATE TIME REPEATER-OR-DELAY]   (inactive range)
+[DATE TIME-TIME REPEATER-OR-DELAY]                             (inactive range)
+#+end_example
+
+** text markup
+
+#+attr_html: :class example
+#+begin_example
+PRE MARKER CONTENTS MARKER POST
+#+end_example
+
+- =*=, a bold object, *粗体*
+- =/=, an italic object, /斜体/
+- =_=, an underline object, _下划线_
+- ===, a verbatim object, =引述=
+- =~=, a code object, =代码=
+- =+=, a strike-through object. +删除线+
+
+*** plain text
+
+什么对象也不是的对象就是 =plain text= 。

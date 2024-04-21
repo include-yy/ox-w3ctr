@@ -91,8 +91,8 @@
     (latex-fragment . t-latex-fragment) ; \(, \[
     (export-snippet . t-export-snippet) ; @@html:something@@
     (footnote-reference . t-footnote-reference)
-    ;; citation (NOEXIST)
-    ;; citation reference (NOEXIST)
+    ;; citation (NOUSE)
+    ;; citation reference (NOUSE)
     ;; inline babel calls (NOEXIST)
     (inline-src-block . t-inline-src-block) ; src_LANG{BODY}
     (line-break . t-line-break) ; \\
@@ -763,7 +763,8 @@ targets and targets."
 	 (user-label
 	  (or custom-id
 	      (and (memq type '(radio-target target))
-		   (org-element-property :value datum))
+		   (let ((val (org-element-property :value datum)))
+		     (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val) val)))
 	      (org-element-property :name datum)
 	      (when-let ((id (org-element-property :ID datum)))
 		(concat t--id-attr-prefix id))
