@@ -185,6 +185,8 @@
     (:with-tags nil "tags" t-with-tags)
     ;; <yy> add timestamp format for timestamp
     (:html-timestamp-format nil nil t-timestamp-format)
+    ;; <yy> add default class for example and src block
+    (:html-example-default-class nil "example-class" t-example-default-class)
     ))
 
 ;;; Internal Variables
@@ -723,6 +725,11 @@ This option will override `org-export-use-babel'"
 See `format-time-string' for more information on its components."
   :group 'org-export-w3ctr
   :type 'string)
+
+(defcustom t-example-default-class "example"
+  "default CSS class for example block, nil means no default class"
+  :group 'org-export-w3ctr
+  :type 'sexp)
 
 
 ;;; Internal Functions
@@ -1547,6 +1554,12 @@ information."
   (let ((attributes (org-export-read-attribute :attr_html example-block)))
     (if (plist-get attributes :textarea)
 	(t--textarea-block example-block)
+      (if-let ((class-val (plist-get attributes :class)))
+	  (when-let (default-css (plist-get info :html-example-default-class))
+	      (setq attributes (plist-put attributes :class
+					  (concat default-css " " class-val))))
+	(when-let (default-css (plist-get info :html-example-default-class))
+	  (setq attributes (plist-put attributes :class default-css))))
       (format "<pre%s>\n%s</pre>"
 	      (let* ((reference (t--reference example-block info t))
 		     (a (t--make-attribute-string
@@ -2084,7 +2097,7 @@ INFO is a plist holding contextual information.  See
       (let ((destination (org-export-resolve-radio-link link info)))
 	(if (not destination) desc
 	  (format "<a href=\"#%s\"%s>%s</a>"
-		  (t--reference destination info) ; <yy> use t--reference
+		  (t--reference destination info)
 		  attributes
 		  desc))))
      ;; Links pointing to a headline: Find destination and build

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2024-04-21 19:36 -->
+<!-- 2024-04-21 20:24 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>test for ox-w3ctr.el</title>
@@ -1898,8 +1898,8 @@ pre > code.src {
 <summary>More details about this document</summary>
 <dl>
 <dt>Create Date:</dt> <dd><time datetime="2024-04-18T16:27Z">[2024-04-19 01:27]</time></dd>
-<dt>Publish Date:</dt> <dd><time datetime="2024-04-18T16:27Z">[2024-04-19 01:27]</time></dd>
-<dt>Update Date:</dt> <dd>2024-04-21 19:36</dd>
+<dt>Publish Date:</dt> <dd><time datetime="2024-04-21T10:46Z">[2024-04-21 19:46]</time></dd>
+<dt>Update Date:</dt> <dd>2024-04-21 20:24</dd>
 <dt>Creator:</dt> <dd><a href="https://www.gnu.org/software/emacs/">Emacs</a> 29.2 (<a href="https://orgmode.org">Org</a> mode 9.6.15)</dd>
 <dt>License:</dt> <dd>This work is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></dd>
 </dl>
@@ -2114,8 +2114,8 @@ pre > code.src {
 变量 <code>org-element-all-elements</code> 提供了完整的元素列表：
 </p>
 
-<div id="org48656ce" class="example">
-<a class="self-link" href="#org48656ce" aria-label="source block"></a>
+<div id="org21b41b9" class="example">
+<a class="self-link" href="#org21b41b9" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">( babel-call center-block clock comment comment-block diary-sexp drawer
   dynamic-block example-block export-block fixed-width footnote-definition
@@ -2143,8 +2143,8 @@ pre > code.src {
 变量 <code>org-element-all-objects</code> 提供了完整的对象列表：
 </p>
 
-<div id="org102676f" class="example">
-<a class="self-link" href="#org102676f" aria-label="source block"></a>
+<div id="org0bbabb8" class="example">
+<a class="self-link" href="#org0bbabb8" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">( bold citation citation-reference code entity export-snippet footnote-reference
   inline-babel-call inline-src-block italic line-break latex-fragment link macro
@@ -2225,8 +2225,8 @@ org 本身最高支持无限级别的 headline，不过在导出时，最高的 
 GTD，优先级和标签的导出都是可选的，我使用了三个变量来控制是否导出这些内容，默认情况下都为 <code>nil</code> ，即都不导出：
 </p>
 
-<div id="orga0fd595" class="example">
-<a class="self-link" href="#orga0fd595" aria-label="source block"></a>
+<div id="org708725b" class="example">
+<a class="self-link" href="#org708725b" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp"><span class="ef-cd">;; </span><span class="ef-c">&lt;yy&gt; control todo, priority and tags export
 </span>(<span class="ef-b">:with-todo-keywords</span> nil <span class="ef-s">"todo"</span> t-with-todo-keywords)
@@ -2301,8 +2301,8 @@ Some text.
 上面内容对应的 AST 为：
 </p>
 
-<div id="orgb6951ae" class="example">
-<a class="self-link" href="#orgb6951ae" aria-label="source block"></a>
+<div id="orgb2d9d92" class="example">
+<a class="self-link" href="#orgb2d9d92" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(document
  (section)
@@ -2396,8 +2396,8 @@ holding contextual information."</span>
 该类 <code>org-center</code> 在 <code>ox-w3ctr</code> 中的定义如下：
 </p>
 
-<div id="org508b8f8" class="example">
-<a class="self-link" href="#org508b8f8" aria-label="source block"></a>
+<div id="org9a2f1d4" class="example">
+<a class="self-link" href="#org9a2f1d4" aria-label="source block"></a>
 
 <pre><code class="src src-css"><span class="ef-k">.org-center</span> {
     <span class="ef-f">display</span>: flex;
@@ -2448,8 +2448,8 @@ hello world
 变量 <code>org-w3ctr-html5-elements</code> 记录了会被识别为 HTML 标签的名字，如果名字不属于其中的任意一个，那么名字将成为 <code>div</code> 标签的类。在 <code>ox-w3ctr</code> 中 <code>special-block</code> 的绝大部分作用都被 <code>dynamic-block</code> 替代了。
 </p>
 
-<div id="org0a8b416" class="example">
-<a class="self-link" href="#org0a8b416" aria-label="source block"></a>
+<div id="org57ad70a" class="example">
+<a class="self-link" href="#org57ad70a" aria-label="source block"></a>
 <code>org-w3ctr-html5-elements</code> 的具体定义
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">t-html5-elements</span>
   '(<span class="ef-s">"article"</span> <span class="ef-s">"aside"</span> <span class="ef-s">"audio"</span> <span class="ef-s">"canvas"</span> <span class="ef-s">"details"</span> <span class="ef-s">"figcaption"</span>
@@ -2871,8 +2871,8 @@ Org Manual 的 <a href="https://orgmode.org/manual/Plain-Lists.html">Plain Lists
 2. [X] item 2
    - some tag :: item 2.1</code></pre>
 
-<div id="orga991da4" class="example">
-<a class="self-link" href="#orga991da4" aria-label="source block"></a>
+<div id="org5a0decb" class="example">
+<a class="self-link" href="#org5a0decb" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(ordered-plain-list
  (item
@@ -3254,8 +3254,8 @@ PLANNING</code></pre>
 当 <code>KEY</code> 是 <code>org-element-parsed-keywords</code> 中的任一成员时， <code>VALUE</code> 可以包含除 <code>footnote reference</code> 的任意标准对象（第一节提到的标准对象集合）。 <code>org-element-parsed-keywords</code> 的值如下所示：
 </p>
 
-<div id="org3e5d975" class="example">
-<a class="self-link" href="#org3e5d975" aria-label="source block"></a>
+<div id="orgaeaa400" class="example">
+<a class="self-link" href="#orgaeaa400" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">org-element-parsed-keywords =&gt; (<span class="ef-s">"CAPTION"</span>)</code></pre></div>
 
@@ -3263,8 +3263,8 @@ PLANNING</code></pre>
 在 <code>ox-html</code> 中， <code>org-html-keyword</code> 实现为可以导出 <code>HTML</code> 和 <code>TOC</code> 关键字，前者用于导出 <code>HTML</code> 代码片段，后者用于导出局部目录，我在 <code>ox-w3ctr</code> 中仅保留了 <code>HTML</code> 代码的导出：
 </p>
 
-<div id="org0d17f2f" class="example">
-<a class="self-link" href="#org0d17f2f" aria-label="source block"></a>
+<div id="orge6c53b2" class="example">
+<a class="self-link" href="#orge6c53b2" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defun</span> <span class="ef-f">t-keyword</span> (keyword _contents _info)
   <span class="ef-d">"Transcode a KEYWORD element from Org to HTML.
@@ -3318,8 +3318,8 @@ CONTENTS is nil.  INFO is a plist holding contextual information."</span>
 <code>org-element-affiliated-keyword</code> 给出了可用的 affiliated 关键字：
 </p>
 
-<div id="orgcfd34d5" class="example">
-<a class="self-link" href="#orgcfd34d5" aria-label="source block"></a>
+<div id="org73ea5a8" class="example">
+<a class="self-link" href="#org73ea5a8" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">org-element-affiliated-keywords</span>
   '(<span class="ef-s">"CAPTION"</span> <span class="ef-s">"DATA"</span> <span class="ef-s">"HEADER"</span> <span class="ef-s">"HEADERS"</span> <span class="ef-s">"LABEL"</span> <span class="ef-s">"NAME"</span> <span class="ef-s">"PLOT"</span> <span class="ef-s">"RESNAME"</span> <span class="ef-s">"RESULT"</span>
@@ -3341,8 +3341,8 @@ This list is checked after translations have been applied.  See
 需要注意的是，某些关键字已经过时了：
 </p>
 
-<div id="org7a5b774" class="example">
-<a class="self-link" href="#org7a5b774" aria-label="source block"></a>
+<div id="org93d5b41" class="example">
+<a class="self-link" href="#org93d5b41" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">org-element-keyword-translation-alist</span>
   '((<span class="ef-s">"DATA"</span> . <span class="ef-s">"NAME"</span>)  (<span class="ef-s">"LABEL"</span> . <span class="ef-s">"NAME"</span>) (<span class="ef-s">"RESNAME"</span> . <span class="ef-s">"NAME"</span>)
@@ -3514,8 +3514,8 @@ CONTENTS
 <code>org-entities</code> 和 <code>org-entities-user</code> 的值分别如下：
 </p>
 
-<div id="org510f662" class="example">
-<a class="self-link" href="#org510f662" aria-label="source block"></a>
+<div id="org17cd5dd" class="example">
+<a class="self-link" href="#org17cd5dd" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">org-entities =&gt;
 (<span class="ef-s">"* Letters"</span> <span class="ef-s">"** Latin"</span> (<span class="ef-s">"Agrave"</span> <span class="ef-s">"\\`{A}"</span> nil <span class="ef-s">"&amp;Agrave;"</span> <span class="ef-s">"A"</span> <span class="ef-s">"À"</span> <span class="ef-s">"À"</span>)
@@ -3801,7 +3801,7 @@ src_LANG[HEADERS]{BODY}</code></pre>
 Make sure you remember the *important* information.</code></pre>
 
 <p>
-This is some <a id="org119067d"><b>important</b> information</a> which we refer to lots. Make sure you remember the <a href="#org119067d"><b>important</b> information</a>. 读者可打开 HTML 源代码查看链接及标签的 id 属性。
+This is some <a id="org889947f"><b>important</b> information</a> which we refer to lots. Make sure you remember the <a href="#org889947f"><b>important</b> information</a>. 读者可打开 HTML 源代码查看链接及标签的 id 属性。
 </p>
 
 <p>
@@ -3941,7 +3941,7 @@ FUZZY                  ("fuzzy" type)</code></pre>
 <code>&lt;&lt;hello&gt;&gt;, &lt;&lt;&lt;world&gt;&gt;&gt; &lt;&lt;this is a target&gt;&gt;, &lt;&lt;&lt;me too&gt;&gt;&gt;</code></pre>
 
 <p>
-<a id="hello"></a>, <a id="world">world</a> <a id="orgb116512"></a>, <a id="orgb1e8c01">me too</a>
+<a id="hello"></a>, <a id="world">world</a> <a id="orgbf420a7"></a>, <a id="orgbd8901e">me too</a>
 </p>
 </section>
 
