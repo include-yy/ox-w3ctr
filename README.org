@@ -1,19 +1,22 @@
 * ox-w3ctr --- org export backend for W3C TR CSS style
 
-based on ox-html.el and CSS of W3C specifications 2021
+#+HTML: <img src="lily.svg" align="right" width="30%">
 
-WIP(work in progress).
+based on Org-mode's ox-html.el and CSS of W3C Technical Report [[https://github.com/w3c/tr-design][tr-design]]'s base.css.
 
-** reference materials
+the file index.org provide a demo usage of this Org export backend, see it [[https://include-yy.github.io/ox-w3ctr/][online]]。`
 
-For the CSS styles used by respec documents, see:
+** Install and Use
 
-- https://www.w3.org/StyleSheets/
-- https://www.w3.org/StyleSheets/TR/2021/
-- https://www.w3.org/StyleSheets/TR/2021/base.css
+Please use Emacs 29.2 or above. Download this repo and add it to =load-path=, or use =package-vc= like this:
 
-For org-mode Syntax and export, see:
+#+begin_src text
+M-x package-vs-install https://github.com/include-yy/ox-w3ctr RET
+#+end_src
 
-- https://orgmode.org/worg/org-syntax.html
-- https://orgmode.org/worg/dev/org-element-api.html
-- https://orgmode.org/worg/dev/org-export-reference.html
+After installation and load, use =C-c C-e w o= to export a org buffer to HTML file.
+
+** todolist
+
+- [ ] More details
+- [ ] complete style.css
