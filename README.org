@@ -1,6 +1,6 @@
 * ox-w3ctr --- org export backend for W3C TR CSS style
 
-#+HTML: <img src="lily.svg" align="right" width="30%">
+#+HTML: <img src="lily.svg" align="right" width="15%">
 
 based on Org-mode's ox-html.el and CSS of W3C Technical Report [[https://github.com/w3c/tr-design][tr-design]]'s base.css.
 
