@@ -1127,8 +1127,9 @@ See `org-html-inner-template' for more information"
 
 (defun t--build-toc (info)
   (when-let ((depth (plist-get info :with-toc)))
-    (concat (t-toc depth info)
-	    t-toc-js)))
+    (let ((toc-res (t-toc depth info)))
+      (if (not toc-res) ""
+	(concat toc-res t-toc-js)))))
 
 (defun t-format-home/up-default-function (info)
   "format the home/div element"
