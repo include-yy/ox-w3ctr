@@ -1139,14 +1139,14 @@ See `org-html-inner-template' for more information"
 	(link-rname (org-trim (plist-get info :html-link-rname))))
     (if (and (not (string= link-lname "")) (not (string= link-rname ""))
 	     (not (string= link-left "")) (not (string= link-right "")))
-	(format "<nav id=\"home-and-up\">\n<a href=\"%s\"> %s </a>\n<a href=\"%s\"> %s </a></nav>\n"
+	(format "<nav id=\"home-and-up\">\n<a href=\"%s\">%s</a><a href=\"%s\">%s</a></nav>\n"
 		link-left link-lname link-right link-rname)
       (cond
        ((and (not (string= link-lname "")) (not (string= link-left "")))
-	(format "<nav id=\"home-and-up\">\n<a href=\"%s\"> %s </a>\n</nav>\n"
+	(format "<nav id=\"home-and-up\">\n<a href=\"%s\">%s</a>\n</nav>\n"
 		link-left link-lname))
        ((and (not (string= link-rname "")) (not (string= link-right "")))
-	(format "<nav id=\"home-and-up\">\n<a href=\"%s\"> %s </a>\n</nav>\n"
+	(format "<nav id=\"home-and-up\">\n<a href=\"%s\">%s</a>\n</nav>\n"
 		link-right link-rname))))))
 
 (defun t--build-title (info)
