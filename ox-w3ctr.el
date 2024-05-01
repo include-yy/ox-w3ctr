@@ -176,7 +176,7 @@
     ;; <yy> store zeroth section's output
     (:html-zeroth-section-output nil nil "")
     ;; <yy> add back to top arrow
-    (:html-back-to-top nil nil t-back-to-top)
+    (:html-back-to-top nil "back-to-top" t-back-to-top)
     ;; <yy> control max headline level
     (:headline-levels nil "H" t-headline-level)
     ;; <yy> control todo, priority and tags export
@@ -187,6 +187,8 @@
     (:html-timestamp-format nil nil t-timestamp-format)
     ;; <yy> add default class for example and src block
     (:html-example-default-class nil "example-class" t-example-default-class)
+    ;; <yy> add options for fixup.js's code
+    (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     ))
 
 ;;; Internal Variables
@@ -217,12 +219,12 @@ You can use `t-head' and `t-head-extra' to add to
 this style.  If you don't want to include this default style,
 customize `t-head-include-default-style'.")
 
-(defvar t-toc-js ""
+(defvar t-fixup-js ""
   "js code that control toc's hide and show")
 
 ;; load default CSS from style.css
 (defun t-update-css-js ()
-  "update `t-style-default' and t-toc-js"
+  "update `t-style-default' and t-fixup-js"
   (interactive)
   (setq t-style-default
 	(let ((fname (if (not load-in-progress) (expand-file-name "style.css")
@@ -231,27 +233,15 @@ customize `t-head-include-default-style'.")
 		  (with-temp-buffer
 		    (insert-file-contents fname)
 		    (buffer-string)))))
-  (setq t-toc-js
-	(let ((fname (if (not load-in-progress) (expand-file-name "toc.js")
-		       (concat (file-name-directory load-file-name) "toc.js"))))
+  (setq t-fixup-js
+	(let ((fname (if (not load-in-progress) (expand-file-name "fixup.js")
+		       (concat (file-name-directory load-file-name) "fixup.js"))))
 	  (format "<script>\n%s\n</script>\n"
 		  (with-temp-buffer
 		    (insert-file-contents fname)
 		    (buffer-string))))))
 ;; do update
 (t-update-css-js)
-
-(defconst t-toc-side-bottom "\
-<p id=\"toc-nav\">
-<a id=\"toc-jump\" href=\"#toc\">
-<span aria-hidden=\"true\">↑</span>
-<span>Jump to Table of Contents</span>
-</a>
-<a id=\"toc-toggle\" href=\"#toc\">
-<span aria-hidden=\"true\">→</span>
-<span>Pop Out Sidebar</span>
-</a>\n</p>"
-  "Jump to TOC and Pop Out Sidebar bottoms for TOC")
 
 (defconst t-back-to-top-arrow "\
 <p role=\"navigation\" id=\"back-to-top\">\n<a href=\"#title\">\
@@ -1128,8 +1118,7 @@ See `org-html-inner-template' for more information"
 (defun t--build-toc (info)
   (when-let ((depth (plist-get info :with-toc)))
     (let ((toc-res (t-toc depth info)))
-      (if (not toc-res) ""
-	(concat toc-res t-toc-js)))))
+      (if (not toc-res) "" toc-res))))
 
 (defun t-format-home/up-default-function (info)
   "format the home/div element"
@@ -1174,10 +1163,7 @@ holding export options."
    (t--build-head info)
    (t--build-mathjax-config info)
    "</head>\n"
-   "<body class=\"toc-inline\">\n"
-   ;; generate sidebar bottoms
-   (when (plist-get info :with-toc)
-     t-toc-side-bottom)
+   "<body>\n"
    ;; home and up links
    (when-let ((fun (plist-get info :html-format-home/up-function)))
      (funcall fun info))
@@ -1191,6 +1177,8 @@ holding export options."
      t-back-to-top-arrow)
    ;; Postamble.
    (t--build-pre/postamble 'postamble info)
+   ;; fixup.js here
+   (plist-get info :html-fixup-js)
    ;; Closing document.
    "</body>\n\n</html>"))
 

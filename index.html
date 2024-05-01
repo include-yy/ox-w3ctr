@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<!-- 2024-04-21 20:24 -->
+<!-- 2024-05-01 19:45 -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>test for ox-w3ctr.el</title>
@@ -1793,19 +1793,12 @@ aside.example .marker>a.self-link{color:inherit}
     top: 0; right: 0.5em;
     margin: 0;
     min-height: 1.5em;
-    box-shadow: 0 0 2px;
     font-size: 1.5em;
 }
 #home-and-up > a {
-    height: 1.5em;
-    padding: .1em 0.5em;
+    padding: .1em 0.25em;
     margin: 0;
-    box-shadow: 0 0 2px;
     border: none;
-    color: #034575;
-    color: var(--a-normal-text);
-    background: white;
-    background: var(--bg);
 }
 
 pre > code.src {
@@ -1879,17 +1872,10 @@ pre > code.src {
   src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js">
 </script>
 </head>
-<body class="toc-inline">
-<p id="toc-nav">
-<a id="toc-jump" href="#toc">
-<span aria-hidden="true">↑</span>
-<span>Jump to Table of Contents</span>
-</a>
-<a id="toc-toggle" href="#toc">
-<span aria-hidden="true">→</span>
-<span>Pop Out Sidebar</span>
-</a>
-</p><div class="head">
+<body>
+<nav id="home-and-up">
+<a href="https://orgmode.org/zh-CN/index.html">Org-mode</a><a href="https://github.com/w3c/tr-design">tr-design</a></nav>
+<div class="head">
 <header>
 <h1 id="title">test for ox-w3ctr.el</h1>
 <p id="w3c-state">对 org-mode 的简单总结</p>
@@ -1899,8 +1885,8 @@ pre > code.src {
 <dl>
 <dt>Create Date:</dt> <dd><time datetime="2024-04-18T16:27Z">[2024-04-19 01:27]</time></dd>
 <dt>Publish Date:</dt> <dd><time datetime="2024-04-21T10:46Z">[2024-04-21 19:46]</time></dd>
-<dt>Update Date:</dt> <dd>2024-04-21 20:24</dd>
-<dt>Creator:</dt> <dd><a href="https://www.gnu.org/software/emacs/">Emacs</a> 29.2 (<a href="https://orgmode.org">Org</a> mode 9.6.15)</dd>
+<dt>Update Date:</dt> <dd>2024-05-01 19:45</dd>
+<dt>Creator:</dt> <dd><a href="https://www.gnu.org/software/emacs/">Emacs</a> 30.0.50 (<a href="https://orgmode.org">Org</a> mode 9.6.15)</dd>
 <dt>License:</dt> <dd>This work is licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">CC BY-SA 4.0</a></dd>
 </dl>
 </details>
@@ -2048,42 +2034,6 @@ pre > code.src {
 </li>
 </ul>
 </nav>
-<script>
-(function() {
-   'use strict'
-    window.addEventListener('load', () => {
-	let tocToggle = document.getElementById('toc-toggle')
-	let arrow = tocToggle.children[0]
-	let text = tocToggle.children[1]
-	let myclass = document.body.classList
-
-	let fontSize = window.getComputedStyle(document.documentElement).fontSize
-	let pixWidth = parseFloat(fontSize)
-	let widthEm = window.innerWidth / pixWidth
-	let tocCount = document.getElementById('toc').dataset.count
-	if (widthEm > 80 && tocCount >= 5) {
-	    myclass.remove('toc-inline')
-	    myclass.add('toc-sidebar')
-	    arrow.innerHTML = '←'
-	    text.innerHTML = 'Collapse Sidebar'
-	}
-	tocToggle.addEventListener('click', () => {
-	    if (myclass.contains('toc-inline')) {
-		myclass.remove('toc-inline')
-		myclass.add('toc-sidebar')
-		arrow.innerHTML = '←'
-		text.innerHTML = 'Collapse Sidebar'
-	    } else if (myclass.contains('toc-sidebar')) {
-		myclass.remove('toc-sidebar')
-		myclass.add('toc-inline')
-		arrow.innerHTML = '→'
-		text.innerHTML = 'Pop Out Sidebar'
-	    }
-	})
-    })
-})()
-
-</script>
 <main>
 
 <section id="orgnh-1"><div class="header-wrapper">
@@ -2114,8 +2064,8 @@ pre > code.src {
 变量 <code>org-element-all-elements</code> 提供了完整的元素列表：
 </p>
 
-<div id="org21b41b9" class="example">
-<a class="self-link" href="#org21b41b9" aria-label="source block"></a>
+<div id="orgaa89008" class="example">
+<a class="self-link" href="#orgaa89008" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">( babel-call center-block clock comment comment-block diary-sexp drawer
   dynamic-block example-block export-block fixed-width footnote-definition
@@ -2143,8 +2093,8 @@ pre > code.src {
 变量 <code>org-element-all-objects</code> 提供了完整的对象列表：
 </p>
 
-<div id="org0bbabb8" class="example">
-<a class="self-link" href="#org0bbabb8" aria-label="source block"></a>
+<div id="orgf118516" class="example">
+<a class="self-link" href="#orgf118516" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">( bold citation citation-reference code entity export-snippet footnote-reference
   inline-babel-call inline-src-block italic line-break latex-fragment link macro
@@ -2225,8 +2175,8 @@ org 本身最高支持无限级别的 headline，不过在导出时，最高的 
 GTD，优先级和标签的导出都是可选的，我使用了三个变量来控制是否导出这些内容，默认情况下都为 <code>nil</code> ，即都不导出：
 </p>
 
-<div id="org708725b" class="example">
-<a class="self-link" href="#org708725b" aria-label="source block"></a>
+<div id="orga6ed96d" class="example">
+<a class="self-link" href="#orga6ed96d" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp"><span class="ef-cd">;; </span><span class="ef-c">&lt;yy&gt; control todo, priority and tags export
 </span>(<span class="ef-b">:with-todo-keywords</span> nil <span class="ef-s">"todo"</span> t-with-todo-keywords)
@@ -2301,8 +2251,8 @@ Some text.
 上面内容对应的 AST 为：
 </p>
 
-<div id="orgb2d9d92" class="example">
-<a class="self-link" href="#orgb2d9d92" aria-label="source block"></a>
+<div id="org7f9ce1b" class="example">
+<a class="self-link" href="#org7f9ce1b" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(document
  (section)
@@ -2396,8 +2346,8 @@ holding contextual information."</span>
 该类 <code>org-center</code> 在 <code>ox-w3ctr</code> 中的定义如下：
 </p>
 
-<div id="org9a2f1d4" class="example">
-<a class="self-link" href="#org9a2f1d4" aria-label="source block"></a>
+<div id="org3a89339" class="example">
+<a class="self-link" href="#org3a89339" aria-label="source block"></a>
 
 <pre><code class="src src-css"><span class="ef-k">.org-center</span> {
     <span class="ef-f">display</span>: flex;
@@ -2448,8 +2398,8 @@ hello world
 变量 <code>org-w3ctr-html5-elements</code> 记录了会被识别为 HTML 标签的名字，如果名字不属于其中的任意一个，那么名字将成为 <code>div</code> 标签的类。在 <code>ox-w3ctr</code> 中 <code>special-block</code> 的绝大部分作用都被 <code>dynamic-block</code> 替代了。
 </p>
 
-<div id="org57ad70a" class="example">
-<a class="self-link" href="#org57ad70a" aria-label="source block"></a>
+<div id="org7acb807" class="example">
+<a class="self-link" href="#org7acb807" aria-label="source block"></a>
 <code>org-w3ctr-html5-elements</code> 的具体定义
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">t-html5-elements</span>
   '(<span class="ef-s">"article"</span> <span class="ef-s">"aside"</span> <span class="ef-s">"audio"</span> <span class="ef-s">"canvas"</span> <span class="ef-s">"details"</span> <span class="ef-s">"figcaption"</span>
@@ -2871,8 +2821,8 @@ Org Manual 的 <a href="https://orgmode.org/manual/Plain-Lists.html">Plain Lists
 2. [X] item 2
    - some tag :: item 2.1</code></pre>
 
-<div id="org5a0decb" class="example">
-<a class="self-link" href="#org5a0decb" aria-label="source block"></a>
+<div id="org8aa95c1" class="example">
+<a class="self-link" href="#org8aa95c1" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(ordered-plain-list
  (item
@@ -3254,8 +3204,8 @@ PLANNING</code></pre>
 当 <code>KEY</code> 是 <code>org-element-parsed-keywords</code> 中的任一成员时， <code>VALUE</code> 可以包含除 <code>footnote reference</code> 的任意标准对象（第一节提到的标准对象集合）。 <code>org-element-parsed-keywords</code> 的值如下所示：
 </p>
 
-<div id="orgaeaa400" class="example">
-<a class="self-link" href="#orgaeaa400" aria-label="source block"></a>
+<div id="org1c8d6f6" class="example">
+<a class="self-link" href="#org1c8d6f6" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">org-element-parsed-keywords =&gt; (<span class="ef-s">"CAPTION"</span>)</code></pre></div>
 
@@ -3263,8 +3213,8 @@ PLANNING</code></pre>
 在 <code>ox-html</code> 中， <code>org-html-keyword</code> 实现为可以导出 <code>HTML</code> 和 <code>TOC</code> 关键字，前者用于导出 <code>HTML</code> 代码片段，后者用于导出局部目录，我在 <code>ox-w3ctr</code> 中仅保留了 <code>HTML</code> 代码的导出：
 </p>
 
-<div id="orge6c53b2" class="example">
-<a class="self-link" href="#orge6c53b2" aria-label="source block"></a>
+<div id="orga2f52f1" class="example">
+<a class="self-link" href="#orga2f52f1" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defun</span> <span class="ef-f">t-keyword</span> (keyword _contents _info)
   <span class="ef-d">"Transcode a KEYWORD element from Org to HTML.
@@ -3318,8 +3268,8 @@ CONTENTS is nil.  INFO is a plist holding contextual information."</span>
 <code>org-element-affiliated-keyword</code> 给出了可用的 affiliated 关键字：
 </p>
 
-<div id="org73ea5a8" class="example">
-<a class="self-link" href="#org73ea5a8" aria-label="source block"></a>
+<div id="orgfdb2bfc" class="example">
+<a class="self-link" href="#orgfdb2bfc" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">org-element-affiliated-keywords</span>
   '(<span class="ef-s">"CAPTION"</span> <span class="ef-s">"DATA"</span> <span class="ef-s">"HEADER"</span> <span class="ef-s">"HEADERS"</span> <span class="ef-s">"LABEL"</span> <span class="ef-s">"NAME"</span> <span class="ef-s">"PLOT"</span> <span class="ef-s">"RESNAME"</span> <span class="ef-s">"RESULT"</span>
@@ -3341,8 +3291,8 @@ This list is checked after translations have been applied.  See
 需要注意的是，某些关键字已经过时了：
 </p>
 
-<div id="org93d5b41" class="example">
-<a class="self-link" href="#org93d5b41" aria-label="source block"></a>
+<div id="org2151962" class="example">
+<a class="self-link" href="#org2151962" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">(<span class="ef-k">defconst</span> <span class="ef-v">org-element-keyword-translation-alist</span>
   '((<span class="ef-s">"DATA"</span> . <span class="ef-s">"NAME"</span>)  (<span class="ef-s">"LABEL"</span> . <span class="ef-s">"NAME"</span>) (<span class="ef-s">"RESNAME"</span> . <span class="ef-s">"NAME"</span>)
@@ -3514,8 +3464,8 @@ CONTENTS
 <code>org-entities</code> 和 <code>org-entities-user</code> 的值分别如下：
 </p>
 
-<div id="org17cd5dd" class="example">
-<a class="self-link" href="#org17cd5dd" aria-label="source block"></a>
+<div id="org0cd4a24" class="example">
+<a class="self-link" href="#org0cd4a24" aria-label="source block"></a>
 
 <pre><code class="src src-emacs-lisp">org-entities =&gt;
 (<span class="ef-s">"* Letters"</span> <span class="ef-s">"** Latin"</span> (<span class="ef-s">"Agrave"</span> <span class="ef-s">"\\`{A}"</span> nil <span class="ef-s">"&amp;Agrave;"</span> <span class="ef-s">"A"</span> <span class="ef-s">"À"</span> <span class="ef-s">"À"</span>)
@@ -3801,7 +3751,7 @@ src_LANG[HEADERS]{BODY}</code></pre>
 Make sure you remember the *important* information.</code></pre>
 
 <p>
-This is some <a id="org889947f"><b>important</b> information</a> which we refer to lots. Make sure you remember the <a href="#org889947f"><b>important</b> information</a>. 读者可打开 HTML 源代码查看链接及标签的 id 属性。
+This is some <a id="org887b7b8"><b>important</b> information</a> which we refer to lots. Make sure you remember the <a href="#org887b7b8"><b>important</b> information</a>. 读者可打开 HTML 源代码查看链接及标签的 id 属性。
 </p>
 
 <p>
@@ -3941,7 +3891,7 @@ FUZZY                  ("fuzzy" type)</code></pre>
 <code>&lt;&lt;hello&gt;&gt;, &lt;&lt;&lt;world&gt;&gt;&gt; &lt;&lt;this is a target&gt;&gt;, &lt;&lt;&lt;me too&gt;&gt;&gt;</code></pre>
 
 <p>
-<a id="hello"></a>, <a id="world">world</a> <a id="orgbf420a7"></a>, <a id="orgbd8901e">me too</a>
+<a id="hello"></a>, <a id="world">world</a> <a id="org7bf2e70"></a>, <a id="orgdbefa2b">me too</a>
 </p>
 </section>
 
@@ -4109,6 +4059,224 @@ In the aftermath of the unified login finalization, the user now going by Kasuga
 <p role="navigation" id="back-to-top">
 <a href="#title"><abbr title="Back to Top">↑</abbr></a>
 </p>
+<script>
+/******************************************************************************
+ *                 JS Extension for the W3C Spec Style Sheet                  *
+ *                                                                            *
+ * This code handles:                                                         *
+ * - some fixup to improve the table of contents                              *
+ * - the obsolete warning on outdated specs                                   *
+ ******************************************************************************/
+
+/**
+ * Steal by include-yy
+ * 2024-05-01 17:32
+ **/
+
+(function() {
+  "use strict";
+
+  var ESCAPEKEY = 27;
+  var collapseSidebarText = '<span aria-hidden="true">←</span> '
+                          + '<span>Collapse Sidebar</span>';
+  var expandSidebarText   = '<span aria-hidden="true">→</span> '
+                          + '<span>Pop Out Sidebar</span>';
+  var tocJumpText         = '<span aria-hidden="true">↑</span> '
+                          + '<span>Jump to Table of Contents</span>';
+
+  var sidebarMedia = window.matchMedia('screen and (min-width: 78em)');
+  var autoToggle   = function(e){ toggleSidebar(e.matches) };
+  if(sidebarMedia.addListener) {
+    sidebarMedia.addListener(autoToggle);
+  }
+
+  function toggleSidebar(on, skipScroll) {
+    if (on == undefined) {
+      on = !document.body.classList.contains('toc-sidebar');
+    }
+
+    if (!skipScroll) {
+      /* Don't scroll to compensate for the ToC if we're above it already. */
+      var headY = 0;
+      var head = document.querySelector('.head');
+      if (head) {
+        // terrible approx of "top of ToC"
+        headY += head.offsetTop + head.offsetHeight;
+      }
+      skipScroll = window.scrollY < headY;
+    }
+
+    var toggle = document.getElementById('toc-toggle');
+    var tocNav = document.getElementById('toc');
+    if (on) {
+      var tocHeight = tocNav.offsetHeight;
+      document.body.classList.add('toc-sidebar');
+      document.body.classList.remove('toc-inline');
+      toggle.innerHTML = collapseSidebarText;
+      if (!skipScroll) {
+        window.scrollBy(0, 0 - tocHeight);
+      }
+      tocNav.focus();
+      sidebarMedia.addListener(autoToggle); // auto-collapse when out of room
+    }
+    else {
+      document.body.classList.add('toc-inline');
+      document.body.classList.remove('toc-sidebar');
+      toggle.innerHTML = expandSidebarText;
+      if (!skipScroll) {
+        window.scrollBy(0, tocNav.offsetHeight);
+      }
+      if (toggle.matches(':hover')) {
+        /* Unfocus button when not using keyboard navigation,
+           because I don't know where else to send the focus. */
+        toggle.blur();
+      }
+    }
+  }
+
+  function createSidebarToggle() {
+    /* Create the sidebar toggle in JS; it shouldn't exist when JS is off. */
+    var toggle = document.createElement('a');
+      /* This should probably be a button, but appearance isn't standards-track.*/
+    toggle.id = 'toc-toggle';
+    toggle.class = 'toc-toggle';
+    toggle.href = '#toc';
+    toggle.innerHTML = collapseSidebarText;
+
+    sidebarMedia.addListener(autoToggle);
+    var toggler = function(e) {
+      e.preventDefault();
+      sidebarMedia.removeListener(autoToggle); // persist explicit off states
+      toggleSidebar();
+      return false;
+    }
+    toggle.addEventListener('click', toggler, false);
+
+
+    /* Get <nav id=toc-nav>, or make it if we don't have one. */
+    var tocNav = document.getElementById('toc-nav');
+    if (!tocNav) {
+      tocNav = document.createElement('p');
+      tocNav.id = 'toc-nav';
+      /* Prepend for better keyboard navigation */
+      document.body.insertBefore(tocNav, document.body.firstChild);
+    }
+    /* While we're at it, make sure we have a Jump to Toc link. */
+    var tocJump = document.getElementById('toc-jump');
+    if (!tocJump) {
+      tocJump = document.createElement('a');
+      tocJump.id = 'toc-jump';
+      tocJump.href = '#toc';
+      tocJump.innerHTML = tocJumpText;
+      tocNav.appendChild(tocJump);
+    }
+
+    tocNav.appendChild(toggle);
+  }
+
+  var toc = document.getElementById('toc');
+  if (toc) {
+    if (!document.getElementById('toc-toggle')) {
+      createSidebarToggle();
+    }
+    toggleSidebar(sidebarMedia.matches, true);
+
+    /* If the sidebar has been manually opened and is currently overlaying the text
+       (window too small for the MQ to add the margin to body),
+       then auto-close the sidebar once you click on something in there. */
+    toc.addEventListener('click', function(e) {
+      if(document.body.classList.contains('toc-sidebar') && !sidebarMedia.matches) {
+        var el = e.target;
+        while (el != toc) { // find closest <a>
+          if (el.tagName.toLowerCase() == "a") {
+            toggleSidebar(false);
+            return;
+          }
+          el = el.parentElement;
+        }
+      }
+    }, false);
+  }
+  else {
+    console.warn("Can't find Table of Contents. Please use <nav id='toc'> around the ToC.");
+  }
+
+  /* Amendment Diff Toggling */
+  var showDiff = function(event) {
+    var a = event.target.parentElement.parentElement;
+    var ins = document.querySelectorAll("ins[cite='#" + a.id + "'], #" + a.id + " ins" );
+    var del = document.querySelectorAll("del[cite='#" + a.id + "'], #" + a.id + " del" );
+    ins.forEach( function(e) { e.hidden = false; e.classList.remove("diff-inactive") });
+    del.forEach( function(e) { e.hidden = false; e.classList.remove("diff-inactive") });
+    a.querySelectorAll("button[value=diff]")[0].disabled = true;
+    a.querySelectorAll("button[value=old]")[0].disabled = false;
+    a.querySelectorAll("button[value=new]")[0].disabled = false;
+  }
+  var showOld = function(event) {
+    var a = event.target.parentElement.parentElement;
+    var ins = document.querySelectorAll("ins[cite='#" + a.id + "'], #" + a.id + " ins" );
+    var del = document.querySelectorAll("del[cite='#" + a.id + "'], #" + a.id + " del" );
+    ins.forEach( function(e) { e.hidden = true;  e.classList.add("diff-inactive") });
+    del.forEach( function(e) { e.hidden = false; e.classList.add("diff-inactive") });
+    a.querySelectorAll("button[value=diff]")[0].disabled = false;
+    a.querySelectorAll("button[value=old]")[0].disabled = true;
+    a.querySelectorAll("button[value=new]")[0].disabled = false;
+  }
+  var showNew = function(event) {
+    var a = event.target.parentElement.parentElement;
+    var ins = document.querySelectorAll("ins[cite='#" + a.id + "'], #" + a.id + " ins" );
+    var del = document.querySelectorAll("del[cite='#" + a.id + "'], #" + a.id + " del" );
+    ins.forEach( function(e) { e.hidden = false;  e.classList.add("diff-inactive") });
+    del.forEach( function(e) { e.hidden = true; e.classList.add("diff-inactive") });
+    a.querySelectorAll("button[value=diff]")[0].disabled = false;
+    a.querySelectorAll("button[value=old]")[0].disabled = false;
+    a.querySelectorAll("button[value=new]")[0].disabled = true;
+  }
+  var amendments = document.querySelectorAll('[id].amendment, [id].correction, [id].addition');
+  amendments.forEach( function(a) {
+    var ins = document.querySelectorAll("ins[cite='#" + a.id + "'], #" + a.id + " ins" );
+    var del = document.querySelectorAll("del[cite='#" + a.id + "'], #" + a.id + " del" );
+    if (ins.length == 0 && del.length == 0) { return; }
+
+    var tbar = document.createElement('div');
+    tbar.lang = 'en'; tbar.class = 'amendment-toggles';
+
+    var toggle = document.createElement('button');
+    toggle.value = 'diff'; toggle.innerHTML = 'Show Change'; toggle.disabled = true;
+    toggle.addEventListener('click', showDiff, false);
+    tbar.appendChild(toggle);
+
+    toggle = document.createElement('button');
+    toggle.value = 'old'; toggle.innerHTML = 'Show Current';
+    toggle.addEventListener('click', showOld, false);
+    tbar.appendChild(toggle);
+
+    toggle = document.createElement('button');
+    toggle.value = 'new'; toggle.innerHTML = 'Show Future';
+    toggle.addEventListener('click', showNew, false);
+    tbar.appendChild(toggle);
+
+    a.appendChild(tbar);
+  });
+
+  /* Wrap tables in case they overflow */
+  var tables = document.querySelectorAll(':not(.overlarge) > table.data, :not(.overlarge) > table.index');
+  var numTables = tables.length;
+  for (var i = 0; i < numTables; i++) {
+    var table = tables[i];
+    if (!table.matches('.example *, .note *, .advisement *, .def *, .issue *')) {
+      /* Overflowing colored boxes looks terrible, and also
+         the kinds of tables inside these boxes
+         are less likely to need extra space. */
+      var wrapper = document.createElement('div');
+      wrapper.className = 'overlarge';
+      table.parentNode.insertBefore(wrapper, table);
+      wrapper.appendChild(table);
+    }
+  }
+})();
+
+</script>
 </body>
 
 </html>

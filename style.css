@@ -1784,19 +1784,12 @@ aside.example .marker>a.self-link{color:inherit}
     top: 0; right: 0.5em;
     margin: 0;
     min-height: 1.5em;
-    box-shadow: 0 0 2px;
     font-size: 1.5em;
 }
 #home-and-up > a {
-    height: 1.5em;
-    padding: .1em 0.5em;
+    padding: .1em 0.25em;
     margin: 0;
-    box-shadow: 0 0 2px;
     border: none;
-    color: #034575;
-    color: var(--a-normal-text);
-    background: white;
-    background: var(--bg);
 }
 
 pre > code.src {

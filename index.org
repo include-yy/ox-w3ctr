@@ -5,6 +5,11 @@
 #+HTML_HEAD: <link rel="icon" type="image/png" sizes="192x192" href="./lily.svg">
 #+options: ^:{}
 #+options: example-class:nil
+# #+options: toc:nil
+#+HTML_LINK_LEFT: https://orgmode.org/zh-CN/index.html
+#+HTML_LINK_LNAME: Org-mode
+#+HTML_LINK_RIGHT: https://github.com/w3c/tr-design
+#+HTML_LINK_RNAME: tr-design
 
 本文档是对 [[https://github.com/include-yy/ox-w3ctr][ox-w3ctr]] 这一 org-mode 导出后端的测试，内容基本覆盖了所有 org-mode 语法，并对每种语法给出了一些文档中有说明的使用方式。严格来说，想要测试 ox-w3ctr 是否可用，我应该编写一些测试样例，但是 org 的导出框架已经足够鲁棒，使用中碰到问题也很容易进行修正，而且一些不常用功能中的 bug 如果不使用根本不会发现，因此我只编写了这一个简单的测试文件。
 
