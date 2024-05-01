@@ -60,14 +60,14 @@
     (center-block . t-center-block) ; #+BEGIN_CENTER
     (quote-block . t-quote-block) ; #+BEGIN_QUOTE
     (special-block . t-special-block) ; #+BEGIN_something
-    (drawer . t-drawer)
+    (drawer . t-drawer) ; :name: ...\n...\n... :end:
     (dynamic-block . t-dynamic-block) ; #+BEGIN: name para
     ;; footnote-definition (NOEXIST) `footnote-definition'
     ;; inlinetasks `inlinetask' (NOUSE)
     (item . t-item) ; plain list item
     (plain-list . t-plain-list) ; plain list
     ;; property drawers `property-drawer' (NOUSE)
-    (table . t-table)
+    (table . t-table) ; | | |
     ;;@ lesser elements [17]
     ;; comment block (NOT EXPORT)
     (example-block . t-example-block) ; #+BEGIN_EXAMPLE
@@ -96,7 +96,7 @@
     ;; inline babel calls (NOEXIST)
     (inline-src-block . t-inline-src-block) ; src_LANG{BODY}
     (line-break . t-line-break) ; \\
-    (link . t-link)
+    (link . t-link) ; [[...][...]]
     ;; macros (NOEXIST)
     (target . t-target) ; <<target>>
     (radio-target . t-radio-target) ; <<<CONTENTS>>>
@@ -123,35 +123,56 @@
 	      (if a (t-export-to-html t s v b)
 		(org-open-file (t-export-to-html nil s v b)))))))
   :options-alist
-  '((:description "DESCRIPTION" nil nil newline)
+  '(;; meta information for HTML <head> --------
+    (:description "DESCRIPTION" nil nil newline)
     (:keywords "KEYWORDS" nil nil space)
-    (:html-link-left  "HTML_LINK_LEFT"  nil t-link-left)
-    (:html-link-lname "HTML_LINK_LNAME" nil t-link-lname)
-    (:html-link-right "HTML_LINK_RIGHT" nil t-link-right)
-    (:html-link-rname "HTML_LINK_RNAME" nil t-link-rname)
-    (:html-mathjax "HTML_MATHJAX" nil "" space)
-    (:html-equation-reference-format
-     "HTML_EQUATION_REFERENCE_FORMAT" nil t-equation-reference-format t)
-    (:html-postamble nil "html-postamble" t-postamble)
-    (:html-preamble nil "html-preamble" t-preamble)
+    (:creator "CREATOR" nil t-creator-string)
+    (:language "LANGUAGE" nil t-language-string)
+    (:html-viewport nil nil t-viewport)
     (:html-head "HTML_HEAD" nil t-head newline)
     (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
     (:subtitle "SUBTITLE" nil nil parse)
     (:html-head-include-default-style
      nil "html-style" t-head-include-default-style)
-    (:html-checkbox-type nil nil t-checkbox-type)
-    (:html-extension nil nil t-extension)
+    (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
+    ;; HTML TOP place naviagtion elements --------------
+    (:html-link-left  "HTML_LINK_LEFT"  nil t-link-left)
+    (:html-link-lname "HTML_LINK_LNAME" nil t-link-lname)
+    (:html-link-right "HTML_LINK_RIGHT" nil t-link-right)
+    (:html-link-rname "HTML_LINK_RNAME" nil t-link-rname)
+    ;; Latex and MathJAX options -------
+    (:with-latex nil "tex" t-with-latex)
+    (:latex-header "LATEX_HEADER" nil nil newline)
+    (:html-equation-reference-format
+     "HTML_EQUATION_REFERENCE_FORMAT" nil t-equation-reference-format t)
+    (:html-mathjax "HTML_MATHJAX" nil "" space)
+    (:html-mathjax-options nil nil t-mathjax-options)
+    (:html-mathjax-template nil nil t-mathjax-template)
+    ;; postamble and preamble ------------------------
+    (:html-postamble nil "html-postamble" t-postamble)
+    (:html-preamble nil "html-preamble" t-preamble)
+    (:html-format-home/up-function nil nil t-format-home/up-function)
+    (:html-validation-link nil nil t-validation-link)
+    ;; footnote options -----------------------------
     (:html-footnote-format nil nil t-footnote-format)
     (:html-footnote-separator nil nil t-footnote-separator)
     (:html-footnotes-section nil nil t-footnotes-section)
-    (:html-format-home/up-function nil nil t-format-home/up-function)
-    (:html-indent nil nil t-indent)
-    (:html-inline-image-rules nil nil t-inline-image-rules)
-    (:html-link-org-files-as-html nil nil t-link-org-files-as-html)
-    (:html-mathjax-options nil nil t-mathjax-options)
-    (:html-mathjax-template nil nil t-mathjax-template)
-    (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
+    ;; headline options -------------------------------------
     (:html-self-link-headlines nil nil t-self-link-headlines)
+    (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
+    ;; <yy> aux counter for unnumbered headline
+    (:html-headline-cnt nil nil 0)
+    ;; <yy> store zeroth section's output
+    (:html-zeroth-section-output nil nil "")
+    ;; <yy> zeroth section's toc title name
+    (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
+    ;; <yy> control max headline level
+    (:headline-levels nil "H" t-headline-level)
+    ;; <yy> control todo, priority and tags export
+    (:with-todo-keywords nil "todo" t-with-todo-keywords)
+    (:with-priority nil "pri" t-with-priority)
+    (:with-tags nil "tags" t-with-tags)
+    ;; table options ------------------------
     (:html-table-align-individual-fields
      nil nil t-table-align-individual-fields)
     (:html-table-caption-above nil nil t-table-caption-above)
@@ -159,30 +180,18 @@
     (:html-table-header-tags nil nil t-table-header-tags)
     (:html-table-use-header-tags-for-first-column
      nil nil t-table-use-header-tags-for-first-column)
-    (:html-text-markup-alist nil nil t-text-markup-alist)
-    (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
-    (:html-validation-link nil nil t-validation-link)
-    (:html-viewport nil nil t-viewport)
-    (:html-inline-images nil nil t-inline-images)
     (:html-table-row-open-tag nil nil t-table-row-open-tag)
     (:html-table-row-close-tag nil nil t-table-row-close-tag)
-    ;; Redefine regular options.
-    (:creator "CREATOR" nil t-creator-string)
-    (:with-latex nil "tex" t-with-latex)
-    ;; Retrieve LaTeX header for fragments.
-    (:latex-header "LATEX_HEADER" nil nil newline)
-    ;; <yy> aux counter for unnumbered headline
-    (:html-headline-cnt nil nil 0)
-    ;; <yy> store zeroth section's output
-    (:html-zeroth-section-output nil nil "")
+    ;; misc options -----------------------------
+    (:html-checkbox-type nil nil t-checkbox-type)
+    (:html-extension nil nil t-extension)
+    (:html-indent nil nil t-indent)
+    (:html-inline-image-rules nil nil t-inline-image-rules)
+    (:html-link-org-files-as-html nil nil t-link-org-files-as-html)
+    (:html-text-markup-alist nil nil t-text-markup-alist)
+    (:html-inline-images nil nil t-inline-images)
     ;; <yy> add back to top arrow
     (:html-back-to-top nil "back-to-top" t-back-to-top)
-    ;; <yy> control max headline level
-    (:headline-levels nil "H" t-headline-level)
-    ;; <yy> control todo, priority and tags export
-    (:with-todo-keywords nil "todo" t-with-todo-keywords)
-    (:with-priority nil "pri" t-with-priority)
-    (:with-tags nil "tags" t-with-tags)
     ;; <yy> add timestamp format for timestamp
     (:html-timestamp-format nil nil t-timestamp-format)
     ;; <yy> add default class for example and src block
@@ -721,6 +730,15 @@ See `format-time-string' for more information on its components."
   :group 'org-export-w3ctr
   :type 'sexp)
 
+(defcustom t-language-string "zh-CN"
+  "default HTML lang attribtue"
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-zeroth-section-tocname "Abstract"
+  "default toc name of the zeroth section"
+  :group 'org-export-w3ctr
+  :type 'sexp)
 
 ;;; Internal Functions
 
@@ -1109,16 +1127,12 @@ holding export options.
 See `org-html-inner-template' for more information"
     (concat
      (plist-get info :html-zeroth-section-output)
-     (t--build-toc info)
+     (when-let ((depth (plist-get info :with-toc)))
+       (t-toc depth info))
      "<main>\n"
      contents
      "</main>\n"
      (t-footnote-section info)))
-
-(defun t--build-toc (info)
-  (when-let ((depth (plist-get info :with-toc)))
-    (let ((toc-res (t-toc depth info)))
-      (if (not toc-res) "" toc-res))))
 
 (defun t-format-home/up-default-function (info)
   "format the home/div element"
@@ -1379,7 +1393,7 @@ is the language used for CODE, as a string, or nil."
 
 ;;; Tables of Contents
 
-(defun t-toc (depth info &optional scope)
+(defun t-toc (depth info)
   "Build a table of contents.
 DEPTH is an integer specifying the depth of the table.  INFO is
 a plist used as a communication channel.  Optional argument SCOPE
@@ -1389,21 +1403,19 @@ of contents as a string, or nil if it is empty."
 	 (mapcar (lambda (headline)
 		   (cons (t--format-toc-headline headline info)
 			 (org-export-get-relative-level headline info)))
-		 (org-export-collect-headlines info depth scope))))
+		 (org-export-collect-headlines info depth))))
     (when toc-entries
-      (let ((toc-entries (cons '("<a href=\"#abstract\">Abstract</a>" . 1) toc-entries)))
-	(let ((toc (if scope (t--toc-text (cdr toc-entries))
-		     (t--toc-text toc-entries))))
-	  (if scope toc
-	    (concat (format "<nav id=\"toc\" data-count=\"%s\">\n"
-			    (length toc-entries))
-		    (let ((top-level (plist-get info :html-toplevel-hlevel)))
-		      (format "<h%d id=\"table-of-contents\">%s</h%d>\n"
-			      top-level
-			      "Table of Contents"
-			      top-level))
-		    toc
-		    "</nav>\n")))))))
+      (let* ((toc-entries
+	      (if-let ((zeroth-tocname (plist-get info :html-zeroth-section-tocname)))
+		  (cons (cons (format "<a href=\"#abstract\">%s</a>" zeroth-tocname) 1) toc-entries)
+		toc-entries))
+	     (toc (t--toc-text toc-entries)))
+	(concat "<nav id=\"toc\">\n"
+		(let ((top-level (plist-get info :html-toplevel-hlevel)))
+		  (format "<h%d id=\"table-of-contents\">%s</h%d>\n"
+			  top-level "Table of Contents" top-level))
+		toc
+		"</nav>\n")))))
 
 (defun t--toc-text (toc-entries)
   "Return innards of a table of contents, as a string.
