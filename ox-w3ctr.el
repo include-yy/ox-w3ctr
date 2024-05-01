@@ -981,10 +981,10 @@ INFO is a plist used as a communication channel."
 INFO is a plist used as a communication channel."
   (org-element-normalize-string
    (concat
-    (when (plist-get info :html-head-include-default-style)
-      (org-element-normalize-string t-style-default))
     (org-element-normalize-string (plist-get info :html-head))
-    (org-element-normalize-string (plist-get info :html-head-extra)))))
+    (org-element-normalize-string (plist-get info :html-head-extra))
+    (when (plist-get info :html-head-include-default-style)
+      (org-element-normalize-string t-style-default)))))
 
 (defun t--build-mathjax-config (info)
   "Insert the user setup into the mathjax template.

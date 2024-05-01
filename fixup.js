@@ -9,6 +9,7 @@
 /**
  * Steal by include-yy
  * 2024-05-01 17:32
+ * delete the Deprecation warning and dark mode toggle part
  **/
 
 (function() {

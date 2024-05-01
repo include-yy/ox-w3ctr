@@ -7,7 +7,7 @@
 #+options: example-class:nil
 # #+options: toc:nil
 #+HTML_LINK_LEFT: https://orgmode.org/zh-CN/index.html
-#+HTML_LINK_LNAME: Org-mode
+#+HTML_LINK_LNAME: org-mode
 #+HTML_LINK_RIGHT: https://github.com/w3c/tr-design
 #+HTML_LINK_RNAME: tr-design
 
