@@ -25,7 +25,8 @@
 
   var sidebarMedia = window.matchMedia('screen and (min-width: 78em)');
   var autoToggle   = function(e){ toggleSidebar(e.matches) };
-  if(sidebarMedia.addListener) {
+  var toc = document.getElementById('toc');
+  if(sidebarMedia.addListener && toc) {
     sidebarMedia.addListener(autoToggle);
   }
 
