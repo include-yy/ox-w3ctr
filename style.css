@@ -1813,6 +1813,10 @@ img {
     height: auto;
 }
 
+underline {
+    text-decoration: underline;
+}
+
 /* source code highlight used by engrave-face.el */
 .ef-h { color: #7f7f7f; }
 .ef-sc { color: #a1db00; }
