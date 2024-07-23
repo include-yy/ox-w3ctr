@@ -1813,7 +1813,7 @@ img {
     height: auto;
 }
 
-underline {
+.underline {
     text-decoration: underline;
 }
 
