@@ -57,63 +57,61 @@
     (headline . t-headline)
     (section . t-section)
     ;;@ greater elements [11]
-    (center-block . t-center-block) ; #+BEGIN_CENTER
-    (quote-block . t-quote-block) ; #+BEGIN_QUOTE
-    (special-block . t-special-block) ; #+BEGIN_something
-    (drawer . t-drawer) ; :name: ...\n...\n... :end:
-    (dynamic-block . t-dynamic-block) ; #+BEGIN: name para
-    ;; footnote-definition (NOEXIST) `footnote-definition'
-    ;; inlinetasks `inlinetask' (NOUSE)
-    (item . t-item) ; plain list item
-    (plain-list . t-plain-list) ; plain list
-    ;; property drawers `property-drawer' (NOUSE)
-    (table . t-table) ; | | |
+    ;; footnote-definition                      NO-EXIST
+    ;; inlinetasks `inlinetask'                 NO-USE
+    ;; property drawers `property-drawer'       NO-USE
+    (center-block . t-center-block)             ; #+begin_center
+    (drawer . t-drawer)                         ; :name: ... :end:
+    (dynamic-block . t-dynamic-block)           ; #+begin: name para
+    (item . t-item)                             ; plain list item
+    (plain-list . t-plain-list)                 ; plain list
+    (quote-block . t-quote-block)               ; #+begin_quote
+    (special-block . t-special-block)           ; #+begin_{sth}
+    (table . t-table)                           ; | | |
     ;;@ lesser elements [17]
-    ;; comment block (NOT EXPORT)
-    (example-block . t-example-block) ; #+BEGIN_EXAMPLE
-    ;;; --- EXPORT snippet and block ---
-    ;; Related functions: t--sexp2html
-    ;; t-export-block, t-src-block
-    (export-block . t-export-block) ; #+BEGIN_EXPORT html
-    (src-block . t-src-block) ; #+BEGIN_SRC lang paras
-    (verse-block . t-verse-block) ; #+BEGIN_VERSE
-    ;; clock `clock' (NOUSE)
-    ;; diary sexp `diary-sexp' (NOUSE)
-    ;; planning `planning' (NOUSE)
-    ;; comments (NO EXPORT)
-    (fixed-width . t-fixed-width) ; ^: contents
-    (horizontal-rule . t-horizontal-rule) ; -----------
-    (keyword . t-keyword) ; #+NAME: ...
-    ;; babel cell (NOEXIST)
-    (latex-environment . t-latex-environment) ; \begin
-    ;; node properties `node-property' (NOUSE)
-    (paragraph . t-paragraph)
-    (table-row . t-table-row)
+    ;; babel cell                               NO-EXIST
+    ;; clock `clock'                            NO-USE
+    ;; comments                                 NO-EXPORT
+    ;; comment block                            NO-EXPORT
+    ;; diary sexp `diary-sexp'                  NO-USE
+    ;; node properties `node-property'          NO-USE
+    ;; planning `planning'                      NO-USE
+    (example-block . t-example-block)           ; #+BEGIN_EXAMPLE
+    (export-block . t-export-block)             ; #+BEGIN_EXPORT html
+    (fixed-width . t-fixed-width)               ; ^: contents
+    (horizontal-rule . t-horizontal-rule)       ; -----------
+    (keyword . t-keyword)                       ; #+NAME: ...
+    (latex-environment . t-latex-environment)   ; \begin
+    (paragraph . t-paragraph)                   ; \n ... \n
+    (src-block . t-src-block)                   ; #+BEGIN_SRC lang
+    (table-row . t-table-row)                   ; | |
+    (verse-block . t-verse-block)               ; #+BEGIN_VERSE
     ;;@ objects [25]
-    (entity . t-entity) ; \alpha, \cent
-    (latex-fragment . t-latex-fragment) ; \(, \[
-    (export-snippet . t-export-snippet) ; @@html:something@@
-    (footnote-reference . t-footnote-reference)
-    ;; citation (NOUSE)
-    ;; citation reference (NOUSE)
-    ;; inline babel calls (NOEXIST)
-    (inline-src-block . t-inline-src-block) ; src_LANG{BODY}
-    (line-break . t-line-break) ; \\
-    (link . t-link) ; [[...][...]]
-    ;; macros (NOEXIST)
-    (target . t-target) ; <<target>>
-    (radio-target . t-radio-target) ; <<<CONTENTS>>>
-    (statistics-cookie . t-statistics-cookie) ; [%] [/]
-    (subscript . t-subscript) ; a_{b}
-    (superscript . t-superscript) ; a^{b}
-    (table-cell . t-table-cell)
-    (timestamp . t-timestamp)
-    (bold . t-bold) ; *a*
-    (italic . t-italic) ; /a/
-    (underline . t-underline) ; _a_
-    (verbatim . t-verbatim) ; =a=
-    (code . t-code) ; ~a~
-    (strike-through . t-strike-through) ; +a+
+    ;; citation                                 (NOUSE)
+    ;; citation reference                       (NOUSE)
+    ;; inline babel calls                       (NOEXIST)
+    ;; macros                                   (NOEXIST)
+    (entity . t-entity)                         ; \alpha, \cent
+    (export-snippet . t-export-snippet)         ; @@html:something@@
+    (footnote-reference . t-footnote-reference) ; [fn:]
+    (inline-src-block . t-inline-src-block)     ; src_LANG{BODY}
+    (latex-fragment . t-latex-fragment)         ; \(, \[
+    (line-break . t-line-break)                 ; \\
+    (link . t-link)                             ; [[...][...]]
+    (radio-target . t-radio-target)             ; <<<CONTENTS>>>
+    (statistics-cookie . t-statistics-cookie)   ; [%] [/]
+    (subscript . t-subscript)                   ; a_{b}
+    (superscript . t-superscript)               ; a^{b}
+    (table-cell . t-table-cell)                 ; | |
+    (target . t-target)                         ; <<target>>
+    (timestamp . t-timestamp)                   ; [<time-spec>]
+    ;; smallest objects
+    (bold . t-bold)                             ; *a*
+    (italic . t-italic)                         ; /a/
+    (underline . t-underline)                   ; _a_
+    (verbatim . t-verbatim)                     ; =a=
+    (code . t-code)                             ; ~a~
+    (strike-through . t-strike-through)         ; +a+
     (plain-text . t-plain-text))
   :filters-alist '((:filter-parse-tree . t-image-link-filter)
 		   (:filter-final-output . t-final-function))
@@ -202,6 +200,13 @@
     ;; <yy> add options for fixup.js's code
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     ))
+
+;;;; Center Block
+
+(defun t-center-block (_center-block contents _info)
+  "Transcode a CENTER-BLOCK element from Org to HTML."
+  (format "<div style=\"text-align:center;\">%s</div>" contents))
+
 
 ;;; Internal Variables
 
@@ -1459,14 +1464,6 @@ contextual information."
   (format (or (cdr (assq 'bold (plist-get info :html-text-markup-alist))) "%s")
 	  contents))
 
-;;;; Center Block
-
-(defun t-center-block (_center-block contents _info)
-  "Transcode a CENTER-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information."
-  (format "<div class=\"org-center\">\n%s</div>" contents))
-
 ;;;; Code
 
 (defun t-code (code _contents info)
@@ -1632,9 +1629,8 @@ input. Other data types will be ignored."
 ;;;; Fixed Width
 
 (defun t-fixed-width (fixed-width _contents _info)
-  "Transcode a FIXED-WIDTH element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (format "<pre>\n%s</pre>"
+  "Transcode a FIXED-WIDTH element from Org to HTML."
+  (format "<pre>%s</pre>"
 	  (t-fontify-code
 	   (org-remove-indentation
 	    (org-element-property :value fixed-width))
