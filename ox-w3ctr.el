@@ -6,9 +6,9 @@
 ;; Maintainer: include-yy <yy@egh0bww1.com>
 ;; Created: 2024-03-18 04:51:00
 
-;; Package-Version: 0.1
-;; Package-Requires: ((emacs "29.2"))
-;; Keywords: HTML, org
+;; Package-Version: 0.2
+;; Package-Requires: ((emacs "30.1"))
+;; Keywords: HTML, Org
 ;; URL: https://github.com/include-yy/ox-w3ctr
 
 ;; This file is not part of GNU Emacs.
@@ -71,6 +71,9 @@
     ;;@ lesser elements [17]
     ;; comment block (NOT EXPORT)
     (example-block . t-example-block) ; #+BEGIN_EXAMPLE
+    ;;; --- EXPORT snippet and block ---
+    ;; Related functions: t--sexp2html
+    ;; t-export-block, t-src-block
     (export-block . t-export-block) ; #+BEGIN_EXPORT html
     (src-block . t-src-block) ; #+BEGIN_SRC lang paras
     (verse-block . t-verse-block) ; #+BEGIN_VERSE
@@ -487,24 +490,18 @@ The choices are:
 Note that only the ascii characters implement tri-state
 checkboxes.  The other two use the `off' checkbox for `trans'.")
 
-(defcustom t-checkbox-type 'unicode
+(defvar t-checkbox-type 'unicode
   "The type of checkboxes to use for HTML export.
-See `t-checkbox-types' for the values used for each
-option."
-  :group 'org-export-w3ctr
-  :type '(choice
-	  (const :tag "ASCII characters" ascii)
-	  (const :tag "Unicode characters" unicode)
-	  (const :tag "HTML checkboxes" html)))
 
-(defcustom t-metadata-timestamp-format "%Y-%m-%d %H:%M"
+See `org-html-checkbox-types' for the values used for each option.")
+
+(defvar t-metadata-timestamp-format "%Y-%m-%d %H:%M"
   "Format used for timestamps in preamble, postamble and metadata.
-See `format-time-string' for more information on its components."
-  :group 'org-export-w3ctr
-  :type 'string)
+
+See `format-time-string' for more information on its components.")
 
 ;;;; Template :: Mathjax
-(defcustom t-mathjax-options
+(defvar t-mathjax-options
   '((path "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js")
     (scale 1.0)
     (align "center")
@@ -517,12 +514,9 @@ See `format-time-string' for more information on its components."
     (tagside "right"))
   "Options for MathJax setup.
 
-See `org-html-mathjax-options' for details"
-  :group 'org-export-w3ctr
-  :package-version '(Org . "9.6")
-  :type 'sexp)
+See `org-html-mathjax-options' for details")
 
-(defcustom t-mathjax-template
+(defvar t-mathjax-template
   "<script>
   window.MathJax = {
     tex: {
@@ -555,9 +549,7 @@ See `org-html-mathjax-options' for details"
   async
   src=\"%PATH\">
 </script>"
-  "The MathJax template.  See also `org-html-mathjax-options'."
-  :group 'org-export-w3ctr
-  :type 'string)
+  "The MathJax template.  See also `org-html-mathjax-options'.")
 
 ;;;; Template :: Postamble
 
@@ -574,14 +566,12 @@ See `org-html-postamble' for more information"
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-creator-string
+(defvar t-creator-string
   (format "<a href=\"https://www.gnu.org/software/emacs/\">Emacs</a> %s (<a href=\"https://orgmode.org\">Org</a> mode %s)"
 	  emacs-version
 	  (if (fboundp 'org-version) (org-version) "unknown version"))
   "Information about the creator of the HTML document.
-This option can also be set on with the CREATOR keyword."
-  :group 'org-export-w3ctr
-  :type '(string :tag "Creator string"))
+See `org-html-creator-string' for more information.")
 
 ;;;; Template :: Preamble
 
@@ -654,12 +644,11 @@ style information."
   :group 'org-export-w3ctr
   :type 'boolean)
 
-(defcustom t-head ""
+(defvar t-head ""
   "Org-wide head definitions for exported HTML files.
 
-See `org-html-head' for more information."
-  :group 'org-export-w3ctr
-  :type 'string)
+See `org-html-head' for more information.")
+
 ;;;###autoload
 (put 't-head 'safe-local-variable 'stringp)
 
@@ -675,7 +664,7 @@ or for publication projects using the :html-head-extra property."
 
 ;;;; Template :: Viewport
 
-(defcustom t-viewport '((width "device-width")
+(defvar t-viewport '((width "device-width")
 			(initial-scale "1")
 			(minimum-scale "")
 			(maximum-scale "")
@@ -684,9 +673,7 @@ or for publication projects using the :html-head-extra property."
 
 See `org-html-viewport' for more infomation.
 See the following site for a reference:
-https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
-  :group 'org-export-w3ctr
-  :type 'sexp)
+https://developer.mozilla.org/zh-CN/docs/Web/HTML/Viewport_meta_tag")
 
 ;;;; Some options added by include-yy
 (defcustom t-use-babel nil
@@ -1572,20 +1559,75 @@ information."
 
 ;;;; Export Snippet
 
+;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
+(defconst t--void-element-regexp
+  (rx string-start
+      (or "area" "base" "br" "col" "embed" "hr"
+	  "img" "input" "link" "meta" "param"
+	  "source" "track" "wbr")
+      string-end)
+  "Regexp matching HTML void elements (self-closing tags).
+These elements do not require a closing tag in HTML.")
+
+(defun t--sexp2html (data)
+  "Convert S-expression DATA into an HTML string.
+
+The function only accepts symbols, strings, numbers, and lists as
+input. Other data types will be ignored."
+  (pcase data
+    ('nil "")
+    ((or (pred numberp) (pred stringp) (pred symbolp))
+     (format "%s" data))
+    ((pred listp)
+     ;; always use lowercase tagname.
+     (let* ((tag (downcase (t--sexp2html (nth 0 data))))
+	    (attrs (mapconcat
+		    (lambda (x)
+		      (pcase x
+			(`(,n . ,v)
+			 (format " %s=\"%s\""
+				 (t--sexp2html n)
+				 (t--sexp2html v)))
+			((or (pred symbolp) (pred stringp))
+			 (format " %s" x))
+			(_ "")))
+		    (nth 1 data))))
+       (if (string-match-p t--void-element-regexp tag)
+	   (format "<%s%s>" tag attrs)
+	 (let ((children (mapconcat #'t--sexp2html (cddr data))))
+	   (format "<%s%s>%s</%s>"
+		   tag attrs children tag)))))
+    (_ "")))
+
 (defun t-export-snippet (export-snippet _contents _info)
-  "Transcode a EXPORT-SNIPPET object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual
-information."
-  (when (eq (org-export-snippet-backend export-snippet) 'html)
-    (org-element-property :value export-snippet)))
+  "Transcode a EXPORT-SNIPPET object from Org to HTML."
+  (let* ((backend (org-export-snippet-backend export-snippet))
+	 (value (org-element-property :value export-snippet)))
+    (pcase backend
+      ;; plain html text.
+      ((or 'h 'html) value)
+      ;; Read, Evaluate, Print, no Loop :p
+      ('e (format "%s" (eval (read value))))
+      ;; sexp-style html data.
+      ('d (t--sexp2html (read value)))
+      ;; sexp-style html data list.
+      ('l (mapconcat #'t--sexp2html (read (format "(%s)" value))))
+      (_ nil))))
 
 ;;;; Export Block
 
 (defun t-export-block (export-block _contents _info)
-  "Transcode a EXPORT-BLOCK element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (when (string= (org-element-property :type export-block) "HTML")
-    (org-remove-indentation (org-element-property :value export-block))))
+  "Transcode a EXPORT-BLOCK element from Org to HTML."
+  (let ((type (org-element-property :type export-block))
+	(value (org-element-property :value export-block)))
+    (pcase type
+      ;; Plain HTML.
+      ("HTML" (org-remove-indentation value))
+      ;; Expression that return HTML string.
+      ("ELISP" (format (eval (read value))))
+      ;; SEXP-style HTML data.
+      ("LISP-DATA" (t--sexp2html (read value)))
+      (_ nil))))
 
 ;;;; Fixed Width
 
@@ -2734,6 +2776,8 @@ Return output file name."
 
 ;; Local variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
+;; fill-column: 72
+;; coding: utf-8-unix
 ;; End:
 
 ;;; ox-w3ctr.el ends here
