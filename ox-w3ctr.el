@@ -280,28 +280,106 @@ attribute with a nil value means a boolean attribute."
 		 (concat " " (downcase s)))
 	     (t--make-attr x)))
    attributes))
+
+(defun t--make-attr__id (element info &optional named-only)
+  "Return ELEMENT's attribute string."
+  (let* ((reference (t--reference element info named-only))
+	 (attributes (t--read-attr__ element))
+	 (a (t--make-attr__
+	     (if (not reference) attributes
+	       (cons `("id" ,reference) attributes)))))
+    (if (org-string-nw-p a) a "")))
 
 ;;;; Center Block
-
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML."
   (format "<div style=\"text-align:center;\">%s</div>"
 	  (if contents (concat "\n" contents "\n") "")))
 
 ;;;; Drawer
-
 (defun t-drawer (drawer contents info)
   "Transcode a DRAWER element from Org to HTML."
   (let* ((name (org-element-property :drawer-name drawer))
 	 (cap (if-let* ((cap (org-export-get-caption drawer)))
 		  (org-export-data cap info) name))
-	 (id (t--reference drawer info t))
-	 (attrs (let ((a (t--read-attr__ drawer)))
-		  (if id (cons (list "id" id) a) a))))
+	 (attrs (t--make-attr__id drawer info t)))
     (format "<details%s>\n<summary>%s</summary>\n%s</details>"
-	    (if (not attrs) "" (t--make-attr__ attrs))
-	    cap (if contents (concat contents "\n") ""))))
+	    attrs cap (if contents (concat contents "\n") ""))))
 
+;;;; Dynamic Block
+
+(defconst t-dynamic-block-elements
+  '("article" "aside" "audio" "canvas" "figcaption"
+    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
+    "output" "progress" "section" "summary" "video")
+  "block-name that recognized as HTML elements")
+
+(defun t-dynamic-block (dynamic-block contents info)
+  "Transcode a DYNAMIC-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the block.  INFO is a plist
+holding contextual information.  See `org-export-data'."
+  (let* ((block-name (org-element-property :block-name dynamic-block))
+	 (element (if (member block-name t-dynamic-block-elements) block-name "div"))
+	 (id (t--reference dynamic-block info
+			   (not (member element '("example" "issue")))))
+	 (args (if-let* ((a (org-element-property :arguments dynamic-block)))
+		   (org-trim a)))
+	 (attr-cls (org-export-read-attribute :attr_html dynamic-block :class))
+	 (cls (cl-reduce (lambda (s a) (if a (concat s " " a) s))
+			 (if (equal element "div")
+			     (list block-name args attr-cls)
+			   (list args attr-cls))))
+	 (attrs (let ((a (org-export-read-attribute :attr_html dynamic-block)))
+		  (cl-remf a :id) (cl-remf a :class)
+		  (t--make-attribute-string a)))
+	 (cap (if-let* ((c (org-export-get-caption dynamic-block)))
+		  (org-export-data c info))))
+    (format "<%s%s%s%s>\n%s\n\n%s\n%s\n</%s>"
+	    element
+	    (if id (format " id=\"%s\"" id) "")
+	    (if cls (format " class=\"%s\"" cls) "")
+	    (or attrs "")
+	    (if (not cap) "" cap)
+	    (if (not id) ""
+	      (format "<a class=\"self-link\" href=\"#%s\" aria-label=\"%s-block\"></a>"
+		      id block-name))
+	    contents
+	    element)))
+
+;;;; Quote Block
+
+(defun t-quote-block (quote-block contents info)
+  "Transcode a QUOTE-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the block.  INFO is a plist
+holding contextual information."
+  (format "<blockquote%s>%s</blockquote>"
+	  (t--make-attr__id quote-block info t)
+	  (if contents (concat "\n" contents "\n") "")))
+
+;;;; Special Block
+
+(defun t-special-block (special-block contents info)
+  "Transcode a SPECIAL-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the block.  INFO is a plist
+holding contextual information."
+  (let* ((block-type (org-element-property :type special-block))
+         (html5-fancy (member block-type t-html5-elements))
+         (attributes (org-export-read-attribute :attr_html special-block)))
+    (unless html5-fancy
+      (let ((class (plist-get attributes :class)))
+        (setq attributes (plist-put attributes :class
+                                    (if class (concat class " " block-type)
+                                      block-type)))))
+    (let* ((contents (or contents ""))
+	   (reference (t--reference special-block info t))
+	   (a (t--make-attribute-string
+	       (if (or (not reference) (plist-member attributes :id))
+		   attributes
+		 (plist-put attributes :id reference))))
+	   (str (if (org-string-nw-p a) (concat " " a) "")))
+      (if html5-fancy
+	  (format "<%s%s>\n%s</%s>" block-type str contents block-type)
+	(format "<div%s>\n%s\n</div>" str contents)))))
 
 ;;; Internal Variables
 
@@ -358,12 +436,6 @@ customize `t-head-include-default-style'.")
 (defconst t-back-to-top-arrow "\
 <p role=\"navigation\" id=\"back-to-top\">\n<a href=\"#title\">\
 <abbr title=\"Back to Top\">↑</abbr></a>\n</p>\n")
-
-(defconst t-dynamic-block-elements
-  '("article" "aside" "audio" "canvas" "figcaption"
-    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
-    "output" "progress" "section" "summary" "video")
-  "block-name that recognized as HTML elements")
 
 
 ;;; User Configuration Variables
@@ -1568,40 +1640,6 @@ information."
   (format (or (cdr (assq 'code (plist-get info :html-text-markup-alist))) "%s")
 	  (t-encode-plain-text (org-element-property :value code))))
 
-;;;; Dynamic Block
-
-(defun t-dynamic-block (dynamic-block contents info)
-  "Transcode a DYNAMIC-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information.  See `org-export-data'."
-  (let* ((block-name (org-element-property :block-name dynamic-block))
-	 (element (if (member block-name t-dynamic-block-elements) block-name "div"))
-	 (id (t--reference dynamic-block info
-			   (not (member element '("example" "issue")))))
-	 (args (if-let* ((a (org-element-property :arguments dynamic-block)))
-		   (org-trim a)))
-	 (attr-cls (org-export-read-attribute :attr_html dynamic-block :class))
-	 (cls (cl-reduce (lambda (s a) (if a (concat s " " a) s))
-			 (if (equal element "div")
-			     (list block-name args attr-cls)
-			   (list args attr-cls))))
-	 (attrs (let ((a (org-export-read-attribute :attr_html dynamic-block)))
-		  (cl-remf a :id) (cl-remf a :class)
-		  (t--make-attribute-string a)))
-	 (cap (if-let* ((c (org-export-get-caption dynamic-block)))
-		  (org-export-data c info))))
-    (format "<%s%s%s%s>\n%s\n\n%s\n%s\n</%s>"
-	    element
-	    (if id (format " id=\"%s\"" id) "")
-	    (if cls (format " class=\"%s\"" cls) "")
-	    (or attrs "")
-	    (if (not cap) "" cap)
-	    (if (not id) ""
-	      (format "<a class=\"self-link\" href=\"#%s\" aria-label=\"%s-block\"></a>"
-		      id block-name))
-	    contents
-	    element)))
-
 ;;;; Entity
 
 (defun t-entity (entity _contents _info)
@@ -2374,22 +2412,6 @@ contextual information."
     ;; Return value.
     output))
 
-;;;; Quote Block
-
-(defun t-quote-block (quote-block contents info)
-  "Transcode a QUOTE-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information."
-  (format "<blockquote%s>\n%s</blockquote>"
-	  (let* ((reference (t--reference quote-block info t))
-		 (attributes (org-export-read-attribute :attr_html quote-block))
-		 (a (t--make-attribute-string
-		     (if (or (not reference) (plist-member attributes :id))
-			 attributes
-		       (plist-put attributes :id reference)))))
-	    (if (org-string-nw-p a) (concat " " a) ""))
-	  contents))
-
 ;;;; Section
 
 (defun t-section (section contents info)
@@ -2413,31 +2435,6 @@ TEXT is the text of the target.  INFO is a plist holding
 contextual information."
   (let ((ref (t--reference radio-target info)))
     (t--anchor ref text nil info)))
-
-;;;; Special Block
-
-(defun t-special-block (special-block contents info)
-  "Transcode a SPECIAL-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information."
-  (let* ((block-type (org-element-property :type special-block))
-         (html5-fancy (member block-type t-html5-elements))
-         (attributes (org-export-read-attribute :attr_html special-block)))
-    (unless html5-fancy
-      (let ((class (plist-get attributes :class)))
-        (setq attributes (plist-put attributes :class
-                                    (if class (concat class " " block-type)
-                                      block-type)))))
-    (let* ((contents (or contents ""))
-	   (reference (t--reference special-block info t))
-	   (a (t--make-attribute-string
-	       (if (or (not reference) (plist-member attributes :id))
-		   attributes
-		 (plist-put attributes :id reference))))
-	   (str (if (org-string-nw-p a) (concat " " a) "")))
-      (if html5-fancy
-	  (format "<%s%s>\n%s</%s>" block-type str contents block-type)
-	(format "<div%s>\n%s\n</div>" str contents)))))
 
 ;;;; Src Block
 
