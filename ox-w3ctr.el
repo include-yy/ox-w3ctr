@@ -67,7 +67,7 @@
     (plain-list . t-plain-list)                 ; plain list
     (quote-block . t-quote-block)               ; #+begin_quote
     (special-block . t-special-block)           ; #+begin_{sth}
-    (table . t-table)                           ; | | |
+    (table . t-table)                           ; | | | \n | | | ...
     ;;@ lesser elements [17]
     ;; babel cell                               NO-EXIST
     ;; clock `clock'                            NO-USE
@@ -201,11 +201,104 @@
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     ))
 
+;;; Basic utilties
+
+(defsubst t--2str (s)
+  "Convert S to string.
+
+S can be number, symbol, string."
+  (cl-typecase s
+    (null nil)
+    (symbol (symbol-name s))
+    (string s)
+    (number (number-to-string s))
+    (otherwise nil)))
+
+(defsubst t--make-attr (list)
+  "Convert LIST to HTML attribute."
+  (when-let* ((name (t--2str (nth 0 list))))
+    (if-let* ((rest (cdr list)))
+	;; use lowercase prop name.
+	(concat " " (downcase name) "=\""
+		(mapconcat #'t--2str rest) "\"")
+      (concat " " (downcase name)))))
+
+;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
+(defconst t--void-element-regexp
+  (rx string-start
+      (or "area" "base" "br" "col" "embed" "hr"
+	  "img" "input" "link" "meta" "param"
+	  "source" "track" "wbr")
+      string-end)
+  "Regexp matching HTML void elements (self-closing tags).
+These elements do not require a closing tag in HTML.")
+
+(defun t--sexp2html (data)
+  "Convert S-expression DATA into an HTML string.
+
+The function only accepts symbols, strings, numbers, and lists as
+input. Other data types will be ignored."
+  (cl-typecase data
+    (null "")
+    ((or symbol string number) (t--2str data))
+    (list
+     ;; always use lowercase tagname.
+     (let* ((tag (downcase (t--2str (nth 0 data))))
+	    (attr-ls (nth 1 data))
+	    (attrs (if (or (eq attr-ls t) (eq attr-ls nil)) ""
+		     (mapconcat #'t--make-attr (nth 1 data)))))
+       (if (string-match-p t--void-element-regexp tag)
+	   (format "<%s%s>" tag attrs)
+	 (let ((children (mapconcat #'t--sexp2html (cddr data))))
+	   (format "<%s%s>%s</%s>"
+		   tag attrs children tag)))))
+    (otherwise "")))
+
+(defun t--read-attr (attribute element)
+  "Turn ATTRIBUTE property from ELEMENT into a alist."
+  (when-let* ((value (org-element-property attribute element)))
+    (unless (org-string-nw-p value)
+      (read (concat "(" value ")")))))
+
+(defun t--read-attr__ (element)
+  "Like `t--read-attr', but treat vector as class sequence."
+  (when-let* ((attrs (t--read-attr "attr__" element)))
+    (mapcar
+     (lambda (x) (if (not (vectorp x)) x
+	       (list "class" (mapconcat #'t--2str x " "))))
+     attrs)))
+
+(defun t--make-attr__ (attributes)
+  "Return a list of attributes, as a string.
+
+ATTRIBUTES is a alist where values are either strings or nil. An
+attribute with a nil value means a boolean attribute."
+  (mapconcat
+   (lambda (x) (if (atom x) (and-let* ((s (t--2str x)) (downcase s)))
+	     (t--make-attr x)))))
+
+
+
 ;;;; Center Block
 
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML."
-  (format "<div style=\"text-align:center;\">%s</div>" contents))
+  (format "<div style=\"text-align:center;\">%s</div>"
+	  (or contents "")))
+
+;;;; Drawer
+
+(defun t-drawer (drawer contents info)
+  "Transcode a DRAWER element from Org to HTML."
+  (let* ((name (org-element-property :drawer-name drawer))
+	 (cap (if-let* ((cap (org-export-get-caption drawer)))
+		  (org-export-data cap info) name))
+	 (id (t--reference drawer info t))
+	 (attrs (let ((a (t--read-attr :attr_h drawer)))
+		  (if id (cons (list 'id id) a))))
+    (format "<details%s%s>\n<summary>%s</summary>\n%s</details>"
+	    state (concat " " (t--make-attribute-string attrs)) cap contents)))
+
 
 
 ;;; Internal Variables
@@ -1473,21 +1566,6 @@ information."
   (format (or (cdr (assq 'code (plist-get info :html-text-markup-alist))) "%s")
 	  (t-encode-plain-text (org-element-property :value code))))
 
-;;;; Drawer
-(defun t-drawer (drawer contents info)
-  "Transcode a DRAWER element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information."
-  (let* ((drawer-name (org-element-property :drawer-name drawer))
-	 (state (if (string-match-p "^open" drawer-name) " open" ""))
-	 (cap (if-let ((cap (org-export-get-caption drawer)))
-		  (org-export-data cap info) drawer-name))
-	 (id (t--reference drawer info t))
-	 (attrs (let ((a (org-export-read-attribute :attr_html drawer)))
-		  (if id (plist-put a :id id) a))))
-    (format "<details%s%s>\n<summary>%s</summary>\n%s</details>"
-	    state (concat " " (t--make-attribute-string attrs)) cap contents)))
-
 ;;;; Dynamic Block
 
 (defun t-dynamic-block (dynamic-block contents info)
@@ -1555,46 +1633,6 @@ information."
 	      (t-format-src-block-code example-block info)))))
 
 ;;;; Export Snippet
-
-;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
-(defconst t--void-element-regexp
-  (rx string-start
-      (or "area" "base" "br" "col" "embed" "hr"
-	  "img" "input" "link" "meta" "param"
-	  "source" "track" "wbr")
-      string-end)
-  "Regexp matching HTML void elements (self-closing tags).
-These elements do not require a closing tag in HTML.")
-
-(defun t--sexp2html (data)
-  "Convert S-expression DATA into an HTML string.
-
-The function only accepts symbols, strings, numbers, and lists as
-input. Other data types will be ignored."
-  (pcase data
-    ('nil "")
-    ((or (pred numberp) (pred stringp) (pred symbolp))
-     (format "%s" data))
-    ((pred listp)
-     ;; always use lowercase tagname.
-     (let* ((tag (downcase (t--sexp2html (nth 0 data))))
-	    (attrs (mapconcat
-		    (lambda (x)
-		      (pcase x
-			(`(,n . ,v)
-			 (format " %s=\"%s\""
-				 (t--sexp2html n)
-				 (t--sexp2html v)))
-			((or (pred symbolp) (pred stringp))
-			 (format " %s" x))
-			(_ "")))
-		    (nth 1 data))))
-       (if (string-match-p t--void-element-regexp tag)
-	   (format "<%s%s>" tag attrs)
-	 (let ((children (mapconcat #'t--sexp2html (cddr data))))
-	   (format "<%s%s>%s</%s>"
-		   tag attrs children tag)))))
-    (_ "")))
 
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode a EXPORT-SNIPPET object from Org to HTML."
