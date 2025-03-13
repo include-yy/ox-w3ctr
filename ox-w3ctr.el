@@ -256,13 +256,14 @@ input. Other data types will be ignored."
 
 (defun t--read-attr (attribute element)
   "Turn ATTRIBUTE property from ELEMENT into a alist."
-  (when-let* ((value (org-element-property attribute element)))
-    (unless (org-string-nw-p value)
-      (read (concat "(" value ")")))))
+  (when-let* ((value (org-element-property attribute element))
+	      (str (mapconcat #'identity value " ")))
+    (when (org-string-nw-p str)
+      (read (concat "(" str ")")))))
 
 (defun t--read-attr__ (element)
   "Like `t--read-attr', but treat vector as class sequence."
-  (when-let* ((attrs (t--read-attr "attr__" element)))
+  (when-let* ((attrs (t--read-attr :attr__ element)))
     (mapcar
      (lambda (x) (if (not (vectorp x)) x
 	       (list "class" (mapconcat #'t--2str x " "))))
@@ -274,17 +275,18 @@ input. Other data types will be ignored."
 ATTRIBUTES is a alist where values are either strings or nil. An
 attribute with a nil value means a boolean attribute."
   (mapconcat
-   (lambda (x) (if (atom x) (and-let* ((s (t--2str x)) (downcase s)))
-	     (t--make-attr x)))))
+   (lambda (x) (if (atom x)
+	       (and-let* ((s (t--2str x)))
+		 (concat " " (downcase s)))
+	     (t--make-attr x)))
+   attributes))
 
-
-
 ;;;; Center Block
 
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML."
   (format "<div style=\"text-align:center;\">%s</div>"
-	  (or contents "")))
+	  (if contents (concat "\n" contents "\n") "")))
 
 ;;;; Drawer
 
@@ -294,11 +296,11 @@ attribute with a nil value means a boolean attribute."
 	 (cap (if-let* ((cap (org-export-get-caption drawer)))
 		  (org-export-data cap info) name))
 	 (id (t--reference drawer info t))
-	 (attrs (let ((a (t--read-attr :attr_h drawer)))
-		  (if id (cons (list 'id id) a))))
-    (format "<details%s%s>\n<summary>%s</summary>\n%s</details>"
-	    state (concat " " (t--make-attribute-string attrs)) cap contents)))
-
+	 (attrs (let ((a (t--read-attr__ drawer)))
+		  (if id (cons (list "id" id) a) a))))
+    (format "<details%s>\n<summary>%s</summary>\n%s</details>"
+	    (if (not attrs) "" (t--make-attr__ attrs))
+	    cap (if contents (concat contents "\n") ""))))
 
 
 ;;; Internal Variables
@@ -866,7 +868,7 @@ targets and targets."
 		   (let ((val (org-element-property :value datum)))
 		     (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val) val)))
 	      (org-element-property :name datum)
-	      (when-let ((id (org-element-property :ID datum)))
+	      (when-let* ((id (org-element-property :ID datum)))
 		(concat t--id-attr-prefix id))
 	      (t--get-headline-reference datum info))))
     (cond (user-label user-label)
@@ -882,7 +884,7 @@ if DATUM's type is not headline, return nil"
     (let ((cache (plist-get info :internal-references)))
       (or (car (rassq datum cache))
 	  (let ((newid
-		 (if-let ((numbers (org-export-get-headline-number datum info)))
+		 (if-let* ((numbers (org-export-get-headline-number datum info)))
 		     (concat "orgnh-" (mapconcat #'number-to-string numbers "."))
 		   (format "orguh-%s" (cl-incf (plist-get info :html-headline-cnt))))))
 	    (push (cons newid datum) cache)
@@ -1105,7 +1107,7 @@ INFO is a plist used as a communication channel."
           (when value
             (pcase symbol
               (`font
-               (when-let
+               (when-let*
                    ((value-new
                      (pcase value
                        ("TeX" "mathjax-tex")
@@ -1212,7 +1214,7 @@ holding export options.
 See `org-html-inner-template' for more information"
     (concat
      (plist-get info :html-zeroth-section-output)
-     (when-let ((depth (plist-get info :with-toc)))
+     (when-let* ((depth (plist-get info :with-toc)))
        (t-toc depth info))
      "<main>\n"
      contents
@@ -1264,7 +1266,7 @@ holding export options."
    "</head>\n"
    "<body>\n"
    ;; home and up links
-   (when-let ((fun (plist-get info :html-format-home/up-function)))
+   (when-let* ((fun (plist-get info :html-format-home/up-function)))
      (funcall fun info))
    ;; title and preamble
    (format "<div class=\"head\">\n%s%s\n</div>\n"
@@ -1491,7 +1493,7 @@ of contents as a string, or nil if it is empty."
 		 (org-export-collect-headlines info depth))))
     (when toc-entries
       (let* ((toc-entries
-	      (if-let ((zeroth-tocname (plist-get info :html-zeroth-section-tocname)))
+	      (if-let* ((zeroth-tocname (plist-get info :html-zeroth-section-tocname)))
 		  (cons (cons (format "<a href=\"#abstract\">%s</a>" zeroth-tocname) 1) toc-entries)
 		toc-entries))
 	     (toc (t--toc-text toc-entries)))
@@ -1576,7 +1578,7 @@ holding contextual information.  See `org-export-data'."
 	 (element (if (member block-name t-dynamic-block-elements) block-name "div"))
 	 (id (t--reference dynamic-block info
 			   (not (member element '("example" "issue")))))
-	 (args (if-let ((a (org-element-property :arguments dynamic-block)))
+	 (args (if-let* ((a (org-element-property :arguments dynamic-block)))
 		   (org-trim a)))
 	 (attr-cls (org-export-read-attribute :attr_html dynamic-block :class))
 	 (cls (cl-reduce (lambda (s a) (if a (concat s " " a) s))
@@ -1586,7 +1588,7 @@ holding contextual information.  See `org-export-data'."
 	 (attrs (let ((a (org-export-read-attribute :attr_html dynamic-block)))
 		  (cl-remf a :id) (cl-remf a :class)
 		  (t--make-attribute-string a)))
-	 (cap (if-let ((c (org-export-get-caption dynamic-block)))
+	 (cap (if-let* ((c (org-export-get-caption dynamic-block)))
 		  (org-export-data c info))))
     (format "<%s%s%s%s>\n%s\n\n%s\n%s\n</%s>"
 	    element
@@ -1617,11 +1619,11 @@ information."
   (let ((attributes (org-export-read-attribute :attr_html example-block)))
     (if (plist-get attributes :textarea)
 	(t--textarea-block example-block)
-      (if-let ((class-val (plist-get attributes :class)))
-	  (when-let (default-css (plist-get info :html-example-default-class))
+      (if-let* ((class-val (plist-get attributes :class)))
+	  (when-let* ((default-css (plist-get info :html-example-default-class)))
 	      (setq attributes (plist-put attributes :class
 					  (concat default-css " " class-val))))
-	(when-let (default-css (plist-get info :html-example-default-class))
+	(when-let* ((default-css (plist-get info :html-example-default-class)))
 	  (setq attributes (plist-put attributes :class default-css))))
       (format "<pre%s>\n%s</pre>"
 	      (let* ((reference (t--reference example-block info t))
