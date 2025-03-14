@@ -201,6 +201,14 @@
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     ))
 
+;;; Customizations
+
+(defvar t-checkbox-type 'unicode
+  "The type of checkboxes to use for HTML export.
+
+See `org-html-checkbox-types' for the values used for each option.")
+
+
 ;;; Basic utilties
 
 (defsubst t--2str (s)
@@ -311,6 +319,88 @@ attribute with a nil value means a boolean attribute."
 (defun t-dynamic-block (_dynamic-block contents _info)
   "Transcode a DYNAMIC-BLOCK element from Org to HTML."
   contents)
+
+;;;; Item
+
+(defconst t-checkbox-types
+  '((unicode . ((on . "&#x2611;")
+		(off . "&#x2610;")
+		(trans . "&#x2612;")))
+    (ascii . ((on . "<code>[X]</code>")
+              (off . "<code>[&#xa0;]</code>")
+              (trans . "<code>[-]</code>")))
+    (html . ((on . "<input type='checkbox' checked='checked'>")
+	     (off . "<input type='checkbox'>")
+	     (trans . "<input type='checkbox'>"))))
+  "Alist of checkbox types.
+The cdr of each entry is an alist list three checkbox types for
+HTML export: `on', `off' and `trans'.
+
+The choices are:
+  `unicode' Unicode characters (HTML entities)
+  `ascii'   ASCII characters
+  `html'    HTML checkboxes
+
+Note that only the ascii and unicode characters implement
+tri-state checkboxes. Html use the `off' checkbox for `trans'.")
+
+(defun t-checkbox (checkbox info)
+  "Format CHECKBOX into HTML.
+See `org-w3ctr-checkbox-type' for customization options."
+  (cdr (assq checkbox
+	     (cdr (assq (plist-get info :html-checkbox-type)
+			t-checkbox-types)))))
+
+(defun t-format-list-item (contents type checkbox info
+				    &optional term-counter-id
+				    headline)
+  "Format a list item into HTML."
+  (let ((checkbox (concat (t-checkbox checkbox info)
+			  (and checkbox " ")))
+	(br (t-close-tag "br" nil info))
+	(extra-newline (if (and (org-string-nw-p contents) headline)
+			   "\n" "")))
+    (concat
+     (pcase type
+       (`ordered
+	(let* ((counter term-counter-id)
+	       (extra (if counter
+			  (format " value=\"%s\"" counter) "")))
+	  (concat
+	   (format "<li%s>" extra)
+	   (when headline (concat headline br)))))
+       (`unordered
+	(let* ((id term-counter-id)
+	       (extra (if id (format " [@%s]" id) "")))
+	  (concat
+	   (format "<li>%s" extra)
+	   (when headline (concat headline br)))))
+       (`descriptive
+	(let* ((term term-counter-id))
+	  (setq term (or term "(no term)"))
+	  ;; Check-boxes in descriptive lists are associated to tag.
+	  (concat (format "<dt>%s</dt>"
+			  (concat checkbox term))
+		  "<dd>"))))
+     (unless (eq type 'descriptive) checkbox)
+     extra-newline
+     (and (org-string-nw-p contents) (org-trim contents))
+     extra-newline
+     (pcase type
+       (`ordered "</li>")
+       (`unordered "</li>")
+       (`descriptive "</dd>")))))
+
+(defun t-item (item contents info)
+  "Transcode an ITEM element from Org to HTML."
+  (let* ((plain-list (org-export-get-parent item))
+	 (type (org-element-property :type plain-list))
+	 (counter (org-element-property :counter item))
+	 (checkbox (org-element-property :checkbox item))
+	 (tag (let ((tag (org-element-property :tag item)))
+		(and tag (org-export-data tag info)))))
+    (t-format-list-item
+     contents type checkbox info (or tag counter))))
 
 ;;;; Quote Block
 
@@ -605,33 +695,7 @@ Otherwise, place it near the end."
   :group 'org-export-w3ctr
   :type 'coding-system)
 
-(defconst t-checkbox-types
-  '((unicode .
-             ((on . "&#x2611;") (off . "&#x2610;") (trans . "&#x2610;")))
-    (ascii .
-           ((on . "<code>[X]</code>")
-            (off . "<code>[&#xa0;]</code>")
-            (trans . "<code>[-]</code>")))
-    (html .
-	  ((on . "<input type='checkbox' checked='checked' />")
-	   (off . "<input type='checkbox' />")
-	   (trans . "<input type='checkbox' />"))))
-  "Alist of checkbox types.
-The cdr of each entry is an alist list three checkbox types for
-HTML export: `on', `off' and `trans'.
 
-The choices are:
-  `unicode' Unicode characters (HTML entities)
-  `ascii'   ASCII characters
-  `html'    HTML checkboxes
-
-Note that only the ascii characters implement tri-state
-checkboxes.  The other two use the `off' checkbox for `trans'.")
-
-(defvar t-checkbox-type 'unicode
-  "The type of checkboxes to use for HTML export.
-
-See `org-html-checkbox-types' for the values used for each option.")
 
 (defvar t-metadata-timestamp-format "%Y-%m-%d %H:%M"
   "Format used for timestamps in preamble, postamble and metadata.
@@ -1812,70 +1876,6 @@ contextual information."
   (format
    (or (cdr (assq 'italic (plist-get info :html-text-markup-alist))) "%s")
    contents))
-
-;;;; Item
-
-(defun t-checkbox (checkbox info)
-  "Format CHECKBOX into HTML.
-INFO is a plist holding contextual information.  See
-`t-checkbox-type' for customization options."
-  (cdr (assq checkbox
-	     (cdr (assq (plist-get info :html-checkbox-type)
-			t-checkbox-types)))))
-
-(defun t-format-list-item (contents type checkbox info
-					   &optional term-counter-id
-					   headline)
-  "Format a list item into HTML."
-  (let ((class (if (not checkbox) ""
-		   (format " class=\"%s\""
-			   (symbol-name checkbox))))
-	(checkbox (concat (t-checkbox checkbox info)
-			  (and checkbox " ")))
-	(br (t-close-tag "br" nil info))
-	(extra-newline (if (and (org-string-nw-p contents) headline) "\n" "")))
-    (concat
-     (pcase type
-       (`ordered
-	(let* ((counter term-counter-id)
-	       (extra (if counter (format " value=\"%s\"" counter) "")))
-	  (concat
-	   (format "<li%s%s>" class extra)
-	   (when headline (concat headline br)))))
-       (`unordered
-	(let* ((id term-counter-id)
-	       (extra (if id (format " id=\"%s\"" id) "")))
-	  (concat
-	   (format "<li%s%s>" class extra)
-	   (when headline (concat headline br)))))
-       (`descriptive
-	(let* ((term term-counter-id))
-	  (setq term (or term "(no term)"))
-	  ;; Check-boxes in descriptive lists are associated to tag.
-	  (concat (format "<dt%s>%s</dt>"
-			  class (concat checkbox term))
-		  "<dd>"))))
-     (unless (eq type 'descriptive) checkbox)
-     extra-newline
-     (and (org-string-nw-p contents) (org-trim contents))
-     extra-newline
-     (pcase type
-       (`ordered "</li>")
-       (`unordered "</li>")
-       (`descriptive "</dd>")))))
-
-(defun t-item (item contents info)
-  "Transcode an ITEM element from Org to HTML.
-CONTENTS holds the contents of the item.  INFO is a plist holding
-contextual information."
-  (let* ((plain-list (org-export-get-parent item))
-	 (type (org-element-property :type plain-list))
-	 (counter (org-element-property :counter item))
-	 (checkbox (org-element-property :checkbox item))
-	 (tag (let ((tag (org-element-property :tag item)))
-		(and tag (org-export-data tag info)))))
-    (t-format-list-item
-     contents type checkbox info (or tag counter))))
 
 ;;;; Keyword
 
