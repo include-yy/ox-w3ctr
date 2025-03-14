@@ -308,43 +308,9 @@ attribute with a nil value means a boolean attribute."
 
 ;;;; Dynamic Block
 
-(defconst t-dynamic-block-elements
-  '("article" "aside" "audio" "canvas" "figcaption"
-    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
-    "output" "progress" "section" "summary" "video")
-  "block-name that recognized as HTML elements")
-
-(defun t-dynamic-block (dynamic-block contents info)
-  "Transcode a DYNAMIC-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information.  See `org-export-data'."
-  (let* ((block-name (org-element-property :block-name dynamic-block))
-	 (element (if (member block-name t-dynamic-block-elements) block-name "div"))
-	 (id (t--reference dynamic-block info
-			   (not (member element '("example" "issue")))))
-	 (args (if-let* ((a (org-element-property :arguments dynamic-block)))
-		   (org-trim a)))
-	 (attr-cls (org-export-read-attribute :attr_html dynamic-block :class))
-	 (cls (cl-reduce (lambda (s a) (if a (concat s " " a) s))
-			 (if (equal element "div")
-			     (list block-name args attr-cls)
-			   (list args attr-cls))))
-	 (attrs (let ((a (org-export-read-attribute :attr_html dynamic-block)))
-		  (cl-remf a :id) (cl-remf a :class)
-		  (t--make-attribute-string a)))
-	 (cap (if-let* ((c (org-export-get-caption dynamic-block)))
-		  (org-export-data c info))))
-    (format "<%s%s%s%s>\n%s\n\n%s\n%s\n</%s>"
-	    element
-	    (if id (format " id=\"%s\"" id) "")
-	    (if cls (format " class=\"%s\"" cls) "")
-	    (or attrs "")
-	    (if (not cap) "" cap)
-	    (if (not id) ""
-	      (format "<a class=\"self-link\" href=\"#%s\" aria-label=\"%s-block\"></a>"
-		      id block-name))
-	    contents
-	    element)))
+(defun t-dynamic-block (_dynamic-block contents _info)
+  "Transcode a DYNAMIC-BLOCK element from Org to HTML."
+  contents)
 
 ;;;; Quote Block
 
