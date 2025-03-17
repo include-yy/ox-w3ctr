@@ -225,7 +225,7 @@ See `org-html-equation-reference-format' for more information."
 
 See `org-html-with-latex' for more information."
   :group 'org-export-w3ctr
-  :type '(symbol))
+  :type 'sexp)
 
 
 ;;; Basic utilties
@@ -574,7 +574,7 @@ contextual information."
       (_ nil))))
 
 ;;;; Latex Environment
-
+;; FIXME
 (defun t-format-latex (latex-frag processing-type info)
   "Format a LaTeX fragment LATEX-FRAG into HTML.
 PROCESSING-TYPE designates the tool used for conversion.  It can
@@ -709,7 +709,136 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 	  (let ((source (org-export-file-uri (match-string 1 formula-link))))
 	    (t--format-image source nil info)))))
      (t latex-frag))))
+
+;;;; Paragraph
 
+(defun t-paragraph (paragraph contents info)
+  "Transcode a PARAGRAPH element from Org to HTML.
+CONTENTS is the contents of the paragraph, as a string.  INFO is
+the plist used as a communication channel."
+  (let* ((parent (org-export-get-parent paragraph))
+	 (parent-type (org-element-type parent))
+	 (class (org-export-read-attribute :attr_html paragraph :class))
+	 (attrs (t--make-attribute-string
+		 (org-export-read-attribute :attr_html paragraph))))
+    (cond
+     ((and (eq parent-type 'item)
+	   (not (org-export-get-previous-element paragraph info))
+	   (let ((followers (org-export-get-next-element paragraph info 2)))
+	     (and (not (cdr followers))
+		  (memq (org-element-type (car followers)) '(nil plain-list)))))
+      ;; First paragraph in an item has no tag if it is alone or
+      ;; followed, at most, by a sub-list.
+      contents)
+     ((t-standalone-image-p paragraph info)
+      ;; Standalone image.
+      (let ((caption (org-export-data (org-export-get-caption paragraph) info))
+	    (label (t--reference paragraph info t)))
+	(t--wrap-image contents info caption label class)))
+     ;; Regular paragraph.
+     (t (format "<p%s%s>\n%s</p>"
+		(let ((id (t--reference paragraph info t)))
+		  (if (org-string-nw-p id)
+		      (format " id=\"%s\"" id) ""))
+		(if (org-string-nw-p attrs)
+		    (concat " " attrs) "")
+		contents)))))
+
+;;;; Src Block
+
+(defun t-src-block (src-block _contents info)
+  "Transcode a SRC-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the item.  INFO is a plist holding
+contextual information."
+  (if (org-export-read-attribute :attr_html src-block :textarea)
+      (t--textarea-block src-block)
+    (if (not (t--has-caption-p src-block))
+	(let ((code (t-format-src-block-code src-block info))
+	      (id (t--reference src-block info t))
+	      (cls (org-export-read-attribute :attr_html src-block :class)))
+	  (format "<pre%s%s>%s</pre>"
+		  (if id (format " id=\"%s\"" id) "")
+		  (if cls (format " class=\"%s\"" cls) "")
+		  code))
+      (let* ((code (t-format-src-block-code src-block info))
+	     (id (t--reference src-block info))
+	     (cls (org-export-read-attribute :attr_html src-block :class))
+	     (caption (let ((cap (org-export-get-caption src-block)))
+			(if cap (org-trim (org-export-data cap info) nil))))
+	     (class (if (org-string-nw-p cls) (concat "example " cls) "example")))
+	(format "<div%s%s>\n%s\n%s\n<pre>%s</pre></div>"
+		(format " id=\"%s\"" id)
+		(format " class=\"%s\"" class)
+		(format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
+			"aria-label=\"source block\"")
+		(if (not caption) "" caption)
+		code)))))
+
+;;;; Table Row
+
+(defun t-table-row (table-row contents info)
+  "Transcode a TABLE-ROW element from Org to HTML.
+CONTENTS is the contents of the row.  INFO is a plist used as a
+communication channel."
+  ;; Rules are ignored since table separators are deduced from
+  ;; borders of the current row.
+  (when (eq (org-element-property :type table-row) 'standard)
+    (let* ((group (org-export-table-row-group table-row info))
+	   (number (org-export-table-row-number table-row info))
+	   (start-group-p
+	    (org-export-table-row-starts-rowgroup-p table-row info))
+	   (end-group-p
+	    (org-export-table-row-ends-rowgroup-p table-row info))
+	   (topp (and (equal start-group-p '(top))
+		      (equal end-group-p '(below top))))
+	   (bottomp (and (equal start-group-p '(above))
+			 (equal end-group-p '(bottom above))))
+           (row-open-tag
+            (pcase (plist-get info :html-table-row-open-tag)
+              ((and accessor (pred functionp))
+               (funcall accessor
+			number group start-group-p end-group-p topp bottomp))
+	      (accessor accessor)))
+           (row-close-tag
+            (pcase (plist-get info :html-table-row-close-tag)
+              ((and accessor (pred functionp))
+               (funcall accessor
+			number group start-group-p end-group-p topp bottomp))
+	      (accessor accessor)))
+	   (group-tags
+	    (cond
+	     ;; Row belongs to second or subsequent groups.
+	     ((not (= 1 group)) '("<tbody>" . "\n</tbody>"))
+	     ;; Row is from first group.  Table has >=1 groups.
+	     ((org-export-table-has-header-p
+	       (org-export-get-parent-table table-row) info)
+	      '("<thead>" . "\n</thead>"))
+	     ;; Row is from first and only group.
+	     (t '("<tbody>" . "\n</tbody>")))))
+      (concat (and start-group-p (car group-tags))
+	      (concat "\n"
+		      row-open-tag
+		      contents
+		      "\n"
+		      row-close-tag)
+	      (and end-group-p (cdr group-tags))))))
+
+;;;; Verse Block
+
+(defun t-verse-block (_verse-block contents info)
+  "Transcode a VERSE-BLOCK element from Org to HTML.
+CONTENTS is verse block contents.  INFO is a plist holding
+contextual information."
+  (format "<p class=\"verse\">\n%s</p>"
+	  ;; Replace leading white spaces with non-breaking spaces.
+	  (replace-regexp-in-string
+	   "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
+	   ;; Replace each newline character with line break.  Also
+	   ;; remove any trailing "br" close-tag so as to avoid
+	   ;; duplicates.
+	   (let* ((br (t-close-tag "br" nil info))
+		  (re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote br))))
+	     (replace-regexp-in-string re (concat br "\n") contents)))))
 
 ;;; Internal Variables
 
@@ -2333,40 +2462,6 @@ INFO is a plist holding contextual information.  See
      (t
       (format "<i>%s</i>" desc)))))
 
-;;;; Paragraph
-
-(defun t-paragraph (paragraph contents info)
-  "Transcode a PARAGRAPH element from Org to HTML.
-CONTENTS is the contents of the paragraph, as a string.  INFO is
-the plist used as a communication channel."
-  (let* ((parent (org-export-get-parent paragraph))
-	 (parent-type (org-element-type parent))
-	 (class (org-export-read-attribute :attr_html paragraph :class))
-	 (attrs (t--make-attribute-string
-		 (org-export-read-attribute :attr_html paragraph))))
-    (cond
-     ((and (eq parent-type 'item)
-	   (not (org-export-get-previous-element paragraph info))
-	   (let ((followers (org-export-get-next-element paragraph info 2)))
-	     (and (not (cdr followers))
-		  (memq (org-element-type (car followers)) '(nil plain-list)))))
-      ;; First paragraph in an item has no tag if it is alone or
-      ;; followed, at most, by a sub-list.
-      contents)
-     ((t-standalone-image-p paragraph info)
-      ;; Standalone image.
-      (let ((caption (org-export-data (org-export-get-caption paragraph) info))
-	    (label (t--reference paragraph info t)))
-	(t--wrap-image contents info caption label class)))
-     ;; Regular paragraph.
-     (t (format "<p%s%s>\n%s</p>"
-		(let ((id (t--reference paragraph info t)))
-		  (if (org-string-nw-p id)
-		      (format " id=\"%s\"" id) ""))
-		(if (org-string-nw-p attrs)
-		    (concat " " attrs) "")
-		contents)))))
-
 ;;;; Plain Text
 
 (defun t-convert-special-strings (string)
@@ -2428,36 +2523,6 @@ TEXT is the text of the target.  INFO is a plist holding
 contextual information."
   (let ((ref (t--reference radio-target info)))
     (t--anchor ref text nil info)))
-
-;;;; Src Block
-
-(defun t-src-block (src-block _contents info)
-  "Transcode a SRC-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the item.  INFO is a plist holding
-contextual information."
-  (if (org-export-read-attribute :attr_html src-block :textarea)
-      (t--textarea-block src-block)
-    (if (not (t--has-caption-p src-block))
-	(let ((code (t-format-src-block-code src-block info))
-	      (id (t--reference src-block info t))
-	      (cls (org-export-read-attribute :attr_html src-block :class)))
-	  (format "<pre%s%s>%s</pre>"
-		  (if id (format " id=\"%s\"" id) "")
-		  (if cls (format " class=\"%s\"" cls) "")
-		  code))
-      (let* ((code (t-format-src-block-code src-block info))
-	     (id (t--reference src-block info))
-	     (cls (org-export-read-attribute :attr_html src-block :class))
-	     (caption (let ((cap (org-export-get-caption src-block)))
-			(if cap (org-trim (org-export-data cap info) nil))))
-	     (class (if (org-string-nw-p cls) (concat "example " cls) "example")))
-	(format "<div%s%s>\n%s\n%s\n<pre>%s</pre></div>"
-		(format " id=\"%s\"" id)
-		(format " class=\"%s\"" class)
-		(format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
-			"aria-label=\"source block\"")
-		(if (not caption) "" caption)
-		code)))))
 
 ;;;; Statistics Cookie
 
@@ -2522,55 +2587,6 @@ channel."
 	  (concat "\n" (format (car data-tags) cell-attrs)
 		  contents
 		  (cdr data-tags)))))))
-
-;;;; Table Row
-
-(defun t-table-row (table-row contents info)
-  "Transcode a TABLE-ROW element from Org to HTML.
-CONTENTS is the contents of the row.  INFO is a plist used as a
-communication channel."
-  ;; Rules are ignored since table separators are deduced from
-  ;; borders of the current row.
-  (when (eq (org-element-property :type table-row) 'standard)
-    (let* ((group (org-export-table-row-group table-row info))
-	   (number (org-export-table-row-number table-row info))
-	   (start-group-p
-	    (org-export-table-row-starts-rowgroup-p table-row info))
-	   (end-group-p
-	    (org-export-table-row-ends-rowgroup-p table-row info))
-	   (topp (and (equal start-group-p '(top))
-		      (equal end-group-p '(below top))))
-	   (bottomp (and (equal start-group-p '(above))
-			 (equal end-group-p '(bottom above))))
-           (row-open-tag
-            (pcase (plist-get info :html-table-row-open-tag)
-              ((and accessor (pred functionp))
-               (funcall accessor
-			number group start-group-p end-group-p topp bottomp))
-	      (accessor accessor)))
-           (row-close-tag
-            (pcase (plist-get info :html-table-row-close-tag)
-              ((and accessor (pred functionp))
-               (funcall accessor
-			number group start-group-p end-group-p topp bottomp))
-	      (accessor accessor)))
-	   (group-tags
-	    (cond
-	     ;; Row belongs to second or subsequent groups.
-	     ((not (= 1 group)) '("<tbody>" . "\n</tbody>"))
-	     ;; Row is from first group.  Table has >=1 groups.
-	     ((org-export-table-has-header-p
-	       (org-export-get-parent-table table-row) info)
-	      '("<thead>" . "\n</thead>"))
-	     ;; Row is from first and only group.
-	     (t '("<tbody>" . "\n</tbody>")))))
-      (concat (and start-group-p (car group-tags))
-	      (concat "\n"
-		      row-open-tag
-		      contents
-		      "\n"
-		      row-close-tag)
-	      (and end-group-p (cdr group-tags))))))
 
 ;;;; Table
 
@@ -2662,23 +2678,6 @@ CONTENTS is nil.  INFO is a plist holding contextual
 information."
   (format (or (cdr (assq 'verbatim (plist-get info :html-text-markup-alist))) "%s")
 	  (t-encode-plain-text (org-element-property :value verbatim))))
-
-;;;; Verse Block
-
-(defun t-verse-block (_verse-block contents info)
-  "Transcode a VERSE-BLOCK element from Org to HTML.
-CONTENTS is verse block contents.  INFO is a plist holding
-contextual information."
-  (format "<p class=\"verse\">\n%s</p>"
-	  ;; Replace leading white spaces with non-breaking spaces.
-	  (replace-regexp-in-string
-	   "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
-	   ;; Replace each newline character with line break.  Also
-	   ;; remove any trailing "br" close-tag so as to avoid
-	   ;; duplicates.
-	   (let* ((br (t-close-tag "br" nil info))
-		  (re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote br))))
-	     (replace-regexp-in-string re (concat br "\n") contents)))))
 
 
 ;;; Filter Functions
