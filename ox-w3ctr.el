@@ -195,8 +195,6 @@
     (:html-back-to-top nil "back-to-top" t-back-to-top)
     ;; <yy> add timestamp format for timestamp
     (:html-timestamp-format nil nil t-timestamp-format)
-    ;; <yy> add default class for example and src block
-    (:html-example-default-class nil "example-class" t-example-default-class)
     ;; <yy> add options for fixup.js's code
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     ))
@@ -351,6 +349,7 @@ See `org-w3ctr-checkbox-type' for customization options."
 	     (cdr (assq (plist-get info :html-checkbox-type)
 			t-checkbox-types)))))
 
+;; FIXME
 (defun t-format-list-item (contents type checkbox info
 				    &optional term-counter-id
 				    headline)
@@ -391,6 +390,7 @@ See `org-w3ctr-checkbox-type' for customization options."
        (`unordered "</li>")
        (`descriptive "</dd>")))))
 
+;; FIXME
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML."
   (let* ((plain-list (org-export-get-parent item))
@@ -403,7 +403,7 @@ See `org-w3ctr-checkbox-type' for customization options."
      contents type checkbox info (or tag counter))))
 
 ;;;; Plain List
-
+;; FIXME
 (defun t-plain-list (plain-list contents info)
   "Transcode a PLAIN-LIST element from Org to HTML."
   (let* ((type (pcase (org-element-property :type plain-list)
@@ -426,7 +426,7 @@ holding contextual information."
 	  (if contents (concat "\n" contents "\n") "")))
 
 ;;;; Special Block
-
+;; FIXME
 (defun t-special-block (special-block contents info)
   "Transcode a SPECIAL-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block.  INFO is a plist
@@ -450,6 +450,7 @@ holding contextual information."
 	  (format "<%s%s>\n%s</%s>" block-type str contents block-type)
 	(format "<div%s>\n%s\n</div>" str contents)))))
 
+;; FIXME
 (defun t-table (table contents info)
   "Transcode a TABLE element from Org to HTML.
 CONTENTS is the contents of the table.  INFO is a plist holding
@@ -496,26 +497,57 @@ contextual information."
 	      contents))))
 
 ;;;; Example Block
-
+;; FIXME
 (defun t-example-block (example-block _contents info)
   "Transcode a EXAMPLE-BLOCK element from Org to HTML."
-  (let ((attributes (org-export-read-attribute :attr_html example-block)))
-    (if (plist-get attributes :textarea)
-	(t--textarea-block example-block)
-      (if-let* ((class-val (plist-get attributes :class)))
-	  (when-let* ((default-css (plist-get info :html-example-default-class)))
-	      (setq attributes (plist-put attributes :class
-					  (concat default-css " " class-val))))
-	(when-let* ((default-css (plist-get info :html-example-default-class)))
-	  (setq attributes (plist-put attributes :class default-css))))
-      (format "<pre%s>\n%s</pre>"
-	      (let* ((reference (t--reference example-block info t))
-		     (a (t--make-attribute-string
-			 (if (or (not reference) (plist-member attributes :id))
-			     attributes
-			   (plist-put attributes :id reference)))))
-		(if (org-string-nw-p a) (concat " " a) ""))
-	      (t-format-src-block-code example-block info)))))
+  (format "<div%s>\n<pre>%s</pre>\n</div>"
+	  (t--make-attr__id example-block info)
+	  (t-format-src-block-code example-block info)))
+
+;;;; Export Block
+
+(defun t-export-block (export-block _contents _info)
+  "Transcode a EXPORT-BLOCK element from Org to HTML."
+  (let* ((type (org-element-property :type export-block))
+	 (value (org-element-property :value export-block))
+	 (text (org-remove-indentation value)))
+    (pcase type
+      ((or "HTML" "MHTML") text)
+      ("CSS" (concat "<style>\n" text "\n</style>"))
+      ((or "JS" "JAVASCRIPT") (concat "<script>\n" text
+				      "\n</script>"))
+      ;; Expression that return HTML string.
+      ("ELISP" (format (eval (read value))))
+      ;; SEXP-style HTML data.
+      ("LISP-DATA" (t--sexp2html (read value)))
+      (_ nil))))
+
+;;;; Fixed Width
+
+(defun t-fixed-width (fixed-width _contents info)
+  "Transcode a FIXED-WIDTH element from Org to HTML."
+  (format "<pre%s>%s</pre>"
+	  (t--make-attr__id fixed-width info t)
+	  (t-fontify-code
+	   (org-remove-indentation
+	    (org-element-property :value fixed-width))
+	   nil)))
+
+;;;; Horizontal Rule
+
+(defun t-horizontal-rule (_horizontal-rule _contents info)
+  "Transcode an HORIZONTAL-RULE object from Org to HTML."
+  (t-close-tag "hr" nil info))
+
+;;;; Keyword
+
+(defun t-keyword (keyword _contents _info)
+  "Transcode a KEYWORD element from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information."
+  (let ((key (org-element-property :key keyword))
+	(value (org-element-property :value keyword)))
+    (cond
+     ((string= key "HTML") value))))
 
 
 ;;; Internal Variables
@@ -1776,31 +1808,6 @@ contextual information."
       ('l (mapconcat #'t--sexp2html (read (format "(%s)" value))))
       (_ nil))))
 
-;;;; Export Block
-
-(defun t-export-block (export-block _contents _info)
-  "Transcode a EXPORT-BLOCK element from Org to HTML."
-  (let ((type (org-element-property :type export-block))
-	(value (org-element-property :value export-block)))
-    (pcase type
-      ;; Plain HTML.
-      ("HTML" (org-remove-indentation value))
-      ;; Expression that return HTML string.
-      ("ELISP" (format (eval (read value))))
-      ;; SEXP-style HTML data.
-      ("LISP-DATA" (t--sexp2html (read value)))
-      (_ nil))))
-
-;;;; Fixed Width
-
-(defun t-fixed-width (fixed-width _contents _info)
-  "Transcode a FIXED-WIDTH element from Org to HTML."
-  (format "<pre>%s</pre>"
-	  (t-fontify-code
-	   (org-remove-indentation
-	    (org-element-property :value fixed-width))
-	   nil)))
-
 ;;;; Footnote Reference
 
 (defun t-footnote-reference (footnote-reference _contents info)
@@ -1902,13 +1909,6 @@ holding contextual information."
 	   "</div>\n")
    tag id cls headline tag id secno))
 
-;;;; Horizontal Rule
-
-(defun t-horizontal-rule (_horizontal-rule _contents info)
-  "Transcode an HORIZONTAL-RULE  object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (t-close-tag "hr" nil info))
-
 ;;;; Inline Src Block
 
 (defun t-inline-src-block (inline-src-block _contents info)
@@ -1933,16 +1933,6 @@ contextual information."
   (format
    (or (cdr (assq 'italic (plist-get info :html-text-markup-alist))) "%s")
    contents))
-
-;;;; Keyword
-
-(defun t-keyword (keyword _contents _info)
-  "Transcode a KEYWORD element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (let ((key (org-element-property :key keyword))
-	(value (org-element-property :value keyword)))
-    (cond
-     ((string= key "HTML") value))))
 
 ;;;; Latex Environment
 
