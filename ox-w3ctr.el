@@ -206,6 +206,27 @@
 
 See `org-html-checkbox-types' for the values used for each option.")
 
+;;;; LaTeX
+
+(defcustom t-equation-reference-format "\\eqref{%s}"
+  "The MathJax command to use when referencing equations.
+
+Most common values are:
+  \\eqref{%s}    Wrap the equation in parentheses
+  \\ref{%s}      Do not wrap the equation in parentheses
+
+See `org-html-equation-reference-format' for more information."
+  :group 'org-export-w3ctr
+  :type 'string
+  :safe #'stringp)
+
+(defcustom t-with-latex t
+  "Non-nil means process LaTeX math snippets.
+
+See `org-html-with-latex' for more information."
+  :group 'org-export-w3ctr
+  :type '(symbol))
+
 
 ;;; Basic utilties
 
@@ -513,11 +534,11 @@ contextual information."
 	 (text (org-remove-indentation value)))
     (pcase type
       ((or "HTML" "MHTML") text)
-      ("CSS" (concat "<style>\n" text "\n</style>"))
+      ("CSS" (concat "<style>\n" text "</style>"))
       ((or "JS" "JAVASCRIPT") (concat "<script>\n" text
-				      "\n</script>"))
+				      "</script>"))
       ;; Expression that return HTML string.
-      ("ELISP" (format (eval (read value))))
+      ((or "EMACS-LISP" "ELISP") (format "%s" (eval (read value))))
       ;; SEXP-style HTML data.
       ("LISP-DATA" (t--sexp2html (read value)))
       (_ nil))))
@@ -542,12 +563,152 @@ contextual information."
 ;;;; Keyword
 
 (defun t-keyword (keyword _contents _info)
-  "Transcode a KEYWORD element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
+  "Transcode a KEYWORD element from Org to HTML."
   (let ((key (org-element-property :key keyword))
 	(value (org-element-property :value keyword)))
+    (pcase key
+      ((or "H" "HTML") value)
+      ("E" (format "%s" (eval (read value))))
+      ("D" (t--sexp2html (read value)))
+      ("L" (mapconcat #'t--sexp2html (read (format "(%s)" value))))
+      (_ nil))))
+
+;;;; Latex Environment
+
+(defun t-format-latex (latex-frag processing-type info)
+  "Format a LaTeX fragment LATEX-FRAG into HTML.
+PROCESSING-TYPE designates the tool used for conversion.  It can
+be `mathjax', `verbatim', `html', nil, t or symbols in
+`org-preview-latex-process-alist', e.g., `dvipng', `dvisvgm' or
+`imagemagick'.  See `org-w3ctr-with-latex' for more information.
+INFO is a plist containing export properties."
+  (let ((cache-relpath "") (cache-dir ""))
+    (unless (or (eq processing-type 'mathjax)
+                (eq processing-type 'html))
+      (let ((bfn (or (buffer-file-name)
+		     (make-temp-name
+		      (expand-file-name "latex" temporary-file-directory))))
+	    (latex-header
+	     (let ((header (plist-get info :latex-header)))
+	       (and header
+		    (concat (mapconcat
+			     (lambda (line) (concat "#+LATEX_HEADER: " line))
+			     (org-split-string header "\n")
+			     "\n")
+			    "\n")))))
+	(setq cache-relpath
+	      (concat (file-name-as-directory org-preview-latex-image-directory)
+		      (file-name-sans-extension
+		       (file-name-nondirectory bfn)))
+	      cache-dir (file-name-directory bfn))
+	;; Re-create LaTeX environment from original buffer in
+	;; temporary buffer so that dvipng/imagemagick can properly
+	;; turn the fragment into an image.
+	(setq latex-frag (concat latex-header latex-frag))))
+    (org-export-with-buffer-copy
+     :to-buffer (get-buffer-create " *Org HTML Export LaTeX*")
+     :drop-visibility t :drop-narrowing t :drop-contents t
+     (erase-buffer)
+     (insert latex-frag)
+     (org-format-latex cache-relpath nil nil cache-dir nil
+		       "Creating LaTeX Image..." nil processing-type)
+     (buffer-string))))
+
+(defun t--wrap-latex-environment (contents _ &optional caption label)
+  "Wrap CONTENTS string within appropriate environment for equations.
+When optional arguments CAPTION and LABEL are given, use them for
+caption and \"id\" attribute."
+  (format "\n<div%s class=\"equation-container\">\n%s%s\n</div>"
+          ;; ID.
+          (if (org-string-nw-p label) (format " id=\"%s\"" label) "")
+          ;; Contents.
+          (format "<span class=\"equation\">\n%s\n</span>" contents)
+          ;; Caption.
+          (if (not (org-string-nw-p caption)) ""
+            (format "\n<span class=\"equation-label\">\n%s\n</span>"
+                    caption))))
+
+(defun t--math-environment-p (element &optional _)
+  "Non-nil when ELEMENT is a LaTeX math environment.
+Math environments match the regular expression defined in
+`org-latex-math-environments-re'.  This function is meant to be
+used as a predicate for `org-export-get-ordinal' or a value to
+`t-standalone-image-predicate'."
+  (string-match-p org-latex-math-environments-re
+                  (org-element-property :value element)))
+
+(defun t--latex-environment-numbered-p (element)
+  "Non-nil when ELEMENT contains a numbered LaTeX math environment.
+Starred and \"displaymath\" environments are not numbered."
+  (not (string-match-p "\\`[ \t]*\\\\begin{\\(.*\\*\\|displaymath\\)}"
+		       (org-element-property :value element))))
+
+(defun t--unlabel-latex-environment (latex-frag)
+  "Change environment in LATEX-FRAG string to an unnumbered one.
+For instance, change an `equation' environment to `equation*'."
+  (replace-regexp-in-string
+   "\\`[ \t]*\\\\begin{\\([^*]+?\\)}"
+   "\\1*"
+   (replace-regexp-in-string "^[ \t]*\\\\end{\\([^*]+?\\)}[ \r\t\n]*\\'"
+			     "\\1*"
+			     latex-frag nil nil 1)
+   nil nil 1))
+
+(defun t-latex-environment (latex-environment _contents info)
+  "Transcode a LATEX-ENVIRONMENT element from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information."
+  (let ((processing-type (plist-get info :with-latex))
+	(latex-frag (org-remove-indentation
+		     (org-element-property :value latex-environment)))
+        (attributes (org-export-read-attribute :attr_html latex-environment))
+        (label (t--reference latex-environment info t))
+        (caption (and (t--latex-environment-numbered-p latex-environment)
+		      (number-to-string
+		       (org-export-get-ordinal
+			latex-environment info nil
+			(lambda (l _)
+			  (and (t--math-environment-p l)
+			       (t--latex-environment-numbered-p l))))))))
     (cond
-     ((string= key "HTML") value))))
+     ((memq processing-type '(t mathjax))
+      (t-format-latex
+       (if (org-string-nw-p label)
+	   (replace-regexp-in-string "\\`.*"
+				     (format "\\&\n\\\\label{%s}" label)
+				     latex-frag)
+	 latex-frag)
+       'mathjax info))
+     ((assq processing-type org-preview-latex-process-alist)
+      (let ((formula-link
+             (t-format-latex
+              (t--unlabel-latex-environment latex-frag)
+              processing-type info)))
+        (when (and formula-link (string-match "file:\\([^]]*\\)" formula-link))
+          (let ((source (org-export-file-uri (match-string 1 formula-link))))
+	    (t--wrap-latex-environment
+	     (t--format-image source attributes info)
+	     info caption label)))))
+     (t (t--wrap-latex-environment latex-frag info caption label)))))
+
+;;;; Latex Fragment
+
+(defun t-latex-fragment (latex-fragment _contents info)
+  "Transcode a LATEX-FRAGMENT object from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information."
+  (let ((latex-frag (org-element-property :value latex-fragment))
+	(processing-type (plist-get info :with-latex)))
+    (cond
+     ((memq processing-type '(t mathjax))
+      (t-format-latex latex-frag 'mathjax info))
+     ((memq processing-type '(t html))
+      (t-format-latex latex-frag 'html info))
+     ((assq processing-type org-preview-latex-process-alist)
+      (let ((formula-link
+	     (t-format-latex latex-frag processing-type info)))
+	(when (and formula-link (string-match "file:\\([^]]*\\)" formula-link))
+	  (let ((source (org-export-file-uri (match-string 1 formula-link))))
+	    (t--format-image source nil info)))))
+     (t latex-frag))))
 
 
 ;;; Internal Variables
@@ -672,27 +833,6 @@ See `org-html-toplevel-hlevel' for more information."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
-
-;;;; LaTeX
-
-(defcustom t-equation-reference-format "\\eqref{%s}"
-  "The MathJax command to use when referencing equations.
-
-Most common values are:
-  \\eqref{%s}    Wrap the equation in parentheses
-  \\ref{%s}      Do not wrap the equation in parentheses
-
-See `org-html-equation-reference-format' for more information."
-  :group 'org-export-w3ctr
-  :type 'string
-  :safe #'stringp)
-
-(defcustom t-with-latex org-export-with-latex
-  "Non-nil means process LaTeX math snippets.
-
-See `org-html-with-latex' for more information."
-  :group 'org-export-w3ctr
-  :type '(symbol))
 
 ;;;; Links :: Generic
 
@@ -1934,142 +2074,6 @@ contextual information."
    (or (cdr (assq 'italic (plist-get info :html-text-markup-alist))) "%s")
    contents))
 
-;;;; Latex Environment
-
-(defun t-format-latex (latex-frag processing-type info)
-  "Format a LaTeX fragment LATEX-FRAG into HTML.
-PROCESSING-TYPE designates the tool used for conversion.  It can
-be `mathjax', `verbatim', `html', nil, t or symbols in
-`org-preview-latex-process-alist', e.g., `dvipng', `dvisvgm' or
-`imagemagick'.  See `t-with-latex' for more information.
-INFO is a plist containing export properties."
-  (let ((cache-relpath "") (cache-dir ""))
-    (unless (or (eq processing-type 'mathjax)
-                (eq processing-type 'html))
-      (let ((bfn (or (buffer-file-name)
-		     (make-temp-name
-		      (expand-file-name "latex" temporary-file-directory))))
-	    (latex-header
-	     (let ((header (plist-get info :latex-header)))
-	       (and header
-		    (concat (mapconcat
-			     (lambda (line) (concat "#+LATEX_HEADER: " line))
-			     (org-split-string header "\n")
-			     "\n")
-			    "\n")))))
-	(setq cache-relpath
-	      (concat (file-name-as-directory org-preview-latex-image-directory)
-		      (file-name-sans-extension
-		       (file-name-nondirectory bfn)))
-	      cache-dir (file-name-directory bfn))
-	;; Re-create LaTeX environment from original buffer in
-	;; temporary buffer so that dvipng/imagemagick can properly
-	;; turn the fragment into an image.
-	(setq latex-frag (concat latex-header latex-frag))))
-    (org-export-with-buffer-copy
-     :to-buffer (get-buffer-create " *Org HTML Export LaTeX*")
-     :drop-visibility t :drop-narrowing t :drop-contents t
-     (erase-buffer)
-     (insert latex-frag)
-     (org-format-latex cache-relpath nil nil cache-dir nil
-		       "Creating LaTeX Image..." nil processing-type)
-     (buffer-string))))
-
-(defun t--wrap-latex-environment (contents _ &optional caption label)
-  "Wrap CONTENTS string within appropriate environment for equations.
-When optional arguments CAPTION and LABEL are given, use them for
-caption and \"id\" attribute."
-  (format "\n<div%s class=\"equation-container\">\n%s%s\n</div>"
-          ;; ID.
-          (if (org-string-nw-p label) (format " id=\"%s\"" label) "")
-          ;; Contents.
-          (format "<span class=\"equation\">\n%s\n</span>" contents)
-          ;; Caption.
-          (if (not (org-string-nw-p caption)) ""
-            (format "\n<span class=\"equation-label\">\n%s\n</span>"
-                    caption))))
-
-(defun t--math-environment-p (element &optional _)
-  "Non-nil when ELEMENT is a LaTeX math environment.
-Math environments match the regular expression defined in
-`org-latex-math-environments-re'.  This function is meant to be
-used as a predicate for `org-export-get-ordinal' or a value to
-`t-standalone-image-predicate'."
-  (string-match-p org-latex-math-environments-re
-                  (org-element-property :value element)))
-
-(defun t--latex-environment-numbered-p (element)
-  "Non-nil when ELEMENT contains a numbered LaTeX math environment.
-Starred and \"displaymath\" environments are not numbered."
-  (not (string-match-p "\\`[ \t]*\\\\begin{\\(.*\\*\\|displaymath\\)}"
-		       (org-element-property :value element))))
-
-(defun t--unlabel-latex-environment (latex-frag)
-  "Change environment in LATEX-FRAG string to an unnumbered one.
-For instance, change an `equation' environment to `equation*'."
-  (replace-regexp-in-string
-   "\\`[ \t]*\\\\begin{\\([^*]+?\\)}"
-   "\\1*"
-   (replace-regexp-in-string "^[ \t]*\\\\end{\\([^*]+?\\)}[ \r\t\n]*\\'"
-			     "\\1*"
-			     latex-frag nil nil 1)
-   nil nil 1))
-
-(defun t-latex-environment (latex-environment _contents info)
-  "Transcode a LATEX-ENVIRONMENT element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (let ((processing-type (plist-get info :with-latex))
-	(latex-frag (org-remove-indentation
-		     (org-element-property :value latex-environment)))
-        (attributes (org-export-read-attribute :attr_html latex-environment))
-        (label (t--reference latex-environment info t))
-        (caption (and (t--latex-environment-numbered-p latex-environment)
-		      (number-to-string
-		       (org-export-get-ordinal
-			latex-environment info nil
-			(lambda (l _)
-			  (and (t--math-environment-p l)
-			       (t--latex-environment-numbered-p l))))))))
-    (cond
-     ((memq processing-type '(t mathjax))
-      (t-format-latex
-       (if (org-string-nw-p label)
-	   (replace-regexp-in-string "\\`.*"
-				     (format "\\&\n\\\\label{%s}" label)
-				     latex-frag)
-	 latex-frag)
-       'mathjax info))
-     ((assq processing-type org-preview-latex-process-alist)
-      (let ((formula-link
-             (t-format-latex
-              (t--unlabel-latex-environment latex-frag)
-              processing-type info)))
-        (when (and formula-link (string-match "file:\\([^]]*\\)" formula-link))
-          (let ((source (org-export-file-uri (match-string 1 formula-link))))
-	    (t--wrap-latex-environment
-	     (t--format-image source attributes info)
-	     info caption label)))))
-     (t (t--wrap-latex-environment latex-frag info caption label)))))
-
-;;;; Latex Fragment
-
-(defun t-latex-fragment (latex-fragment _contents info)
-  "Transcode a LATEX-FRAGMENT object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (let ((latex-frag (org-element-property :value latex-fragment))
-	(processing-type (plist-get info :with-latex)))
-    (cond
-     ((memq processing-type '(t mathjax))
-      (t-format-latex latex-frag 'mathjax info))
-     ((memq processing-type '(t html))
-      (t-format-latex latex-frag 'html info))
-     ((assq processing-type org-preview-latex-process-alist)
-      (let ((formula-link
-	     (t-format-latex latex-frag processing-type info)))
-	(when (and formula-link (string-match "file:\\([^]]*\\)" formula-link))
-	  (let ((source (org-export-file-uri (match-string 1 formula-link))))
-	    (t--format-image source nil info)))))
-     (t latex-frag))))
 
 ;;;; Line Break
 
