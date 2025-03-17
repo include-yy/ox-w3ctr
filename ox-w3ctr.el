@@ -402,6 +402,19 @@ See `org-w3ctr-checkbox-type' for customization options."
     (t-format-list-item
      contents type checkbox info (or tag counter))))
 
+;;;; Plain List
+
+(defun t-plain-list (plain-list contents info)
+  "Transcode a PLAIN-LIST element from Org to HTML."
+  (let* ((type (pcase (org-element-property :type plain-list)
+		 (`ordered "ol")
+		 (`unordered "ul")
+		 (`descriptive "dl")
+		 (other (error "Unknown HTML list type: %s" other))))
+	 (attributes (t--make-attr__id plain-list info t)))
+    (format "<%s%s>\n%s</%s>"
+	    type attributes contents type)))
+
 ;;;; Quote Block
 
 (defun t-quote-block (quote-block contents info)
@@ -436,6 +449,74 @@ holding contextual information."
       (if html5-fancy
 	  (format "<%s%s>\n%s</%s>" block-type str contents block-type)
 	(format "<div%s>\n%s\n</div>" str contents)))))
+
+(defun t-table (table contents info)
+  "Transcode a TABLE element from Org to HTML.
+CONTENTS is the contents of the table.  INFO is a plist holding
+contextual information."
+  (if (eq (org-element-property :type table) 'table.el)
+      ;; "table.el" table.  Convert it using appropriate tools.
+      (t-table--table.el-table table info)
+    ;; Standard table.
+    (let* ((caption (org-export-get-caption table))
+	   (attributes
+	    (t--make-attribute-string
+	     (org-combine-plists
+	      (list :id (t--reference table info t))
+	      (org-export-read-attribute :attr_html table))))
+	   (alignspec "class=\"org-%s\"")
+	   (table-column-specs
+	    (lambda (table info)
+	      (mapconcat
+	       (lambda (table-cell)
+		 (let ((alignment (org-export-table-cell-alignment
+				   table-cell info)))
+		   (concat
+		    ;; Begin a colgroup?
+		    (when (org-export-table-cell-starts-colgroup-p
+			   table-cell info)
+		      "\n<colgroup>")
+		    ;; Add a column.  Also specify its alignment.
+		    (format "\n%s"
+			    (t-close-tag
+			     "col" (concat " " (format alignspec alignment)) info))
+		    ;; End a colgroup?
+		    (when (org-export-table-cell-ends-colgroup-p
+			   table-cell info)
+		      "\n</colgroup>"))))
+	       (t-table-first-row-data-cells table info) "\n"))))
+      (format "<table%s>\n%s\n%s\n%s</table>"
+	      (if (equal attributes "") "" (concat " " attributes))
+	      (if (not caption) ""
+		(format (if (plist-get info :html-table-caption-above)
+			    "<caption class=\"t-above\">%s</caption>"
+			  "<caption class=\"t-bottom\">%s</caption>")
+			(org-export-data caption info)))
+	      (funcall table-column-specs table info)
+	      contents))))
+
+;;;; Example Block
+
+(defun t-example-block (example-block _contents info)
+  "Transcode a EXAMPLE-BLOCK element from Org to HTML."
+  (let ((attributes (org-export-read-attribute :attr_html example-block)))
+    (if (plist-get attributes :textarea)
+	(t--textarea-block example-block)
+      (if-let* ((class-val (plist-get attributes :class)))
+	  (when-let* ((default-css (plist-get info :html-example-default-class)))
+	      (setq attributes (plist-put attributes :class
+					  (concat default-css " " class-val))))
+	(when-let* ((default-css (plist-get info :html-example-default-class)))
+	  (setq attributes (plist-put attributes :class default-css))))
+      (format "<pre%s>\n%s</pre>"
+	      (let* ((reference (t--reference example-block info t))
+		     (a (t--make-attribute-string
+			 (if (or (not reference) (plist-member attributes :id))
+			     attributes
+			   (plist-put attributes :id reference)))))
+		(if (org-string-nw-p a) (concat " " a) ""))
+	      (t-format-src-block-code example-block info)))))
+
 
 ;;; Internal Variables
 
@@ -1678,30 +1759,6 @@ CONTENTS are the definition itself.  INFO is a plist holding
 contextual information."
   (org-element-property :html entity))
 
-;;;; Example Block
-
-(defun t-example-block (example-block _contents info)
-  "Transcode a EXAMPLE-BLOCK element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual
-information."
-  (let ((attributes (org-export-read-attribute :attr_html example-block)))
-    (if (plist-get attributes :textarea)
-	(t--textarea-block example-block)
-      (if-let* ((class-val (plist-get attributes :class)))
-	  (when-let* ((default-css (plist-get info :html-example-default-class)))
-	      (setq attributes (plist-put attributes :class
-					  (concat default-css " " class-val))))
-	(when-let* ((default-css (plist-get info :html-example-default-class)))
-	  (setq attributes (plist-put attributes :class default-css))))
-      (format "<pre%s>\n%s</pre>"
-	      (let* ((reference (t--reference example-block info t))
-		     (a (t--make-attribute-string
-			 (if (or (not reference) (plist-member attributes :id))
-			     attributes
-			   (plist-put attributes :id reference)))))
-		(if (org-string-nw-p a) (concat " " a) ""))
-	      (t-format-src-block-code example-block info)))))
-
 ;;;; Export Snippet
 
 (defun t-export-snippet (export-snippet _contents _info)
@@ -2316,30 +2373,6 @@ the plist used as a communication channel."
 		    (concat " " attrs) "")
 		contents)))))
 
-;;;; Plain List
-
-(defun t-plain-list (plain-list contents _info)
-  "Transcode a PLAIN-LIST element from Org to HTML.
-CONTENTS is the contents of the list.  INFO is a plist holding
-contextual information."
-  (let* ((type (pcase (org-element-property :type plain-list)
-		 (`ordered "ol")
-		 (`unordered "ul")
-		 (`descriptive "dl")
-		 (other (error "Unknown HTML list type: %s" other))))
-	 (class (format "org-%s" type))
-	 (attributes (org-export-read-attribute :attr_html plain-list)))
-    (format "<%s %s>\n%s</%s>"
-	    type
-	    (t--make-attribute-string
-	     (plist-put attributes :class
-			(org-trim
-			 (mapconcat #'identity
-				    (list class (plist-get attributes :class))
-				    " "))))
-	    contents
-	    type)))
-
 ;;;; Plain Text
 
 (defun t-convert-special-strings (string)
@@ -2575,51 +2608,6 @@ INFO is a plist used as a communication channel."
       (with-current-buffer outbuf
 	(prog1 (org-trim (buffer-string))
 	  (kill-buffer) )))))
-
-(defun t-table (table contents info)
-  "Transcode a TABLE element from Org to HTML.
-CONTENTS is the contents of the table.  INFO is a plist holding
-contextual information."
-  (if (eq (org-element-property :type table) 'table.el)
-      ;; "table.el" table.  Convert it using appropriate tools.
-      (t-table--table.el-table table info)
-    ;; Standard table.
-    (let* ((caption (org-export-get-caption table))
-	   (attributes
-	    (t--make-attribute-string
-	     (org-combine-plists
-	      (list :id (t--reference table info t))
-	      (org-export-read-attribute :attr_html table))))
-	   (alignspec "class=\"org-%s\"")
-	   (table-column-specs
-	    (lambda (table info)
-	      (mapconcat
-	       (lambda (table-cell)
-		 (let ((alignment (org-export-table-cell-alignment
-				   table-cell info)))
-		   (concat
-		    ;; Begin a colgroup?
-		    (when (org-export-table-cell-starts-colgroup-p
-			   table-cell info)
-		      "\n<colgroup>")
-		    ;; Add a column.  Also specify its alignment.
-		    (format "\n%s"
-			    (t-close-tag
-			     "col" (concat " " (format alignspec alignment)) info))
-		    ;; End a colgroup?
-		    (when (org-export-table-cell-ends-colgroup-p
-			   table-cell info)
-		      "\n</colgroup>"))))
-	       (t-table-first-row-data-cells table info) "\n"))))
-      (format "<table%s>\n%s\n%s\n%s</table>"
-	      (if (equal attributes "") "" (concat " " attributes))
-	      (if (not caption) ""
-		(format (if (plist-get info :html-table-caption-above)
-			    "<caption class=\"t-above\">%s</caption>"
-			  "<caption class=\"t-bottom\">%s</caption>")
-			(org-export-data caption info)))
-	      (funcall table-column-specs table info)
-	      contents))))
 
 ;;;; Target
 
