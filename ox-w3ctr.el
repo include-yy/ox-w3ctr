@@ -114,6 +114,7 @@
     (strike-through . t-strike-through)         ; +a+
     (plain-text . t-plain-text))
   :filters-alist '((:filter-parse-tree . t-image-link-filter)
+		   (:filter-paragraph . t-paragraph-filter)
 		   (:filter-final-output . t-final-function))
   :menu-entry
   '(?w "Export to W3C technical reports style html"
@@ -316,12 +317,29 @@ attribute with a nil value means a boolean attribute."
 	     (if (not reference) attributes
 	       (cons `("id" ,reference) attributes)))))
     (if (org-string-nw-p a) a "")))
+
+(define-inline t--nw-p (s)
+  "Return S if S is a string containing a non-blank character.
+Otherwise, return nil. See also `org-string-nw-p'."
+  (inline-letevals (s)
+    (inline-quote
+     (and (stringp ,s) (string-match-p "[^ \r\t\n]" ,s) ,s))))
+
+(defsubst t--trim (s &optional keep-lead)
+  "Remove whitespace at the beginning and the end of string S.
+When optional argument KEEP-LEAD is non-nil, removing blank lines
+at the beginning of the string does not affect leading indentation.
+
+See also `org-trim'."
+  (replace-regexp-in-string
+   (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
+   (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
 
 ;;;; Center Block
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML."
   (format "<div style=\"text-align:center;\">%s</div>"
-	  (if contents (concat "\n" contents "\n") "")))
+	  (if contents (concat "\n" contents) "")))
 
 ;;;; Drawer
 (defun t-drawer (drawer contents info)
@@ -330,27 +348,25 @@ attribute with a nil value means a boolean attribute."
 	 (cap (if-let* ((cap (org-export-get-caption drawer)))
 		  (org-export-data cap info) name))
 	 (attrs (t--make-attr__id drawer info t)))
-    (format "<details%s>\n<summary>%s</summary>\n%s</details>"
-	    attrs cap (if contents (concat contents "\n") ""))))
+    (format "<details%s>\n<summary>%s</summary>%s</details>"
+	    attrs cap (if contents (concat "\n" contents) ""))))
 
 ;;;; Dynamic Block
-
 (defun t-dynamic-block (_dynamic-block contents _info)
   "Transcode a DYNAMIC-BLOCK element from Org to HTML."
   contents)
 
 ;;;; Item
-
 (defconst t-checkbox-types
-  '((unicode . ((on . "&#x2611;")
-		(off . "&#x2610;")
-		(trans . "&#x2612;")))
-    (ascii . ((on . "<code>[X]</code>")
-              (off . "<code>[&#xa0;]</code>")
-              (trans . "<code>[-]</code>")))
-    (html . ((on . "<input type='checkbox' checked='checked'>")
-	     (off . "<input type='checkbox'>")
-	     (trans . "<input type='checkbox'>"))))
+  '(( unicode .
+      ((on . "&#x2611;") (off . "&#x2610;") (trans . "&#x2612;")))
+    ( ascii .
+      ((on . "<code>[X]</code>") (off . "<code>[&#xa0;]</code>")
+       (trans . "<code>[-]</code>")))
+    ( html .
+      ((on . "<input type='checkbox' checked disabled>")
+       (off . "<input type='checkbox' disabled>")
+       (trans . "<input type='checkbox'>"))))
   "Alist of checkbox types.
 The cdr of each entry is an alist list three checkbox types for
 HTML export: `on', `off' and `trans'.
@@ -358,27 +374,23 @@ HTML export: `on', `off' and `trans'.
 The choices are:
   `unicode' Unicode characters (HTML entities)
   `ascii'   ASCII characters
-  `html'    HTML checkboxes
-
-Note that only the ascii and unicode characters implement
-tri-state checkboxes. Html use the `off' checkbox for `trans'.")
+  `html'    HTML checkboxes")
 
 (defun t-checkbox (checkbox info)
   "Format CHECKBOX into HTML.
-See `org-w3ctr-checkbox-type' for customization options."
+See `org-w3ctr-checkbox-types' for customization options."
   (cdr (assq checkbox
 	     (cdr (assq (plist-get info :html-checkbox-type)
 			t-checkbox-types)))))
 
-;; FIXME
-(defun t-format-list-item (contents type checkbox info
-				    &optional term-counter-id
-				    headline)
+(defun t-format-list-item ( contents type checkbox info
+			    &optional term-counter-id
+			    headline)
   "Format a list item into HTML."
   (let ((checkbox (concat (t-checkbox checkbox info)
 			  (and checkbox " ")))
-	(br (t-close-tag "br" nil info))
-	(extra-newline (if (and (org-string-nw-p contents) headline)
+	(br "<br>")
+	(extra-newline (if (and (t--nw-p contents) headline)
 			   "\n" "")))
     (concat
      (pcase type
@@ -390,11 +402,10 @@ See `org-w3ctr-checkbox-type' for customization options."
 	   (format "<li%s>" extra)
 	   (when headline (concat headline br)))))
        (`unordered
-	(let* ((id term-counter-id)
-	       (extra (if id (format " [@%s]" id) "")))
-	  (concat
-	   (format "<li>%s" extra)
-	   (when headline (concat headline br)))))
+	(concat "<li>"
+		(if (not term-counter-id) ""
+		  (format "[@%d] " term-counter-id))
+		(when headline (concat headline br))))
        (`descriptive
 	(let* ((term term-counter-id))
 	  (setq term (or term "(no term)"))
@@ -404,14 +415,13 @@ See `org-w3ctr-checkbox-type' for customization options."
 		  "<dd>"))))
      (unless (eq type 'descriptive) checkbox)
      extra-newline
-     (and (org-string-nw-p contents) (org-trim contents))
+     (and (t--nw-p contents) (t--trim contents))
      extra-newline
      (pcase type
        (`ordered "</li>")
        (`unordered "</li>")
        (`descriptive "</dd>")))))
 
-;; FIXME
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML."
   (let* ((plain-list (org-export-get-parent item))
@@ -424,20 +434,18 @@ See `org-w3ctr-checkbox-type' for customization options."
      contents type checkbox info (or tag counter))))
 
 ;;;; Plain List
-;; FIXME
 (defun t-plain-list (plain-list contents info)
   "Transcode a PLAIN-LIST element from Org to HTML."
   (let* ((type (pcase (org-element-property :type plain-list)
 		 (`ordered "ol")
 		 (`unordered "ul")
 		 (`descriptive "dl")
-		 (other (error "Unknown HTML list type: %s" other))))
+		 (_ (error "Unknown HTML list type: %s" other))))
 	 (attributes (t--make-attr__id plain-list info t)))
     (format "<%s%s>\n%s</%s>"
 	    type attributes contents type)))
 
 ;;;; Quote Block
-
 (defun t-quote-block (quote-block contents info)
   "Transcode a QUOTE-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block.  INFO is a plist
@@ -574,7 +582,7 @@ contextual information."
       (_ nil))))
 
 ;;;; Latex Environment
-;; FIXME
+
 (defun t-format-latex (latex-frag processing-type info)
   "Format a LaTeX fragment LATEX-FRAG into HTML.
 PROCESSING-TYPE designates the tool used for conversion.  It can
@@ -587,17 +595,18 @@ INFO is a plist containing export properties."
                 (eq processing-type 'html))
       (let ((bfn (or (buffer-file-name)
 		     (make-temp-name
-		      (expand-file-name "latex" temporary-file-directory))))
+		      (expand-file-name
+		       "latex" temporary-file-directory))))
 	    (latex-header
-	     (let ((header (plist-get info :latex-header)))
-	       (and header
-		    (concat (mapconcat
-			     (lambda (line) (concat "#+LATEX_HEADER: " line))
-			     (org-split-string header "\n")
-			     "\n")
-			    "\n")))))
+	     (if-let* ((header (plist-get info :latex-header)))
+		 (concat (mapconcat
+			  (lambda (line) (concat "#+LATEX_HEADER: " line))
+			  (org-split-string header "\n")
+			  "\n")
+			 "\n"))))
 	(setq cache-relpath
-	      (concat (file-name-as-directory org-preview-latex-image-directory)
+	      (concat (file-name-as-directory
+		       org-preview-latex-image-directory)
 		      (file-name-sans-extension
 		       (file-name-nondirectory bfn)))
 	      cache-dir (file-name-directory bfn))
@@ -690,25 +699,6 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
 	     info caption label)))))
      (t (t--wrap-latex-environment latex-frag info caption label)))))
 
-;;;; Latex Fragment
-
-(defun t-latex-fragment (latex-fragment _contents info)
-  "Transcode a LATEX-FRAGMENT object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (let ((latex-frag (org-element-property :value latex-fragment))
-	(processing-type (plist-get info :with-latex)))
-    (cond
-     ((memq processing-type '(t mathjax))
-      (t-format-latex latex-frag 'mathjax info))
-     ((memq processing-type '(t html))
-      (t-format-latex latex-frag 'html info))
-     ((assq processing-type org-preview-latex-process-alist)
-      (let ((formula-link
-	     (t-format-latex latex-frag processing-type info)))
-	(when (and formula-link (string-match "file:\\([^]]*\\)" formula-link))
-	  (let ((source (org-export-file-uri (match-string 1 formula-link))))
-	    (t--format-image source nil info)))))
-     (t latex-frag))))
 
 ;;;; Paragraph
 
@@ -719,16 +709,12 @@ the plist used as a communication channel."
   (let* ((parent (org-export-get-parent paragraph))
 	 (parent-type (org-element-type parent))
 	 (class (org-export-read-attribute :attr_html paragraph :class))
-	 (attrs (t--make-attribute-string
-		 (org-export-read-attribute :attr_html paragraph))))
+	 (attrs (t--make-attr__id paragraph info t)))
     (cond
      ((and (eq parent-type 'item)
-	   (not (org-export-get-previous-element paragraph info))
-	   (let ((followers (org-export-get-next-element paragraph info 2)))
-	     (and (not (cdr followers))
-		  (memq (org-element-type (car followers)) '(nil plain-list)))))
-      ;; First paragraph in an item has no tag if it is alone or
-      ;; followed, at most, by a sub-list.
+	   (string= attrs "")
+	   (not (org-export-get-previous-element paragraph info)))
+      ;; First paragraph in an item
       contents)
      ((t-standalone-image-p paragraph info)
       ;; Standalone image.
@@ -736,13 +722,11 @@ the plist used as a communication channel."
 	    (label (t--reference paragraph info t)))
 	(t--wrap-image contents info caption label class)))
      ;; Regular paragraph.
-     (t (format "<p%s%s>\n%s</p>"
-		(let ((id (t--reference paragraph info t)))
-		  (if (org-string-nw-p id)
-		      (format " id=\"%s\"" id) ""))
-		(if (org-string-nw-p attrs)
-		    (concat " " attrs) "")
-		contents)))))
+     (t (format "<p%s>%s</p>" attrs (string-trim contents))))))
+
+(defun t-paragraph-filter (value _backend _info)
+  "Delete trailing newlines."
+  (concat (string-trim-right value) "\n"))
 
 ;;;; Src Block
 
@@ -840,6 +824,88 @@ contextual information."
 		  (re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote br))))
 	     (replace-regexp-in-string re (concat br "\n") contents)))))
 
+;;;; Entity
+
+(defun t-entity (entity _contents _info)
+  "Transcode an ENTITY object from Org to HTML."
+  (org-element-property :html entity))
+
+;;;; Export Snippet
+
+(defun t-export-snippet (export-snippet _contents _info)
+  "Transcode a EXPORT-SNIPPET object from Org to HTML."
+  (let* ((backend (org-export-snippet-backend export-snippet))
+	 (value (org-element-property :value export-snippet)))
+    (pcase backend
+      ;; plain html text.
+      ((or 'h 'html) value)
+      ;; Read, Evaluate, Print, no Loop :p
+      ('e (format "%s" (eval (read value))))
+      ;; sexp-style html data.
+      ('d (t--sexp2html (read value)))
+      ;; sexp-style html data list.
+      ('l (mapconcat #'t--sexp2html (read (format "(%s)" value))))
+      (_ nil))))
+
+;;;; Footnote Reference
+
+(defun t-footnote-reference (footnote-reference _contents info)
+  "Transcode a FOOTNOTE-REFERENCE element from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information."
+  (concat
+   ;; Insert separator between two footnotes in a row.
+   (let ((prev (org-export-get-previous-element footnote-reference info)))
+     (when (eq (org-element-type prev) 'footnote-reference)
+       (plist-get info :html-footnote-separator)))
+   (let* ((n (org-export-get-footnote-number footnote-reference info))
+	  (label (org-element-property :label footnote-reference)))
+      (t--anchor
+       nil (format (plist-get info :html-footnote-format) (or label n))
+       (format " href=\"#fn.%d\" aria-label=\"reference to %s\"" n label) info))))
+
+;;;; Inline Src Block
+
+(defun t-inline-src-block (inline-src-block _contents info)
+  "Transcode an INLINE-SRC-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the item.  INFO is a plist holding
+contextual information."
+  (let* ((lang (org-element-property :language inline-src-block))
+	 (code (t-fontify-code
+		(org-element-property :value inline-src-block)
+		lang))
+	 (label
+	  (let ((lbl (t--reference inline-src-block info t)))
+	    (if (not lbl) "" (format " id=\"%s\"" lbl)))))
+    (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
+
+;;;; Latex Fragment
+
+(defun t-latex-fragment (latex-fragment _contents info)
+  "Transcode a LATEX-FRAGMENT object from Org to HTML."
+  (let ((frag (org-element-property :value latex-fragment))
+	(type (plist-get info :with-latex)))
+    (cond
+     ((memq type '(t mathjax))
+      (t-format-latex frag 'mathjax info))
+     ((eq type 'html)
+      (t-format-latex frag 'html info))
+     ((assq type org-preview-latex-process-alist)
+      (when-let* ((formula-link (t-format-latex frag type info)))
+	(when (string-match "file:\\([^]]*\\)" formula-link)
+	  (let ((source (org-export-file-uri
+			 (match-string 1 formula-link))))
+	    (t--format-image source nil info)))))
+     (t frag))))
+
+;;;; Line Break
+
+(defun t-line-break (_line-break _contents info)
+  "Transcode a LINE-BREAK object from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information."
+  (concat (t-close-tag "br" nil info) "\n"))
+
+
+
 ;;; Internal Variables
 
 (defconst t-html5-elements
@@ -2052,47 +2118,6 @@ information."
   (format (or (cdr (assq 'code (plist-get info :html-text-markup-alist))) "%s")
 	  (t-encode-plain-text (org-element-property :value code))))
 
-;;;; Entity
-
-(defun t-entity (entity _contents _info)
-  "Transcode an ENTITY object from Org to HTML.
-CONTENTS are the definition itself.  INFO is a plist holding
-contextual information."
-  (org-element-property :html entity))
-
-;;;; Export Snippet
-
-(defun t-export-snippet (export-snippet _contents _info)
-  "Transcode a EXPORT-SNIPPET object from Org to HTML."
-  (let* ((backend (org-export-snippet-backend export-snippet))
-	 (value (org-element-property :value export-snippet)))
-    (pcase backend
-      ;; plain html text.
-      ((or 'h 'html) value)
-      ;; Read, Evaluate, Print, no Loop :p
-      ('e (format "%s" (eval (read value))))
-      ;; sexp-style html data.
-      ('d (t--sexp2html (read value)))
-      ;; sexp-style html data list.
-      ('l (mapconcat #'t--sexp2html (read (format "(%s)" value))))
-      (_ nil))))
-
-;;;; Footnote Reference
-
-(defun t-footnote-reference (footnote-reference _contents info)
-  "Transcode a FOOTNOTE-REFERENCE element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (concat
-   ;; Insert separator between two footnotes in a row.
-   (let ((prev (org-export-get-previous-element footnote-reference info)))
-     (when (eq (org-element-type prev) 'footnote-reference)
-       (plist-get info :html-footnote-separator)))
-   (let* ((n (org-export-get-footnote-number footnote-reference info))
-	  (label (org-element-property :label footnote-reference)))
-      (t--anchor
-       nil (format (plist-get info :html-footnote-format) (or label n))
-       (format " href=\"#fn.%d\" aria-label=\"reference to %s\"" n label) info))))
-
 ;;;; Headline
 
 (defun t-headline (headline contents info)
@@ -2178,20 +2203,6 @@ holding contextual information."
 	   "</div>\n")
    tag id cls headline tag id secno))
 
-;;;; Inline Src Block
-
-(defun t-inline-src-block (inline-src-block _contents info)
-  "Transcode an INLINE-SRC-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the item.  INFO is a plist holding
-contextual information."
-  (let* ((lang (org-element-property :language inline-src-block))
-	 (code (t-fontify-code
-		(org-element-property :value inline-src-block)
-		lang))
-	 (label
-	  (let ((lbl (t--reference inline-src-block info t)))
-	    (if (not lbl) "" (format " id=\"%s\"" lbl)))))
-    (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
 
 ;;;; Italic
 
@@ -2202,14 +2213,6 @@ contextual information."
   (format
    (or (cdr (assq 'italic (plist-get info :html-text-markup-alist))) "%s")
    contents))
-
-
-;;;; Line Break
-
-(defun t-line-break (_line-break _contents info)
-  "Transcode a LINE-BREAK object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (concat (t-close-tag "br" nil info) "\n"))
 
 ;;;; Link
 
