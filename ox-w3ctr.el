@@ -452,7 +452,7 @@ CONTENTS holds the contents of the block.  INFO is a plist
 holding contextual information."
   (format "<blockquote%s>%s</blockquote>"
 	  (t--make-attr__id quote-block info t)
-	  (if contents (concat "\n" contents "\n") "")))
+	  (if contents (concat "\n" contents) "")))
 
 ;;;; Special Block
 ;; FIXME
