@@ -1,4 +1,4 @@
-;;; ox-w3ctr.el --- HTML Back-End for Org Export Engine using W3C TR CSS specification -*- lexical-binding: t; -*-
+;;; ox-w3ctr.el --- An Org export Back-End -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 include-yy <yy@egh0bww1.com>
 
@@ -221,7 +221,7 @@ See `org-html-equation-reference-format' for more information."
   :type 'string
   :safe #'stringp)
 
-(defcustom t-with-latex t
+(defcustom t-with-latex 'csr
   "Non-nil means process LaTeX math snippets.
 
 See `org-html-with-latex' for more information."
@@ -453,7 +453,7 @@ holding contextual information."
   (format "<blockquote%s>%s</blockquote>"
 	  (t--make-attr__id quote-block info t)
 	  (if contents (concat "\n" contents) "")))
-
+
 ;;;; Special Block
 ;; FIXME
 (defun t-special-block (special-block contents info)
@@ -478,7 +478,7 @@ holding contextual information."
       (if html5-fancy
 	  (format "<%s%s>\n%s</%s>" block-type str contents block-type)
 	(format "<div%s>\n%s\n</div>" str contents)))))
-
+
 ;; FIXME
 (defun t-table (table contents info)
   "Transcode a TABLE element from Org to HTML.
@@ -524,239 +524,6 @@ contextual information."
 			(org-export-data caption info)))
 	      (funcall table-column-specs table info)
 	      contents))))
-
-;;;; Example Block
-;; FIXME
-(defun t-example-block (example-block _contents info)
-  "Transcode a EXAMPLE-BLOCK element from Org to HTML."
-  (format "<div%s>\n<pre>%s</pre>\n</div>"
-	  (t--make-attr__id example-block info)
-	  (t-format-src-block-code example-block info)))
-
-;;;; Export Block
-
-(defun t-export-block (export-block _contents _info)
-  "Transcode a EXPORT-BLOCK element from Org to HTML."
-  (let* ((type (org-element-property :type export-block))
-	 (value (org-element-property :value export-block))
-	 (text (org-remove-indentation value)))
-    (pcase type
-      ((or "HTML" "MHTML") text)
-      ("CSS" (concat "<style>\n" text "</style>"))
-      ((or "JS" "JAVASCRIPT") (concat "<script>\n" text
-				      "</script>"))
-      ;; Expression that return HTML string.
-      ((or "EMACS-LISP" "ELISP") (format "%s" (eval (read value))))
-      ;; SEXP-style HTML data.
-      ("LISP-DATA" (t--sexp2html (read value)))
-      (_ nil))))
-
-;;;; Fixed Width
-
-(defun t-fixed-width (fixed-width _contents info)
-  "Transcode a FIXED-WIDTH element from Org to HTML."
-  (format "<pre%s>%s</pre>"
-	  (t--make-attr__id fixed-width info t)
-	  (t-fontify-code
-	   (org-remove-indentation
-	    (org-element-property :value fixed-width))
-	   nil)))
-
-;;;; Horizontal Rule
-
-(defun t-horizontal-rule (_horizontal-rule _contents info)
-  "Transcode an HORIZONTAL-RULE object from Org to HTML."
-  (t-close-tag "hr" nil info))
-
-;;;; Keyword
-
-(defun t-keyword (keyword _contents _info)
-  "Transcode a KEYWORD element from Org to HTML."
-  (let ((key (org-element-property :key keyword))
-	(value (org-element-property :value keyword)))
-    (pcase key
-      ((or "H" "HTML") value)
-      ("E" (format "%s" (eval (read value))))
-      ("D" (t--sexp2html (read value)))
-      ("L" (mapconcat #'t--sexp2html (read (format "(%s)" value))))
-      (_ nil))))
-
-;;;; Latex Environment
-
-(defun t-format-latex (latex-frag processing-type info)
-  "Format a LaTeX fragment LATEX-FRAG into HTML.
-PROCESSING-TYPE designates the tool used for conversion.  It can
-be `mathjax', `verbatim', `html', nil, t or symbols in
-`org-preview-latex-process-alist', e.g., `dvipng', `dvisvgm' or
-`imagemagick'.  See `org-w3ctr-with-latex' for more information.
-INFO is a plist containing export properties."
-  (let ((cache-relpath "") (cache-dir ""))
-    (unless (or (eq processing-type 'mathjax)
-                (eq processing-type 'html))
-      (let ((bfn (or (buffer-file-name)
-		     (make-temp-name
-		      (expand-file-name
-		       "latex" temporary-file-directory))))
-	    (latex-header
-	     (if-let* ((header (plist-get info :latex-header)))
-		 (concat (mapconcat
-			  (lambda (line) (concat "#+LATEX_HEADER: " line))
-			  (org-split-string header "\n")
-			  "\n")
-			 "\n"))))
-	(setq cache-relpath
-	      (concat (file-name-as-directory
-		       org-preview-latex-image-directory)
-		      (file-name-sans-extension
-		       (file-name-nondirectory bfn)))
-	      cache-dir (file-name-directory bfn))
-	;; Re-create LaTeX environment from original buffer in
-	;; temporary buffer so that dvipng/imagemagick can properly
-	;; turn the fragment into an image.
-	(setq latex-frag (concat latex-header latex-frag))))
-    (org-export-with-buffer-copy
-     :to-buffer (get-buffer-create " *Org HTML Export LaTeX*")
-     :drop-visibility t :drop-narrowing t :drop-contents t
-     (erase-buffer)
-     (insert latex-frag)
-     (org-format-latex cache-relpath nil nil cache-dir nil
-		       "Creating LaTeX Image..." nil processing-type)
-     (buffer-string))))
-
-(defun t--wrap-latex-environment (contents _ &optional caption label)
-  "Wrap CONTENTS string within appropriate environment for equations.
-When optional arguments CAPTION and LABEL are given, use them for
-caption and \"id\" attribute."
-  (format "\n<div%s class=\"equation-container\">\n%s%s\n</div>"
-          ;; ID.
-          (if (org-string-nw-p label) (format " id=\"%s\"" label) "")
-          ;; Contents.
-          (format "<span class=\"equation\">\n%s\n</span>" contents)
-          ;; Caption.
-          (if (not (org-string-nw-p caption)) ""
-            (format "\n<span class=\"equation-label\">\n%s\n</span>"
-                    caption))))
-
-(defun t--math-environment-p (element &optional _)
-  "Non-nil when ELEMENT is a LaTeX math environment.
-Math environments match the regular expression defined in
-`org-latex-math-environments-re'.  This function is meant to be
-used as a predicate for `org-export-get-ordinal' or a value to
-`t-standalone-image-predicate'."
-  (string-match-p org-latex-math-environments-re
-                  (org-element-property :value element)))
-
-(defun t--latex-environment-numbered-p (element)
-  "Non-nil when ELEMENT contains a numbered LaTeX math environment.
-Starred and \"displaymath\" environments are not numbered."
-  (not (string-match-p "\\`[ \t]*\\\\begin{\\(.*\\*\\|displaymath\\)}"
-		       (org-element-property :value element))))
-
-(defun t--unlabel-latex-environment (latex-frag)
-  "Change environment in LATEX-FRAG string to an unnumbered one.
-For instance, change an `equation' environment to `equation*'."
-  (replace-regexp-in-string
-   "\\`[ \t]*\\\\begin{\\([^*]+?\\)}"
-   "\\1*"
-   (replace-regexp-in-string "^[ \t]*\\\\end{\\([^*]+?\\)}[ \r\t\n]*\\'"
-			     "\\1*"
-			     latex-frag nil nil 1)
-   nil nil 1))
-
-(defun t-latex-environment (latex-environment _contents info)
-  "Transcode a LATEX-ENVIRONMENT element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (let ((processing-type (plist-get info :with-latex))
-	(latex-frag (org-remove-indentation
-		     (org-element-property :value latex-environment)))
-        (attributes (org-export-read-attribute :attr_html latex-environment))
-        (label (t--reference latex-environment info t))
-        (caption (and (t--latex-environment-numbered-p latex-environment)
-		      (number-to-string
-		       (org-export-get-ordinal
-			latex-environment info nil
-			(lambda (l _)
-			  (and (t--math-environment-p l)
-			       (t--latex-environment-numbered-p l))))))))
-    (cond
-     ((memq processing-type '(t mathjax))
-      (t-format-latex
-       (if (org-string-nw-p label)
-	   (replace-regexp-in-string "\\`.*"
-				     (format "\\&\n\\\\label{%s}" label)
-				     latex-frag)
-	 latex-frag)
-       'mathjax info))
-     ((assq processing-type org-preview-latex-process-alist)
-      (let ((formula-link
-             (t-format-latex
-              (t--unlabel-latex-environment latex-frag)
-              processing-type info)))
-        (when (and formula-link (string-match "file:\\([^]]*\\)" formula-link))
-          (let ((source (org-export-file-uri (match-string 1 formula-link))))
-	    (t--wrap-latex-environment
-	     (t--format-image source attributes info)
-	     info caption label)))))
-     (t (t--wrap-latex-environment latex-frag info caption label)))))
-
-
-;;;; Paragraph
-
-(defun t-paragraph (paragraph contents info)
-  "Transcode a PARAGRAPH element from Org to HTML.
-CONTENTS is the contents of the paragraph, as a string.  INFO is
-the plist used as a communication channel."
-  (let* ((parent (org-export-get-parent paragraph))
-	 (parent-type (org-element-type parent))
-	 (class (org-export-read-attribute :attr_html paragraph :class))
-	 (attrs (t--make-attr__id paragraph info t)))
-    (cond
-     ((and (eq parent-type 'item)
-	   (string= attrs "")
-	   (not (org-export-get-previous-element paragraph info)))
-      ;; First paragraph in an item
-      contents)
-     ((t-standalone-image-p paragraph info)
-      ;; Standalone image.
-      (let ((caption (org-export-data (org-export-get-caption paragraph) info))
-	    (label (t--reference paragraph info t)))
-	(t--wrap-image contents info caption label class)))
-     ;; Regular paragraph.
-     (t (format "<p%s>%s</p>" attrs (string-trim contents))))))
-
-(defun t-paragraph-filter (value _backend _info)
-  "Delete trailing newlines."
-  (concat (string-trim-right value) "\n"))
-
-;;;; Src Block
-
-(defun t-src-block (src-block _contents info)
-  "Transcode a SRC-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the item.  INFO is a plist holding
-contextual information."
-  (if (org-export-read-attribute :attr_html src-block :textarea)
-      (t--textarea-block src-block)
-    (if (not (t--has-caption-p src-block))
-	(let ((code (t-format-src-block-code src-block info))
-	      (id (t--reference src-block info t))
-	      (cls (org-export-read-attribute :attr_html src-block :class)))
-	  (format "<pre%s%s>%s</pre>"
-		  (if id (format " id=\"%s\"" id) "")
-		  (if cls (format " class=\"%s\"" cls) "")
-		  code))
-      (let* ((code (t-format-src-block-code src-block info))
-	     (id (t--reference src-block info))
-	     (cls (org-export-read-attribute :attr_html src-block :class))
-	     (caption (let ((cap (org-export-get-caption src-block)))
-			(if cap (org-trim (org-export-data cap info) nil))))
-	     (class (if (org-string-nw-p cls) (concat "example " cls) "example")))
-	(format "<div%s%s>\n%s\n%s\n<pre>%s</pre></div>"
-		(format " id=\"%s\"" id)
-		(format " class=\"%s\"" class)
-		(format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
-			"aria-label=\"source block\"")
-		(if (not caption) "" caption)
-		code)))))
 
 ;;;; Table Row
 
@@ -806,9 +573,147 @@ communication channel."
 		      "\n"
 		      row-close-tag)
 	      (and end-group-p (cdr group-tags))))))
+
+;;;; Example Block
+(defun t-example-block (example-block _contents info)
+  "Transcode a EXAMPLE-BLOCK element from Org to HTML."
+  (format "<div%s>\n<pre>\n%s</pre>\n</div>"
+	  (t--make-attr__id example-block info)
+	  (org-remove-indentation
+	   (org-element-property :value example-block))))
+
+;;;; Export Block
+(defun t-export-block (export-block _contents _info)
+  "Transcode a EXPORT-BLOCK element from Org to HTML."
+  (let* ((type (org-element-property :type export-block))
+	 (value (org-element-property :value export-block))
+	 (text (org-remove-indentation value)))
+    (pcase type
+      ((or "HTML" "MHTML") text)
+      ("CSS" (concat "<style>\n" text "</style>"))
+      ((or "JS" "JAVASCRIPT") (concat "<script>\n" text
+				      "</script>"))
+      ;; Expression that return HTML string.
+      ((or "EMACS-LISP" "ELISP") (format "%s" (eval (read value))))
+      ;; SEXP-style HTML data.
+      ("LISP-DATA" (t--sexp2html (read value)))
+      (_ nil))))
+
+;;;; Fixed Width
+(defun t-fixed-width (fixed-width _contents info)
+  "Transcode a FIXED-WIDTH element from Org to HTML."
+  (format "<pre%s>%s</pre>"
+	  (t--make-attr__id fixed-width info t)
+	  (org-remove-indentation
+	   (org-element-property :value fixed-width))))
+
+;;;; Horizontal Rule
+(defun t-horizontal-rule (_horizontal-rule _contents info)
+  "Transcode an HORIZONTAL-RULE object from Org to HTML."
+  (t-close-tag "hr" nil info))
+
+;;;; Keyword
+(defun t-keyword (keyword _contents _info)
+  "Transcode a KEYWORD element from Org to HTML."
+  (let ((key (org-element-property :key keyword))
+	(value (org-element-property :value keyword)))
+    (pcase key
+      ((or "H" "HTML") value)
+      ("E" (format "%s" (eval (read value))))
+      ("D" (t--sexp2html (read value)))
+      ("L" (mapconcat #'t--sexp2html (read (format "(%s)" value))))
+      (_ nil))))
+
+;;;; LATEX fragment and environment
+(defun t--normalize-latex (frag)
+  "Normalize LaTeX fragments in the given string FRAG.
+
+This function processes LaTeX fragments and environments in the
+input string, converting inline and block LaTeX ($...$ and $$...$$)
+to \\(...\\) and \\\\=[...\\\\=].
+
+The code for this function is from `org-format-latex'."
+  (let* ((math-regexp
+	  "\\$\\|\\\\[([]\\|^[ \t]*\\\\begin{[A-Za-z0-9*]+}"))
+    (org-export-with-buffer-copy
+     :to-buffer (get-buffer-create " *Org HTML Export LaTeX*")
+     :drop-visibility t :drop-narrowing t :drop-contents t
+     (erase-buffer)
+     (insert frag)
+     (goto-char (point-min))
+     (while (re-search-forward math-regexp nil t)
+       (let* ((context (org-element-context))
+	      (type (org-element-type context)))
+	 (when (memq type '(latex-environment latex-fragment))
+	   (let ((value (org-element-property :value context))
+		 (beg (org-element-begin context))
+		 (end (save-excursion
+			(goto-char (org-element-end context))
+			(skip-chars-backward " \r\t\n")
+			(point))))
+	     (if (not (string-match "\\`\\$\\$?" value))
+		 (goto-char end)
+	       (delete-region beg end)
+	       (if (string= (match-string 0 value) "$$")
+		   (insert "\\[" (substring value 2 -2) "\\]")
+		 (insert "\\(" (substring value 1 -1) "\\)")))))))
+     (buffer-string))))
+
+(defun t-format-latex (frag type _info)
+  "Format a LaTeX fragment LATEX-FRAG into HTML.
+TYPE designates the tool used for conversion.  It can
+be `csr', `ssr' or `nil'(do nothing)."
+  (if (null type) frag
+    (let ((new-frag (t--normalize-latex frag)))
+      (pcase type
+	(`csr new-frag)
+	;; TODO: Implement mathjax SSR.
+	(`ssr new-frag)
+	(_ (error "Unknown Latex export type: %s" type))))))
+
+;;;; Latex Fragment
+(defun t-latex-fragment (latex-fragment _contents info)
+  "Transcode a LATEX-FRAGMENT object from Org to HTML."
+  (let ((frag (org-element-property :value latex-fragment))
+	(type (plist-get info :with-latex)))
+    (t-format-latex frag type info)))
+
+;;;; Latex Fragment
+(defun t-latex-environment (latex-environment _contents info)
+  "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
+  (let ((type (plist-get info :with-latex))
+	(frag (org-remove-indentation
+	       (org-element-property :value latex-environment))))
+    (t-format-latex frag type info)))
+
+;;;; Paragraph
+(defun t-paragraph (paragraph contents info)
+  "Transcode a PARAGRAPH element from Org to HTML."
+  (let* ((parent (org-export-get-parent paragraph))
+	 (parent-type (org-element-type parent))
+	 (class (org-export-read-attribute :attr_html paragraph :class))
+	 (attrs (t--make-attr__id paragraph info t)))
+    (cond
+     ((and (eq parent-type 'item)
+	   (string= attrs "")
+	   (not (org-export-get-previous-element paragraph info)))
+      ;; First paragraph in an item
+      contents)
+     ((t-standalone-image-p paragraph info)
+      ;; Standalone image.
+      (let ((caption (org-export-data (org-export-get-caption paragraph) info))
+	    (label (t--reference paragraph info t)))
+	(t--wrap-image contents info caption label class)))
+     ;; Regular paragraph.
+     (t (let ((c (string-trim contents)))
+	  (if (string= c "") ""
+	    (format "<p%s>%s</p>" attrs c)))))))
+
+(defun t-paragraph-filter (value _backend _info)
+  "Delete trailing newlines."
+  (concat (string-trim-right value) "\n"))
 
 ;;;; Verse Block
-
 (defun t-verse-block (_verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 CONTENTS is verse block contents.  INFO is a plist holding
@@ -824,14 +729,42 @@ contextual information."
 		  (re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote br))))
 	     (replace-regexp-in-string re (concat br "\n") contents)))))
 
+;;;; Src Block
+;; TODO
+(defun t-src-block (src-block _contents info)
+  "Transcode a SRC-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the item.  INFO is a plist holding
+contextual information."
+  (if (org-export-read-attribute :attr_html src-block :textarea)
+      (t--textarea-block src-block)
+    (if (not (t--has-caption-p src-block))
+	(let ((code (t-format-src-block-code src-block info))
+	      (id (t--reference src-block info t))
+	      (cls (org-export-read-attribute :attr_html src-block :class)))
+	  (format "<pre%s%s>%s</pre>"
+		  (if id (format " id=\"%s\"" id) "")
+		  (if cls (format " class=\"%s\"" cls) "")
+		  code))
+      (let* ((code (t-format-src-block-code src-block info))
+	     (id (t--reference src-block info))
+	     (cls (org-export-read-attribute :attr_html src-block :class))
+	     (caption (let ((cap (org-export-get-caption src-block)))
+			(if cap (org-trim (org-export-data cap info) nil))))
+	     (class (if (org-string-nw-p cls) (concat "example " cls) "example")))
+	(format "<div%s%s>\n%s\n%s\n<pre>%s</pre></div>"
+		(format " id=\"%s\"" id)
+		(format " class=\"%s\"" class)
+		(format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
+			"aria-label=\"source block\"")
+		(if (not caption) "" caption)
+		code)))))
+
 ;;;; Entity
-
 (defun t-entity (entity _contents _info)
   "Transcode an ENTITY object from Org to HTML."
   (org-element-property :html entity))
 
 ;;;; Export Snippet
-
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode a EXPORT-SNIPPET object from Org to HTML."
   (let* ((backend (org-export-snippet-backend export-snippet))
@@ -877,25 +810,6 @@ contextual information."
 	  (let ((lbl (t--reference inline-src-block info t)))
 	    (if (not lbl) "" (format " id=\"%s\"" lbl)))))
     (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
-
-;;;; Latex Fragment
-
-(defun t-latex-fragment (latex-fragment _contents info)
-  "Transcode a LATEX-FRAGMENT object from Org to HTML."
-  (let ((frag (org-element-property :value latex-fragment))
-	(type (plist-get info :with-latex)))
-    (cond
-     ((memq type '(t mathjax))
-      (t-format-latex frag 'mathjax info))
-     ((eq type 'html)
-      (t-format-latex frag 'html info))
-     ((assq type org-preview-latex-process-alist)
-      (when-let* ((formula-link (t-format-latex frag type info)))
-	(when (string-match "file:\\([^]]*\\)" formula-link)
-	  (let ((source (org-export-file-uri
-			 (match-string 1 formula-link))))
-	    (t--format-image source nil info)))))
-     (t frag))))
 
 ;;;; Line Break
 
@@ -1626,7 +1540,7 @@ INFO is a plist used as a communication channel."
 (defun t--build-mathjax-config (info)
   "Insert the user setup into the mathjax template.
 INFO is a plist used as a communication channel."
-  (when (and (memq (plist-get info :with-latex) '(mathjax t))
+  (when (and (memq (plist-get info :with-latex) '(csr ssr))
              (org-element-map (plist-get info :parse-tree)
                  '(latex-fragment latex-environment) #'identity info t nil t))
     (let ((template (plist-get info :html-mathjax-template))
