@@ -3,4 +3,5 @@
 *-autoloads.el
 *-pkg.el
 zhua.el
-/jax/node_modules
+/js-tools/node_modules
+/js-tools/*.py

@@ -351,7 +351,7 @@ See also `org-trim'."
 (defun t--rpc-make-json (func args)
   (json-serialize `( :jsonrpc "2.0"
 		     :method ,(format "%s" func)
-		     :params ,(cl-coerce args 'vector)
+		     :params ,args
 		     :id ,(incf t--rpc-id))))
 
 (defun t--rpc-send (proc jstr)
@@ -400,7 +400,7 @@ See also `org-trim'."
 	(accept-process-output nil 1))
       (error "ox-w3ctr RPC timeout: (%s %s)" fun args))))
 
-(defun t--rpc-request (proc fun args)
+(defun t--rpc-request! (proc fun args)
   (let* ((data (t--rpc-request-sync proc fun args)))
     (if-let* ((err (gethash "error" data)))
 	(error "ox-w3ctr RPC error: %s %s %s"

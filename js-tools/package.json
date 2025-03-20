@@ -1,7 +1,7 @@
 {
-    "name": "jax",
+    "name": "ox-w3ctr-jstools",
     "version": "0.0.1",
-    "description": "Mathjax SSR for ox-w3ctr",
+    "description": "node tools for ox-w3ctr",
     "main": "index.js",
     "scripts": {
         "test": "echo \"Error: no test specified\" && exit 1"
