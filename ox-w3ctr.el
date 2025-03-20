@@ -231,6 +231,12 @@ See `org-html-with-latex' for more information."
 
 ;;; Basic utilties
 
+(defvar t--dir
+  (if load-in-progress
+      (file-name-directory load-file-name)
+    default-directory)
+  "Directory of ox-w3ctr package.")
+
 (defsubst t--2str (s)
   "Convert S to string.
 
@@ -334,6 +340,74 @@ See also `org-trim'."
   (replace-regexp-in-string
    (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
    (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
+
+;;; Simple JSON based sync RPC, not JSONRPC
+(defvar t--rpc-timeout 1.0
+  "Timeout for a rpc, in seconds.")
+(defvar t--rpc-id 0
+  "JSON-rpc ID for request.")
+
+;; https://www.jsonrpc.org/specification
+(defun t--rpc-make-json (func args)
+  (json-serialize `( :jsonrpc "2.0"
+		     :method ,(format "%s" func)
+		     :params ,(cl-coerce args 'vector)
+		     :id ,(incf t--rpc-id))))
+
+(defun t--rpc-send (proc jstr)
+  (process-send-string proc (concat jstr "\n")))
+
+(defun t--rpc-call (proc func args)
+  (t--rpc-send proc (t--rpc-make-json func args)))
+
+(defun t--rpc-filter (proc string)
+  (when (buffer-live-p (process-buffer proc))
+    (with-current-buffer (process-buffer proc)
+      ;; insert string
+      (save-excursion
+	(goto-char (process-mark proc))
+	(insert string)
+	(set-marker (process-mark proc) (point)))
+      ;; find json data
+      (when-let* ((curr (point))
+		  (end (search-forward "\n" nil t)))
+	(goto-char curr)
+	(let* ((hash (json-parse-buffer)))
+	  (if (not (process-get proc 'debug))
+	      (delete-region curr end)
+	    (goto-char (point-max)))
+	  (set-marker (process-mark proc) (point))
+	  (throw 't--rpc hash))))))
+
+(defun t--rpc-start (name cmd-list &optional debug)
+  (let* ((buf (get-buffer-create
+	       (concat " *ox-w3ctr-proc-[" name "]*")))
+	 (proc (make-process
+	       :name name :buffer buf
+	       :command cmd-list :coding 'utf-8
+	       :noquery t :filter #'t--rpc-filter)))
+    (with-current-buffer buf
+      (goto-char (point-max))
+      (set-marker (process-mark proc) (point)))
+    (when debug (process-put proc 'debug t))
+    proc))
+
+(defun t--rpc-request-sync (proc fun args)
+  (catch 't--rpc
+    (t--rpc-call proc fun args)
+    (let ((curr-time (float-time)))
+      (while (< (- (float-time) curr-time) t--rpc-timeout)
+	(accept-process-output nil 1))
+      (error "ox-w3ctr RPC timeout: (%s %s)" fun args))))
+
+(defun t--rpc-request (proc fun args)
+  (let* ((data (t--rpc-request-sync proc fun args)))
+    (if-let* ((err (gethash "error" data)))
+	(error "ox-w3ctr RPC error: %s %s %s"
+	       (gethash "code" err)
+	       (gethash "message" err)
+	       (gethash "data" err))
+      (gethash "result" data))))
 
 ;;;; Center Block
 (defun t-center-block (_center-block contents _info)
@@ -625,6 +699,27 @@ communication channel."
       (_ nil))))
 
 ;;;; LATEX fragment and environment
+(defun t--reformat-mathml (str)
+  "Reformat the given MathML STR into a one-line XML structure."
+  (with-work-buffer
+    (insert str) (goto-char (point-min))
+    (let ((xml (xml-parse-tag)))
+      (named-let loop ((a xml))
+	 (if (stringp a) (if (t--nw-p a) a "")
+	   (let* ((tag (car a))
+		  (name (symbol-name tag))
+		  (props (cadr a))
+		  (props-str
+		   (thread-first
+		     (lambda (x) (concat " " (symbol-name (car x))
+				     "=\"" (cdr x) "\""))
+		     (mapconcat props)
+		     (or "")))
+		  (childs (cddr a))
+		  (childs-str (mapconcat #'loop childs)))
+	     (format "<%s%s>%s</%s>"
+		     name props-str childs-str name)))))))
+
 (defun t--normalize-latex (frag)
   "Normalize LaTeX fragments in the given string FRAG.
 
@@ -657,7 +752,7 @@ The code for this function is from `org-format-latex'."
 	       (if (string= (match-string 0 value) "$$")
 		   (insert "\\[" (substring value 2 -2) "\\]")
 		 (insert "\\(" (substring value 1 -1) "\\)")))))))
-     (buffer-string))))
+     (t--trim (buffer-string)))))
 
 (defun t-format-latex (frag type _info)
   "Format a LaTeX fragment LATEX-FRAG into HTML.

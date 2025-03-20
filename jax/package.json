@@ -1,25 +1,28 @@
 {
-  "name": "jax",
-  "version": "0.0.1",
-  "description": "Mathjax SSR for ox-w3ctr",
-  "main": "index.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/include-yy/ox-w3ctr.git"
-  },
-  "keywords": [
-    "tool"
-  ],
-  "author": "include-yy",
-  "license": "GPL-3.0-or-later",
-  "bugs": {
-    "url": "https://github.com/include-yy/ox-w3ctr/issues"
-  },
-  "homepage": "https://github.com/include-yy/ox-w3ctr#readme",
-  "dependencies": {
-    "mathjax": "^4.0.0-beta.7"
-  }
+    "name": "jax",
+    "version": "0.0.1",
+    "description": "Mathjax SSR for ox-w3ctr",
+    "main": "index.js",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "type": "module",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/include-yy/ox-w3ctr.git"
+    },
+    "keywords": [
+        "tool"
+    ],
+    "author": "include-yy",
+    "license": "GPL-3.0-or-later",
+    "bugs": {
+        "url": "https://github.com/include-yy/ox-w3ctr/issues"
+    },
+    "homepage": "https://github.com/include-yy/ox-w3ctr#readme",
+    "dependencies": {
+        "json-rpc-2.0": "^1.7.0",
+        "mathjax": "^4.0.0-beta.7",
+        "mathjax-stix2-font": "^4.0.0-beta.7"
+    }
 }
