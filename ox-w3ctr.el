@@ -43,6 +43,7 @@
 (require 'format-spec)
 (require 'ox)
 (require 'ox-publish)
+(require 'ox-html)
 (require 'table)
 
 
@@ -379,13 +380,24 @@ See also `org-trim'."
 	  (set-marker (process-mark proc) (point))
 	  (throw 't--rpc hash))))))
 
+(defun t--rpc-sentinel (proc change)
+  (when (not (process-live-p proc))
+    (insert change)
+    (unless (process-get proc 'debug)
+      (let* ((re " \\*ox-w3ctr-proc-\\[")
+	     (buf (process-buffer proc))
+	     (bufname (buffer-name buf)))
+	(when (string-match-p re bufname)
+	  (kill-buffer buf))))))
+
 (defun t--rpc-start (name cmd-list &optional debug)
-  (let* ((buf (get-buffer-create
+  (let* ((buf (generate-new-buffer
 	       (concat " *ox-w3ctr-proc-[" name "]*")))
 	 (proc (make-process
 	       :name name :buffer buf
 	       :command cmd-list :coding 'utf-8
-	       :noquery t :filter #'t--rpc-filter)))
+	       :noquery t :filter #'t--rpc-filter
+	       :sentinel #'t--rpc-sentinel)))
     (with-current-buffer buf
       (goto-char (point-max))
       (set-marker (process-mark proc) (point)))
