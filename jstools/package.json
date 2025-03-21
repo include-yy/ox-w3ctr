@@ -21,8 +21,8 @@
     },
     "homepage": "https://github.com/include-yy/ox-w3ctr#readme",
     "dependencies": {
+        "commander": "^13.1.0",
         "json-rpc-2.0": "^1.7.0",
-        "mathjax": "^4.0.0-beta.7",
-        "mathjax-stix2-font": "^4.0.0-beta.7"
+        "mathjax": "^4.0.0-beta.7"
     }
 }

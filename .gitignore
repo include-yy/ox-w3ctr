@@ -3,5 +3,5 @@
 *-autoloads.el
 *-pkg.el
 zhua.el
-/js-tools/node_modules
-/js-tools/*.py
+/jstools/node_modules
+/jstools/*.py

@@ -3,28 +3,37 @@ import { stdin as input, stdout as output} from 'process'
 
 import * as Mathjax from 'mathjax'
 import { JSONRPCServer } from 'json-rpc-2.0'
+import { Command } from 'commander'
 
 const server = new JSONRPCServer()
-const TIMEOUT = 1000 * 10
+const program = new Command()
 
-const procTimeout = () => {
-    let handle = setTimeout(() => {
-	process.exit(0)
-    }, TIMEOUT)
-    return () => {
-	clearTimeout(handle)
+program.option('--timeout <number>')
+
+const procTimeout = (timeout) => {
+    let count = 0
+    let handle = null
+    let reset = () => {
+	handle && clearTimeout(handle)
 	handle = setTimeout(() => {
-	    process.exit(0)
-	}, TIMEOUT)
+	    count === 0 && process.exit(0)
+	    count = 0
+	    reset()
+	}, timeout)
     }
+    reset()
+    return () => { count++ }
 }
 
 const main = () => {
+    program.parse(process.argv)
+    const options = program.opts()
+    const timeout = options.timeout || 30000
+    const incf = procTimeout(timeout)
     const rl = readline.createInterface({input, output})
-    const keepAlive = procTimeout()
     rl.on('line', (line) => {
+	incf()
 	server.receiveJSON(line).then((response) => {
-
 	    if (response) {
 		console.log(JSON.stringify(response));
 	    }

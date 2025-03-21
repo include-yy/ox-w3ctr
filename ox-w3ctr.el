@@ -222,7 +222,7 @@ See `org-html-equation-reference-format' for more information."
   :type 'string
   :safe #'stringp)
 
-(defcustom t-with-latex 'csr
+(defcustom t-with-latex 'mathjax
   "Non-nil means process LaTeX math snippets.
 
 See `org-html-with-latex' for more information."
@@ -382,7 +382,6 @@ See also `org-trim'."
 
 (defun t--rpc-sentinel (proc change)
   (when (not (process-live-p proc))
-    (insert change)
     (unless (process-get proc 'debug)
       (let* ((re " \\*ox-w3ctr-proc-\\[")
 	     (buf (process-buffer proc))
@@ -391,7 +390,7 @@ See also `org-trim'."
 	  (kill-buffer buf))))))
 
 (defun t--rpc-start (name cmd-list &optional debug)
-  (let* ((buf (generate-new-buffer
+  (let* ((buf (get-buffer-create
 	       (concat " *ox-w3ctr-proc-[" name "]*")))
 	 (proc (make-process
 	       :name name :buffer buf
@@ -420,6 +419,44 @@ See also `org-trim'."
 	       (gethash "message" err)
 	       (gethash "data" err))
       (gethash "result" data))))
+
+(defvar t--jstools-proc nil
+  "js-tools process object.")
+(defvar t-jstools-debug nil)
+
+(defvar t--jstools-timeout 30000
+  "default server side timeout, in milliseconds.")
+
+(defun t-toggle-jstools-debug ()
+  (interactive)
+  (if t-jstools-debug
+      (progn
+	(setq t-jstools-debug nil)
+	(message "ox-w3ctr: jstools debug disabled."))
+    (setq t-jstools-debug t)
+    (message "ox-w3ctr: jstools debug enabled.")))
+
+(defun t--start-jstools ()
+  (unless (process-live-p t--jstools-proc)
+    (setq t--jstools-proc
+	  (t--rpc-start
+	   "jstools"
+	   `("node" ,(file-name-concat t--dir "jstools/index.js")
+	     "--timeout" ,(number-to-string t--jstools-timeout))
+	   t-jstools-debug))))
+
+(defun t--restart-jstools ()
+  (when (process-live-p t--jstools-proc)
+    (delete-process t--jstools-proc))
+  (t--start-jstools))
+
+(defun t-launch-jstools ()
+  (interactive)
+  (t--restart-jstools))
+
+(defun t--jstools-call (fun args)
+  (t--start-jstools)
+  (t--rpc-request! t--jstools-proc fun args))
 
 ;;;; Center Block
 (defun t-center-block (_center-block contents _info)
@@ -769,13 +806,14 @@ The code for this function is from `org-format-latex'."
 (defun t-format-latex (frag type _info)
   "Format a LaTeX fragment LATEX-FRAG into HTML.
 TYPE designates the tool used for conversion.  It can
-be `csr', `ssr' or `nil'(do nothing)."
+be `mathjax', `mathml' or `nil'(do nothing)."
   (if (null type) frag
     (let ((new-frag (t--normalize-latex frag)))
       (pcase type
-	(`csr new-frag)
+	(`mathjax new-frag)
 	;; TODO: Implement mathjax SSR.
-	(`ssr new-frag)
+	(`mathml (t--reformat-mathml
+		  (t--jstools-call 'tex2mml frag)))
 	(_ (error "Unknown Latex export type: %s" type))))))
 
 ;;;; Latex Fragment
@@ -1647,7 +1685,7 @@ INFO is a plist used as a communication channel."
 (defun t--build-mathjax-config (info)
   "Insert the user setup into the mathjax template.
 INFO is a plist used as a communication channel."
-  (when (and (memq (plist-get info :with-latex) '(csr ssr))
+  (when (and (memq (plist-get info :with-latex) '(mathjax))
              (org-element-map (plist-get info :parse-tree)
                  '(latex-fragment latex-environment) #'identity info t nil t))
     (let ((template (plist-get info :html-mathjax-template))
