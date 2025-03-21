@@ -11,20 +11,20 @@
 ;; Keywords: HTML, Org
 ;; URL: https://github.com/include-yy/ox-w3ctr
 
-;; This file is not part of GNU Emacs.
+;; SPDX-License-Identifier: GPL-3.0-or-later
 
-;; GNU Emacs is free software: you can redistribute it and/or modify
-;; it under the terms of the GNU General Public License as published by
-;; the Free Software Foundation, either version 3 of the License, or
-;; (at your option) any later version.
+;; Ox-w3ctr is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published
+;; by the Free Software Foundation, either version 3 of the License,
+;; or (at your option) any later version.
 
-;; GNU Emacs is distributed in the hope that it will be useful,
+;; Ox-w3ctr is distributed in the hope that it will be useful,
 ;; but WITHOUT ANY WARRANTY; without even the implied warranty of
 ;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with GNU Emacs.  If not, see <https://www.gnu.org/licenses/>.
+;; along with ox-w3ctr.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
@@ -830,6 +830,11 @@ a value to `t-standalone-image-predicate'."
     default-directory)
   "Directory of ox-w3ctr package.")
 
+(defsubst t--maybe-contents (contents)
+  "If CONTENTS is non-nil, prepend a newline and return it;
+otherwise, return an empty string."
+  (if contents (concat "\n" contents) ""))
+
 (defsubst t--2str (s)
   "Convert S to string.
 
@@ -934,7 +939,6 @@ See also `org-trim'."
    (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
    (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
 
-
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
   "Timeout for a rpc, in seconds.")
@@ -943,10 +947,9 @@ See also `org-trim'."
 
 ;; https://www.jsonrpc.org/specification
 (defun t--rpc-make-json (func args)
-  (json-serialize `( :jsonrpc "2.0"
-		     :method ,(format "%s" func)
-		     :params ,args
-		     :id ,(incf t--rpc-id))))
+  (json-serialize
+   `( :jsonrpc "2.0" :method ,(format "%s" func)
+      :params ,args  :id ,(incf t--rpc-id))))
 
 (defun t--rpc-send (proc jstr)
   (process-send-string proc (concat jstr "\n")))
@@ -1051,11 +1054,14 @@ See also `org-trim'."
   (t--start-jstools)
   (t--rpc-request! t--jstools-proc fun args))
 
+;;; Greater elements (11 - 2 = 9).
+;;; special-block and table are not here.
+
 ;;;; Center Block
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML."
   (format "<div style=\"text-align:center;\">%s</div>"
-	  (if contents (concat "\n" contents) "")))
+	  (t--maybe-contents contents)))
 
 ;;;; Drawer
 (defun t-drawer (drawer contents info)
@@ -1065,7 +1071,7 @@ See also `org-trim'."
 		  (org-export-data cap info) name))
 	 (attrs (t--make-attr__id drawer info t)))
     (format "<details%s>\n<summary>%s</summary>%s</details>"
-	    attrs cap (if contents (concat "\n" contents) ""))))
+	    attrs cap (t--maybe-contents contents))))
 
 ;;;; Dynamic Block
 (defun t-dynamic-block (_dynamic-block contents _info)
