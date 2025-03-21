@@ -1054,7 +1054,7 @@ See also `org-trim'."
   (t--start-jstools)
   (t--rpc-request! t--jstools-proc fun args))
 
-;;; Greater elements (11 - 2 = 9).
+;;; Greater elements (11 - 3 - 2 = 6).
 ;;; special-block and table are not here.
 
 ;;;; Center Block
@@ -1070,7 +1070,7 @@ See also `org-trim'."
 	 (cap (if-let* ((cap (org-export-get-caption drawer)))
 		  (org-export-data cap info) name))
 	 (attrs (t--make-attr__id drawer info t)))
-    (format "<details%s>\n<summary>%s</summary>%s</details>"
+    (format "<details%s><summary>%s</summary>%s</details>"
 	    attrs cap (t--maybe-contents contents))))
 
 ;;;; Dynamic Block
@@ -1081,9 +1081,12 @@ See also `org-trim'."
 ;;;; Item
 (defconst t-checkbox-types
   '(( unicode .
-      ((on . "&#x2611;") (off . "&#x2610;") (trans . "&#x2612;")))
+      ((on . "&#x2611;")
+       (off . "&#x2610;")
+       (trans . "&#x2612;")))
     ( ascii .
-      ((on . "<code>[X]</code>") (off . "<code>[&#xa0;]</code>")
+      ((on . "<code>[X]</code>")
+       (off . "<code>[&#xa0;]</code>")
        (trans . "<code>[-]</code>")))
     ( html .
       ((on . "<input type='checkbox' checked disabled>")
@@ -1169,17 +1172,20 @@ See `org-w3ctr-checkbox-types' for customization options."
 
 ;;;; Quote Block
 (defun t-quote-block (quote-block contents info)
-  "Transcode a QUOTE-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information."
+  "Transcode a QUOTE-BLOCK element from Org to HTML."
   (format "<blockquote%s>%s</blockquote>"
 	  (t--make-attr__id quote-block info t)
-	  (if contents (concat "\n" contents) "")))
+	  (t--maybe-contents contents)))
 
+;;; Lesser elements (17 - 7 - 2 + 1 = 9)
+;;; src-block, table-row are not here.
+;;; latex-fragment is here.
+
 ;;;; Example Block
 (defun t-example-block (example-block _contents info)
   "Transcode a EXAMPLE-BLOCK element from Org to HTML."
   (format "<div%s>\n<pre>\n%s</pre>\n</div>"
+	  ;; FIXME: Shall we use NAMED-ONLY here?
 	  (t--make-attr__id example-block info)
 	  (org-remove-indentation
 	   (org-element-property :value example-block))))
@@ -1204,7 +1210,7 @@ holding contextual information."
 ;;;; Fixed Width
 (defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML."
-  (format "<pre%s>%s</pre>"
+  (format "<pre%s>\n%s</pre>"
 	  (t--make-attr__id fixed-width info t)
 	  (org-remove-indentation
 	   (org-element-property :value fixed-width))))
@@ -1212,7 +1218,7 @@ holding contextual information."
 ;;;; Horizontal Rule
 (defun t-horizontal-rule (_horizontal-rule _contents info)
   "Transcode an HORIZONTAL-RULE object from Org to HTML."
-  (t-close-tag "hr" nil info))
+  "<hr>")
 
 ;;;; Keyword
 (defun t-keyword (keyword _contents _info)
@@ -1226,7 +1232,10 @@ holding contextual information."
       ("L" (mapconcat #'t--sexp2html (read (format "(%s)" value))))
       (_ nil))))
 
-;;;; LATEX fragment and environment
+;;;;; Next check start here.
+
+;;; LATEX utilties.
+;; FIXME: consider remove more properties.
 (defun t--reformat-mathml (str)
   "Reformat the given MathML STR into a one-line XML structure."
   (with-work-buffer
@@ -1248,6 +1257,7 @@ holding contextual information."
 	     (format "<%s%s>%s</%s>"
 		     name props-str childs-str name)))))))
 
+;; FIXME: Test and check needed.
 (defun t--normalize-latex (frag)
   "Normalize LaTeX fragments in the given string FRAG.
 
@@ -1290,6 +1300,7 @@ be `mathjax', `mathml' or `nil'(do nothing)."
     (let ((new-frag (t--normalize-latex frag)))
       (pcase type
 	(`mathjax new-frag)
+	;; FIXME: Check if rpc server is available
 	(`mathml (t--jstools-call 'tex2mml frag))
 	(_ (error "Unknown Latex export type: %s" type))))))
 
@@ -1302,7 +1313,8 @@ be `mathjax', `mathml' or `nil'(do nothing)."
     (if (eq type 'mathml) (t--reformat-mathml result)
       result)))
 
-;;;; Latex Fragment
+;;;; Latex Environment
+;; FIXME: Consider #+name and #+attr_*, and something else.
 (defun t-latex-environment (latex-environment _contents info)
   "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
   (let ((type (plist-get info :with-latex))
@@ -1311,6 +1323,7 @@ be `mathjax', `mathml' or `nil'(do nothing)."
     (t-format-latex frag type info)))
 
 ;;;; Paragraph
+;; FIXME: image link and something else.
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML."
   (let* ((parent (org-export-get-parent paragraph))
@@ -1330,6 +1343,7 @@ be `mathjax', `mathml' or `nil'(do nothing)."
 	(t--wrap-image contents info caption label class)))
      ;; Regular paragraph.
      (t (let ((c (string-trim contents)))
+	  ;; FIXME: do something for empty para?
 	  (if (string= c "") ""
 	    (format "<p%s>%s</p>" attrs c)))))))
 
@@ -1338,6 +1352,7 @@ be `mathjax', `mathml' or `nil'(do nothing)."
   (concat (string-trim-right value) "\n"))
 
 ;;;; Verse Block
+;; FIXME: unchecked code.
 (defun t-verse-block (_verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 CONTENTS is verse block contents.  INFO is a plist holding
@@ -2383,7 +2398,7 @@ is the language used for CODE, as a string, or nil."
 
 
 ;;;; Src Block
-;; TODO
+;; FIXME
 (defun t-src-block (src-block _contents info)
   "Transcode a SRC-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the item.  INFO is a plist holding

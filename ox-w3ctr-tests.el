@@ -1,5 +1,34 @@
 ;; -*- lexical-binding: t; -*-
 
+(defvar t-test-value nil)
+
+(defun t-check-element-values (fn advice pairs)
+  (advice-add fn :filter-return advice)
+  (unwind-protect
+      (dolist (test pairs)
+	(ignore (org-export-string-as (car test) 'w3ctr t))
+	(should (string= t-test-value (cdr test))))
+    (advice-remove fn advice)))
+
+(defun t-advice-return-value (str)
+  (prog1 str
+    (setq t-test-value
+	  (substring-no-properties str))))
+
+(ert-deftest t-center-block ()
+  (t-check-element-values
+   #'t-center-block #'t-advice-return-value
+   '(("#+begin_center\n#+end_center" .
+      "<div style=\"text-align:center;\"></div>")
+     ("#+begin_center\n123\n#+end_center" .
+      "<div style=\"text-align:center;\">\n<p>123</p>\n</div>"))))
+
+(ert-deftest t-drawer ()
+  (t-check-element-values
+   #'t-drawer #'t-advice-return-value
+   '((":hello:\n:end:" .
+     "<details><summary>hello</summary></details>"))))
+
 (ert-deftest t--2str ()
   (should (eq (t--2str nil) nil))
   (should (string= (t--2str 1) "1"))
@@ -71,6 +100,8 @@
   ;; Allow bare tags
   (should (string= (t--sexp2html '(p)) "<p></p>"))
   (should (string= (t--sexp2html '(hr)) "<hr>")))
+
+
 
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
