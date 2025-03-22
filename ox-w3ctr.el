@@ -1238,9 +1238,9 @@ See `org-w3ctr-checkbox-types' for customization options."
 (defun t--mathml-to-oneline (xml)
   "Convert a MathML XML structure into a single-line string.
 
-If XML is a string and empty, return an empty string; otherwise,
-recursively process the XML structure, converting it into a
-single-line formatted string.
+If XML is a string and empty, return an empty string;
+otherwise, recursively process the XML structure, converting
+it into a single-line formatted string.
 
 MathJax includes the original LaTeX code in the `data-latex'
 attribute of the generated tags. Here, we remove them.
@@ -1269,19 +1269,23 @@ math element; it will be ignored by the HTML parser."
 	      tag props childs tag))))
 
 (defun t--reformat-mathml (str)
-  "Reformat the given MathML STR into a one-line XML string."
+  "Reformat the given MathML STR into a one-line XML string.
+
+In the MathML returned by MathJax, there are some attribute
+values that are not particularly useful for browser rendering
+and need to be removed."
   (with-work-buffer
     (insert str) (goto-char (point-min))
     (let ((xml (xml-parse-tag)))
       (t--mathml-to-oneline xml))))
 
-;; FIXME: Test and check needed.
+;; FIXME: Test needed.
 (defun t--normalize-latex (frag)
   "Normalize LaTeX fragments in the given string FRAG.
 
 This function processes LaTeX fragments and environments in the
-input string, converting inline and block LaTeX ($...$ and $$...$$)
-to \\(...\\) and \\\\=[...\\\\=].
+input string, converting inline and block LaTeX ($.$ and $$.$$)
+to \\(.\\) and \\\\=[.\\\\=].
 
 The code for this function is from `org-format-latex'."
   (let* ((math-regexp
@@ -1337,8 +1341,10 @@ be `mathjax', `mathml' or `nil'(do nothing)."
   "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
   (let ((type (plist-get info :with-latex))
 	(frag (org-remove-indentation
-	       (org-element-property :value latex-environment))))
-    (t-format-latex frag type info)))
+	       (org-element-property :value latex-environment)))
+	(result (t-format-latex frag type info)))
+    (if (eq type 'mathml) (t--reformat-mathml result)
+      result)))
 
 ;;;; Paragraph
 ;; FIXME: image link and something else.
@@ -1370,21 +1376,23 @@ be `mathjax', `mathml' or `nil'(do nothing)."
   (concat (string-trim-right value) "\n"))
 
 ;;;; Verse Block
-;; FIXME: unchecked code.
+;; FIXME: make it better?
 (defun t-verse-block (_verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 CONTENTS is verse block contents.  INFO is a plist holding
 contextual information."
-  (format "<p class=\"verse\">\n%s</p>"
-	  ;; Replace leading white spaces with non-breaking spaces.
-	  (replace-regexp-in-string
-	   "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
-	   ;; Replace each newline character with line break.  Also
-	   ;; remove any trailing "br" close-tag so as to avoid
-	   ;; duplicates.
-	   (let* ((br (t-close-tag "br" nil info))
-		  (re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote br))))
-	     (replace-regexp-in-string re (concat br "\n") contents)))))
+  (format
+   "<p class=\"verse\">\n%s</p>"
+   ;; Replace leading white spaces with non-breaking spaces.
+   (replace-regexp-in-string
+    "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
+    ;; Replace each newline character with line break. Also
+    ;; remove any trailing "br" close-tag so as to avoid
+    ;; duplicates.
+    (let* ((re (format "\\(?:%s\\)?[ \t]*\n"
+		       (regexp-quote "<br>"))))
+      (replace-regexp-in-string
+       re "<br>\n" (or contents ""))))))
 
 ;;;; Entity
 (defun t-entity (entity _contents _info)
