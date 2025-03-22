@@ -1185,7 +1185,6 @@ See `org-w3ctr-checkbox-types' for customization options."
 (defun t-example-block (example-block _contents info)
   "Transcode a EXAMPLE-BLOCK element from Org to HTML."
   (format "<div%s>\n<pre>\n%s</pre>\n</div>"
-	  ;; FIXME: Shall we use NAMED-ONLY here?
 	  (t--make-attr__id example-block info)
 	  (org-remove-indentation
 	   (org-element-property :value example-block))))
@@ -1197,12 +1196,14 @@ See `org-w3ctr-checkbox-types' for customization options."
 	 (value (org-element-property :value export-block))
 	 (text (org-remove-indentation value)))
     (pcase type
+      ;; Add mhtml-mode also.
       ((or "HTML" "MHTML") text)
       ("CSS" (concat "<style>\n" text "</style>"))
-      ((or "JS" "JAVASCRIPT") (concat "<script>\n" text
-				      "</script>"))
+      ((or "JS" "JAVASCRIPT")
+       (concat "<script>\n" text "</script>"))
       ;; Expression that return HTML string.
-      ((or "EMACS-LISP" "ELISP") (format "%s" (eval (read value))))
+      ((or "EMACS-LISP" "ELISP")
+       (format "%s" (eval (read value))))
       ;; SEXP-style HTML data.
       ("LISP-DATA" (t--sexp2html (read value)))
       (_ nil))))
@@ -1229,33 +1230,50 @@ See `org-w3ctr-checkbox-types' for customization options."
       ((or "H" "HTML") value)
       ("E" (format "%s" (eval (read value))))
       ("D" (t--sexp2html (read value)))
-      ("L" (mapconcat #'t--sexp2html (read (format "(%s)" value))))
+      ("L" (mapconcat #'t--sexp2html
+		      (read (format "(%s)" value))))
       (_ nil))))
 
-;;;;; Next check start here.
-
 ;;; LATEX utilties.
-;; FIXME: consider remove more properties.
+(defun t--mathml-to-oneline (xml)
+  "Convert a MathML XML structure into a single-line string.
+
+If XML is a string and empty, return an empty string; otherwise,
+recursively process the XML structure, converting it into a
+single-line formatted string.
+
+MathJax includes the original LaTeX code in the `data-latex'
+attribute of the generated tags. Here, we remove them.
+
+According to MathML Spec:
+`xmlns=http://www.w3.org/1998/Math/MathML' may be used on the
+math element; it will be ignored by the HTML parser."
+  (if (stringp xml) (or (t--nw-p xml) "")
+    (let* ((tag (symbol-name (car xml)))
+	   (exclude-regex
+	    (rx (or "xmlns" "data-latex")))
+	   (props
+	    (thread-first
+	      (lambda (x)
+		(let ((name (symbol-name (car x))))
+		  (cond
+		   ((and (string= name "display")
+			 (string= (cdr x) "inline"))
+		    "")
+		   ((string-match-p exclude-regex name) "")
+		   (t (concat " " name "=\"" (cdr x) "\"")))))
+	      (mapconcat (cadr xml))))
+	   (childs (mapconcat
+		    #'t--mathml-to-oneline (cddr xml))))
+      (format "<%s%s>%s</%s>"
+	      tag props childs tag))))
+
 (defun t--reformat-mathml (str)
-  "Reformat the given MathML STR into a one-line XML structure."
+  "Reformat the given MathML STR into a one-line XML string."
   (with-work-buffer
     (insert str) (goto-char (point-min))
     (let ((xml (xml-parse-tag)))
-      (named-let loop ((a xml))
-	 (if (stringp a) (if (t--nw-p a) a "")
-	   (let* ((tag (car a))
-		  (name (symbol-name tag))
-		  (props (cadr a))
-		  (props-str
-		   (thread-first
-		     (lambda (x) (concat " " (symbol-name (car x))
-				     "=\"" (cdr x) "\""))
-		     (mapconcat props)
-		     (or "")))
-		  (childs (cddr a))
-		  (childs-str (mapconcat #'loop childs)))
-	     (format "<%s%s>%s</%s>"
-		     name props-str childs-str name)))))))
+      (t--mathml-to-oneline xml))))
 
 ;; FIXME: Test and check needed.
 (defun t--normalize-latex (frag)

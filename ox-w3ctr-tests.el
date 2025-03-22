@@ -101,8 +101,6 @@
   (should (string= (t--sexp2html '(p)) "<p></p>"))
   (should (string= (t--sexp2html '(hr)) "<hr>")))
 
-
-
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
 ;; End:
