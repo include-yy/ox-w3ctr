@@ -208,20 +208,28 @@
   :tag "Org Export W3C TR HTML"
   :group 'org-export)
 
-;;;; Bold, etc.
-
+;;;; Smallest objects.
 (defcustom t-text-markup-alist
-  '((bold . "<b>%s</b>")
+  '((bold . "<strong>%s</strong>")
     (code . "<code>%s</code>")
-    (italic . "<i>%s</i>")
+    (italic . "<em>%s</em>")
     (strike-through . "<del>%s</del>")
     (underline . "<span class=\"underline\">%s</span>")
     (verbatim . "<code>%s</code>"))
   "Alist of HTML expressions to convert text markup.
 
-See `org-html-text-markup-alist' for more information."
+The key must be a symbol among `bold', `code', `italic',
+`strike-through', `underline' and `verbatim'.  The value is
+a formatting string to wrap fontified text with.
+
+If no association can be found for a given markup, text will be
+returned as-is.
+
+See also `org-html-text-markup-alist'."
   :group 'org-export-w3ctr
-  :type 'sexp)
+  :type '(alist :key-type (symbol :tag "Markup type")
+		:value-type (string :tag "Format string"))
+  :options '(bold code italic strike-through underline verbatim))
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
