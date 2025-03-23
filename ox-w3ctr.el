@@ -1394,6 +1394,11 @@ contextual information."
       (replace-regexp-in-string
        re "<br>\n" (or contents ""))))))
 
+;;; Objects (25 - 4 - 5 - 7 = 9)
+;;; footnote-reference, inline-src-block, not here.
+;;; latex-fragment, link, table-cell not here.
+;;; smallest objects not here.
+
 ;;;; Entity
 (defun t-entity (entity _contents _info)
   "Transcode an ENTITY object from Org to HTML."
@@ -1412,7 +1417,8 @@ contextual information."
       ;; sexp-style html data.
       ('d (t--sexp2html (read value)))
       ;; sexp-style html data list.
-      ('l (mapconcat #'t--sexp2html (read (format "(%s)" value))))
+      ('l (mapconcat #'t--sexp2html
+		     (read (format "(%s)" value))))
       (_ nil))))
 
 ;;;; Line Break
@@ -1422,16 +1428,15 @@ contextual information."
 
 ;;;; Radio Target
 (defun t-radio-target (radio-target text info)
-  "Transcode a RADIO-TARGET object from Org to HTML.
-TEXT is the text of the target.  INFO is a plist holding
-contextual information."
+  "Transcode a RADIO-TARGET object from Org to HTML."
   (let ((ref (t--reference radio-target info)))
     (t--anchor ref text nil info)))
 
 ;;;; Statistics Cookie
 (defun t-statistics-cookie (statistics-cookie _contents _info)
   "Transcode a STATISTICS-COOKIE object from Org to HTML."
-  (let ((cookie-value (org-element-property :value statistics-cookie)))
+  (let ((cookie-value
+	 (org-element-property :value statistics-cookie)))
     (format "<code>%s</code>" cookie-value)))
 
 ;;;; Subscript
@@ -1453,6 +1458,7 @@ information."
     (t--anchor ref nil nil info)))
 
 ;;;; Timestamp
+;; FIXME: recheck it.
 (defun t-timestamp (timestamp _contents info &optional boundary)
   "Transcode a TIMESTAMP object from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual
@@ -1484,63 +1490,51 @@ information."
 	(_ (error "ox-w3ctr: Seems not a valid time type %s" type))))))
 
 
-;;; Transcode Functions
+;;; Smallest objects (7)
+
+(defun t--get-markup-format (name info)
+  (if-let* ((alist (plist-get info :html-text-markup-alist))
+	    (str (cdr (assq 'bold alist))))
+      str "%s"))
 
 ;;;; Bold
 (defun t-bold (_bold contents info)
-  "Transcode BOLD from Org to HTML.
-CONTENTS is the text with bold markup.  INFO is a plist holding
-contextual information."
-  (format (or (cdr (assq 'bold (plist-get info :html-text-markup-alist))) "%s")
-	  contents))
+  "Transcode BOLD from Org to HTML."
+  (format (t--get-markup-format 'bold info) contents))
 
 ;;;; Italic
 (defun t-italic (_italic contents info)
-  "Transcode ITALIC from Org to HTML.
-CONTENTS is the text with italic markup.  INFO is a plist holding
-contextual information."
-  (format
-   (or (cdr (assq 'italic (plist-get info :html-text-markup-alist))) "%s")
-   contents))
+  "Transcode ITALIC from Org to HTML."
+  (format (t--get-markup-format 'italic info) contents))
 
 ;;;; Underline
 (defun t-underline (_underline contents info)
-  "Transcode UNDERLINE from Org to HTML.
-CONTENTS is the text with underline markup.  INFO is a plist
-holding contextual information."
-  (format (or (cdr (assq 'underline (plist-get info :html-text-markup-alist)))
-	      "%s")
-	  contents))
+  "Transcode UNDERLINE from Org to HTML."
+  (format (t--get-markup-format 'underline info) contents))
 
 ;;;; Verbatim
 (defun t-verbatim (verbatim _contents info)
-  "Transcode VERBATIM from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual
-information."
-  (format (or (cdr (assq 'verbatim (plist-get info :html-text-markup-alist))) "%s")
-	  (t-encode-plain-text (org-element-property :value verbatim))))
+  "Transcode VERBATIM from Org to HTML."
+  (format (t--get-markup-format 'verbatim info)
+	  (t-encode-plain-text
+	   (org-element-property :value verbatim))))
 
 ;;;; Code
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
-  (format (or (cdr (assq 'code (plist-get info :html-text-markup-alist))) "%s")
-	  (t-encode-plain-text (org-element-property :value code))))
+  (format (t--get-markup-format 'code info)
+	  (t-encode-plain-text
+	   (org-element-property :value code))))
 
 ;;;; Strike-Through
-
 (defun t-strike-through (_strike-through contents info)
-  "Transcode STRIKE-THROUGH from Org to HTML.
-CONTENTS is the text with strike-through markup.  INFO is a plist
-holding contextual information."
-  (format
-   (or (cdr (assq 'strike-through (plist-get info :html-text-markup-alist)))
-       "%s")
-   contents))
+  "Transcode STRIKE-THROUGH from Org to HTML."
+  (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
-
+;; FIXME: Checked needed.
 (defun t-convert-special-strings (string)
   "Convert special characters in STRING to HTML."
   (dolist (a t-special-string-regexps string)
