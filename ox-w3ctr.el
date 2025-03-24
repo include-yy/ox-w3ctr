@@ -1562,11 +1562,12 @@ and strictly validates both UTC/GMT and [+-]HHMM formats.")
 			   (org-format-timestamp timestamp fmt t)))))
 	  (_ (error "Not a valid time type %s" type)))))))
 
+
 ;;; Smallest objects (7)
 
 (defun t--get-markup-format (name info)
   (if-let* ((alist (plist-get info :html-text-markup-alist))
-	    (str (cdr (assq 'bold alist))))
+	    (str (cdr (assq name alist))))
       str "%s"))
 
 ;;;; Bold
@@ -1606,31 +1607,31 @@ information."
   (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
-;; FIXME: Checked needed.
 (defun t-convert-special-strings (string)
   "Convert special characters in STRING to HTML."
   (dolist (a t-special-string-regexps string)
     (let ((re (car a))
 	  (rpl (cdr a)))
-      (setq string (replace-regexp-in-string re rpl string t)))))
+      (setq string (replace-regexp-in-string
+		    re rpl string t)))))
 
 (defun t-encode-plain-text (text)
   "Convert plain text characters from TEXT to HTML equivalent.
 Possible conversions are set in `t-protect-char-alist'."
   (dolist (pair t-protect-char-alist text)
-    (setq text (replace-regexp-in-string (car pair) (cdr pair) text t t))))
+    (setq text (replace-regexp-in-string
+		(car pair) (cdr pair) text t t))))
 
 (defun t-plain-text (text info)
-  "Transcode a TEXT string from Org to HTML.
-TEXT is the string to transcode.  INFO is a plist holding
-contextual information."
+  "Transcode a TEXT string from Org to HTML."
   (let ((output text))
     ;; Protect following characters: <, >, &.
     (setq output (t-encode-plain-text output))
-    ;; Handle smart quotes.  Be sure to provide original string since
-    ;; OUTPUT may have been modified.
+    ;; Handle smart quotes.  Be sure to provide original
+    ;; string since OUTPUT may have been modified.
     (when (plist-get info :with-smart-quotes)
-      (setq output (org-export-activate-smart-quotes output :html info text)))
+      (setq output (org-export-activate-smart-quotes
+		    output :html info text)))
     ;; Handle special strings.
     (when (plist-get info :with-special-strings)
       (setq output (t-convert-special-strings output)))
@@ -1639,7 +1640,7 @@ contextual information."
       (setq output
 	    (replace-regexp-in-string
 	     "\\(\\\\\\\\\\)?[ \t]*\n"
-	     (concat (t-close-tag "br" nil info) "\n") output)))
+	     "<br>\n" output)))
     ;; Return value.
     output))
 
