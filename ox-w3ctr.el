@@ -1562,7 +1562,6 @@ and strictly validates both UTC/GMT and [+-]HHMM formats.")
 			   (org-format-timestamp timestamp fmt t)))))
 	  (_ (error "Not a valid time type %s" type)))))))
 
-
 ;;; Smallest objects (7)
 
 (defun t--get-markup-format (name info)
@@ -1594,9 +1593,7 @@ and strictly validates both UTC/GMT and [+-]HHMM formats.")
 
 ;;;; Code
 (defun t-code (code _contents info)
-  "Transcode CODE from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual
-information."
+  "Transcode CODE from Org to HTML."
   (format (t--get-markup-format 'code info)
 	  (t-encode-plain-text
 	   (org-element-property :value code))))
