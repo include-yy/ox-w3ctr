@@ -199,6 +199,8 @@
     (:html-timestamp-format nil nil t-timestamp-format)
     ;; <yy> add options for fixup.js's code
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
+    ;; <yy> time zone suffix
+    (:html-time-zone "HTML_TIME_ZONE" nil t-time-zone)
     ))
 
 ;;; User Configuration Variables
@@ -230,6 +232,12 @@ See also `org-html-text-markup-alist'."
   :type '(alist :key-type (symbol :tag "Markup type")
 		:value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
+
+(defcustom t-time-zone "+0800"
+  "Time zone designator in the format [+-]HHMM (e.g., +0800, -0500).
+or GMT/UTC[+-]?XX (eg., UTC+8, GMT+2)."
+  :group 'org-export-w3ctr
+  :type 'string)
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -1376,6 +1384,7 @@ be `mathjax', `mathml' or `nil'(do nothing)."
      ;; Regular paragraph.
      (t (let ((c (string-trim contents)))
 	  ;; FIXME: do something for empty para?
+	  ;; Now just delete it, but how it be generated?
 	  (if (string= c "") ""
 	    (format "<p%s>%s</p>" attrs c)))))))
 
@@ -1466,37 +1475,92 @@ information."
     (t--anchor ref nil nil info)))
 
 ;;;; Timestamp
-;; FIXME: recheck it.
+(defconst t-timezone-regex
+  (rx string-start
+      (or (seq
+	   (or "UTC" "GMT")
+	   (group
+	    (seq (or "+" "-")
+		 (or (seq (? "0") num)
+		     (seq "1" (any (?0 . ?2)))))))
+	  (group
+	   (seq
+	    (or "+" "-")
+	    (or (seq "0" num)
+		(seq "1" (any (?0 . ?3))))
+	    (any (?0 . ?5))
+	    (any (?0 . ?9)))))
+      string-end)
+  "Regular expression for matching UTC/GMT time zone designators
+and time zone offsets.
+This expression does not allow for missing `+' or `-' signs,
+and strictly validates both UTC/GMT and [+-]HHMM formats.")
+
+(defun t--timezone-to-offset (zone-str)
+  (let ((case-fold-search t)
+	(zone-str (t--trim zone-str)))
+    (if (not (string-match t-timezone-regex zone-str))
+	(error "time zone format not correct: %s" zone-str)
+      (let* ((time-str (or (match-string 1 zone-str)
+			   (match-string 2 zone-str)))
+	     (len (length time-str))
+	     (number (string-to-number time-str)))
+	(cond
+	 ;; UTC/GMT[+-]xx
+	 ((<= 2 len 3) (* number 3600))
+	 ;; [+-]MMMM
+	 ((= len 5)
+	  (let ((hour (/ number 100))
+		(minute (% number 100)))
+	    (+ (* hour 3600) (* minute 60)))))))))
+
+(defun t--get-info-timezone-offset (info)
+  (let ((zone (plist-get info :html-time-zone)))
+    (if (numberp zone) zone
+      (let ((time (t--timezone-to-offset zone)))
+	(setf (plist-get info :html-time-zone) time)))))
+
+(defun t--format-timestamp-Z (time ufmt info)
+  (let* ((offset (t--get-info-timezone-offset info))
+	 (delta-time (seconds-to-time (- offset))))
+    (format-time-string
+     ufmt (time-add time delta-time))))
+
+(defun t--timestamp-format (timestamp type has-time info)
+  (let* ((w3c-formats (plist-get info :html-timestamp-format))
+	 (org-timestamp-formats w3c-formats))
+    (org-time-stamp-format
+     has-time (memq type '(inactive inactive-range))
+     (not (not org-display-custom-times)))))
+
 (defun t-timestamp (timestamp _contents info &optional boundary)
-  "Transcode a TIMESTAMP object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual
-information."
-  (let* ((type (org-element-property :type timestamp))
-	 (fmt (let ((org-time-stamp-custom-formats (plist-get info :html-timestamp-format)))
-		(org-time-stamp-format (org-timestamp-has-time-p timestamp)
-				       (member type '(inactive inactive-range)) 'custom)))
-	 (flag (org-timestamp-has-time-p timestamp))
-	 (utcfmt (if (org-timestamp-has-time-p timestamp) "%Y-%m-%dT%H:%MZ" "%Y-%m-%d")))
+  "Transcode a TIMESTAMP object from Org to HTML."
+  (let ((type (org-element-property :type timestamp)))
     (if (eq type 'diary)
-	(format "<time>%s</time>" (org-element-interpret-data timestamp))
-      (pcase type
-	((or `active `inactive (guard boundary))
-	 (let* ((time (org-timestamp-to-time timestamp (eq boundary 'end)))
-		(utc0 (format-time-string utcfmt time flag)))
-	   (format "<time datetime=\"%s\">%s</time>"
-		   utc0 (org-format-timestamp timestamp fmt (eq boundary 'end)))))
-	((or `active-range `inactive-range)
-	 (let* ((time1 (org-timestamp-to-time timestamp))
-		(time2 (org-timestamp-to-time timestamp t))
-		(utc1 (format-time-string utcfmt time1 flag))
-		(utc2 (format-time-string utcfmt time2 flag)))
-	   (concat (format "<time datetime=\"%s\">%s</time>"
-			   utc1 (org-format-timestamp timestamp fmt))
+	(format "<time>%s</time>"
+		(org-element-interpret-data timestamp))
+      (let* ((has-time (org-timestamp-has-time-p timestamp))
+	     (ufmt (if has-time "%Y-%m-%dT%H:%MZ" "%Y-%m-%d"))
+	     (fmt (t--timestamp-format timestamp type has-time info))
+	     (is-end (eq boundary 'end)))
+	(pcase type
+	  ((or `active `inactive (guard boundary))
+	   (let* ((time (org-timestamp-to-time timestamp is-end)))
+	     (format "<time datetime=\"%s\">%s</time>"
+		     (t--format-timestamp-Z time ufmt info)
+		     (org-format-timestamp timestamp fmt is-end))))
+	  ((or `active-range `inactive-range)
+	   (let* ((t1 (org-timestamp-to-time timestamp))
+		  (t2 (org-timestamp-to-time timestamp t)))
+		  (concat
+		   (format "<time datetime=\"%s\">%s</time>"
+			   (t--format-timestamp-Z t1 ufmt info)
+			   (org-format-timestamp timestamp fmt))
 		   "&#x2013;"
 		   (format "<time datetime=\"%s\">%s</time>"
-			   utc2 (org-format-timestamp timestamp fmt t)))))
-	(_ (error "ox-w3ctr: Seems not a valid time type %s" type))))))
-
+			   (t--format-timestamp-Z t2 ufmt info)
+			   (org-format-timestamp timestamp fmt t)))))
+	  (_ (error "Not a valid time type %s" type)))))))
 
 ;;; Smallest objects (7)
 
