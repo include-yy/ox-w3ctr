@@ -137,7 +137,8 @@
     (:subtitle "SUBTITLE" nil nil parse)
     (:html-head-include-default-style
      nil "html-style" t-head-include-default-style)
-    (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
+    (:html-metadata-timestamp-format
+     nil nil t-metadata-timestamp-format)
     ;; HTML TOP place naviagtion elements --------------
     (:html-link-left  "HTML_LINK_LEFT"  nil t-link-left)
     (:html-link-lname "HTML_LINK_LNAME" nil t-link-lname)
@@ -145,12 +146,9 @@
     (:html-link-rname "HTML_LINK_RNAME" nil t-link-rname)
     ;; Latex and MathJAX options -------
     (:with-latex nil "tex" t-with-latex)
-    (:latex-header "LATEX_HEADER" nil nil newline)
-    (:html-equation-reference-format
-     "HTML_EQUATION_REFERENCE_FORMAT" nil t-equation-reference-format t)
-    (:html-mathjax "HTML_MATHJAX" nil "" space)
-    (:html-mathjax-options nil nil t-mathjax-options)
-    (:html-mathjax-template nil nil t-mathjax-template)
+    (:html-mathjax-config nil nil t-mathjax-config)
+    (:html-mathjax-options nil nil org-html-mathjax-options)
+    (:html-mathjax-template nil nil org-html-mathjax-template)
     ;; postamble and preamble ------------------------
     (:html-postamble nil "html-postamble" t-postamble)
     (:html-preamble nil "html-preamble" t-preamble)
@@ -243,6 +241,26 @@ or GMT/UTC[+-]?XX (eg., UTC+8, GMT+2)."
   "Coding system for HTML export."
   :group 'org-export-w3ctr
   :type 'coding-system)
+
+(defcustom t-metadata-timestamp-format "%Y-%m-%d %H:%M"
+  "Format used for timestamps in preamble, postamble and metadata.
+See `format-time-string' for more information on its components."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-with-latex 'mathjax
+  "Non-nil means process LaTeX math snippets.
+
+See `org-html-with-latex' for more information."
+  :group 'org-export-w3ctr
+  :type '(choice
+	  (const :tag "Use MathJax to display math" mathjax)
+	  (const :tag "Use MathJax to render mathML" mathml)))
+
+(defcustom t-mathjax-config ""
+  "mathjax code"
+  :group 'org-export-w3ctr
+  :type 'string)
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -396,62 +414,6 @@ Otherwise, place it near the end."
   "The extension for exported HTML files."
   :group 'org-export-w3ctr
   :type 'string)
-
-(defvar t-metadata-timestamp-format "%Y-%m-%d %H:%M"
-  "Format used for timestamps in preamble, postamble and metadata.
-
-See `format-time-string' for more information on its components.")
-
-;;;; Template :: Mathjax
-(defvar t-mathjax-options
-  '((path "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js")
-    (scale 1.0)
-    (align "center")
-    (font "mathjax-modern")
-    (overflow "overflow")
-    (tags "ams")
-    (indent "0em")
-    (multlinewidth "85%")
-    (tagindent ".8em")
-    (tagside "right"))
-  "Options for MathJax setup.
-
-See `org-html-mathjax-options' for details")
-
-(defvar t-mathjax-template
-  "<script>
-  window.MathJax = {
-    tex: {
-      ams: {
-        multlineWidth: '%MULTLINEWIDTH'
-      },
-      tags: '%TAGS',
-      tagSide: '%TAGSIDE',
-      tagIndent: '%TAGINDENT'
-    },
-    chtml: {
-      scale: %SCALE,
-      displayAlign: '%ALIGN',
-      displayIndent: '%INDENT'
-    },
-    svg: {
-      scale: %SCALE,
-      displayAlign: '%ALIGN',
-      displayIndent: '%INDENT'
-    },
-    output: {
-      font: '%FONT',
-      displayOverflow: '%OVERFLOW'
-    }
-  };
-</script>
-
-<script
-  id=\"MathJax-script\"
-  async
-  src=\"%PATH\">
-</script>"
-  "The MathJax template.  See also `org-html-mathjax-options'.")
 
 ;;;; Template :: Postamble
 
@@ -635,25 +597,6 @@ See `format-time-string' for more information on its components."
 See `org-html-checkbox-types' for the values used for each option.")
 
 ;;;; LaTeX
-
-(defcustom t-equation-reference-format "\\eqref{%s}"
-  "The MathJax command to use when referencing equations.
-
-Most common values are:
-  \\eqref{%s}    Wrap the equation in parentheses
-  \\ref{%s}      Do not wrap the equation in parentheses
-
-See `org-html-equation-reference-format' for more information."
-  :group 'org-export-w3ctr
-  :type 'string
-  :safe #'stringp)
-
-(defcustom t-with-latex 'mathjax
-  "Non-nil means process LaTeX math snippets.
-
-See `org-html-with-latex' for more information."
-  :group 'org-export-w3ctr
-  :type 'sexp)
 
 ;;; Internal Variables
 
@@ -1520,6 +1463,16 @@ and strictly validates both UTC/GMT and [+-]HHMM formats.")
       (let ((time (t--timezone-to-offset zone)))
 	(setf (plist-get info :html-time-zone) time)))))
 
+(defun t--timezone-normalize (offset)
+  (if (= offset 0) "+0000"
+    (let* ((hours (/ (abs offset) 3600))
+	   (minutes (/ (- (abs offset) (* hours 3600)) 60)))
+      (concat (if (>= offset 0) "+" "-")
+	      (when (< hours 10) "0")
+	      (number-to-string hours)
+	      (when (< minutes 10) "0")
+	      (number-to-string minutes)))))
+
 (defun t--format-timestamp-Z (time ufmt info)
   (let* ((offset (t--get-info-timezone-offset info))
 	 (delta-time (seconds-to-time (- offset))))
@@ -1709,11 +1662,12 @@ INFO is a plist used as a communication channel."
     (concat
      (when (plist-get info :time-stamp-file)
        (format-time-string
-	(concat
-	 "<!-- "
+	(format
+	 "<!-- %s%s -->\n"
 	 (plist-get info :html-metadata-timestamp-format)
-	 " -->\n")
-	nil t))
+	 ;; Add time zone information here.
+	 (t--timezone-normalize
+	  (t--get-info-timezone-offset info)))))
      (t--build-meta-entry "charset" charset)
      (let ((viewport-options
 	    (cl-remove-if-not
@@ -1738,94 +1692,21 @@ INFO is a plist used as a communication channel."
 INFO is a plist used as a communication channel."
   (org-element-normalize-string
    (concat
-    (org-element-normalize-string (plist-get info :html-head))
-    (org-element-normalize-string (plist-get info :html-head-extra))
+    (org-element-normalize-string
+     (plist-get info :html-head))
+    (org-element-normalize-string
+     (plist-get info :html-head-extra))
     (when (plist-get info :html-head-include-default-style)
       (org-element-normalize-string t-style-default)))))
 
 (defun t--build-mathjax-config (info)
   "Insert the user setup into the mathjax template.
 INFO is a plist used as a communication channel."
-  (when (and (memq (plist-get info :with-latex) '(mathjax))
-             (org-element-map (plist-get info :parse-tree)
-                 '(latex-fragment latex-environment) #'identity info t nil t))
-    (let ((template (plist-get info :html-mathjax-template))
-          (options (let ((options (plist-get info :html-mathjax-options)))
-                     ;; If the user customized some legacy option, set
-                     ;; the corresponding new option to nil, so that
-                     ;; the legacy user choice overrides the default.
-                     ;; Otherwise, the user did not set the legacy
-                     ;; option, in which case still set the legacy
-                     ;; option but to no value, so that the code can
-                     ;; find its in-buffer value, if set.
-                     `((,(if (plist-member options 'autonumber)
-                             'tags 'autonumber)
-                        nil)
-                       (,(if (plist-member options 'linebreaks)
-                             'overflow 'linebreaks)
-                        nil)
-                       ,@options)))
-          (in-buffer (or (plist-get info :html-mathjax) "")))
-      (dolist (e options (org-element-normalize-string template))
-        (let ((symbol (car e))
-              (value (nth 1 e)))
-          (when (string-match (concat "\\<" (symbol-name symbol) ":")
-                              in-buffer)
-            (setq value
-                  (car (split-string (substring in-buffer
-                                                (match-end 0))))))
-          (when value
-            (pcase symbol
-              (`font
-               (when-let*
-                   ((value-new
-                     (pcase value
-                       ("TeX" "mathjax-tex")
-                       ("STIX-Web" "mathjax-stix2")
-                       ("Asana-Math" "mathjax-asana")
-                       ("Neo-Euler" "mathjax-euler")
-                       ("Gyre-Pagella" "mathjax-pagella")
-                       ("Gyre-Termes" "mathjax-termes")
-                       ("Latin-Modern" "mathjax-modern"))))
-                 (setq value value-new)))
-              (`linebreaks
-               (org-display-warning
-                "Converting legacy MathJax option: linebreaks")
-               (setq symbol 'overflow
-                     value (if (string= value "true")
-                               "linebreak"
-                             "overflow")))
-              (`scale
-               (when (stringp value)
-                 (let ((value-maybe (string-to-number value)))
-                   (setq value
-                         (if (= value-maybe 0)
-                             (progn
-                               (org-display-warning
-                                (format "Non-numerical MathJax scale: %s"
-                                        value))
-                               1.0)
-                           value-maybe))))
-               (when (>= value 10)
-                 (setq value
-                       (let ((value-new (/ (float value) 100)))
-                         (org-display-warning
-                          (format "Converting legacy MathJax scale: %s to %s"
-                                  value
-                                  value-new))
-                         value-new))))
-              (`autonumber
-               (org-display-warning
-                "Converting legacy MathJax option: autonumber")
-               (setq symbol 'tags
-                     value (downcase value))))
-            (while (string-match (format "\\(%%%s\\)[^A-Z]"
-                                         (upcase (symbol-name symbol)))
-                                 template)
-              (setq template
-                    (replace-match (format "%s" value)
-                                   t
-                                   t template 1)))))))))
+  (let ((type (plist-get info :with-latex))
+	(config (plist-get info :html-mathjax-config)))
+    (if (t--nw-p config) config
+      (when (eq type 'mathjax)
+	(org-html--build-mathjax-config info)))))
 
 (defun t-get-date (info &optional boundary)
   (let ((date (plist-get info :date)))
