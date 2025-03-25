@@ -1754,14 +1754,16 @@ INFO is a plist used as a communication channel."
 (defun t-get-date (info &optional boundary)
   (let ((date (plist-get info :date)))
     (cond
-     ((not date) nil)
-     ((not (eq (org-element-type (car date)) 'timestamp)) nil)
+     ((not date) "[Date not specified]")
+     ((not (eq (org-element-type (car date)) 'timestamp))
+      "[Not a valid Org timestamp]")
      (t (t-timestamp (car date) nil info boundary)))))
 
 (defun t-format-spec (info)
   "Return format specification for preamble and postamble.
 INFO is a plist used as a communication channel."
-  (let ((timestamp-format (plist-get info :html-metadata-timestamp-format)))
+  (let ((timestamp-format
+	 (plist-get info :html-metadata-timestamp-format)))
     `((?t . ,(org-export-data (plist-get info :title) info))
       (?s . ,(org-export-data (plist-get info :subtitle) info))
       (?d . ,(t-get-date info 'start))
@@ -1774,16 +1776,18 @@ INFO is a plist used as a communication channel."
 	      ", "))
       (?c . ,(plist-get info :creator))
       (?C . ,(let ((file (plist-get info :input-file)))
-	       (format-time-string timestamp-format
-				   (and file (file-attribute-modification-time
-					      (file-attributes file))))))
+	       (format-time-string
+		timestamp-format
+		(and file (file-attribute-modification-time
+			   (file-attributes file))))))
       (?v . ,(or (plist-get info :html-validation-link) "")))))
 
 (defun t--build-pre/postamble (type info)
   "Return document preamble or postamble as a string, or nil.
-TYPE is either `preamble' or `postamble', INFO is a plist used as a
-communication channel."
-  (let ((section (plist-get info (intern (format ":html-%s" type))))
+TYPE is either `preamble' or `postamble', INFO is a plist used
+as a communication channel."
+  (let ((section (plist-get
+		  info (intern (format ":html-%s" type))))
 	(spec (t-format-spec info)))
     (if section
       (let ((section-contents
@@ -1873,7 +1877,7 @@ holding export options."
    ;; Postamble.
    (t--build-pre/postamble 'postamble info)
    ;; fixup.js here
-   (plist-get info :html-fixup-js)
+   (t--nw-p (plist-get info :html-fixup-js))
    ;; Closing document.
    "</body>\n\n</html>"))
 
