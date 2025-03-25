@@ -973,7 +973,7 @@ See also `org-trim'."
 	  (set-marker (process-mark proc) (point))
 	  (throw 't--rpc hash))))))
 
-(defun t--rpc-sentinel (proc change)
+(defun t--rpc-sentinel (proc _change)
   (when (not (process-live-p proc))
     (unless (process-get proc 'debug)
       (let* ((re " \\*ox-w3ctr-proc-\\[")
@@ -1162,7 +1162,8 @@ See `org-w3ctr-checkbox-types' for customization options."
 		 (`ordered "ol")
 		 (`unordered "ul")
 		 (`descriptive "dl")
-		 (_ (error "Unknown HTML list type: %s" other))))
+		 (other
+		  (error "Unknown HTML list type: %s" other))))
 	 (attributes (t--make-attr__id plain-list info t)))
     (format "<%s%s>\n%s</%s>"
 	    type attributes contents type)))
@@ -1214,7 +1215,7 @@ See `org-w3ctr-checkbox-types' for customization options."
 	   (org-element-property :value fixed-width))))
 
 ;;;; Horizontal Rule
-(defun t-horizontal-rule (_horizontal-rule _contents info)
+(defun t-horizontal-rule (_horizontal-rule _contents _info)
   "Transcode an HORIZONTAL-RULE object from Org to HTML."
   "<hr>")
 
@@ -1336,10 +1337,10 @@ be `mathjax', `mathml' or `nil'(do nothing)."
 ;; FIXME: Consider #+name and #+attr_*, and something else.
 (defun t-latex-environment (latex-environment _contents info)
   "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
-  (let ((type (plist-get info :with-latex))
-	(frag (org-remove-indentation
-	       (org-element-property :value latex-environment)))
-	(result (t-format-latex frag type info)))
+  (let* ((type (plist-get info :with-latex))
+	 (frag (org-remove-indentation
+		(org-element-property :value latex-environment)))
+	 (result (t-format-latex frag type info)))
     (if (eq type 'mathml) (t--reformat-mathml result)
       result)))
 
@@ -1375,7 +1376,7 @@ be `mathjax', `mathml' or `nil'(do nothing)."
 
 ;;;; Verse Block
 ;; FIXME: make it better?
-(defun t-verse-block (_verse-block contents info)
+(defun t-verse-block (_verse-block contents _info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 CONTENTS is verse block contents.  INFO is a plist holding
 contextual information."
@@ -1420,7 +1421,7 @@ contextual information."
       (_ nil))))
 
 ;;;; Line Break
-(defun t-line-break (_line-break _contents info)
+(defun t-line-break (_line-break _contents _info)
   "Transcode a LINE-BREAK object from Org to HTML."
   "<br>\n")
 
@@ -1517,7 +1518,7 @@ and strictly validates both UTC/GMT and [+-]HHMM formats.")
     (format-time-string
      ufmt (time-add time delta-time))))
 
-(defun t--timestamp-format (timestamp type has-time info)
+(defun t--timestamp-format (type has-time info)
   (let* ((w3c-formats (plist-get info :html-timestamp-format))
 	 (org-timestamp-formats w3c-formats))
     (org-time-stamp-format
@@ -1532,7 +1533,7 @@ and strictly validates both UTC/GMT and [+-]HHMM formats.")
 		(org-element-interpret-data timestamp))
       (let* ((has-time (org-timestamp-has-time-p timestamp))
 	     (ufmt (if has-time "%Y-%m-%dT%H:%MZ" "%Y-%m-%d"))
-	     (fmt (t--timestamp-format timestamp type has-time info))
+	     (fmt (t--timestamp-format type has-time info))
 	     (is-end (eq boundary 'end)))
 	(pcase type
 	  ((or `active `inactive (guard boundary))
@@ -1640,7 +1641,7 @@ Possible conversions are set in `t-protect-char-alist'."
     output))
 
 ;;; Template
-
+;; FIXME: recheck
 (defun t-meta-tags-default (info)
   "A default value for `t-meta-tags'.
 
@@ -1821,6 +1822,7 @@ See `org-html-inner-template' for more information"
      "</main>\n"
      (t-footnote-section info)))
 
+;; FIXME: Use `parse' and Link format
 (defun t-format-home/up-default-function (info)
   "format the home/div element"
   (let ((link-left  (org-trim (plist-get info :html-link-left)))
