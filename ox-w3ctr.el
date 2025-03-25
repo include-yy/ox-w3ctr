@@ -239,6 +239,11 @@ or GMT/UTC[+-]?XX (eg., UTC+8, GMT+2)."
   :group 'org-export-w3ctr
   :type 'string)
 
+(defcustom t-coding-system 'utf-8-unix
+  "Coding system for HTML export."
+  :group 'org-export-w3ctr
+  :type 'coding-system)
+
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
 Warning: non-nil may break indentation of source code blocks."
@@ -391,11 +396,6 @@ Otherwise, place it near the end."
   "The extension for exported HTML files."
   :group 'org-export-w3ctr
   :type 'string)
-
-(defcustom t-coding-system 'utf-8
-  "Coding system for HTML export."
-  :group 'org-export-w3ctr
-  :type 'coding-system)
 
 (defvar t-metadata-timestamp-format "%Y-%m-%d %H:%M"
   "Format used for timestamps in preamble, postamble and metadata.
@@ -1646,15 +1646,16 @@ Possible conversions are set in `t-protect-char-alist'."
 (defun t-meta-tags-default (info)
   "A default value for `t-meta-tags'.
 
-Generate a list items, each of which is a list of arguments that can
-be passed to `t--build-meta-entry', to generate meta tags to be
-included in the HTML head.
+Generate a list items, each of which is a list of arguments
+that can be passed to `t--build-meta-entry', to generate meta
+tags to be included in the HTML head.
 
-Use document's plist INFO to derive relevant information for the tags."
-  (let ((author (and (plist-get info :with-author)
-                     (let ((auth (plist-get info :author)))
-                       ;; Return raw Org syntax.
-                       (and auth (org-element-interpret-data auth))))))
+Use document's INFO to derive relevant information for the tags."
+  (let ((author
+	 (and (plist-get info :with-author)
+              (let ((auth (plist-get info :author)))
+                ;; Return raw Org syntax.
+                (and auth (org-element-interpret-data auth))))))
     (list
      (when (org-string-nw-p author)
        (list "name" "author" author))
@@ -1665,15 +1666,17 @@ Use document's plist INFO to derive relevant information for the tags."
        (list "name" "keywords" (plist-get info :keywords)))
      '("name" "generator" "Org Mode"))))
 
-(defun t--build-meta-entry
-    (label identity &optional content-format &rest content-formatters)
+(defun t--build-meta-entry ( label identity
+			     &optional content-format
+			     &rest content-formatters)
   "Build a meta tag using the provided information.
 
-Construct <meta> tag of form <meta LABEL=\"IDENTITY\" />, or when CONTENT-FORMAT
-is present: <meta LABEL=\"IDENTITY\" content=\"{content}\" />
+Construct <meta> tag of form <meta LABEL=\"IDENTITY\">,
+or when CONTENT-FORMAT is present:
+<meta LABEL=\"IDENTITY\" content=\"{content}\">
 
-Here {content} is determined by applying any CONTENT-FORMATTERS to the
-CONTENT-FORMAT and encoding the result as plain text."
+Here {content} is determined by applying any CONTENT-FORMATTERS
+to the CONTENT-FORMAT and encoding the result as plain text."
   (concat "<meta "
 	  (format "%s=\"%s" label identity)
 	  (when content-format
@@ -1682,7 +1685,8 @@ CONTENT-FORMAT and encoding the result as plain text."
 		     "\"" "&quot;"
 		     (t-encode-plain-text
 		      (if content-formatters
-			  (apply #'format content-format content-formatters)
+			  (apply #'format content-format
+				 content-formatters)
 			content-format)))))
 	  "\">\n"))
 
@@ -1690,9 +1694,11 @@ CONTENT-FORMAT and encoding the result as plain text."
   "Return meta tags for exported document.
 INFO is a plist used as a communication channel."
   (let* ((title (t-plain-text
-		 (org-element-interpret-data (plist-get info :title)) info))
-	 ;; Set title to an invisible character instead of leaving it
-	 ;; empty, which is invalid.
+		 (org-element-interpret-data
+		  (plist-get info :title))
+		 info))
+	 ;; Set title to an invisible character instead of
+	 ;; leaving it empty, which is invalid.
 	 (title (if (org-string-nw-p title) title "&lrm;"))
 	 (charset (or (and t-coding-system
 			   (fboundp 'coding-system-get)
@@ -1703,27 +1709,29 @@ INFO is a plist used as a communication channel."
     (concat
      (when (plist-get info :time-stamp-file)
        (format-time-string
-	(concat "<!-- "
-		(plist-get info :html-metadata-timestamp-format)
-		" -->\n")))
+	(concat
+	 "<!-- "
+	 (plist-get info :html-metadata-timestamp-format)
+	 " -->\n")
+	nil t))
      (t--build-meta-entry "charset" charset)
      (let ((viewport-options
-	    (cl-remove-if-not (lambda (cell) (org-string-nw-p (cadr cell)))
-			      (plist-get info :html-viewport))))
+	    (cl-remove-if-not
+	     (lambda (cell) (org-string-nw-p (cadr cell)))
+	     (plist-get info :html-viewport))))
        (if viewport-options
-	   (t--build-meta-entry "name" "viewport"
-				(mapconcat
-				 (lambda (elm)
-                                   (format "%s=%s" (car elm) (cadr elm)))
-				 viewport-options ", "))))
-
+	   (t--build-meta-entry
+	    "name" "viewport"
+	    (mapconcat
+	     (lambda (elm)
+               (format "%s=%s" (car elm) (cadr elm)))
+	     viewport-options ", "))))
      (format "<title>%s</title>\n" title)
      (mapconcat
       (lambda (args) (apply #'t--build-meta-entry args))
       (delq nil (if (functionp t-meta-tags)
 		    (funcall t-meta-tags info)
-		  t-meta-tags))
-      ""))))
+		  t-meta-tags))))))
 
 (defun t--build-head (info)
   "Return information for the <head>..</head> of the HTML output.
