@@ -140,10 +140,11 @@
     (:html-metadata-timestamp-format
      nil nil t-metadata-timestamp-format)
     ;; HTML TOP place naviagtion elements --------------
-    (:html-link-left  "HTML_LINK_LEFT"  nil t-link-left)
-    (:html-link-lname "HTML_LINK_LNAME" nil t-link-lname)
-    (:html-link-right "HTML_LINK_RIGHT" nil t-link-right)
-    (:html-link-rname "HTML_LINK_RNAME" nil t-link-rname)
+    (:html-link-home/up "HTML_LINK_HOMEUP" nil t-link-homeup parse)
+    (:html-format-home/up-function nil nil t-format-home/up-function)
+    (:html-home/up-format nil t-home/up-format)
+    (:html-link-up "HTML_LINK_UP" nil t-link-up)
+    (:html-link-home "HTML_LINK_HOME" nil t-link-home)
     ;; Latex and MathJAX options -------
     (:with-latex nil "tex" t-with-latex)
     (:html-mathjax-config nil nil t-mathjax-config)
@@ -152,8 +153,6 @@
     ;; postamble and preamble ------------------------
     (:html-postamble nil "html-postamble" t-postamble)
     (:html-preamble nil "html-preamble" t-preamble)
-    (:html-format-home/up-function
-     nil nil t-format-home/up-function)
     (:html-validation-link nil nil t-validation-link)
     ;; footnote options -----------------------------
     (:html-footnote-format nil nil t-footnote-format)
@@ -406,6 +405,39 @@ See `org-html-postamble' for more information"
   :group 'org-export-w3ctr
   :type 'sexp)
 
+;; FIXME: finish docstring.
+(defcustom t-link-homeup ""
+  "homeup, undocumented now."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-format-home/up-function
+  #'t-format-home/up-default-function
+  "function used for home/div formatting"
+  :group 'org-export-w3ctr
+  :type '(symbol))
+
+(defcustom t-home/up-format
+  "<div id=\"home-and-up\">
+ <a href=\"%s\"> UP </a>
+ <a href=\"%s\"> HOME </a>
+</div>"
+  "legacy home/up format"
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-link-home ""
+  "home"
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-link-up ""
+  "up"
+  :group 'org-export-w3ctr
+  :type 'string)
+
+
+
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
 Warning: non-nil may break indentation of source code blocks."
@@ -558,31 +590,6 @@ Otherwise, place it near the end."
   "The extension for exported HTML files."
   :group 'org-export-w3ctr
   :type 'string)
-
-(defcustom t-link-left ""
-  "Where should the \"left\" link of exported HTML pages lead?"
-  :group 'org-export-w3ctr
-  :type '(string :tag "File or URL"))
-
-(defcustom t-link-lname "UP"
-  "The left link's name"
-  :group 'org-export-w3ctr
-  :type '(string))
-
-(defcustom t-link-right ""
-  "Where should the \"HOME\" link of exported HTML pages lead?"
-  :group 'org-export-w3ctr
-  :type '(string :tag "File or URL"))
-
-(defcustom t-link-rname "HOME"
-  "The right link's name"
-  :group 'org-export-w3ctr
-  :type '(string))
-
-(defcustom t-format-home/up-function #'t-format-home/up-default-function
-  "function used for home/div formatting"
-  :group 'org-export-w3ctr
-  :type '(symbol))
 
 ;;;; Some options added by include-yy
 (defcustom t-use-babel nil
@@ -1823,23 +1830,36 @@ See `org-html-inner-template' for more information"
      (t-footnote-section info)))
 
 ;; FIXME: Use `parse' and Link format
+;; FIXME: Recheck new implementation.
 (defun t-format-home/up-default-function (info)
-  "format the home/div element"
-  (let ((link-left  (org-trim (plist-get info :html-link-left)))
-	(link-right (org-trim (plist-get info :html-link-right)))
-	(link-lname (org-trim (plist-get info :html-link-lname)))
-	(link-rname (org-trim (plist-get info :html-link-rname))))
-    (if (and (not (string= link-lname "")) (not (string= link-rname ""))
-	     (not (string= link-left "")) (not (string= link-right "")))
-	(format "<nav id=\"home-and-up\">\n<a href=\"%s\">%s</a><a href=\"%s\">%s</a></nav>\n"
-		link-left link-lname link-right link-rname)
-      (cond
-       ((and (not (string= link-lname "")) (not (string= link-left "")))
-	(format "<nav id=\"home-and-up\">\n<a href=\"%s\">%s</a>\n</nav>\n"
-		link-left link-lname))
-       ((and (not (string= link-rname "")) (not (string= link-right "")))
-	(format "<nav id=\"home-and-up\">\n<a href=\"%s\">%s</a>\n</nav>\n"
-		link-right link-rname))))))
+  (let ((links (plist-get info :html-link-home/up)))
+    (pcase links
+      ((pred t--nw-p)
+       (format "<nav id=\"home-and-up\">\n%s\n</nav>"
+	       links))
+      ;; maybe we don't need this...
+      ((pred vectorp)
+       (concat "<nav id=\"home-and-up\">\n"
+	       (mapconcat (pcase-lambda (`(,link . ,name))
+			    (format "<a href=\"%s\">%s</a>"
+				    link name))
+			  links "\n")
+	       "\n</nav>\n"))
+      ((pred listp)
+       (concat "<nav id=\"home-and-up\">\n"
+	       (thread-last
+		 (mapcar (lambda (x) (org-export-data x info)) links)
+		 (cl-remove-if-not #'t--nw-p)
+		 (funcall (lambda (x) (mapconcat #'identity x "\n"))))
+	       "\n</nav>\n"))
+      (_
+       (let ((up (t--trim (plist-get info :html-link-up)))
+	     (home (t--trim (plist-get info :html-link-home))))
+	 (unless (and (string= link-up "")
+		      (string= link-home ""))
+	   (format (plist-get info :html-home/up-format)
+		   (or link-up link-home)
+		   (or link-home link-up))))))))
 
 (defun t--build-title (info)
   (when (plist-get info :with-title)
