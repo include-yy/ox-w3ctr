@@ -68,7 +68,7 @@
     (plain-list . t-plain-list)                 ; plain list
     (quote-block . t-quote-block)               ; #+begin_quote
     (special-block . t-special-block)           ; #+begin_{sth}
-    (table . t-table)                           ; | | | \n | | | ...
+    (table . t-table)                           ; | | | \n | | |
     ;;@ lesser elements [17]
     ;; babel cell                               NO-EXIST
     ;; clock `clock'                            NO-USE
@@ -78,7 +78,7 @@
     ;; node properties `node-property'          NO-USE
     ;; planning `planning'                      NO-USE
     (example-block . t-example-block)           ; #+BEGIN_EXAMPLE
-    (export-block . t-export-block)             ; #+BEGIN_EXPORT html
+    (export-block . t-export-block)             ; #+BEGIN_EXPORT
     (fixed-width . t-fixed-width)               ; ^: contents
     (horizontal-rule . t-horizontal-rule)       ; -----------
     (keyword . t-keyword)                       ; #+NAME: ...
@@ -247,6 +247,106 @@ or GMT/UTC[+-]?XX (eg., UTC+8, GMT+2)."
 See `format-time-string' for more information on its components."
   :group 'org-export-w3ctr
   :type 'string)
+
+(defcustom t-viewport '((width "device-width")
+			(initial-scale "1")
+			(minimum-scale "")
+			(maximum-scale "")
+			(user-scalable ""))
+  "Viewport options for mobile-optimized sites.
+
+The following values are recognized
+
+width          Size of the viewport.
+initial-scale  Zoom level when the page is first loaded.
+minimum-scale  Minimum allowed zoom level.
+maximum-scale  Maximum allowed zoom level.
+user-scalable  Whether zoom can be changed.
+
+The viewport meta tag is inserted if this variable is non-nil.
+
+See the following site for a reference:
+https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
+  :group 'org-export-w3ctr
+  :type
+  '(choice
+    (const :tag "Disable" nil)
+    (list :tag "Enable"
+	  (list :tag "Width of viewport"
+		(const :format "             " width)
+		(choice (const :tag "unset" "")
+			(string)))
+	  (list :tag "Initial scale"
+		(const :format "             " initial-scale)
+		(choice (const :tag "unset" "")
+			(string)))
+	  (list :tag "Minimum scale/zoom"
+		(const :format "             " minimum-scale)
+		(choice (const :tag "unset" "")
+			(string)))
+	  (list :tag "Maximum scale/zoom"
+		(const :format "             " maximum-scale)
+		(choice (const :tag "unset" "")
+			(string)))
+	  (list :tag "User scalable/zoomable"
+		(const :format "             " user-scalable)
+		(choice (const :tag "unset" "")
+			(const "true")
+			(const "false"))))))
+
+(defcustom t-meta-tags #'t-meta-tags-default
+  "Form that is used to produce meta tags in the HTML head.
+
+Can be a list where each item is a list of arguments to be passed
+to `t--build-meta-entry'.  Any nil items are ignored.
+
+Also accept a function which gives such a list when called with a
+single argument (INFO, a communication plist)."
+  :group 'org-export-w3ctr
+  :type '(choice
+	  (repeat
+	   (list (string :tag "Meta label")
+		 (string :tag "label value")
+		 (string :tag "Content value")))
+	  function))
+
+(defcustom t-head ""
+  "Org-wide head definitions for exported HTML files.
+
+This variable can contain the full HTML structure to provide a
+style, including the surrounding HTML tags.
+
+As the value of this option simply gets inserted into the HTML
+<head> header, you can use it to add any arbitrary text to the
+header.
+
+You can set this on a per-file basis using #+HTML_HEAD:,
+or for publication projects using the :html-head property."
+  :group 'org-export-w3ctr
+  :type 'string)
+;;;###autoload
+(put 't-head 'safe-local-variable 'stringp)
+
+(defcustom t-head-extra ""
+  "More head information to add in the HTML output.
+
+You can set this on a per-file basis using #+HTML_HEAD_EXTRA:,
+or for publication projects using the :html-head-extra property."
+  :group 'org-export-w3ctr
+  :type 'string)
+;;;###autoload
+(put 't-head-extra 'safe-local-variable 'stringp)
+
+(defcustom t-head-include-default-style t
+  "Non-nil means include the default style in exported HTML files.
+The actual style is defined in `t-style-default' and
+should not be modified.  Use `t-head' to use your own
+style information."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+;;;###autoload
+(put 't-head-include-default-style
+     'safe-local-variable 'booleanp)
 
 (defcustom t-with-latex 'mathjax
   "Non-nil means process LaTeX math snippets.
@@ -482,63 +582,6 @@ See `org-html-preamble' for more information"
   :group 'org-export-w3ctr
   :type '(symbol))
 
-;;;; Template :: Styles
-
-(defcustom t-meta-tags #'t-meta-tags-default
-  "Form that is used to produce meta tags in the HTML head.
-
-Can be a list where each item is a list of arguments to be passed
-to `t--build-meta-entry'.  Any nil items are ignored.
-
-Also accept a function which gives such a list when called with a
-single argument (INFO, a communication plist)."
-  :group 'org-export-w3ctr
-  :type '(choice
-	  (repeat
-	   (list (string :tag "Meta label")
-		 (string :tag "label value")
-		 (string :tag "Content value")))
-	  function))
-
-(defcustom t-head-include-default-style t
-  "Non-nil means include the default style in exported HTML files.
-The actual style is defined in `t-style-default' and
-should not be modified.  Use `t-head' to use your own
-style information."
-  :group 'org-export-w3ctr
-  :type 'boolean)
-
-(defvar t-head ""
-  "Org-wide head definitions for exported HTML files.
-
-See `org-html-head' for more information.")
-
-;;;###autoload
-(put 't-head 'safe-local-variable 'stringp)
-
-(defcustom t-head-extra ""
-  "More head information to add in the HTML output.
-
-You can set this on a per-file basis using #+HTML_HEAD_EXTRA:,
-or for publication projects using the :html-head-extra property."
-  :group 'org-export-w3ctr
-  :type 'string)
-;;;###autoload
-(put 't-head-extra 'safe-local-variable 'stringp)
-
-;;;; Template :: Viewport
-
-(defvar t-viewport '((width "device-width")
-			(initial-scale "1")
-			(minimum-scale "")
-			(maximum-scale "")
-			(user-scalable ""))
-  "Viewport options for mobile-optimized sites.
-
-See `org-html-viewport' for more infomation.
-See the following site for a reference:
-https://developer.mozilla.org/zh-CN/docs/Web/HTML/Viewport_meta_tag")
-
 ;;;; Some options added by include-yy
 (defcustom t-use-babel nil
   "use babel or not when exporting.
@@ -608,13 +651,6 @@ See `org-html-checkbox-types' for the values used for each option.")
 
 For blocks that should contain headlines, use the HTML_CONTAINER
 property on the headline itself.")
-
-(defconst t-special-string-regexps
-  '(("\\\\-" . "&#x00ad;")		; shy
-    ("---\\([^-]\\)" . "&#x2014;\\1")	; mdash
-    ("--\\([^-]\\)" . "&#x2013;\\1")	; ndash
-    ("\\.\\.\\." . "&#x2026;"))		; hellip
-  "Regular expressions for special string conversion.")
 
 (defvar t--id-attr-prefix "ID-"
   "Prefix to use in ID attributes.
@@ -1557,6 +1593,13 @@ and strictly validates both UTC/GMT and [+-]HHMM formats.")
   (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
+(defconst t-special-string-regexps
+  '(("\\\\-" . "&#x00ad;")		; shy
+    ("---\\([^-]\\)" . "&#x2014;\\1")	; mdash
+    ("--\\([^-]\\)" . "&#x2013;\\1")	; ndash
+    ("\\.\\.\\." . "&#x2026;"))		; hellip
+  "Regular expressions for special string conversion.")
+
 (defun t-convert-special-strings (string)
   "Convert special characters in STRING to HTML."
   (dolist (a t-special-string-regexps string)
