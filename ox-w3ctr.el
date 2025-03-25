@@ -152,7 +152,8 @@
     ;; postamble and preamble ------------------------
     (:html-postamble nil "html-postamble" t-postamble)
     (:html-preamble nil "html-preamble" t-preamble)
-    (:html-format-home/up-function nil nil t-format-home/up-function)
+    (:html-format-home/up-function
+     nil nil t-format-home/up-function)
     (:html-validation-link nil nil t-validation-link)
     ;; footnote options -----------------------------
     (:html-footnote-format nil nil t-footnote-format)
@@ -362,6 +363,49 @@ See `org-html-with-latex' for more information."
   :group 'org-export-w3ctr
   :type 'string)
 
+(defvar t-creator-string
+  (format "<a href=\"https://www.gnu.org/software/emacs/\">\
+Emacs</a> %s (<a href=\"https://orgmode.org\">Org</a> mode %s)"
+	  emacs-version
+	  (if (fboundp 'org-version) (org-version)
+	    "unknown version"))
+  "Information about the creator of the HTML document.
+See `org-html-creator-string' for more information.")
+
+(defcustom t-validation-link
+  "<a href=\"https://validator.w3.org/check?uri=referer\">\
+Validate</a>"
+  "Link to HTML validation service."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-preamble "\
+<details open>
+<summary>More details about this document</summary>
+<dl>
+<dt>Create Date:</dt> <dd>%d</dd>
+<dt>Publish Date:</dt> <dd>%f</dd>
+<dt>Update Date:</dt> <dd>%C</dd>
+<dt>Creator:</dt> <dd>%c</dd>
+<dt>License:</dt> <dd>This work is licensed under \
+<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">\
+CC BY-SA 4.0</a></dd>
+</dl>
+</details>
+<hr>"
+  "Non-nil means insert a preamble in HTML export.
+
+See `org-html-preamble' for more information"
+  :group 'org-export-w3ctr
+  :type 'sexp)
+
+(defcustom t-postamble nil
+  "Non-nil means insert a postamble in HTML export.
+
+See `org-html-postamble' for more information"
+  :group 'org-export-w3ctr
+  :type 'sexp)
+
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
 Warning: non-nil may break indentation of source code blocks."
@@ -514,48 +558,6 @@ Otherwise, place it near the end."
   "The extension for exported HTML files."
   :group 'org-export-w3ctr
   :type 'string)
-
-;;;; Template :: Postamble
-
-(defcustom t-postamble nil
-  "Non-nil means insert a postamble in HTML export.
-
-See `org-html-postamble' for more information"
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-(defcustom t-validation-link
-  "<a href=\"https://validator.w3.org/check?uri=referer\">Validate</a>"
-  "Link to HTML validation service."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defvar t-creator-string
-  (format "<a href=\"https://www.gnu.org/software/emacs/\">Emacs</a> %s (<a href=\"https://orgmode.org\">Org</a> mode %s)"
-	  emacs-version
-	  (if (fboundp 'org-version) (org-version) "unknown version"))
-  "Information about the creator of the HTML document.
-See `org-html-creator-string' for more information.")
-
-;;;; Template :: Preamble
-
-(defcustom t-preamble "\
-<details open>
-<summary>More details about this document</summary>
-<dl>
-<dt>Create Date:</dt> <dd>%d</dd>
-<dt>Publish Date:</dt> <dd>%f</dd>
-<dt>Update Date:</dt> <dd>%C</dd>
-<dt>Creator:</dt> <dd>%c</dd>
-<dt>License:</dt> <dd>This work is licensed under <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a></dd>
-</dl>
-</details>
-<hr>"
-  "Non-nil means insert a preamble in HTML export.
-
-See `org-html-preamble' for more information"
-  :group 'org-export-w3ctr
-  :type 'sexp)
 
 (defcustom t-link-left ""
   "Where should the \"left\" link of exported HTML pages lead?"
