@@ -436,7 +436,13 @@ See `org-html-postamble' for more information"
   :group 'org-export-w3ctr
   :type 'string)
 
-
+(defcustom t-back-to-top-arrow
+  "<p role=\"navigation\" id=\"back-to-top\">\
+<a href=\"#title\"><abbr title=\"Back to Top\">↑\
+</abbr></a></p>\n"
+  "add comments here"
+  :group 'org-export-w3ctr
+  :type 'string)
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -695,9 +701,6 @@ customize `t-head-include-default-style'.")
 ;; do update
 (t-update-css-js)
 
-(defconst t-back-to-top-arrow "\
-<p role=\"navigation\" id=\"back-to-top\">\n<a href=\"#title\">\
-<abbr title=\"Back to Top\">↑</abbr></a>\n</p>\n")
 
 ;;; Internal Functions
 
@@ -825,6 +828,12 @@ a value to `t-standalone-image-predicate'."
 (defun t--make-string (n string)
   "Build a string by concatenating N times STRING."
   (let (out) (dotimes (_ n out) (setq out (concat string out)))))
+
+(defun t-fix-class-name (kwd)
+  ;; audit callers of this function
+  "Turn todo keyword KWD into a valid class name.
+Replaces invalid characters with \"_\"."
+  (replace-regexp-in-string "[^a-zA-Z0-9_]" "_" kwd nil t))
 
 ;;; Basic utilties
 
@@ -1873,9 +1882,8 @@ CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
   (concat
    "<!DOCTYPE html>\n"
-   (concat "<html"
-	   (format " lang=\"%s\"" (plist-get info :language))
-	   ">\n")
+   (format "<html lang=\"%s\">\n"
+	   (plist-get info :language))
    "<head>\n"
    (t--build-meta-info info)
    (t--build-head info)
@@ -1883,7 +1891,8 @@ holding export options."
    "</head>\n"
    "<body>\n"
    ;; home and up links
-   (when-let* ((fun (plist-get info :html-format-home/up-function)))
+   (when-let* ((fun (plist-get
+		     info :html-format-home/up-function)))
      (funcall fun info))
    ;; title and preamble
    (format "<div class=\"head\">\n%s%s\n</div>\n"
@@ -1898,51 +1907,7 @@ holding export options."
    ;; fixup.js here
    (t--nw-p (plist-get info :html-fixup-js))
    ;; Closing document.
-   "</body>\n\n</html>"))
-
-;;;; Anchor
-
-(defun t--anchor (id desc attributes _info)
-  "Format a HTML anchor."
-  (let* ((attributes (concat (and id (format " id=\"%s\"" id))
-			     attributes)))
-    (format "<a%s>%s</a>" attributes (or desc ""))))
-
-;;;; Todo
-
-(defun t--todo (todo info)
-  "Format TODO keywords into HTML.
-TODO is the keyword, as a string.
-INFO is the info plist."
-  (when todo
-    (format "<span class=\"%s %s%s\">%s</span>"
-	    (if (member todo org-done-keywords) "done" "todo")
-	    (or (plist-get info :html-todo-kwd-class-prefix) "")
-	    (org-html-fix-class-name todo)
-	    todo)))
-
-;;;; Priority
-
-(defun t--priority (priority _info)
-  "Format a priority into HTML.
-PRIORITY is the character code of the priority or nil.  INFO is
-a plist containing export options."
-  (and priority (format "<span class=\"priority\">[%c]</span>" priority)))
-
-;;;; Tags
-
-(defun t--tags (tags info)
-  "Format TAGS into HTML.
-INFO is a plist containing export options."
-  (when tags
-    (format "<span class=\"tag\">%s</span>"
-	    (mapconcat
-	     (lambda (tag)
-	       (format "<span class=\"%s\">%s</span>"
-		       (concat (plist-get info :html-tag-class-prefix)
-			       (org-html-fix-class-name tag))
-		       tag))
-	     tags "&#xa0;"))))
+   "</body>\n</html>"))
 
 ;;; Tables of Contents
 
@@ -2013,6 +1978,50 @@ INFO is a plist used as a communication channel."
 			  (mapconcat #'number-to-string headline-number ".")))
 	     text))))
 
+;;; Headline
+
+;;;; Anchor
+(defun t--anchor (id desc attributes _info)
+  "Format a HTML anchor."
+  (let* ((attributes (concat (and id (format " id=\"%s\"" id))
+			     attributes)))
+    (format "<a%s>%s</a>" attributes (or desc ""))))
+
+;;;; Todo
+(defun t--todo (todo info)
+  "Format TODO keywords into HTML."
+  (when todo
+    (format
+     "<span class=\"%s %s%s\">%s</span>"
+     (if (member todo org-done-keywords) "done" "todo")
+     (or (plist-get info :html-todo-kwd-class-prefix) "")
+     (t-fix-class-name todo)
+     todo)))
+
+;;;; Priority
+(defun t--priority (priority _info)
+  "Format a priority into HTML.
+PRIORITY is the character code of the priority or nil."
+  (and priority
+       (format
+	"<span class=\"priority\">[%c]</span>"
+	priority)))
+
+;;;; Tags
+(defun t--tags (tags info)
+  "Format TAGS into HTML.
+INFO is a plist containing export options."
+  (when tags
+    (format "<span class=\"tag\">%s</span>"
+	    (mapconcat
+	     (lambda (tag)
+	       (format "<span class=\"%s\">%s</span>"
+		       (concat
+			(plist-get info :html-tag-class-prefix)
+			(org-html-fix-class-name tag))
+		       tag))
+	     tags "&#xa0;"))))
+
 ;;;; Headline
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
