@@ -24,10 +24,11 @@
 ;; GNU General Public License for more details.
 
 ;; You should have received a copy of the GNU General Public License
-;; along with ox-w3ctr.  If not, see <https://www.gnu.org/licenses/>.
+;; along with Ox-w3ctr.  If not, see <https://www.gnu.org/licenses/>.
 
 ;;; Commentary:
 
+;; FIXME: [Comments need improvements]
 ;; This library implements a HTML back-end for Org generic exporter.
 ;; A parasitic implementation of ox-html.el
 
@@ -45,10 +46,8 @@
 (require 'ox-publish)
 (require 'ox-html)
 (require 'table)
-
 
 ;;; Define Back-End
-
 (org-export-define-backend 'w3ctr
   '(;; see https://orgmode.org/worg/org-syntax.html for details
     ;; top-level structure
@@ -139,7 +138,7 @@
      nil "html-style" t-head-include-default-style)
     (:html-metadata-timestamp-format
      nil nil t-metadata-timestamp-format)
-    ;; HTML TOP place naviagtion elements --------------
+    ;; HTML TOP place naviagtion elements -------------------------
     (:html-link-home/up "HTML_LINK_HOMEUP" nil t-link-homeup parse)
     (:html-format-home/up-function nil nil t-format-home/up-function)
     (:html-home/up-format nil t-home/up-format)
@@ -166,7 +165,8 @@
     ;; <yy> store zeroth section's output
     (:html-zeroth-section-output nil nil "")
     ;; <yy> zeroth section's toc title name
-    (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
+    (:html-zeroth-section-tocname
+     nil "zeroth-name" t-zeroth-section-tocname)
     ;; <yy> control max headline level
     (:headline-levels nil "H" t-headline-level)
     ;; <yy> control todo, priority and tags export
@@ -911,7 +911,7 @@ input. Other data types will be ignored."
   (when-let* ((attrs (t--read-attr :attr__ element)))
     (mapcar
      (lambda (x) (if (not (vectorp x)) x
-	       (list "class" (mapconcat #'t--2str x " "))))
+		   (list "class" (mapconcat #'t--2str x " "))))
      attrs)))
 
 (defun t--make-attr__ (attributes)
@@ -921,9 +921,9 @@ ATTRIBUTES is a alist where values are either strings or nil. An
 attribute with a nil value means a boolean attribute."
   (mapconcat
    (lambda (x) (if (atom x)
-	       (and-let* ((s (t--2str x)))
-		 (concat " " (downcase s)))
-	     (t--make-attr x)))
+		   (and-let* ((s (t--2str x)))
+		     (concat " " (downcase s)))
+		 (t--make-attr x)))
    attributes))
 
 (defun t--make-attr__id (element info &optional named-only)
@@ -1002,10 +1002,10 @@ See also `org-trim'."
   (let* ((buf (get-buffer-create
 	       (concat " *ox-w3ctr-proc-[" name "]*")))
 	 (proc (make-process
-	       :name name :buffer buf
-	       :command cmd-list :coding 'utf-8
-	       :noquery t :filter #'t--rpc-filter
-	       :sentinel #'t--rpc-sentinel)))
+		:name name :buffer buf
+		:command cmd-list :coding 'utf-8
+		:noquery t :filter #'t--rpc-filter
+		:sentinel #'t--rpc-sentinel)))
     (with-current-buffer buf
       (goto-char (point-max))
       (set-marker (process-mark proc) (point)))
@@ -1560,14 +1560,14 @@ and strictly validates both UTC/GMT and [+-]HHMM formats.")
 	  ((or `active-range `inactive-range)
 	   (let* ((t1 (org-timestamp-to-time timestamp))
 		  (t2 (org-timestamp-to-time timestamp t)))
-		  (concat
-		   (format "<time datetime=\"%s\">%s</time>"
-			   (t--format-timestamp-Z t1 ufmt info)
-			   (org-format-timestamp timestamp fmt))
-		   "&#x2013;"
-		   (format "<time datetime=\"%s\">%s</time>"
-			   (t--format-timestamp-Z t2 ufmt info)
-			   (org-format-timestamp timestamp fmt t)))))
+	     (concat
+	      (format "<time datetime=\"%s\">%s</time>"
+		      (t--format-timestamp-Z t1 ufmt info)
+		      (org-format-timestamp timestamp fmt))
+	      "&#x2013;"
+	      (format "<time datetime=\"%s\">%s</time>"
+		      (t--format-timestamp-Z t2 ufmt info)
+		      (org-format-timestamp timestamp fmt t)))))
 	  (_ (error "Not a valid time type %s" type)))))))
 
 ;;; Smallest objects (7)
@@ -1809,18 +1809,18 @@ as a communication channel."
 		  info (intern (format ":html-%s" type))))
 	(spec (t-format-spec info)))
     (if section
-      (let ((section-contents
-	     (cond
-	      ((functionp section) (funcall section info))
-	      ((stringp section) (format-spec section spec))
-	      ((symbolp section)
-	       (if (fboundp section) (funcall section info)
-		 (if (not (boundp section))
-		     (error "pre/postamble not exist: %s" section)
-		   (format-spec (symbol-value section) spec))))
-	      (t ""))))
-	(if (org-string-nw-p section-contents)
-	    (org-element-normalize-string section-contents) ""))
+	(let ((section-contents
+	       (cond
+		((functionp section) (funcall section info))
+		((stringp section) (format-spec section spec))
+		((symbolp section)
+		 (if (fboundp section) (funcall section info)
+		   (if (not (boundp section))
+		       (error "pre/postamble not exist: %s" section)
+		     (format-spec (symbol-value section) spec))))
+		(t ""))))
+	  (if (org-string-nw-p section-contents)
+	      (org-element-normalize-string section-contents) ""))
       "")))
 
 (defun t-inner-template (contents info)
@@ -1829,14 +1829,14 @@ CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options.
 
 See `org-html-inner-template' for more information"
-    (concat
-     (plist-get info :html-zeroth-section-output)
-     (when-let* ((depth (plist-get info :with-toc)))
-       (t-toc depth info))
-     "<main>\n"
-     contents
-     "</main>\n"
-     (t-footnote-section info)))
+  (concat
+   (plist-get info :html-zeroth-section-output)
+   (when-let* ((depth (plist-get info :with-toc)))
+     (t-toc depth info))
+   "<main>\n"
+   contents
+   "</main>\n"
+   (t-footnote-section info)))
 
 (defun t-legacy-format-home/up (info)
   (let ((link-up (t--trim (plist-get info :html-link-up)))
@@ -2422,13 +2422,13 @@ This function is lifted from engrave-faces [2024-04-12]"
 	    (let ((inhibit-read-only t))
 	      (with-temp-buffer
 		(let ((inbuf (current-buffer)))
-		(funcall lang-mode)
-		(insert code)
-		(font-lock-ensure)
-		(set-buffer-modified-p nil)
-		(with-temp-buffer
-		  (org-w3ctr-faces-buffer inbuf (current-buffer))
-		  (buffer-string))))))
+		  (funcall lang-mode)
+		  (insert code)
+		  (font-lock-ensure)
+		  (set-buffer-modified-p nil)
+		  (with-temp-buffer
+		    (org-w3ctr-faces-buffer inbuf (current-buffer))
+		    (buffer-string))))))
       (format "<code class=\"src src-%s\">%s</code>" lang code)))))
 ;;;; Src Code
 (defun t-fontify-code (code lang)
@@ -2508,9 +2508,9 @@ CONTENTS is nil.  INFO is a plist holding contextual information."
        (plist-get info :html-footnote-separator)))
    (let* ((n (org-export-get-footnote-number footnote-reference info))
 	  (label (org-element-property :label footnote-reference)))
-      (t--anchor
-       nil (format (plist-get info :html-footnote-format) (or label n))
-       (format " href=\"#fn.%d\" aria-label=\"reference to %s\"" n label) info))))
+     (t--anchor
+      nil (format (plist-get info :html-footnote-format) (or label n))
+      (format " href=\"#fn.%d\" aria-label=\"reference to %s\"" n label) info))))
 
 (defun t-footnote-section (info)
   "Format the footnote section.
@@ -2518,23 +2518,23 @@ INFO is a plist used as a communication channel."
   (pcase (org-export-collect-footnote-definitions info)
     (`nil nil)
     (definitions
+     (format
+      (plist-get info :html-footnotes-section)
+      "References"
       (format
-       (plist-get info :html-footnotes-section)
-       "References"
-       (format
-	"\n%s\n"
-	(mapconcat
-	 (lambda (definition)
-	   (pcase definition
-	     (`(,n ,label ,def)
-	      (let* ((dt (format (plist-get info :html-footnote-format)
-				 (or label n)))
-		     (id (format "fn.%d" n))
-		     (contents (org-trim (org-export-data def info))))
-		(format "<dt id=\"%s\">%s</dt>\n<dd>\n%s\n</dd>"
-			id dt contents)))))
-	 definitions
-	 "\n"))))))
+       "\n%s\n"
+       (mapconcat
+	(lambda (definition)
+	  (pcase definition
+	    (`(,n ,label ,def)
+	     (let* ((dt (format (plist-get info :html-footnote-format)
+				(or label n)))
+		    (id (format "fn.%d" n))
+		    (contents (org-trim (org-export-data def info))))
+	       (format "<dt id=\"%s\">%s</dt>\n<dd>\n%s\n</dd>"
+		       id dt contents)))))
+	definitions
+	"\n"))))))
 
 ;;;; Link
 
