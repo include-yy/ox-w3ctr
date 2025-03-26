@@ -42,6 +42,7 @@
 ;;; Dependencies
 (require 'cl-lib)
 (require 'format-spec)
+(require 'xml)
 (require 'ox)
 (require 'ox-publish)
 (require 'ox-html)
@@ -141,7 +142,7 @@
     ;; HTML TOP place naviagtion elements -------------------------
     (:html-link-home/up "HTML_LINK_HOMEUP" nil t-link-homeup parse)
     (:html-format-home/up-function nil nil t-format-home/up-function)
-    (:html-home/up-format nil t-home/up-format)
+    (:html-home/up-format nil nil t-home/up-format)
     (:html-link-up "HTML_LINK_UP" nil t-link-up)
     (:html-link-home "HTML_LINK_HOME" nil t-link-home)
     ;; Latex and MathJAX options -------
@@ -1191,10 +1192,7 @@ See `org-w3ctr-checkbox-types' for customization options."
 	   (format "<li%s>" extra)
 	   (when headline (concat headline br)))))
        (`unordered
-	(concat "<li>"
-		(if (not term-counter-id) ""
-		  (format "[@%d] " term-counter-id))
-		(when headline (concat headline br))))
+	(concat "<li>" (when headline (concat headline br))))
        (`descriptive
 	(let* ((term term-counter-id))
 	  (setq term (or term "(no term)"))
