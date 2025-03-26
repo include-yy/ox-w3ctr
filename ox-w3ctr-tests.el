@@ -153,6 +153,27 @@
        ("- :: 3" "<li>:: 3</li>")
        ("- a :: b\n- c" "<dt>(no term)</dt><dd>c</dd>" "<dt>a</dt><dd>b</dd>")))))
 
+(ert-deftest t-plain-list ()
+  (t-check-element-values
+   #'t-plain-list #'t-advice-return-value
+   '(("- 123" "<ul>\n<li>123</li>\n</ul>")
+     ("1. 123" "<ol>\n<li>123</li>\n</ol>")
+     ("- x :: y" "<dl>\n<dt>x</dt><dd>y</dd>\n</dl>")
+     ("#+name: test\n#+attr__: (data-test \"a joke\")\n- x"
+      "<ul id=\"test\" data-test=\"a joke\">\n<li>x</li>\n</ul>")
+     ("1. 123\n   - 2 3 4"
+      "<ol>\n<li>123\n<ul>\n<li>2 3 4</li>\n</ul></li>\n</ol>"
+      "<ul>\n<li>2 3 4</li>\n</ul>"))))
+
+(ert-deftest t-quote-block ()
+  (t-check-element-values
+   #'t-quote-block #'t-advice-return-value
+   '(("#+begin_quote\n#+end_quote" "<blockquote></blockquote>")
+     ("#+begin_quote\n123\n#+end_quote"
+      "<blockquote>\n<p>123</p>\n</blockquote>")
+     ("#+attr__: [test]\n#+BEGIN_QUOTE\n456\n#+END_QUOTE"
+      "<blockquote class=\"test\">\n<p>456</p>\n</blockquote>"))))
+
 (ert-deftest t--2str ()
   (should (eq (t--2str nil) nil))
   (should (string= (t--2str 1) "1"))

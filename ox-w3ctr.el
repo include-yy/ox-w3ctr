@@ -1192,6 +1192,7 @@ See `org-w3ctr-checkbox-types' for customization options."
 	   (format "<li%s>" extra)
 	   (when headline (concat headline br)))))
        (`unordered
+	;; Ignore term-counter-id
 	(concat "<li>" (when headline (concat headline br))))
        (`descriptive
 	(let* ((term term-counter-id))
