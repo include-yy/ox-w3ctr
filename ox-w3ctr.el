@@ -1829,48 +1829,43 @@ See `org-html-inner-template' for more information"
      "</main>\n"
      (t-footnote-section info)))
 
-;; FIXME: Use `parse' and Link format
-;; FIXME: Recheck new implementation.
+(defun t-legacy-format-home/up (info)
+  (let ((link-up (t--trim (plist-get info :html-link-up)))
+	(link-home (t--trim (plist-get info :html-link-home))))
+    (unless (and (string= link-up "")
+		 (string= link-home ""))
+      (format (plist-get info :html-home/up-format)
+	      (or link-up link-home)
+	      (or link-home link-up)))))
+
 (defun t-format-home/up-default-function (info)
-  (let ((links (plist-get info :html-link-home/up)))
-    (pcase links
-      ((pred t--nw-p)
-       (format "<nav id=\"home-and-up\">\n%s\n</nav>"
-	       links))
-      ;; maybe we don't need this...
-      ((pred vectorp)
-       (concat "<nav id=\"home-and-up\">\n"
-	       (mapconcat (pcase-lambda (`(,link . ,name))
-			    (format "<a href=\"%s\">%s</a>"
-				    link name))
-			  links "\n")
-	       "\n</nav>\n"))
-      ((pred listp)
-       (concat "<nav id=\"home-and-up\">\n"
-	       (thread-last
-		 (mapcar (lambda (x) (org-export-data x info)) links)
-		 (cl-remove-if-not #'t--nw-p)
-		 (funcall (lambda (x) (mapconcat #'identity x "\n"))))
-	       "\n</nav>\n"))
-      (_
-       (let ((up (t--trim (plist-get info :html-link-up)))
-	     (home (t--trim (plist-get info :html-link-home))))
-	 (unless (and (string= link-up "")
-		      (string= link-home ""))
-	   (format (plist-get info :html-home/up-format)
-		   (or link-up link-home)
-		   (or link-home link-up))))))))
+  (let* ((links (plist-get info :html-link-home/up))
+	 (<a>s
+	  (thread-last
+	    (mapcar (lambda (x) (org-export-data x info)) links)
+	    (cl-remove-if-not #'t--nw-p)
+	    (funcall (lambda (x) (mapconcat #'identity x "\n"))))))
+    (if (string= <a>s "") (t-legacy-format-home/up info)
+      (concat
+       "<nav id=\"home-and-up\">\n"
+       <a>s
+       "\n</nav>\n"))))
 
 (defun t--build-title (info)
   (when (plist-get info :with-title)
-    (let ((title (and (plist-get info :with-title)
-		      (plist-get info :title)))
+    (let ((title (plist-get info :title))
 	  (subtitle (plist-get info :subtitle)))
-      (when title
-	(format
-	 "<header>\n<h1 id=\"title\">%s</h1>\n<p id=\"w3c-state\">%s</p>\n</header>\n"
-	 (org-export-data title info)
-	 (if subtitle (org-export-data subtitle info) ""))))))
+      (concat
+       "<header>\n"
+       "<h1 id=\"title\">"
+       (let ((tit (org-export-data title info)))
+	 (or (t--nw-p tit)  "TITLE"))
+       "</h1>\n"
+       (let ((sub (org-export-data subtitle info)))
+	 (when (t--nw-p sub)
+	   (format "<p id=\"w3c-state\">%s</p>\n"
+		   sub)))
+       "</header>"))))
 
 (defun t-template (contents info)
   "Return complete document string after HTML conversion.
