@@ -1127,7 +1127,8 @@ CONTENTS holds the contents of the block."
 
 ;;;; Drawer
 (defun t-drawer (drawer contents info)
-  "Transcode a DRAWER element from Org to HTML."
+  "Transcode a DRAWER element from Org to HTML.
+CONTENTS holds the contents of the block."
   (let* ((name (org-element-property :drawer-name drawer))
 	 (cap (if-let* ((cap (org-export-get-caption drawer)))
 		  (org-export-data cap info) name))
@@ -1137,8 +1138,9 @@ CONTENTS holds the contents of the block."
 
 ;;;; Dynamic Block
 (defun t-dynamic-block (_dynamic-block contents _info)
-  "Transcode a DYNAMIC-BLOCK element from Org to HTML."
-  contents)
+  "Transcode a DYNAMIC-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the block."
+  (or contents ""))
 
 ;;;; Item
 (defconst t-checkbox-types

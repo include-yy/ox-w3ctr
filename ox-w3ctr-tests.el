@@ -1,33 +1,90 @@
 ;; -*- lexical-binding: t; -*-
 
-(defvar t-test-value nil)
+(defvar t-test-values nil)
 
 (defun t-check-element-values (fn advice pairs)
   (advice-add fn :filter-return advice)
   (unwind-protect
       (dolist (test pairs)
-	(ignore (org-export-string-as (car test) 'w3ctr t))
-	(should (string= t-test-value (cdr test))))
+	(let (t-test-values)
+	  (ignore (org-export-string-as (car test) 'w3ctr t))
+	  (should (equal t-test-values (cdr test)))))
     (advice-remove fn advice)))
 
 (defun t-advice-return-value (str)
   (prog1 str
-    (setq t-test-value
-	  (substring-no-properties str))))
+    (push (if (not (stringp str)) str
+	      (substring-no-properties str))
+	  t-test-values)))
 
 (ert-deftest t-center-block ()
   (t-check-element-values
    #'t-center-block #'t-advice-return-value
-   '(("#+begin_center\n#+end_center" .
+   '(("#+begin_center\n#+end_center"
       "<div style=\"text-align:center;\"></div>")
-     ("#+begin_center\n123\n#+end_center" .
+     ("#+begin_center\n123\n#+end_center"
       "<div style=\"text-align:center;\">\n<p>123</p>\n</div>"))))
 
 (ert-deftest t-drawer ()
   (t-check-element-values
    #'t-drawer #'t-advice-return-value
-   '((":hello:\n:end:" .
-     "<details><summary>hello</summary></details>"))))
+   '((":hello:\n:end:"
+      "<details><summary>hello</summary></details>")
+     ("#+caption: what can i say\n:test:\n:end:"
+      "<details><summary>what can i say</summary></details>")
+     ("#+name: id\n#+attr__: [example]\n:h:\n:end:"
+      "<details id=\"id\" class=\"example\"><summary>h</summary></details>")
+     ("#+attr__: (open)\n:h:\n:end:"
+      "<details open><summary>h</summary></details>")
+     (":try-this:\n=int a = 1;=\n:end:"
+      "<details><summary>try-this</summary>\n<p><code>int a = 1;</code></p>\n</details>"))))
+
+(ert-deftest t-dynamic-block ()
+  (t-check-element-values
+   #'t-dynamic-block #'t-advice-return-value
+   '(("#+begin: hello\n123\n#+end:" "<p>123</p>\n")
+     ("#+begin: nothing\n#+end:" ""))))
+
+(ert-deftest t-checkbox ()
+  (let ((t-checkbox-type 'unicode))
+    (t-check-element-values
+     #'t-checkbox #'t-advice-return-value
+     '(("- [ ] 123" "&#x2610;")
+       ("- [X] 123" "&#x2611;")
+       ("- [-] 123" "&#x2612;"))))
+  (let ((t-checkbox-type 'ascii))
+    (t-check-element-values
+     #'t-checkbox #'t-advice-return-value
+     '(("- [ ] 123" "<code>[&#xa0;]</code>")
+       ("- [X] 123" "<code>[X]</code>")
+       ("- [-] 123" "<code>[-]</code>"))))
+  (let ((t-checkbox-type 'html))
+    (t-check-element-values
+     #'t-checkbox #'t-advice-return-value
+     '(("- [ ] 123" "<input type='checkbox' disabled>")
+       ("- [X] 123" "<input type='checkbox' checked disabled>")
+       ("- [-] 123" "<input type='checkbox'>")))))
+
+(ert-deftest t-item-li ()
+  (let ((t-checkbox-type 'unicode))
+    (t-check-element-values
+     #'t-item #'t-advice-return-value
+     '(("- 123" "<li>123</li>")
+       ("- hello \n 123" "<li>hello \n123</li>")
+       ("- hello \n\n123" "<li>hello</li>")
+       ("- hello \n\n 123" "<li>hello\n<p>123</p></li>")
+       ("- hello \n\n     \t123" "<li>hello\n<p>123</p></li>")
+       ("- [ ] 123" "<li>&#x2610; 123</li>")
+       ("- [X] 123" "<li>&#x2611; 123</li>")
+       ("- [ ] 123   \n 234" "<li>&#x2610; 123   \n234</li>")
+       ("- [ ] 123 \n\n234" "<li>&#x2610; 123</li>")
+       ("- [ ] 123 \n\n 234" "<li>&#x2610; 123\n<p>234</p></li>")
+       ;;("- [ ] [@1] 123" "<li>&#x2610; [@1] 123</li>")
+       ("- [@1] 123" "<li>[@1] 123</li>")
+       ("- [@1]123"  "<li>[@1] 123</li>")
+       ("- [@a] 123")
+       ;;("- [ ] [@1]123")
+       ))))
 
 (ert-deftest t--2str ()
   (should (eq (t--2str nil) nil))
