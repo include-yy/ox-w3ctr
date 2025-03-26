@@ -8,7 +8,7 @@
 
 ;; Package-Version: 0.2
 ;; Package-Requires: ((emacs "30.1"))
-;; Keywords: HTML, Org
+;; Keywords: tools, html
 ;; URL: https://github.com/include-yy/ox-w3ctr
 
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -198,14 +198,14 @@
     ;; <yy> add options for fixup.js's code
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     ;; <yy> time zone suffix
-    (:html-time-zone "HTML_TIME_ZONE" nil t-time-zone)
+    (:html-time-zone "HTML_TIME_ZONE" nil t-timezone)
     ))
 
 ;;; User Configuration Variables
 
 (defgroup org-export-w3ctr nil
   "Options for exporting Org mode files to HTML."
-  :tag "Org Export W3C TR HTML"
+  :tag "Org Export W3CTR HTML"
   :group 'org-export)
 
 ;;;; Smallest objects.
@@ -231,16 +231,64 @@ See also `org-html-text-markup-alist'."
 		:value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
 
-(defcustom t-time-zone "+0800"
-  "Time zone designator in the format [+-]HHMM (e.g., +0800, -0500).
-or GMT/UTC[+-]?XX (eg., UTC+8, GMT+2)."
+(defconst t-timezone-regex
+  (rx string-start
+      (or (seq
+	   (or "UTC" "GMT")
+	   (group
+	    (seq (or "+" "-")
+		 (or (seq (? "0") num)
+		     (seq "1" (any (?0 . ?2)))))))
+	  (group
+	   (seq
+	    (or "+" "-")
+	    (or (seq "0" num)
+		(seq "1" (any (?0 . ?3))))
+	    (any (?0 . ?5))
+	    (any (?0 . ?9)))))
+      string-end)
+  "Regular expression for matching UTC/GMT time zone designators
+and time zone offsets.
+This expression does not allow for missing `+' or `-' signs,
+and strictly validates both UTC/GMT and [+-]HHMM formats.")
+
+(defcustom t-timezone "+0800"
+  "Time zone string for W3C TR export.
+
+Designator should be in either:
+. [+-]HHMM format      (e.g., \"+0800\", \"-0500\")
+. GMT/UTC[+-]XX format (e.g., \"UTC+8\", \"GMT-5\")
+
+This value is used when generating datetime metadata.
+Examples of valid values:
+  \"+0800\"    ; Beijing time
+  \"-0500\"    ; Eastern Time
+  \"UTC+8\"    ; Alternative format
+  \"GMT-5\"    ; Eastern Time alternative
+
+See ISO 8601 and RFC 2822 for timezone formatting standards."
   :group 'org-export-w3ctr
+  :set (lambda (symbol value)
+	 (if (not (string-match-p t-timezone-regex value))
+	     (error "Not a valid time zone designator: %s" value)
+	   (set symbol value)))
   :type 'string)
 
 (defcustom t-coding-system 'utf-8-unix
-  "Coding system for HTML export."
+  "Coding system for HTML export.
+
+Specifically uses `utf-8-unix' to ensure UTF-8 character encoding
+and Unix-style line endings (LF), avoiding Windows-style CRLF
+line endings. This is important for consistent behavior across
+platforms and version control systems."
   :group 'org-export-w3ctr
   :type 'coding-system)
+
+(defcustom t-timestamp-format '("%Y-%m-%d" . "%Y-%m-%d %H:%M")
+  "Format used for timestamps in
+See `format-time-string' for more information on its components."
+  :group 'org-export-w3ctr
+  :type 'string)
 
 (defcustom t-metadata-timestamp-format "%Y-%m-%d %H:%M"
   "Format used for timestamps in preamble, postamble and metadata.
@@ -1072,7 +1120,8 @@ See also `org-trim'."
 
 ;;;; Center Block
 (defun t-center-block (_center-block contents _info)
-  "Transcode a CENTER-BLOCK element from Org to HTML."
+  "Transcode a CENTER-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the block."
   (format "<div style=\"text-align:center;\">%s</div>"
 	  (t--maybe-contents contents)))
 
@@ -1473,27 +1522,6 @@ information."
     (t--anchor ref nil nil info)))
 
 ;;;; Timestamp
-(defconst t-timezone-regex
-  (rx string-start
-      (or (seq
-	   (or "UTC" "GMT")
-	   (group
-	    (seq (or "+" "-")
-		 (or (seq (? "0") num)
-		     (seq "1" (any (?0 . ?2)))))))
-	  (group
-	   (seq
-	    (or "+" "-")
-	    (or (seq "0" num)
-		(seq "1" (any (?0 . ?3))))
-	    (any (?0 . ?5))
-	    (any (?0 . ?9)))))
-      string-end)
-  "Regular expression for matching UTC/GMT time zone designators
-and time zone offsets.
-This expression does not allow for missing `+' or `-' signs,
-and strictly validates both UTC/GMT and [+-]HHMM formats.")
-
 (defun t--timezone-to-offset (zone-str)
   (let ((case-fold-search t)
 	(zone-str (t--trim zone-str)))
