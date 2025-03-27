@@ -1211,7 +1211,8 @@ See `org-w3ctr-checkbox-types' for customization options."
        (`descriptive "</dd>")))))
 
 (defun t-item (item contents info)
-  "Transcode an ITEM element from Org to HTML."
+  "Transcode an ITEM element from Org to HTML.
+CONTENTS holds the contents of the item."
   (let* ((plain-list (org-export-get-parent item))
 	 (type (org-element-property :type plain-list))
 	 (counter (org-element-property :counter item))
@@ -1223,7 +1224,8 @@ See `org-w3ctr-checkbox-types' for customization options."
 
 ;;;; Plain List
 (defun t-plain-list (plain-list contents info)
-  "Transcode a PLAIN-LIST element from Org to HTML."
+  "Transcode a PLAIN-LIST element from Org to HTML.
+CONTENTS is the contents of the list."
   (let* ((type (pcase (org-element-property :type plain-list)
 		 (`ordered "ol")
 		 (`unordered "ul")
@@ -1236,7 +1238,8 @@ See `org-w3ctr-checkbox-types' for customization options."
 
 ;;;; Quote Block
 (defun t-quote-block (quote-block contents info)
-  "Transcode a QUOTE-BLOCK element from Org to HTML."
+  "Transcode a QUOTE-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the block."
   (format "<blockquote%s>%s</blockquote>"
 	  (t--make-attr__id quote-block info t)
 	  (t--maybe-contents contents)))
@@ -1247,7 +1250,8 @@ See `org-w3ctr-checkbox-types' for customization options."
 
 ;;;; Example Block
 (defun t-example-block (example-block _contents info)
-  "Transcode a EXAMPLE-BLOCK element from Org to HTML."
+  "Transcode a EXAMPLE-BLOCK element from Org to HTML.
+CONTENTS is nil."
   (format "<div%s>\n<pre>\n%s</pre>\n</div>"
 	  (t--make-attr__id example-block info)
 	  (org-remove-indentation
@@ -1255,7 +1259,8 @@ See `org-w3ctr-checkbox-types' for customization options."
 
 ;;;; Export Block
 (defun t-export-block (export-block _contents _info)
-  "Transcode a EXPORT-BLOCK element from Org to HTML."
+  "Transcode a EXPORT-BLOCK element from Org to HTML.
+CONTENTS is nil."
   (let* ((type (org-element-property :type export-block))
 	 (value (org-element-property :value export-block))
 	 (text (org-remove-indentation value)))
@@ -1268,17 +1273,16 @@ See `org-w3ctr-checkbox-types' for customization options."
        (concat "<script>\n" text "</script>"))
       ;; Expression that return HTML string.
       ((or "EMACS-LISP" "ELISP")
-       (let ((value (or (t--nw-p value) "\"\"")))
-	 (format "%s" (eval (read value)))))
+       (format "%s" (eval (read (or (t--nw-p value) "\"\"")))))
       ;; SEXP-style HTML data.
       ("LISP-DATA"
-       (let ((value (or (t--nw-p value) "\"\"")))
-	 (t--sexp2html (read value))))
+       (t--sexp2html (read (or (t--nw-p value) "\"\""))))
       (_ ""))))
 
 ;;;; Fixed Width
 (defun t-fixed-width (fixed-width _contents info)
-  "Transcode a FIXED-WIDTH element from Org to HTML."
+  "Transcode a FIXED-WIDTH element from Org to HTML.
+CONTENTS is nil."
   (format "<pre%s>%s</pre>"
 	  (t--make-attr__id fixed-width info t)
 	  (let ((value
@@ -1290,12 +1294,14 @@ See `org-w3ctr-checkbox-types' for customization options."
 
 ;;;; Horizontal Rule
 (defun t-horizontal-rule (_horizontal-rule _contents _info)
-  "Transcode an HORIZONTAL-RULE object from Org to HTML."
+  "Transcode an HORIZONTAL-RULE object from Org to HTML.
+CONTENTS is nil."
   "<hr>")
 
 ;;;; Keyword
 (defun t-keyword (keyword _contents _info)
-  "Transcode a KEYWORD element from Org to HTML."
+  "Transcode a KEYWORD element from Org to HTML.
+CONTENTS is nil."
   (let ((key (org-element-property :key keyword))
 	(value (org-element-property :value keyword)))
     (pcase key
@@ -1305,6 +1311,7 @@ See `org-w3ctr-checkbox-types' for customization options."
       ("L" (mapconcat #'t--sexp2html
 		      (read (format "(%s)" value))))
       (_ ""))))
+;;;; Next Start here
 
 ;;; LATEX utilties.
 (defun t--mathml-to-oneline (xml)
