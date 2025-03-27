@@ -1262,23 +1262,31 @@ See `org-w3ctr-checkbox-types' for customization options."
     (pcase type
       ;; Add mhtml-mode also.
       ((or "HTML" "MHTML") text)
-      ("CSS" (concat "<style>\n" text "</style>"))
+      ("CSS" (format "<style>%s</style>"
+		     (t--maybe-contents value)))
       ((or "JS" "JAVASCRIPT")
        (concat "<script>\n" text "</script>"))
       ;; Expression that return HTML string.
       ((or "EMACS-LISP" "ELISP")
-       (format "%s" (eval (read value))))
+       (let ((value (or (t--nw-p value) "\"\"")))
+	 (format "%s" (eval (read value)))))
       ;; SEXP-style HTML data.
-      ("LISP-DATA" (t--sexp2html (read value)))
-      (_ nil))))
+      ("LISP-DATA"
+       (let ((value (or (t--nw-p value) "\"\"")))
+	 (t--sexp2html (read value))))
+      (_ ""))))
 
 ;;;; Fixed Width
 (defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML."
-  (format "<pre%s>\n%s</pre>"
+  (format "<pre%s>%s</pre>"
 	  (t--make-attr__id fixed-width info t)
-	  (org-remove-indentation
-	   (org-element-property :value fixed-width))))
+	  (let ((value
+		 (org-remove-indentation
+		  (org-element-property
+		   :value fixed-width))))
+	    (if (not (t--nw-p value)) value
+	      (concat "\n" value "\n")))))
 
 ;;;; Horizontal Rule
 (defun t-horizontal-rule (_horizontal-rule _contents _info)
@@ -1292,11 +1300,11 @@ See `org-w3ctr-checkbox-types' for customization options."
 	(value (org-element-property :value keyword)))
     (pcase key
       ((or "H" "HTML") value)
-      ("E" (format "%s" (eval (read value))))
-      ("D" (t--sexp2html (read value)))
+      ("E" (format "%s" (eval (read (or (t--nw-p value) "\"\"")))))
+      ("D" (t--sexp2html (read (or (t--nw-p value) "\"\""))))
       ("L" (mapconcat #'t--sexp2html
 		      (read (format "(%s)" value))))
-      (_ nil))))
+      (_ ""))))
 
 ;;; LATEX utilties.
 (defun t--mathml-to-oneline (xml)

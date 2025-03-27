@@ -174,6 +174,87 @@
      ("#+attr__: [test]\n#+BEGIN_QUOTE\n456\n#+END_QUOTE"
       "<blockquote class=\"test\">\n<p>456</p>\n</blockquote>"))))
 
+(ert-deftest t-example-block ()
+  (t-check-element-values
+   #'t-example-block #'t-advice-return-value
+   '(("#+name: t\n#+begin_example\n#+end_example"
+      "<div id=\"t\">\n<pre>\n</pre>\n</div>")
+     ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
+      "<div id=\"t\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
+     ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
+      "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
+     ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
+      "<div id=\"t\">\n<pre>\n1\n2\n3\n</pre>\n</div>"))))
+
+(ert-deftest t-export-block ()
+  (t-check-element-values
+   #'t-export-block #'t-advice-return-value
+   '(("#+begin_export html\nanythinghere\n#+end_export"
+      "anythinghere\n")
+     ("#+begin_export html\n#+end_export" "")
+     ("#+begin_export mhtml\nanythinghere\n#+end_export"
+      "anythinghere\n")
+     ("#+begin_export mhtml\n#+end_export" "")
+     ("#+begin_export css\np {color: red;}\n#+end_export"
+      "<style>\np {color: red;}\n</style>")
+     ("#+begin_export css\n#+end_export" "<style>\n</style>")
+     ("#+begin_export js\nlet f = x => x + 1;\n#+end_export"
+      "<script>\nlet f = x => x + 1;\n</script>")
+     ("#+begin_export js\n#+end_export" "<script>\n</script>")
+     ("#+begin_export javascript\nlet f = x => x + 1;\n#+end_export"
+      "<script>\nlet f = x => x + 1;\n</script>")
+     ("#+begin_export javascript\n#+end_export" "<script>\n</script>")
+     ("#+begin_export emacs-lisp\n(+ 1 2)\n#+end_export" "3")
+     ("#+begin_export emacs-lisp\n#+end_export" "")
+     ("#+begin_export elisp\n(+ 1 2)\n#+end_export" "3")
+     ("#+begin_export elisp\n#+end_export" "")
+     ("#+begin_export lisp-data\n (p() \"123\")\n#+end_export"
+      "<p>123</p>")
+     ("#+begin_export lisp-data\n (br)\n#+end_export" "<br>")
+     ("#+BEGIN_EXPORT lisp-data\n (br)\n#+END_EXPORT" "<br>")
+     ("#+begin_export wtf\n no exported\n#+end_export" "")
+     ("#+begin_export\n not exported\n#+end_export" ""))))
+
+(ert-deftest t-fixed-width ()
+  (t-check-element-values
+   #'t-fixed-width #'t-advice-return-value
+   '((":           " "<pre></pre>")
+     (": 1\n" "<pre>\n1\n</pre>")
+     (": 1\n: 2\n" "<pre>\n1\n2\n</pre>")
+     (":  1\n:  2\n:   3\n" "<pre>\n1\n2\n 3\n</pre>")
+     (": 1\n: \n" "<pre>\n1\n\n</pre>")
+     ("#+name: t\n#+attr__: [test]\n: 1\n : 2\n: 3"
+      "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>"))))
+
+(ert-deftest t-horizontal-rule ()
+  (t-check-element-values
+   #'t-horizontal-rule #'t-advice-return-value
+   '(("-")
+     ("--")
+     ("---")
+     ("----")
+     ("-----" "<hr>")
+     ("------" "<hr>")
+     ("-------" "<hr>")
+     ("--------" "<hr>")
+     ("---------" "<hr>")
+     ("----------" "<hr>"))))
+
+(ert-deftest t-keyword ()
+  (t-check-element-values
+   #'t-keyword #'t-advice-return-value
+   '(("#+h: <p>123</p>" "<p>123</p>")
+     ("#+h: " "")
+     ("#+html: <p>123</p>" "<p>123</p>")
+     ("#+html: " "")
+     ("#+e: (concat \"1\" nil \"2\")" "12")
+     ("#+e: " "")
+     ("#+d: (p((data-x \"1\"))123)" "<p data-x=\"1\">123</p>")
+     ("#+d: " "")
+     ("#+l: " "")
+     ("#+l: (p() 123) (p() 234)" "<p>123</p><p>234</p>")
+     ("#+hello: world" ""))))
+
 (ert-deftest t--2str ()
   (should (eq (t--2str nil) nil))
   (should (string= (t--2str 1) "1"))
