@@ -47,6 +47,12 @@
 (require 'ox-publish)
 (require 'ox-html)
 (require 'table)
+
+(defvar t--dir
+  (if load-in-progress
+      (file-name-directory load-file-name)
+    default-directory)
+  "Directory of ox-w3ctr package.")
 
 ;;; Define Back-End
 (org-export-define-backend 'w3ctr
@@ -885,12 +891,6 @@ Replaces invalid characters with \"_\"."
   (replace-regexp-in-string "[^a-zA-Z0-9_]" "_" kwd nil t))
 
 ;;; Basic utilties
-
-(defvar t--dir
-  (if load-in-progress
-      (file-name-directory load-file-name)
-    default-directory)
-  "Directory of ox-w3ctr package.")
 
 (defsubst t--maybe-contents (contents)
   "If CONTENTS is non-nil, prepend a newline and return it;
