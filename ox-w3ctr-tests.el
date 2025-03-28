@@ -268,7 +268,34 @@
      ("#+l: (p() 123) (p() 234)" "<p>123</p><p>234</p>")
      ("#+hello: world" ""))))
 
-(ert-deftest t-paragraph ())
+(ert-deftest t-paragraph ()
+  (t-check-element-values
+   #'t-paragraph #'t-advice-return-value
+   '(("123" "<p>123</p>")
+     ("123\n 234" "<p>123\n 234</p>")
+     ("    123" "<p>123</p>")
+     ("123\n\t234" "<p>123\n\011234</p>")
+     ("123\n\n234" "<p>234</p>" "<p>123</p>")
+     ("- 123 234" "123 234")
+     ("- [ ] 123" "123")
+     ("- 123\n 234" "123\n234")
+     ("- 123\n\n   234" "<p>234</p>" "123\n")
+     ("-\n  #+attr__: [example]\n  123"
+      "<span class=\"example\">123</span>")
+     ("-\n  #+name: id\n  123\n\n  #+name: id2\n  456"
+      "<p id=\"id2\">456</p>" "<span id=\"id\">123\n</span>")
+     ("[[./1.png]]"
+      "<figure>\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
+     ("#+name: id\n#+caption:cap\n[[./1.png]]"
+      "<figure id=\"id\">\n<img src=\"./1.png\" alt=\"1.png\"><figcaption>cap</figcaption>\n</figure>")
+     ("#+attr__:[sidefigure]\n[[./2.gif]]"
+      "<figure class=\"sidefigure\">\n<img src=\"./2.gif\" alt=\"2.gif\"></figure>")
+     ("[[https://example.com/1.jpg]]"
+      "<figure>\n<img src=\"https://example.com/1.jpg\" alt=\"1.jpg\"></figure>")
+     ("[[file:1.jpg]]" "<figure>\n<img src=\"1.jpg\" alt=\"1.jpg\"></figure>")
+     ("[[./1.png][name]]" "<p><a href=\"./1.png\">name</a></p>")
+     ("[[https://example.com/1.jpg][file:1.jpg]]"
+      "<figure>\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))))
 
 (ert-deftest t--mathml-to-oneline ()
   ;; https://www.w3.org/TR/2025/WD-mathml4-20250326/
