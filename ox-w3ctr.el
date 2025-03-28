@@ -821,24 +821,6 @@ if DATUM's type is not headline, return nil"
 	    (plist-put info :internal-references cache)
 	    newid)))))
 
-(defun t--wrap-image (contents _info &optional caption label class)
-  "Wrap CONTENTS string within an appropriate environment for images.
-INFO is a plist used as a communication channel.  When optional
-arguments CAPTION and LABEL are given, use them for caption and
-\"id\" attribute.
-
-Also, include-yy allows it to contain class, we can then use selectors
-to specify the inner img styles [2024-04-13]"
-  (format "\n<figure%s%s>\n%s%s</figure>"
-	  (if (org-string-nw-p label) (format " id=\"%s\"" label) "")
-	  (if (org-string-nw-p class) (format " class=\"%s\"" class) "")
-	  ;; Contents.
-	  contents
-	  ;; Caption.
-	  (if (not (org-string-nw-p caption)) ""
-	    (format "<figcaption>%s</figcaption>\n"
-		    caption))))
-
 (defun t--format-image (source attributes info &optional caller)
   "Return \"img\" tag with given SOURCE and ATTRIBUTES.
 SOURCE is a string specifying the location of the image.
@@ -1317,25 +1299,32 @@ CONTENTS is nil."
   "Transcode a PARAGRAPH element from Org to HTML."
   (let* ((parent (org-export-get-parent paragraph))
 	 (parent-type (org-element-type parent))
-	 (class (org-export-read-attribute :attr_html paragraph :class))
 	 (attrs (t--make-attr__id paragraph info t)))
     (cond
-     ((and (eq parent-type 'item)
+     (;; Item's first line.
+      (and (eq parent-type 'item)
 	   (string= attrs "")
 	   (not (org-export-get-previous-element paragraph info)))
-      ;; First paragraph in an item
       contents)
-     ((t-standalone-image-p paragraph info)
-      ;; Standalone image.
-      (let ((caption (org-export-data (org-export-get-caption paragraph) info))
-	    (label (t--reference paragraph info t)))
-	(t--wrap-image contents info caption label class)))
+     (;; Standalone image.
+      (t-standalone-image-p paragraph info)
+      (let* ((caption (org-export-get-caption paragraph))
+	     (cap (or (and caption (org-export-data caption info)) "")))
+	  (t--wrap-image contents info cap attrs)))
      ;; Regular paragraph.
-     (t (let ((c (string-trim contents)))
-	  ;; FIXME: do something for empty para?
-	  ;; Now just delete it, but how it be generated?
+     (t (let ((c (t--trim contents)))
 	  (if (string= c "") ""
 	    (format "<p%s>%s</p>" attrs c)))))))
+
+(defun t--wrap-image (contents _info caption attrs)
+  "Wrap CONTENTS string within an appropriate environment for images.
+Also check attributes and caption for paragraph."
+  (format "<figure%s>\n%s%s</figure>"
+	  ;; Attributes and contents.
+	  attrs contents
+	  ;; Caption.
+	  (if (not (org-string-nw-p caption)) ""
+	    (format "<figcaption>%s</figcaption>\n" caption))))
 
 (defun t-paragraph-filter (value _backend _info)
   "Delete trailing newlines."
