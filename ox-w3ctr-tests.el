@@ -17,6 +17,19 @@
 	      (substring-no-properties str))
 	  t-test-values)))
 
+(defun t-parse-mathml-string (strs)
+  (with-work-buffer
+    (dolist (a strs)
+      (insert a "\n"))
+    (goto-char (point-min))
+    (xml-parse-tag)))
+
+(defun t-check-mathml (pairs)
+  (dolist (p pairs)
+    (let ((xml (t-parse-mathml-string (cdr p)))
+	  (result (car p)))
+      (should (equal result (t--mathml-to-oneline xml))))))
+
 (ert-deftest t-center-block ()
   (t-check-element-values
    #'t-center-block #'t-advice-return-value
@@ -254,6 +267,31 @@
      ("#+l: " "")
      ("#+l: (p() 123) (p() 234)" "<p>123</p><p>234</p>")
      ("#+hello: world" ""))))
+
+(ert-deftest t--mathml-to-oneline ()
+  ;; https://www.w3.org/TR/2025/WD-mathml4-20250326/
+  (t-check-mathml
+   '(("<math><mrow>...</mrow></math>"
+      "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">"
+      "<mrow>...</mrow>"
+      "</math>")
+     ("<body>...<m:math><m:mrow>...</m:mrow></m:math>...</body>"
+      "<body xmlns:m=\"http://www.w3.org/1998/Math/MathML\">"
+      "  ..."
+      "  <m:math><m:mrow>...</m:mrow></m:math>"
+      "  ..."
+      "</body>")
+     ("<mtext>Theorem\n1:</mtext>"
+      "<mtext>"
+      "Theorem"
+      "1:"
+      "</mtext>")
+     ("<msup><mrow><mo>(</mo><mrow><mi>f</mi><mo>+</mo><mi>g</mi></mrow><mo>)</mo></mrow><mo>′</mo></msup>"
+      "<msup>"
+      "<mrow><mo>(</mo><mrow><mi>f</mi><mo>+</mo><mi>g</mi></mrow><mo>)</mo></mrow>"
+      "<mo>&#x2032;<!--PRIME--></mo>"
+      "</msup>")
+     )))
 
 (ert-deftest t--2str ()
   (should (eq (t--2str nil) nil))

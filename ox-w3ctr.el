@@ -1311,7 +1311,6 @@ CONTENTS is nil."
       ("L" (mapconcat #'t--sexp2html
 		      (read (format "(%s)" value))))
       (_ ""))))
-;;;; Next Start here
 
 ;;; LATEX utilties.
 (defun t--mathml-to-oneline (xml)
@@ -1327,7 +1326,7 @@ attribute of the generated tags. Here, we remove them.
 According to MathML Spec:
 `xmlns=http://www.w3.org/1998/Math/MathML' may be used on the
 math element; it will be ignored by the HTML parser."
-  (if (stringp xml) (or (t--nw-p xml) "")
+  (if (stringp xml) (or (and (t--nw-p xml) (t--trim xml)) "")
     (let* ((tag (symbol-name (car xml)))
 	   (exclude-regex
 	    (rx (or "xmlns" "data-latex")))
