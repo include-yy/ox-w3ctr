@@ -1244,9 +1244,8 @@ CONTENTS holds the contents of the block."
 	  (t--make-attr__id quote-block info t)
 	  (t--maybe-contents contents)))
 
-;;; Lesser elements (17 - 7 - 2 + 1 = 9)
-;;; src-block, table-row are not here.
-;;; latex-fragment is here.
+;;; Lesser elements (17 - 7 - 3 = 7)
+;;; latex-environment, src-block, and table-row are not here.
 
 ;;;; Example Block
 (defun t-example-block (example-block _contents info)
@@ -1311,118 +1310,6 @@ CONTENTS is nil."
       ("L" (mapconcat #'t--sexp2html
 		      (read (format "(%s)" value))))
       (_ ""))))
-
-;;; LATEX utilties.
-(defun t--mathml-to-oneline (xml)
-  "Convert a MathML XML structure into a single-line string.
-
-If XML is a string and empty, return an empty string;
-otherwise, recursively process the XML structure, converting
-it into a single-line formatted string.
-
-MathJax includes the original LaTeX code in the `data-latex'
-attribute of the generated tags. Here, we remove them.
-
-According to MathML Spec:
-`xmlns=http://www.w3.org/1998/Math/MathML' may be used on the
-math element; it will be ignored by the HTML parser."
-  (if (stringp xml) (or (and (t--nw-p xml) (t--trim xml)) "")
-    (let* ((tag (symbol-name (car xml)))
-	   (exclude-regex
-	    (rx (or "xmlns" "data-latex")))
-	   (props
-	    (thread-first
-	      (lambda (x)
-		(let ((name (symbol-name (car x))))
-		  (cond
-		   ((and (string= name "display")
-			 (string= (cdr x) "inline"))
-		    "")
-		   ((string-match-p exclude-regex name) "")
-		   (t (concat " " name "=\"" (cdr x) "\"")))))
-	      (mapconcat (cadr xml))))
-	   (childs (mapconcat
-		    #'t--mathml-to-oneline (cddr xml))))
-      (format "<%s%s>%s</%s>"
-	      tag props childs tag))))
-
-(defun t--reformat-mathml (str)
-  "Reformat the given MathML STR into a one-line XML string.
-
-In the MathML returned by MathJax, there are some attribute
-values that are not particularly useful for browser rendering
-and need to be removed."
-  (with-work-buffer
-    (insert str) (goto-char (point-min))
-    (let ((xml (xml-parse-tag)))
-      (t--mathml-to-oneline xml))))
-
-;; FIXME: Test needed.
-(defun t--normalize-latex (frag)
-  "Normalize LaTeX fragments in the given string FRAG.
-
-This function processes LaTeX fragments and environments in the
-input string, converting inline and block LaTeX ($.$ and $$.$$)
-to \\(.\\) and \\\\=[.\\\\=].
-
-The code for this function is from `org-format-latex'."
-  (let* ((math-regexp
-	  "\\$\\|\\\\[([]\\|^[ \t]*\\\\begin{[A-Za-z0-9*]+}"))
-    (org-export-with-buffer-copy
-     :to-buffer (get-buffer-create " *Org HTML Export LaTeX*")
-     :drop-visibility t :drop-narrowing t :drop-contents t
-     (erase-buffer)
-     (insert frag)
-     (goto-char (point-min))
-     (while (re-search-forward math-regexp nil t)
-       (let* ((context (org-element-context))
-	      (type (org-element-type context)))
-	 (when (memq type '(latex-environment latex-fragment))
-	   (let ((value (org-element-property :value context))
-		 (beg (org-element-begin context))
-		 (end (save-excursion
-			(goto-char (org-element-end context))
-			(skip-chars-backward " \r\t\n")
-			(point))))
-	     (if (not (string-match "\\`\\$\\$?" value))
-		 (goto-char end)
-	       (delete-region beg end)
-	       (if (string= (match-string 0 value) "$$")
-		   (insert "\\[" (substring value 2 -2) "\\]")
-		 (insert "\\(" (substring value 1 -1) "\\)")))))))
-     (t--trim (buffer-string)))))
-
-(defun t-format-latex (frag type _info)
-  "Format a LaTeX fragment LATEX-FRAG into HTML.
-TYPE designates the tool used for conversion.  It can
-be `mathjax', `mathml' or `nil'(do nothing)."
-  (if (null type) frag
-    (let ((new-frag (t--normalize-latex frag)))
-      (pcase type
-	(`mathjax new-frag)
-	;; FIXME: Check if rpc server is available
-	(`mathml (t--jstools-call 'tex2mml frag))
-	(_ (error "Unknown Latex export type: %s" type))))))
-
-;;;; Latex Fragment
-(defun t-latex-fragment (latex-fragment _contents info)
-  "Transcode a LATEX-FRAGMENT object from Org to HTML."
-  (let* ((frag (org-element-property :value latex-fragment))
-	 (type (plist-get info :with-latex))
-	 (result (t-format-latex frag type info)))
-    (if (eq type 'mathml) (t--reformat-mathml result)
-      result)))
-
-;;;; Latex Environment
-;; FIXME: Consider #+name and #+attr_*, and something else.
-(defun t-latex-environment (latex-environment _contents info)
-  "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
-  (let* ((type (plist-get info :with-latex))
-	 (frag (org-remove-indentation
-		(org-element-property :value latex-environment)))
-	 (result (t-format-latex frag type info)))
-    (if (eq type 'mathml) (t--reformat-mathml result)
-      result)))
 
 ;;;; Paragraph
 ;; FIXME: image link and something else.
@@ -2345,6 +2232,118 @@ INFO is a plist used as a communication channel."
       (with-current-buffer outbuf
 	(prog1 (org-trim (buffer-string))
 	  (kill-buffer) )))))
+
+;;; LATEX utilties.
+(defun t--mathml-to-oneline (xml)
+  "Convert a MathML XML structure into a single-line string.
+
+If XML is a string and empty, return an empty string;
+otherwise, recursively process the XML structure, converting
+it into a single-line formatted string.
+
+MathJax includes the original LaTeX code in the `data-latex'
+attribute of the generated tags. Here, we remove them.
+
+According to MathML Spec:
+`xmlns=http://www.w3.org/1998/Math/MathML' may be used on the
+math element; it will be ignored by the HTML parser."
+  (if (stringp xml) (or (and (t--nw-p xml) (t--trim xml)) "")
+    (let* ((tag (symbol-name (car xml)))
+	   (exclude-regex
+	    (rx (or "xmlns" "data-latex")))
+	   (props
+	    (thread-first
+	      (lambda (x)
+		(let ((name (symbol-name (car x))))
+		  (cond
+		   ((and (string= name "display")
+			 (string= (cdr x) "inline"))
+		    "")
+		   ((string-match-p exclude-regex name) "")
+		   (t (concat " " name "=\"" (cdr x) "\"")))))
+	      (mapconcat (cadr xml))))
+	   (childs (mapconcat
+		    #'t--mathml-to-oneline (cddr xml))))
+      (format "<%s%s>%s</%s>"
+	      tag props childs tag))))
+
+(defun t--reformat-mathml (str)
+  "Reformat the given MathML STR into a one-line XML string.
+
+In the MathML returned by MathJax, there are some attribute
+values that are not particularly useful for browser rendering
+and need to be removed."
+  (with-work-buffer
+    (insert str) (goto-char (point-min))
+    (let ((xml (xml-parse-tag)))
+      (t--mathml-to-oneline xml))))
+
+;; FIXME: Test needed.
+(defun t--normalize-latex (frag)
+  "Normalize LaTeX fragments in the given string FRAG.
+
+This function processes LaTeX fragments and environments in the
+input string, converting inline and block LaTeX ($.$ and $$.$$)
+to \\(.\\) and \\\\=[.\\\\=].
+
+The code for this function is from `org-format-latex'."
+  (let* ((math-regexp
+	  "\\$\\|\\\\[([]\\|^[ \t]*\\\\begin{[A-Za-z0-9*]+}"))
+    (org-export-with-buffer-copy
+     :to-buffer (get-buffer-create " *Org HTML Export LaTeX*")
+     :drop-visibility t :drop-narrowing t :drop-contents t
+     (erase-buffer)
+     (insert frag)
+     (goto-char (point-min))
+     (while (re-search-forward math-regexp nil t)
+       (let* ((context (org-element-context))
+	      (type (org-element-type context)))
+	 (when (memq type '(latex-environment latex-fragment))
+	   (let ((value (org-element-property :value context))
+		 (beg (org-element-begin context))
+		 (end (save-excursion
+			(goto-char (org-element-end context))
+			(skip-chars-backward " \r\t\n")
+			(point))))
+	     (if (not (string-match "\\`\\$\\$?" value))
+		 (goto-char end)
+	       (delete-region beg end)
+	       (if (string= (match-string 0 value) "$$")
+		   (insert "\\[" (substring value 2 -2) "\\]")
+		 (insert "\\(" (substring value 1 -1) "\\)")))))))
+     (t--trim (buffer-string)))))
+
+(defun t-format-latex (frag type _info)
+  "Format a LaTeX fragment LATEX-FRAG into HTML.
+TYPE designates the tool used for conversion.  It can
+be `mathjax', `mathml' or `nil'(do nothing)."
+  (if (null type) frag
+    (let ((new-frag (t--normalize-latex frag)))
+      (pcase type
+	(`mathjax new-frag)
+	;; FIXME: Check if rpc server is available
+	(`mathml (t--jstools-call 'tex2mml frag))
+	(_ (error "Unknown Latex export type: %s" type))))))
+
+;;;; Latex Fragment
+(defun t-latex-fragment (latex-fragment _contents info)
+  "Transcode a LATEX-FRAGMENT object from Org to HTML."
+  (let* ((frag (org-element-property :value latex-fragment))
+	 (type (plist-get info :with-latex))
+	 (result (t-format-latex frag type info)))
+    (if (eq type 'mathml) (t--reformat-mathml result)
+      result)))
+
+;;;; Latex Environment
+;; FIXME: Consider #+name and #+attr_*, and something else.
+(defun t-latex-environment (latex-environment _contents info)
+  "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
+  (let* ((type (plist-get info :with-latex))
+	 (frag (org-remove-indentation
+		(org-element-property :value latex-environment)))
+	 (result (t-format-latex frag type info)))
+    (if (eq type 'mathml) (t--reformat-mathml result)
+      result)))
 
 ;;;; src-block export backend
 

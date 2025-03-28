@@ -268,6 +268,8 @@
      ("#+l: (p() 123) (p() 234)" "<p>123</p><p>234</p>")
      ("#+hello: world" ""))))
 
+(ert-deftest t-paragraph ())
+
 (ert-deftest t--mathml-to-oneline ()
   ;; https://www.w3.org/TR/2025/WD-mathml4-20250326/
   (t-check-mathml
