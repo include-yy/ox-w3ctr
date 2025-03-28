@@ -1331,13 +1331,12 @@ Also check attributes and caption of paragraph."
   (concat (string-trim-right value) "\n"))
 
 ;;;; Verse Block
-;; FIXME: make it better?
-(defun t-verse-block (_verse-block contents _info)
+(defun t-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
-CONTENTS is verse block contents.  INFO is a plist holding
-contextual information."
+CONTENTS is verse block contents."
   (format
-   "<p class=\"verse\">\n%s</p>"
+   "<p%s>\n%s</p>"
+   (t--make-attr__id verse-block info t)
    ;; Replace leading white spaces with non-breaking spaces.
    (replace-regexp-in-string
     "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))

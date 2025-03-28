@@ -297,6 +297,18 @@
      ("[[https://example.com/1.jpg][file:1.jpg]]"
       "<figure>\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))))
 
+(ert-deftest t-verse-block ()
+  (t-check-element-values
+   #'t-verse-block #'t-advice-return-value
+   '(("#+begin_verse\n#+end_verse" "<p>\n</p>")
+     ("#+BEGIN_VERSE\n#+END_VERSE" "<p>\n</p>")
+     ("#+begin_verse\n1  2  3\n#+end_verse" "<p>\n1  2  3<br>\n</p>")
+     ("#+begin_verse\n 1\n  2\n   3\n#+end_verse"
+      "<p>\n1<br>\n&#xa0;2<br>\n&#xa0;&#xa0;3<br>\n</p>")
+     ("#+name: this\n#+begin_verse\n#+end_verse" "<p id=\"this\">\n</p>")
+     ("#+attr__:[hi]\n#+begin_verse\n\n\n#+end_verse"
+      "<p class=\"hi\">\n<br>\n<br>\n</p>"))))
+
 (ert-deftest t--mathml-to-oneline ()
   ;; https://www.w3.org/TR/2025/WD-mathml4-20250326/
   (t-check-mathml
