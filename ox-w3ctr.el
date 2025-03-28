@@ -1294,18 +1294,18 @@ CONTENTS is nil."
       (_ ""))))
 
 ;;;; Paragraph
-;; FIXME: image link and something else.
 (defun t-paragraph (paragraph contents info)
-  "Transcode a PARAGRAPH element from Org to HTML."
+  "Transcode a PARAGRAPH element from Org to HTML.
+CONTENTS is the contents of the paragraph, as a string."
   (let* ((parent (org-export-get-parent paragraph))
 	 (parent-type (org-element-type parent))
 	 (attrs (t--make-attr__id paragraph info t)))
     (cond
      (;; Item's first line.
       (and (eq parent-type 'item)
-	   (string= attrs "")
 	   (not (org-export-get-previous-element paragraph info)))
-      contents)
+      (if (string= attrs "") contents
+	(format "<span%s>%s</span>" attrs contents)))
      (;; Standalone image.
       (t-standalone-image-p paragraph info)
       (let* ((caption (org-export-get-caption paragraph))
@@ -1318,7 +1318,7 @@ CONTENTS is nil."
 
 (defun t--wrap-image (contents _info caption attrs)
   "Wrap CONTENTS string within an appropriate environment for images.
-Also check attributes and caption for paragraph."
+Also check attributes and caption of paragraph."
   (format "<figure%s>\n%s%s</figure>"
 	  ;; Attributes and contents.
 	  attrs contents
