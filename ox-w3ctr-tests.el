@@ -343,6 +343,30 @@
      ("@@l:\"1 \" \"2\"@@" "1 2")
      ("@@wtf::hello@@" ""))))
 
+(ert-deftest t-statistics-cookie ()
+  (t-check-element-values
+   #'t-statistics-cookie #'t-advice-return-value
+   '(("- hello [/]" "<code>[/]</code>")
+     ("- hello [0/1]\n  - [ ] helllo" "<code>[0/1]</code>")
+     ("- hello [33%]\n  - [X] hello" "<code>[33%]</code>")
+     ("- hello :: abc [0/1]\n  - [ ] this is what"
+      "<code>[0/1]</code>")
+     ("1. hello [50%]\n   1. [ ] hello1\n   2. [X] hello2"
+      "<code>[50%]</code>"))))
+
+(ert-deftest t-subscript ()
+  (t-check-element-values
+   #'t-subscript #'t-advice-return-value
+   '(("1_2" "<sub>2</sub>")
+     ("x86_64" "<sub>64</sub>")
+     ("f_{1}" "<sub>1</sub>"))))
+
+(ert-deftest t-superscript ()
+  (t-check-element-values
+   #'t-superscript #'t-advice-return-value
+   '(("1^2" "<sup>2</sup>")
+     ("x86^64" "<sup>64</sup>")
+     ("f^{1}" "<sup>1</sup>"))))
 
 (ert-deftest t--mathml-to-oneline ()
   ;; https://www.w3.org/TR/2025/WD-mathml4-20250326/

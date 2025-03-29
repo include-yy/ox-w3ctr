@@ -1380,7 +1380,17 @@ CONTENTS is verse block contents."
   "Transcode a LINE-BREAK object from Org to HTML."
   "<br>\n")
 
+;;;; Target
+;; FIXME: Add test after imporve t--reference
+(defun t-target (target _contents info)
+  "Transcode a TARGET object from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual
+information."
+  (let ((ref (t--reference target info)))
+    (t--anchor ref nil nil info)))
+
 ;;;; Radio Target
+;; FIXME: Add test after imporve t--reference
 (defun t-radio-target (radio-target text info)
   "Transcode a RADIO-TARGET object from Org to HTML."
   (let ((ref (t--reference radio-target info)))
@@ -1402,14 +1412,6 @@ CONTENTS is verse block contents."
 (defun t-superscript (_superscript contents _info)
   "Transcode a SUPERSCRIPT object from Org to HTML."
   (format "<sup>%s</sup>" contents))
-
-;;;; Target
-(defun t-target (target _contents info)
-  "Transcode a TARGET object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual
-information."
-  (let ((ref (t--reference target info)))
-    (t--anchor ref nil nil info)))
 
 ;;;; Timestamp
 (defun t--timezone-to-offset (zone-str)
