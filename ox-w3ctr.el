@@ -263,8 +263,8 @@ and strictly validates both UTC/GMT and [+-]HHMM formats.")
   "Time zone string for W3C TR export.
 
 Designator should be in either:
-. [+-]HHMM format      (e.g., \"+0800\", \"-0500\")
-. GMT/UTC[+-]XX format (e.g., \"UTC+8\", \"GMT-5\")
+. ±HHMM format      (e.g., \"+0800\", \"-0500\")
+. GMT/UTC±XX format (e.g., \"UTC+8\", \"GMT-5\")
 
 This value is used when generating datetime metadata.
 Examples of valid values:
@@ -276,9 +276,10 @@ Examples of valid values:
 See ISO 8601 and RFC 2822 for timezone formatting standards."
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
-	 (if (not (string-match-p t-timezone-regex value))
-	     (error "Not a valid time zone designator: %s" value)
-	   (set symbol value)))
+	 (let ((case-fold-search t))
+	   (if (not (string-match-p t-timezone-regex value))
+	       (error "Not a valid time zone designator: %s" value)
+	     (set symbol value))))
   :type 'string)
 
 (defcustom t-coding-system 'utf-8-unix
@@ -1415,10 +1416,13 @@ information."
 
 ;;;; Timestamp
 (defun t--timezone-to-offset (zone-str)
+  "Convert ZONE-STR timezone string to offset in seconds.
+Valid formats are UTC/GMT±XX (e.g., UTC+8) or ±HHMM (e.g., -0500).
+Throws error if ZONE-STR doesn't match `org-w3ctr-timezone-regex'."
   (let ((case-fold-search t)
 	(zone-str (t--trim zone-str)))
     (if (not (string-match t-timezone-regex zone-str))
-	(error "time zone format not correct: %s" zone-str)
+	(error "Time zone format not correct: %s" zone-str)
       (let* ((time-str (or (match-string 1 zone-str)
 			   (match-string 2 zone-str)))
 	     (len (length time-str))
@@ -1432,34 +1436,62 @@ information."
 		(minute (% number 100)))
 	    (+ (* hour 3600) (* minute 60)))))))))
 
+(defun t--normalize-timezone-offset (offset)
+  "Convert OFFSET in seconds to standardized timezone string.
+Returns a string in ±HHMM format (e.g. \"+0800\", \"-0500\").
+
+OFFSET is the timezone offset in seconds (e.g. 28800 for UTC+8).
+Zero offset returns \"+0000\" (not \"Z\")."
+  (if (= offset 0) "+0000"
+    (let* ((hours (/ (abs offset) 3600))
+	   (minutes (/ (- (abs offset) (* hours 3600)) 60)))
+      (concat
+       (if (>= offset 0) "+" "-")
+       (when (< hours 10) "0")
+       (number-to-string hours)
+       (when (< minutes 10) "0")
+       (number-to-string minutes)))))
+
 (defun t--get-info-timezone-offset (info)
+  "Return timezone offset in seconds from INFO plist.
+
+The `:html-time-zone' property can be either a number
+(offset in seconds) or a string (timezone format like \"UTC+8\");
+in the latter case it will be converted to seconds and cached in the
+plist to avoid recomputation.
+
+This provides both flexibility in input format and efficient access."
   (let ((zone (plist-get info :html-time-zone)))
     (if (numberp zone) zone
       (let ((time (t--timezone-to-offset zone)))
 	(setf (plist-get info :html-time-zone) time)))))
 
-(defun t--timezone-normalize (offset)
-  (if (= offset 0) "+0000"
-    (let* ((hours (/ (abs offset) 3600))
-	   (minutes (/ (- (abs offset) (* hours 3600)) 60)))
-      (concat (if (>= offset 0) "+" "-")
-	      (when (< hours 10) "0")
-	      (number-to-string hours)
-	      (when (< minutes 10) "0")
-	      (number-to-string minutes)))))
+(defun t--get-info-normalized-timezone (info)
+  "Return normalized ±HHMM timezone string from INFO plist.
+First gets the offset by `org-w3ctr--get-info-timezone-offset',
+then formats it as ±HHMM by `org-w3ctr--normalize-timezone-offset'.
 
-(defun t--format-timestamp-Z (time ufmt info)
-  (let* ((offset (t--get-info-timezone-offset info))
-	 (delta-time (seconds-to-time (- offset))))
-    (format-time-string
-     ufmt (time-add time delta-time))))
+This ensures consistent output format regardless of the original
+timezone representation in the plist."
+  (t--normalize-timezone-offset
+   (t--get-info-timezone-offset info)))
 
-(defun t--timestamp-format (type has-time info)
+(defun t--format-normalized-timestamp (time info)
+  "Format TIME into a timestamp string with normalized timezone.
+TIME is the time value to format; FMT is the format string for
+`format-time-string'; INFO is a plist containing timezone information."
+  (let* ((zone (t--get-info-normalized-timezone info)))
+    (concat (format-time-string "%Y-%m-%d %H:%M" time) zone)))
+
+(defun t--get-timestamp-format (type has-time info)
+  "Format timestamp according to Org-mode conventions.
+This is a wrapper around `org-time-stamp-format' that provides
+customizable formatting."
   (let* ((w3c-formats (plist-get info :html-timestamp-format))
 	 (org-timestamp-formats w3c-formats))
     (org-time-stamp-format
      has-time (memq type '(inactive inactive-range))
-     (not (not org-display-custom-times)))))
+     org-display-custom-times)))
 
 (defun t-timestamp (timestamp _contents info &optional boundary)
   "Transcode a TIMESTAMP object from Org to HTML."
@@ -1468,25 +1500,30 @@ information."
 	(format "<time>%s</time>"
 		(org-element-interpret-data timestamp))
       (let* ((has-time (org-timestamp-has-time-p timestamp))
-	     (ufmt (if has-time "%Y-%m-%dT%H:%MZ" "%Y-%m-%d"))
-	     (fmt (t--timestamp-format type has-time info))
+	     (fmt (t--get-timestamp-format type has-time info))
 	     (is-end (eq boundary 'end)))
 	(pcase type
 	  ((or `active `inactive (guard boundary))
-	   (let* ((time (org-timestamp-to-time timestamp is-end)))
+	   (let* ((t0 (org-timestamp-to-time timestamp is-end)))
 	     (format "<time datetime=\"%s\">%s</time>"
-		     (t--format-timestamp-Z time ufmt info)
+		     (if has-time
+			 (t--format-normalized-timestamp t0 info)
+		       (format-time-string "%Y-%m-%d" t0))
 		     (org-format-timestamp timestamp fmt is-end))))
 	  ((or `active-range `inactive-range)
 	   (let* ((t1 (org-timestamp-to-time timestamp))
 		  (t2 (org-timestamp-to-time timestamp t)))
 	     (concat
 	      (format "<time datetime=\"%s\">%s</time>"
-		      (t--format-timestamp-Z t1 ufmt info)
+		      (if has-time
+			  (t--format-normalized-timestamp t1 info)
+			(format-time-string "%Y-%m-%d" t1))
 		      (org-format-timestamp timestamp fmt))
 	      "&#x2013;"
 	      (format "<time datetime=\"%s\">%s</time>"
-		      (t--format-timestamp-Z t2 ufmt info)
+		      (if has-time
+			  (t--format-normalized-timestamp t2 info)
+			(format-time-string "%Y-%m-%d" t2))
 		      (org-format-timestamp timestamp fmt t)))))
 	  (_ (error "Not a valid time type %s" type)))))))
 
@@ -1648,7 +1685,7 @@ INFO is a plist used as a communication channel."
 	 "<!-- %s%s -->\n"
 	 (plist-get info :html-metadata-timestamp-format)
 	 ;; Add time zone information here.
-	 (t--timezone-normalize
+	 (t--normalize-timezone-offset
 	  (t--get-info-timezone-offset info)))))
      (t--build-meta-entry "charset" charset)
      (let ((viewport-options
