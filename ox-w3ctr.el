@@ -1766,17 +1766,28 @@ See `org-html-inner-template' for more information"
 	      (or link-home link-up)))))
 
 (defun t-format-home/up-default-function (info)
-  (let* ((links (plist-get info :html-link-home/up))
-	 (<a>s
-	  (thread-last
-	    (mapcar (lambda (x) (org-export-data x info)) links)
-	    (cl-remove-if-not #'t--nw-p)
-	    (funcall (lambda (x) (mapconcat #'identity x "\n"))))))
-    (if (string= <a>s "") (t-legacy-format-home/up info)
-      (concat
-       "<nav id=\"home-and-up\">\n"
-       <a>s
-       "\n</nav>\n"))))
+  (let* ((links (plist-get info :html-link-home/up)))
+    (pcase links
+      ((pred vectorp)
+       (concat "<nav id=\"home-and-up\">\n"
+	       (thread-first
+		 (pcase-lambda (`(,link . ,name))
+		   (format "<a href=\"%s\">%s</a>"
+			   link name))
+		 (mapconcat links "\n"))
+	       "\n</nav>\n"))
+      ((pred listp)
+       (let ((<a>s
+	      (thread-last
+		(mapcar (lambda (x) (org-export-data x info)) links)
+		(cl-remove-if-not #'t--nw-p)
+		(funcall (lambda (x) (mapconcat #'identity x "\n"))))))
+	 (if (string= <a>s "") (t-legacy-format-home/up info)
+	   (concat
+	    "<nav id=\"home-and-up\">\n"
+	    <a>s
+	    "\n</nav>\n"))))
+      (_ (error "Seems not a valid home/up value: %s" links)))))
 
 (defun t--build-title (info)
   (when (plist-get info :with-title)
