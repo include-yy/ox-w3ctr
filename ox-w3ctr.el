@@ -1367,13 +1367,13 @@ CONTENTS is verse block contents."
       ;; plain html text.
       ((or 'h 'html) value)
       ;; Read, Evaluate, Print, no Loop :p
-      ('e (format "%s" (eval (read value))))
+      ('e (format "%s" (eval (read (or (t--nw-p value) "\"\"")))))
       ;; sexp-style html data.
-      ('d (t--sexp2html (read value)))
+      ('d (t--sexp2html (read (or (t--nw-p value) "\"\""))))
       ;; sexp-style html data list.
       ('l (mapconcat #'t--sexp2html
 		     (read (format "(%s)" value))))
-      (_ nil))))
+      (_ ""))))
 
 ;;;; Line Break
 (defun t-line-break (_line-break _contents _info)

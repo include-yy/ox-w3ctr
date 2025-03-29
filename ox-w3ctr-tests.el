@@ -309,6 +309,41 @@
      ("#+attr__:[hi]\n#+begin_verse\n\n\n#+end_verse"
       "<p class=\"hi\">\n<br>\n<br>\n</p>"))))
 
+(ert-deftest t-entity ()
+  (t-check-element-values
+   #'t-entity #'t-advice-return-value
+   '(("\\alpha \\beta \\eta \\gamma \\epsilon"
+      "&epsilon;" "&gamma;" "&eta;" "&beta;" "&alpha;")
+     ("\\AA" "&Aring;")
+     ("\\real \\image \\imath \\jmath"
+      "&jmath;" "&imath;" "&image;" "&real;")
+     ("\\quot \\acute \\bdquo \\raquo"
+      "&raquo;" "&bdquo;" "&acute;" "&quot;")
+     ("\\Dagger \\ddag \\** \\dollar \\copy \\reg"
+      "&reg;" "&copy;" "$" "&Dagger;" "&Dagger;")
+     ("\\frac12 \\frac14 \\frac34 \\radic \\prop \\sim"
+      "&sim;" "&prop;" "&radic;" "&frac34;" "&frac14;" "&frac12;"))))
+
+(ert-deftest t-export-snippet ()
+  (t-check-element-values
+   #'t-export-snippet #'t-advice-return-value
+   '(("@@h:<span>123</span>@@" "<span>123</span>")
+     ("@@h:@@" "")
+     ("@@html:<span>123</span>@@" "<span>123</span>")
+     ("@@html:@@" "")
+     ("@@e:@@" "")
+     ("@@e:(+ 1 2)@@" "3")
+     ("@@e:'(1 2 3)@@" "(1 2 3)")
+     ("@@d:@@" "")
+     ("@@d:(span() \"nothing\")")
+     ("@@d:(wbr)@@" "<wbr>")
+     ("@@d:(wbr())@@" "<wbr>")
+     ("@@l:@@" "")
+     ("@@l:1 2 3@@" "123")
+     ("@@l:\"1 \" \"2\"@@" "1 2")
+     ("@@wtf::hello@@" ""))))
+
+
 (ert-deftest t--mathml-to-oneline ()
   ;; https://www.w3.org/TR/2025/WD-mathml4-20250326/
   (t-check-mathml
