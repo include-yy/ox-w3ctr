@@ -29,7 +29,7 @@
     (let ((xml (t-parse-mathml-string (cdr p)))
 	  (result (car p)))
       (should (equal result (t--mathml-to-oneline xml))))))
-
+
 (ert-deftest t-center-block ()
   (t-check-element-values
    #'t-center-block #'t-advice-return-value
@@ -519,6 +519,137 @@
 <time datetime=\"2025-02-02\"><2025-02-02></time>")
      ("[2000-01-01]" "<time datetime=\"2000-01-01\">[2000-01-01]</time>"))))
 
+(ert-deftest t-bold ()
+  (t-check-element-values
+   #'t-bold #'t-advice-return-value
+   '(("*abc*" "<strong>abc</strong>")
+     ("**abc**"
+      "<strong><strong>abc</strong></strong>"
+      "<strong>abc</strong>")
+     ("**" . nil)
+     ("***" "<strong>*</strong>")
+     ("****" "<strong>**</strong>")
+     ("*****"
+      "<strong><strong>*</strong></strong>"
+      "<strong>*</strong>")
+     ("*\\star\\star\\star*" "<strong>***</strong>")
+     ("*hello world this world*"
+      "<strong>hello world this world</strong>")
+     ("*hello\nworld*" "<strong>hello\nworld</strong>"))))
+
+(ert-deftest t-italic ()
+  (t-check-element-values
+   #'t-italic #'t-advice-return-value
+   '(("/abc/" "<em>abc</em>")
+     ("//abc//"
+      "<em><em>abc</em></em>" "<em>abc</em>")
+     ("//" . nil)
+     ("///" "<em>/</em>")
+     ("////" "<em>//</em>")
+     ("/////"
+      "<em><em>/</em></em>" "<em>/</em>")
+     ("/\\slash\\slash\\slash/" "<em>///</em>")
+     ("/hello world this world/"
+      "<em>hello world this world</em>")
+     ("/hello\nworld/" "<em>hello\nworld</em>"))))
+
+(ert-deftest t-underline ()
+  (t-check-element-values
+   #'t-underline #'t-advice-return-value
+   '(("_abc_" "<span class=\"underline\">abc</span>")
+     ("__abc__"
+      "<span class=\"underline\"><span class=\"underline\">abc</span></span>"
+      "<span class=\"underline\">abc</span>")
+     ("__" . nil)
+     ("___" "<span class=\"underline\">_</span>")
+     ("____" "<span class=\"underline\">__</span>")
+     ("_____"
+      "<span class=\"underline\"><span class=\"underline\">_</span></span>"
+      "<span class=\"underline\">_</span>")
+     ("_\\under\\under\\under_"
+      "<span class=\"underline\">___</span>")
+     ("_hello world this world_"
+      "<span class=\"underline\">hello world this world</span>")
+     ("_hello\nworld_"
+      "<span class=\"underline\">hello\nworld</span>"))))
+
+(ert-deftest t-verbatim ()
+  (t-check-element-values
+   #'t-verbatim #'t-advice-return-value
+   '(("=abc=" "<code>abc</code>")
+     ("==abc==" "<code>=abc=</code>")
+     ("==" . nil)
+     ("===" "<code>=</code>")
+     ("====" "<code>==</code>")
+     ("=====" "<code>===</code>")
+     ("=\\slash\\slash\\slash="
+      "<code>\\slash\\slash\\slash</code>")
+     ("=hello world this world="
+      "<code>hello world this world</code>")
+     ("=hello\nworld=" "<code>hello\nworld</code>"))))
+
+(ert-deftest t-code ()
+  (t-check-element-values
+   #'t-code #'t-advice-return-value
+   '(("~abc~" "<code>abc</code>")
+     ("~~abc~~" "<code>~abc~</code>")
+     ("~~" . nil)
+     ("~~~" "<code>~</code>")
+     ("~~~~" "<code>~~</code>")
+     ("~~~~~" "<code>~~~</code>")
+     ("~\\slash\\slash\\slash~"
+      "<code>\\slash\\slash\\slash</code>")
+     ("~hello world this world~"
+      "<code>hello world this world</code>")
+     ("~hello\nworld~" "<code>hello\nworld</code>"))))
+
+(ert-deftest t-strike-through ()
+  (t-check-element-values
+   #'t-strike-through #'t-advice-return-value
+   '(("+abc+" "<del>abc</del>")
+     ("++abc++"
+      "<del><del>abc</del></del>"
+      "<del>abc</del>")
+     ("++" . nil)
+     ("+++" "<del>+</del>")
+     ("++++" "<del>++</del>")
+     ("+++++"
+      "<del><del>+</del></del>"
+      "<del>+</del>")
+     ("+\\plus\\plus\\plus+" "<del>+++</del>")
+     ("+hello world this world+"
+      "<del>hello world this world</del>")
+     ("+hello\nworld+" "<del>hello\nworld</del>"))))
+
+(ert-deftest t-convert-special-strings ()
+  (dolist (a '(("hello..." . "hello&#x2026;")
+	       ("......" . "&#x2026;&#x2026;")
+	       ("\\\\-" . "\\&#x00ad;")
+	       ("---abc" . "&#x2014;abc")
+	       ("--abc" . "&#x2013;abc")))
+    (should (string= (t-convert-special-strings (car a)) (cdr a)))))
+
+(ert-deftest t-encode-plain-text ()
+  (dolist (a '(("a&b&c" . "a&amp;b&amp;c")
+	       ("<div>" . "&lt;div&gt;")
+	       ("<span>" . "&lt;span&gt;")))
+    (should (string= (t-encode-plain-text (car a)) (cdr a)))))
+
+(ert-deftest t-plain-text ()
+  (should (equal (t-plain-text "a < b & c > d" '())
+                 "a &lt; b &amp; c &gt; d"))
+  (should (equal (t-plain-text "\"hello\"" '(:with-smart-quotes t))
+                 "\"hello\""))
+  (should (equal (t-plain-text "a -- b" '(:with-special-strings t))
+                 "a &#x2013; b"))
+  (should (equal (t-plain-text "line1\nline2" '(:preserve-breaks t))
+                 "line1<br>\nline2"))
+  (should (equal (t-plain-text "\"a < b\" -- c\nd" 
+                                  '(:with-smart-quotes t 
+                                    :with-special-strings t 
+                                    :preserve-breaks t))
+                 "\"a &lt; b\" &#x2013; c<br>\nd")))
+
 (ert-deftest t--mathml-to-oneline ()
   ;; https://www.w3.org/TR/2025/WD-mathml4-20250326/
   (t-check-mathml

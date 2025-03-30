@@ -572,14 +572,6 @@ See `org-html-inline-image-rules' for more information."
   :group 'org-export-w3ctr
   :type 'sexp)
 
-;;;; Plain Text
-
-(defvar t-protect-char-alist
-  '(("&" . "&amp;")
-    ("<" . "&lt;")
-    (">" . "&gt;"))
-  "Alist of characters to be converted by `t-encode-plain-text'.")
-
 ;;;; Src Block
 
 (defcustom t-fontify-method 'engrave
@@ -1576,6 +1568,13 @@ customizable formatting."
     ("\\.\\.\\." . "&#x2026;"))		; hellip
   "Regular expressions for special string conversion.")
 
+(defconst t-protect-char-alist
+  '(("&" . "&amp;")
+    ("<" . "&lt;")
+    (">" . "&gt;"))
+  "Alist of characters to be converted by
+`org-w3ctr-encode-plain-text'.")
+
 (defun t-convert-special-strings (string)
   "Convert special characters in STRING to HTML."
   (dolist (a t-special-string-regexps string)
@@ -1685,8 +1684,7 @@ INFO is a plist used as a communication channel."
 	 "<!-- %s%s -->\n"
 	 (plist-get info :html-metadata-timestamp-format)
 	 ;; Add time zone information here.
-	 (t--normalize-timezone-offset
-	  (t--get-info-timezone-offset info)))))
+	 (t--get-info-normalized-timezone info))))
      (t--build-meta-entry "charset" charset)
      (let ((viewport-options
 	    (cl-remove-if-not
