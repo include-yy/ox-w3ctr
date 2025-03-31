@@ -255,10 +255,14 @@ int a = 1;</code></p>\n</details>")
   (t-check-element-values
    #'t-quote-block #'t-advice-return-value
    '(("#+begin_quote\n#+end_quote" "<blockquote></blockquote>")
+     ("#+BEGIN_QUOTE\n#+END_QUOTE" "<blockquote></blockquote>")
      ("#+begin_quote\n123\n#+end_quote"
       "<blockquote>\n<p>123</p>\n</blockquote>")
      ("#+attr__: [test]\n#+BEGIN_QUOTE\n456\n#+END_QUOTE"
-      "<blockquote class=\"test\">\n<p>456</p>\n</blockquote>"))))
+      "<blockquote class=\"test\">\n<p>456</p>\n</blockquote>")
+     ("#+begin_quote\n\n\n#+end_quote" "<blockquote>\n\n</blockquote>")
+     ("#+begin_quote\n\n\n\n\n\n\n\n\n\n#+end_quote"
+      "<blockquote>\n\n</blockquote>"))))
 
 (ert-deftest t-example-block ()
   (t-check-element-values

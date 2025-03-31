@@ -1171,13 +1171,14 @@ See `org-w3ctr-checkbox-types' for customization options."
      (pcase type
        (`ordered
 	(let* ((counter term-counter-id)
-	       (extra (if counter
-			  (format " value=\"%s\"" counter) "")))
+	       (extra (if (not counter) ""
+			  (format " value=\"%s\"" counter))))
 	  (concat
 	   (format "<li%s>" extra)
 	   (when headline (concat headline br)))))
        (`unordered
 	;; Ignore term-counter-id
+	;; To prevent it from being parsed, try add <wbr> after '['
 	(concat "<li>" (when headline (concat headline br))))
        (`descriptive
 	(let* ((term term-counter-id))
@@ -1191,11 +1192,12 @@ See `org-w3ctr-checkbox-types' for customization options."
      (and (t--nw-p contents) (t--trim contents))
      extra-newline
      (pcase type
-       (`ordered "</li>")
-       (`unordered "</li>")
+       (`ordered "</li>") (`unordered "</li>")
        (`descriptive "</dd>")))))
 
 ;;;; Item
+;; See (info "(org)Plain Lists")
+;; Fixed export. Not customizable.
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML.
 CONTENTS holds the contents of the item."
@@ -1209,20 +1211,22 @@ CONTENTS holds the contents of the item."
      contents type checkbox info (or tag counter))))
 
 ;;;; Plain List
+;; See (info "(org)Plain Lists")
+;; Fixed export. Not customizable.
 (defun t-plain-list (plain-list contents info)
   "Transcode a PLAIN-LIST element from Org to HTML.
 CONTENTS is the contents of the list."
-  (let* ((type (pcase (org-element-property :type plain-list)
-		 (`ordered "ol")
-		 (`unordered "ul")
-		 (`descriptive "dl")
-		 (other
-		  (error "Unknown HTML list type: %s" other))))
+  (let* ((type
+	  (pcase (org-element-property :type plain-list)
+	    (`ordered "ol") (`unordered "ul") (`descriptive "dl")
+	    (other (error "Unknown HTML list type: %s" other))))
 	 (attributes (t--make-attr__id plain-list info t)))
     (format "<%s%s>\n%s</%s>"
 	    type attributes contents type)))
 
 ;;;; Quote Block
+;; See (info "(org)Paragraphs")
+;; Fixed export. Not customizable.
 (defun t-quote-block (quote-block contents info)
   "Transcode a QUOTE-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
