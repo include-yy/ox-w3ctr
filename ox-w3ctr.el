@@ -215,6 +215,12 @@
   :tag "Org Export W3CTR HTML"
   :group 'org-export)
 
+(defcustom t-checkbox-type 'unicode
+  "The type of checkboxes to use for HTML export.
+See `org-html-checkbox-types' for the values used for each option."
+  :group 'org-export-w3ctr
+  :type '(choice (const unicode) (const ascii) (const html)))
+
 ;;;; Smallest objects.
 (defcustom t-text-markup-alist
   '((bold . "<strong>%s</strong>")
@@ -697,11 +703,6 @@ See `format-time-string' for more information on its components."
   :group 'org-export-w3ctr
   :type 'sexp)
 
-(defvar t-checkbox-type 'unicode
-  "The type of checkboxes to use for HTML export.
-
-See `org-html-checkbox-types' for the values used for each option.")
-
 ;;;; LaTeX
 
 ;;; Internal Variables
@@ -1096,6 +1097,7 @@ See also `org-trim'."
 
 ;;;; Center Block
 ;; See (info "(org)Paragraphs")
+;; Fixed export. Not customizable.
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
@@ -1104,6 +1106,7 @@ CONTENTS holds the contents of the block."
 
 ;;;; Drawer
 ;; See (info "(org)Drawers")
+;; Fixed export. Not customizable.
 (defun t-drawer (drawer contents info)
   "Transcode a DRAWER element from Org to HTML.
 CONTENTS holds the contents of the block."
@@ -1116,12 +1119,14 @@ CONTENTS holds the contents of the block."
 	    attrs cap (t--maybe-contents contents))))
 
 ;;;; Dynamic Block
+;; See (info "(org)Dynamic Blocks")
+;; Fixed export. Not customizable.
 (defun t-dynamic-block (_dynamic-block contents _info)
   "Transcode a DYNAMIC-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
   (or contents ""))
 
-;;;; Item
+;;; Item and Plain Lists
 (defconst t-checkbox-types
   '(( unicode .
       ((on . "&#x2611;")
@@ -1144,6 +1149,8 @@ The choices are:
   `ascii'   ASCII characters
   `html'    HTML checkboxes")
 
+;; See (info "(org)Checkboxes")
+;; To modify checkbox style, set `org-w3ctr-checkbox-type'.
 (defun t-checkbox (checkbox info)
   "Format CHECKBOX into HTML.
 See `org-w3ctr-checkbox-types' for customization options."
@@ -1188,6 +1195,7 @@ See `org-w3ctr-checkbox-types' for customization options."
        (`unordered "</li>")
        (`descriptive "</dd>")))))
 
+;;;; Item
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML.
 CONTENTS holds the contents of the item."
