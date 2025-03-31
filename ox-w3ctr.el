@@ -1095,6 +1095,7 @@ See also `org-trim'."
 ;;; special-block and table are not here.
 
 ;;;; Center Block
+;; See (info "(org)Paragraphs")
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
@@ -1102,6 +1103,7 @@ CONTENTS holds the contents of the block."
 	  (t--maybe-contents contents)))
 
 ;;;; Drawer
+;; See (info "(org)Drawers")
 (defun t-drawer (drawer contents info)
   "Transcode a DRAWER element from Org to HTML.
 CONTENTS holds the contents of the block."
