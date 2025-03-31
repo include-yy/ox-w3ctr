@@ -1108,8 +1108,9 @@ CONTENTS holds the contents of the block."
   "Transcode a DRAWER element from Org to HTML.
 CONTENTS holds the contents of the block."
   (let* ((name (org-element-property :drawer-name drawer))
-	 (cap (if-let* ((cap (org-export-get-caption drawer)))
-		  (org-export-data cap info) name))
+	 (cap (if-let* ((cap (org-export-get-caption drawer))
+			(exp (t--nw-p (org-export-data cap info))))
+		  exp name))
 	 (attrs (t--make-attr__id drawer info t)))
     (format "<details%s><summary>%s</summary>%s</details>"
 	    attrs cap (t--maybe-contents contents))))

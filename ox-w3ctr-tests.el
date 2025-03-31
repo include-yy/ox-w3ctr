@@ -97,7 +97,11 @@
    '(("#+begin_center\n#+end_center"
       "<div style=\"text-align:center;\"></div>")
      ("#+begin_center\n123\n#+end_center"
-      "<div style=\"text-align:center;\">\n<p>123</p>\n</div>"))))
+      "<div style=\"text-align:center;\">\n<p>123</p>\n</div>")
+     ("#+BEGIN_CENTER\n\n\n#+END_CENTER"
+      "<div style=\"text-align:center;\">\n\n</div>")
+     ("#+BEGIN_CENTER\n\n\n\n\n\n#+END_CENTER"
+      "<div style=\"text-align:center;\">\n\n</div>"))))
 
 (ert-deftest t-drawer ()
   (t-check-element-values
@@ -107,11 +111,19 @@
      ("#+caption: what can i say\n:test:\n:end:"
       "<details><summary>what can i say</summary></details>")
      ("#+name: id\n#+attr__: [example]\n:h:\n:end:"
-      "<details id=\"id\" class=\"example\"><summary>h</summary></details>")
+      "<details id=\"id\" class=\"example\"><summary>\
+h</summary></details>")
      ("#+attr__: (open)\n:h:\n:end:"
       "<details open><summary>h</summary></details>")
      (":try-this:\n=int a = 1;=\n:end:"
-      "<details><summary>try-this</summary>\n<p><code>int a = 1;</code></p>\n</details>"))))
+      "<details><summary>try-this</summary>\n<p><code>\
+int a = 1;</code></p>\n</details>")
+     ("#+CAPTION:\n:test:\n:end:"
+      "<details><summary>test</summary></details>")
+     ("#+caption: \n:test:\n:end:"
+      "<details><summary>test</summary></details>")
+     ("#+caption:         \t\n:test:\n:end:"
+      "<details><summary>test</summary></details>"))))
 
 (ert-deftest t-dynamic-block ()
   (t-check-element-values
