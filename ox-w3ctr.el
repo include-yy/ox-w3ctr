@@ -1238,6 +1238,8 @@ CONTENTS holds the contents of the block."
 ;;; latex-environment, src-block, and table-row are not here.
 
 ;;;; Example Block
+;; See (info "(org)Literal Examples")
+;; Fixed export. Not customizable.
 (defun t-example-block (example-block _contents info)
   "Transcode a EXAMPLE-BLOCK element from Org to HTML.
 CONTENTS is nil."
@@ -1247,6 +1249,8 @@ CONTENTS is nil."
 	   (org-element-property :value example-block))))
 
 ;;;; Export Block
+;; See (info "(org) Quoting HTML tags")
+;; Fixed export. Not customizable.
 (defun t-export-block (export-block _contents _info)
   "Transcode a EXPORT-BLOCK element from Org to HTML.
 CONTENTS is nil."
@@ -1269,6 +1273,8 @@ CONTENTS is nil."
       (_ ""))))
 
 ;;;; Fixed Width
+;; See (info "(org) Literal Examples")
+;; Fixed export. Not customizable.
 (defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML.
 CONTENTS is nil."
@@ -1282,12 +1288,16 @@ CONTENTS is nil."
 	      (concat "\n" value "\n")))))
 
 ;;;; Horizontal Rule
+;; See (info "(org) Horizontal Rules")
+;; Fixed export. Not customizable.
 (defun t-horizontal-rule (_horizontal-rule _contents _info)
   "Transcode an HORIZONTAL-RULE object from Org to HTML.
 CONTENTS is nil."
   "<hr>")
 
 ;;;; Keyword
+;; See (info "(org) Quoting HTML tags")
+;; Fixed export. Not customizable.
 (defun t-keyword (keyword _contents _info)
   "Transcode a KEYWORD element from Org to HTML.
 CONTENTS is nil."
@@ -1302,6 +1312,8 @@ CONTENTS is nil."
       (_ ""))))
 
 ;;;; Paragraph
+;; See (info "(org)Paragraphs")
+;; Fixed export. Not customizable.
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML.
 CONTENTS is the contents of the paragraph, as a string."
@@ -1325,7 +1337,7 @@ CONTENTS is the contents of the paragraph, as a string."
 	    (format "<p%s>%s</p>" attrs c)))))))
 
 (defun t--wrap-image (contents _info caption attrs)
-  "Wrap CONTENTS string within an appropriate environment for images.
+  "Wrap CONTENTS string within <figure> tag for images.
 Also check attributes and caption of paragraph."
   (format "<figure%s>\n%s%s</figure>"
 	  ;; Attributes and contents.
@@ -1335,10 +1347,12 @@ Also check attributes and caption of paragraph."
 	    (format "<figcaption>%s</figcaption>\n" caption))))
 
 (defun t-paragraph-filter (value _backend _info)
-  "Delete trailing newlines."
+  "Delete paragraph's trailing newlines."
   (concat (string-trim-right value) "\n"))
 
 ;;;; Verse Block
+;; See (info "(org)Paragraphs")
+;; Fixed export. Not customizable.
 (defun t-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 CONTENTS is verse block contents."
@@ -2105,6 +2119,7 @@ holding contextual information."
 
 ;;;; Special Block
 ;; FIXME
+;; See (info "(org)HTML doctypes")
 (defun t-special-block (special-block contents info)
   "Transcode a SPECIAL-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block.  INFO is a plist

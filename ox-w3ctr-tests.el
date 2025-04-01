@@ -274,7 +274,9 @@ int a = 1;</code></p>\n</details>")
      ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
       "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
      ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
-      "<div id=\"t\">\n<pre>\n1\n2\n3\n</pre>\n</div>"))))
+      "<div id=\"t\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
+     ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
+      "<div id=\"t\">\n<pre>\n\n\n\n</pre>\n</div>"))))
 
 (ert-deftest t-export-block ()
   (t-check-element-values
@@ -314,7 +316,8 @@ int a = 1;</code></p>\n</details>")
      (":  1\n:  2\n:   3\n" "<pre>\n1\n2\n 3\n</pre>")
      (": 1\n: \n" "<pre>\n1\n\n</pre>")
      ("#+name: t\n#+attr__: [test]\n: 1\n : 2\n: 3"
-      "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>"))))
+      "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>")
+     (":\n:\n:\n:\n" "<pre>\n\n\n</pre>"))))
 
 (ert-deftest t-horizontal-rule ()
   (t-check-element-values
