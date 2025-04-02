@@ -221,80 +221,6 @@ See `org-html-checkbox-types' for the values used for each option."
   :group 'org-export-w3ctr
   :type '(choice (const unicode) (const ascii) (const html)))
 
-(defconst t-timezone-regex
-  (rx string-start
-      (or "local"
-	  (seq
-	   (or "UTC" "GMT")
-	   (group
-	    (seq (or "+" "-")
-		 (or (seq (? "0") num)
-		     (seq "1" (any (?0 . ?2)))))))
-	  (group
-	   (seq
-	    (or "+" "-")
-	    (or (seq "0" num)
-		(seq "1" (any (?0 . ?3))))
-	    (any (?0 . ?5))
-	    (any (?0 . ?9)))))
-      string-end)
-  "Regular expression for matching UTC/GMT time zone designators
-and time zone offsets. Also supports \"local\" for system timezone.
-
-This expression does not allow for missing `+' or `-' signs,
-and strictly validates both UTC/GMT and [+-]HHMM formats.")
-
-(defcustom t-timezone "local"
-  "Time zone string for W3C TR export.
-
-Designator should be in either:
-. ±HHMM format      (e.g., \"+0800\", \"-0500\")
-. GMT/UTC±XX format (e.g., \"UTC+8\", \"GMT-5\")
-. local
-
-This value is used when generating datetime metadata.
-Examples of valid values:
-  \"+0800\"    ; Beijing time
-  \"-0500\"    ; Eastern Time
-  \"UTC+8\"    ; Alternative format
-  \"GMT-5\"    ; Eastern Time alternative
-  \"local\"    ; System local time
-
-See ISO 8601 and RFC 2822 for timezone formatting standards."
-  :group 'org-export-w3ctr
-  :set (lambda (symbol value)
-	 (let ((case-fold-search t))
-	   (if (not (string-match-p t-timezone-regex value))
-	       (error "Not a valid time zone designator: %s" value)
-	     (set symbol value))))
-  :type 'string)
-
-(defcustom t-timestamp-format '("%F" "%F %R" "%F %T")
-  "Format specification used for timestamps export.
-
-Accepts either:
-. A two-element list (DATE DATE-TIME) where:
-  DATE: Format string for year/month/day (e.g. \"%Y-%m-%d\")
-  DATE-TIME: Format string plus hours:minutes (e.g. \"%H:%M\")
-. A three-element list (DATE DATE-TIME DATE-TIME-SECONDS) that
-  additionally includes seconds formatting
-
-During timestamp export, the corresponding function will attempt to
-use the most precise format string available. Specifying only DATE and
-DATE-TIME formats will limit the maximum precision to minutes, while
-including DATE, DATE-TIME, and DATE-TIME-SECOND allows exporting
-timestamps with second-level precision when seconds are specified.
-
-See `format-time-string' for more information on its components."
-  :group 'org-export-w3ctr
-  :type '(choice (list :tag "Datetime"
-		       (string :tag "Year, Month, Day ")
-		       (string :tag "Plus Hour, Minute"))
-		 (list :tag "Datetime plus second"
-		       (string :tag "Year, Month, Day")
-		       (string :tag "Plus Hour, Minue")
-		       (string :tag "Plus Second     "))))
-
 ;;;; Smallest objects.
 (defcustom t-text-markup-alist
   '((bold . "<strong>%s</strong>")
@@ -775,6 +701,79 @@ customize `t-head-include-default-style'.")
 ;; do update
 (t-update-css-js)
 
+(defcustom t-timezone "local"
+  "Time zone string for W3C TR export.
+
+Designator should be in either:
+. ±HHMM format      (e.g., \"+0800\", \"-0500\")
+. GMT/UTC±XX format (e.g., \"UTC+8\", \"GMT-5\")
+. local
+
+This value is used when generating datetime metadata.
+Examples of valid values:
+  \"+0800\"    ; Beijing time
+  \"-0500\"    ; Eastern Time
+  \"UTC+8\"    ; Alternative format
+  \"GMT-5\"    ; Eastern Time alternative
+  \"local\"    ; System local time
+
+See ISO 8601 and RFC 2822 for timezone formatting standards."
+  :group 'org-export-w3ctr
+  :set (lambda (symbol value)
+	 (let ((case-fold-search t))
+	   (if (not (string-match-p t-timezone-regex value))
+	       (error "Not a valid time zone designator: %s" value)
+	     (set symbol value))))
+  :type 'string)
+
+(defcustom t-export-timezone nil
+  "Time zone for export timestamps.
+
+`org-w3ctr-timezone' specifies the timezone for timestamps when
+writing the file, export timezone specifies the timezone used for
+datetime attributes during export.
+
+Accepted formats:
+  nil        ; Same as specified timezone
+  \"+0800\"    ; Beijing time
+  \"-0500\"    ; Eastern Time
+  \"UTC+8\"    ; Alternative format
+  \"GMT-5\"    ; Eastern Time alternative
+  \"local\"    ; System local time"
+  :group 'org-export-w3ctr
+  :set (lambda (symbol value)
+	 (when value
+	   (let ((case-fold-search t))
+	     (if (not (string-match-p t-timezone-regex value))
+		 (error "Not a valid time zone designator: %s" value))))
+	 (set symbol value))
+  :type 'string)
+
+(defcustom t-timestamp-format '("%F" . "%F %R")
+  "Format specification used for timestamps export.
+
+Accepts A two-element list (DATE DATE-TIME) where:
+  DATE: Format string for year/month/day (e.g. \"%Y-%m-%d\")
+  DATE-TIME: DATE plus hours:minutes (e.g. \"%H:%M\")
+
+See `format-time-string' for more information on its components."
+  :group 'org-export-w3ctr
+  :type '(cons
+	  (string :tag "Year, Month, Day ")
+	  (string :tag "Plus Hour, Minute")))
+
+(defcustom t-datetime-format-choice 'T-none
+  "Format choice used for datetime property export. This option
+controls how timestamps are formatted, with variations in:
+
+  Separator: Space (`\s') or `T' (ISO 8601 style)
+  Timezone : Offset with (`+08:00') or without (`+0800') colon
+  Timezone : Use Zulu (`Z') or not when timezone is UTC+0"
+  :group 'org-export-w3ctr
+  :type '(radio (const space-none) (const space-none-zulu)
+		(const space-colon) (const space-colon-zulu)
+		(const T-none) (const T-none-zulu)
+		(const T-colon) (const T-colon-zulu)))
 
 ;;; Internal Functions
 
@@ -2828,6 +2827,29 @@ INFO is a plist holding contextual information.  See
 ;;;; Timestamp
 ;; See (info "(org)Timestamps")
 ;; Set `org-w3ctr-timezone' to customize datetime timezone info.
+
+(defconst t-timezone-regex
+  (rx string-start
+      (or "local"
+	  (seq
+	   (or "UTC" "GMT")
+	   (group
+	    (seq (or "+" "-")
+		 (or (seq (? "0") num)
+		     (seq "1" (any (?0 . ?2)))))))
+	  (group
+	   (seq
+	    (or "+" "-")
+	    (or (seq "0" num)
+		(seq "1" (any (?0 . ?3))))
+	    (any (?0 . ?5))
+	    (any (?0 . ?9)))))
+      string-end)
+  "Regular expression for matching UTC/GMT time zone designators
+and time zone offsets. Also supports \"local\" for system timezone.
+
+This expression does not allow for missing `+' or `-' signs,
+and strictly validates both UTC/GMT and ±HHMM formats.")
 
 (defun t--timezone-to-offset (zone-str)
   "Convert ZONE-STR timezone string to offset in seconds.
