@@ -1494,31 +1494,42 @@ information."
 (defun t-superscript (_superscript contents _info)
   "Transcode a SUPERSCRIPT object from Org to HTML."
   (format "<sup>%s</sup>" contents))
-
 
 ;;; Smallest objects (7)
 
 (defun t--get-markup-format (name info)
+  "Get markup format string for NAME from INFO plist.
+Returns \"%s\" if not found.
+
+NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (if-let* ((alist (plist-get info :html-text-markup-alist))
 	    (str (cdr (assq name alist))))
       str "%s"))
 
 ;;;; Bold
+;; See (info "(org) Emphasis and Monospace")
+;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-bold (_bold contents info)
   "Transcode BOLD from Org to HTML."
   (format (t--get-markup-format 'bold info) contents))
 
 ;;;; Italic
+;; See (info "(org) Emphasis and Monospace")
+;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-italic (_italic contents info)
   "Transcode ITALIC from Org to HTML."
   (format (t--get-markup-format 'italic info) contents))
 
 ;;;; Underline
+;; See (info "(org) Emphasis and Monospace")
+;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-underline (_underline contents info)
   "Transcode UNDERLINE from Org to HTML."
   (format (t--get-markup-format 'underline info) contents))
 
 ;;;; Verbatim
+;; See (info "(org) Emphasis and Monospace")
+;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-verbatim (verbatim _contents info)
   "Transcode VERBATIM from Org to HTML."
   (format (t--get-markup-format 'verbatim info)
@@ -1526,6 +1537,8 @@ information."
 	   (org-element-property :value verbatim))))
 
 ;;;; Code
+;; See (info "(org) Emphasis and Monospace")
+;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML."
   (format (t--get-markup-format 'code info)
@@ -1533,11 +1546,14 @@ information."
 	   (org-element-property :value code))))
 
 ;;;; Strike-Through
+;; See (info "(org) Emphasis and Monospace")
+;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-strike-through (_strike-through contents info)
   "Transcode STRIKE-THROUGH from Org to HTML."
   (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
+;; Fixed export. Not customizable.
 (defconst t-special-string-regexps
   '(("\\\\-" . "&#x00ad;")		; shy
     ("---\\([^-]\\)" . "&#x2014;\\1")	; mdash
