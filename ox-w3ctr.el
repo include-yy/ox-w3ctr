@@ -793,7 +793,46 @@ controls how timestamps are formatted, with variations in:
 		(const T-colon) (const T-colon-zulu)))
 
 ;;; Internal Functions
+(defun t--make-string (n string)
+  "Build a string by concatenating N times STRING."
+  (let (out) (dotimes (_ n out) (setq out (concat string out)))))
 
+(define-inline t--nw-p (s)
+  "Return S if S is a string containing a non-blank character.
+Otherwise, return nil. See also `org-string-nw-p'."
+  (inline-letevals (s)
+    (inline-quote
+     (and (stringp ,s) (string-match-p "[^ \r\t\n]" ,s) ,s))))
+
+(defsubst t--trim (s &optional keep-lead)
+  "Remove whitespace at the beginning and the end of string S.
+When optional argument KEEP-LEAD is non-nil, removing blank lines
+at the beginning of the string does not affect leading indentation.
+
+See also `org-trim'."
+  (replace-regexp-in-string
+   (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
+   (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
+
+(defsubst t--maybe-contents (contents)
+  "If CONTENTS is non-nil, prepend a newline and return it;
+otherwise, return an empty string."
+  (if contents (concat "\n" contents) ""))
+
+(defun t-fix-class-name (kwd)
+  ;; audit callers of this function
+  "Turn todo keyword KWD into a valid class name.
+Replaces invalid characters with \"_\"."
+  (replace-regexp-in-string "[^a-zA-Z0-9_]" "_" kwd nil t))
+
+(defun t--has-caption-p (element &optional _info)
+  "Non-nil when ELEMENT has a caption affiliated keyword.
+INFO is a plist used as a communication channel.  This function
+is meant to be used as a predicate for `org-export-get-ordinal' or
+a value to `t-standalone-image-predicate'."
+  (org-element-property :caption element))
+
+;; FIXME: Consider remove it
 (defun t-close-tag (tag attr _info)
   "Return close-tag for string TAG.
 ATTR specifies additional attributes.  INFO is a property list
@@ -889,30 +928,8 @@ ELEMENT is either a source or an example block."
 	    (or (plist-get attr :width) 80)
 	    (or (plist-get attr :height) (org-count-lines code))
 	    code)))
-
-(defun t--has-caption-p (element &optional _info)
-  "Non-nil when ELEMENT has a caption affiliated keyword.
-INFO is a plist used as a communication channel.  This function
-is meant to be used as a predicate for `org-export-get-ordinal' or
-a value to `t-standalone-image-predicate'."
-  (org-element-property :caption element))
-
-(defun t--make-string (n string)
-  "Build a string by concatenating N times STRING."
-  (let (out) (dotimes (_ n out) (setq out (concat string out)))))
-
-(defun t-fix-class-name (kwd)
-  ;; audit callers of this function
-  "Turn todo keyword KWD into a valid class name.
-Replaces invalid characters with \"_\"."
-  (replace-regexp-in-string "[^a-zA-Z0-9_]" "_" kwd nil t))
 
 ;;; Basic utilties
-
-(defsubst t--maybe-contents (contents)
-  "If CONTENTS is non-nil, prepend a newline and return it;
-otherwise, return an empty string."
-  (if contents (concat "\n" contents) ""))
 
 (defsubst t--2str (s)
   "Convert S to string.
@@ -1000,23 +1017,6 @@ attribute with a nil value means a boolean attribute."
 	     (if (not reference) attributes
 	       (cons `("id" ,reference) attributes)))))
     (if (org-string-nw-p a) a "")))
-
-(define-inline t--nw-p (s)
-  "Return S if S is a string containing a non-blank character.
-Otherwise, return nil. See also `org-string-nw-p'."
-  (inline-letevals (s)
-    (inline-quote
-     (and (stringp ,s) (string-match-p "[^ \r\t\n]" ,s) ,s))))
-
-(defsubst t--trim (s &optional keep-lead)
-  "Remove whitespace at the beginning and the end of string S.
-When optional argument KEEP-LEAD is non-nil, removing blank lines
-at the beginning of the string does not affect leading indentation.
-
-See also `org-trim'."
-  (replace-regexp-in-string
-   (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
-   (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
 
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
