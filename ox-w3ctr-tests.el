@@ -448,158 +448,6 @@ int a = 1;</code></p>\n</details>")
      ("x86^64" "<sup>64</sup>")
      ("f^{1}" "<sup>1</sup>"))))
 
-(ert-deftest t--timezone-to-offset ()
-  (should (= (t--timezone-to-offset "UTC+8") (* 8 3600)))
-  (should (= (t--timezone-to-offset "GMT-5") (* -5 3600)))
-  (should (= (t--timezone-to-offset "+0530")
-	     (+ (* 5 3600) (* 30 60))))
-  (should (= (t--timezone-to-offset "-0830")
-	     (+ (* -8 3600) (* -30 60))))
-  (should-error (t--timezone-to-offset "INVALID"))
-  (should-error (t--timezone-to-offset "UTC+123"))
-  (should-error (t--timezone-to-offset "+12345"))
-  (should-error (t--timezone-to-offset "+1400"))
-  (should-error (t--timezone-to-offset "UTC+13"))
-  (should-error (t--timezone-to-offset "UTC-13"))
-  (should-error (t--timezone-to-offset "+0860")))
-
-(ert-deftest t--normalize-timezone-offset ()
-  (should (string= (t--normalize-timezone-offset 28800) "+0800"))
-  (should (string= (t--normalize-timezone-offset 18000) "+0500"))
-  (should (string= (t--normalize-timezone-offset -18000) "-0500"))
-  (should (string= (t--normalize-timezone-offset -28800) "-0800"))
-  (should (string= (t--normalize-timezone-offset 0) "+0000"))
-  (should (string= (t--normalize-timezone-offset 0 t) "Z"))
-  (should (string= (t--normalize-timezone-offset 3600) "+0100"))
-  (should (string= (t--normalize-timezone-offset -900) "-0015"))
-  (should (string= (t--normalize-timezone-offset 19800) "+0530"))
-  (should (string= (t--normalize-timezone-offset -16200) "-0430"))
-  (should (string= (t--normalize-timezone-offset 5400) "+0130"))
-  (should (string= (t--normalize-timezone-offset -5400) "-0130"))
-  (should (string= (t--normalize-timezone-offset 50400) "+1400"))
-  (should (string= (t--normalize-timezone-offset -43200) "-1200")))
-
-(ert-deftest t--get-info-timezone-offset ()
-  (let ((info1 '(:html-time-zone 28800)))
-    (should (= (t--get-info-timezone-offset info1) 28800)))
-  (let ((info2 '(:html-time-zone -18000)))
-    (should (= (t--get-info-timezone-offset info2) -18000)))
-  (let ((info3 '(:html-time-zone "UTC+8")))
-    (should (= (t--get-info-timezone-offset info3) 28800))
-    (should (numberp (plist-get info3 :html-time-zone)))
-    (should (= (plist-get info3 :html-time-zone) 28800)))
-  (let ((info4 '(:html-time-zone "-0500")))
-    (should (= (t--get-info-timezone-offset info4) -18000))
-    (should (numberp (plist-get info4 :html-time-zone)))
-    (should (= (plist-get info4 :html-time-zone) -18000)))
-  (let ((info5 '(:html-time-zone "UTC+0")))
-    (should (= (t--get-info-timezone-offset info5) 0))
-    (should (= (plist-get info5 :html-time-zone) 0)))
-  (let ((info6 '(:html-time-zone "+0530")))
-    (should (= (t--get-info-timezone-offset info6) 19800))
-    (should (= (plist-get info6 :html-time-zone) 19800)))
-  (let ((info7 '(:html-time-zone "Invalid")))
-    (should-error (t--get-info-timezone-offset info7)))
-  (let ((info8 '(:html-time-zone 3600 :other "value")))
-    (should (= (t--get-info-timezone-offset info8) 3600))
-    (should (equal info8 '(:html-time-zone 3600 :other "value")))))
-
-(ert-deftest t--get-info-normlized-timezone ()
-  (let ((info1 '(:html-time-zone 28800)))
-    (should (string= (t--get-info-normalized-timezone info1) "+0800")))
-  (let ((info2 '(:html-time-zone -18000)))
-    (should (string= (t--get-info-normalized-timezone info2) "-0500")))
-  (let ((info3 '(:html-time-zone "UTC+8")))
-    (should (string= (t--get-info-normalized-timezone info3) "+0800")))
-  (let ((info4 '(:html-time-zone "-0500")))
-    (should (string= (t--get-info-normalized-timezone info4) "-0500")))
-  (let ((info5 '(:html-time-zone 0)))
-    (should (string= (t--get-info-normalized-timezone info5) "+0000")))
-  (let ((info6 '(:html-time-zone 19800)))
-    (should (string= (t--get-info-normalized-timezone info6) "+0530")))
-  (let ((info7 '(:html-time-zone "+0530")))
-    (should (string= (t--get-info-normalized-timezone info7) "+0530")))
-  (let ((info8 '(:html-time-zone 3600 :other "value")))
-    (t--get-info-normalized-timezone info8)
-    (should (equal (plist-get info8 :other) "value")))
-  (let ((info9 '(:html-time-zone "Invalid")))
-    (should-error (t--get-info-normalized-timezone info9))))
-
-(ert-deftest t--format-normalized-timestamp ()
-  (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info1 '(:html-time-zone 28800)))
-    (should (string= (t--format-normalized-timestamp test-time info1)
-                    "2023-01-01 12:00+0800")))
-  (let ((test-time (encode-time 0 30 9 15 6 2023))
-        (info2 '(:html-time-zone -14400)))
-    (should (string= (t--format-normalized-timestamp test-time info2)
-                    "2023-06-15 09:30-0400")))
-  (let ((test-time (encode-time 0 0 0 1 1 2023))
-        (info3 '(:html-time-zone 0)))
-    (should (string= (t--format-normalized-timestamp test-time info3)
-                    "2023-01-01 00:00+0000")))
-  (let ((test-time (encode-time 0 45 18 31 12 2023))
-        (info4 '(:html-time-zone 19800)))
-    (should (string= (t--format-normalized-timestamp test-time info4)
-                    "2023-12-31 18:45+0530")))
-  (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info5 '(:html-time-zone "UTC-8")))
-    (should (string= (t--format-normalized-timestamp test-time info5)
-                    "2023-01-01 12:00-0800")))
-  (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info6 '(:html-time-zone "Invalid")))
-    (should-error (t--format-normalized-timestamp test-time info6))))
-
-(ert-deftest t--get-timestamp-format ()
-  (let ((info '(:html-timestamp-format
-		("%Y-%m-%d" . "%Y-%m-%d %H:%M"))))
-    (should (string= (t--get-timestamp-format 'active t info)
-                     "<%Y-%m-%d %H:%M>"))
-    (should (string= (t--get-timestamp-format 'active nil info)
-                     "<%Y-%m-%d>"))
-    (should (string= (t--get-timestamp-format 'inactive t info)
-                     "[%Y-%m-%d %H:%M]"))
-    (should (string= (t--get-timestamp-format 'inactive-range nil info)
-                    "[%Y-%m-%d]")))
-  (let ((info '(:html-timestamp-format
-		("%Y-%m-%d" . "%Y-%m-%d %H:%M")))
-	(org-display-custom-times t)
-	(org-timestamp-custom-formats
-	 '("%m/%d/%y %a" . "%m/%d/%y %a %H:%M")))
-      (should (string= (t--get-timestamp-format 'active t info)
-                       "<%m/%d/%y %a %H:%M>"))
-      (should (string= (t--get-timestamp-format 'active nil info)
-                       "<%m/%d/%y %a>"))))
-
-(ert-deftest t-timestamp ()
-  (t-check-element-values
-   #'t-timestamp #'t-advice-return-value
-   '(("[2020-02-02]" "<time datetime=\"2020-02-02\">[2020-02-02]</time>")
-     ("<2006-01-02>" "<time datetime=\"2006-01-02\"><2006-01-02></time>")
-     ("[2006-01-02 15:04:05]"
-      "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>")
-     ("<2006-01-02 15:04:05>"
-      "<time datetime=\"2006-01-02 15:04+0800\"><2006-01-02 15:04></time>")
-     ("[2025-03-30]--[2025-03-31]"
-      "<time datetime=\"2025-03-30\">[2025-03-30]</time>&#x2013;\
-<time datetime=\"2025-03-31\">[2025-03-31]</time>")
-     ("<2025-03-30>--<2025-03-31>"
-      "<time datetime=\"2025-03-30\"><2025-03-30></time>&#x2013;\
-<time datetime=\"2025-03-31\"><2025-03-31></time>")
-     ("[2006-01-02 15:04:05]--[2006-01-03 04:05:06]"
-      "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>\
-&#x2013;<time datetime=\"2006-01-03 04:05+0800\">[2006-01-03 04:05]</time>")
-     ("<2006-01-02 15:04:05>--<2006-01-03 04:05:06>"
-      "<time datetime=\"2006-01-02 15:04+0800\"><2006-01-02 15:04></time>\
-&#x2013;<time datetime=\"2006-01-03 04:05+0800\"><2006-01-03 04:05></time>")
-     ("[2024-02-02]--<2025-02-02>"
-      "<time datetime=\"2024-02-02\">[2024-02-02]</time>&#x2013;\
-<time datetime=\"2025-02-02\">[2025-02-02]</time>")
-     ("<2024-02-02>--[2025-02-02]"
-      "<time datetime=\"2024-02-02\"><2024-02-02></time>&#x2013;\
-<time datetime=\"2025-02-02\"><2025-02-02></time>")
-     ("[2000-01-01]" "<time datetime=\"2000-01-01\">[2000-01-01]</time>"))))
-
 (ert-deftest t-bold ()
   (t-check-element-values
    #'t-bold #'t-advice-return-value
@@ -725,11 +573,301 @@ int a = 1;</code></p>\n</details>")
                  "a &#x2013; b"))
   (should (equal (t-plain-text "line1\nline2" '(:preserve-breaks t))
                  "line1<br>\nline2"))
-  (should (equal (t-plain-text "\"a < b\" -- c\nd" 
-                                  '(:with-smart-quotes t 
-                                    :with-special-strings t 
+  (should (equal (t-plain-text "\"a < b\" -- c\nd"
+                                  '(:with-smart-quotes t
+                                    :with-special-strings t
                                     :preserve-breaks t))
                  "\"a &lt; b\" &#x2013; c<br>\nd")))
+
+(ert-deftest t--timezone-to-offset ()
+  (should (= (t--timezone-to-offset "UTC+8") (* 8 3600)))
+  (should (= (t--timezone-to-offset "GMT-5") (* -5 3600)))
+  (should (= (t--timezone-to-offset "+0530")
+	     (+ (* 5 3600) (* 30 60))))
+  (should (= (t--timezone-to-offset "-0830")
+	     (+ (* -8 3600) (* -30 60))))
+  (should-error (t--timezone-to-offset "INVALID"))
+  (should-error (t--timezone-to-offset "UTC+123"))
+  (should-error (t--timezone-to-offset "+12345"))
+  (should-error (t--timezone-to-offset "+1400"))
+  (should-error (t--timezone-to-offset "UTC+13"))
+  (should-error (t--timezone-to-offset "UTC-13"))
+  (should-error (t--timezone-to-offset "+0860")))
+
+(ert-deftest t--timestamp-option-to-tokens ()
+  (should (equal (t--timestamp-option-to-tokens 'space-none)
+		 [" " "" "+0000"]))
+  (should (equal (t--timestamp-option-to-tokens 'space-none-zulu)
+		 [" " "" "Z"]))
+  (should (equal (t--timestamp-option-to-tokens 'space-colon)
+		 [" " ":" "+0000"]))
+  (should (equal (t--timestamp-option-to-tokens 'space-colon-zulu)
+		 [" " ":" "Z"]))
+  (should (equal (t--timestamp-option-to-tokens 'T-none)
+		 ["T" "" "+0000"]))
+  (should (equal (t--timestamp-option-to-tokens 'T-none-zulu)
+		 ["T" "" "Z"]))
+  (should (equal (t--timestamp-option-to-tokens 'T-colon)
+		 ["T" ":" "+0000"]))
+  (should (equal (t--timestamp-option-to-tokens 'T-colon-zulu)
+		 ["T" ":" "Z"]))
+  (should-error (t--timestamp-option-to-tokens 'invalid-option)))
+
+(ert-deftest t--normalize-timezone-offset ()
+  (let ((space-none [" " "" "+0000"])
+	(space-none-zulu [" " "" "Z"])
+	(space-colon [" " ":" "+0000"])
+	(space-colon-zulu [" " ":" "Z"])
+	(T-none ["T" "" "+0000"])
+	(T-none-zulu ["T" "" "Z"])
+	(T-colon ["T" ":" "+0000"])
+	(T-colon-zulu ["T" ":" "Z"]))
+  ;; Test basic offset conversions
+  (should (string= (t--normalize-timezone-offset 28800 space-none)
+		   "+0800"))
+  (should (string= (t--normalize-timezone-offset 18000 space-none)
+		   "+0500"))
+  (should (string= (t--normalize-timezone-offset -18000 space-none)
+		   "-0500"))
+  (should (string= (t--normalize-timezone-offset -28800 space-none)
+		   "-0800"))
+  ;; Test zero offset with different options
+  (should (string= (t--normalize-timezone-offset 0 space-none)
+		   "+0000"))
+  (should (string= (t--normalize-timezone-offset 0 space-none-zulu)
+		   "Z"))
+  (should (string= (t--normalize-timezone-offset 0 T-none-zulu)
+		   "Z"))
+  ;; Test fractional hour offsets
+  (should (string= (t--normalize-timezone-offset 3600 space-colon)
+		   "+01:00"))
+  (should (string= (t--normalize-timezone-offset -900 space-colon)
+		   "-00:15"))
+  (should (string= (t--normalize-timezone-offset 19800 T-colon)
+		   "+05:30"))
+  (should (string= (t--normalize-timezone-offset -16200 T-colon)
+		   "-04:30"))
+  ;; Test different separator options
+  (should (string= (t--normalize-timezone-offset 5400 space-none)
+		   "+0130"))
+  (should (string= (t--normalize-timezone-offset 5400 space-colon)
+		   "+01:30"))
+  (should (string= (t--normalize-timezone-offset 5400 T-none)
+		   "+0130"))
+  (should (string= (t--normalize-timezone-offset 5400 T-colon)
+		   "+01:30"))
+  ;; Test edge cases
+  (should (string= (t--normalize-timezone-offset 50400 space-none)
+		   "+1400"))
+  (should (string= (t--normalize-timezone-offset -43200 space-none)
+		   "-1200"))
+  (should (string= (t--normalize-timezone-offset 37800 T-colon-zulu)
+		   "+10:30"))))
+
+(ert-deftest t--get-info-timezone-offset ()
+  (let ((info0 '(:html-timezone "local")))
+    (should (string= (t--get-info-timezone-offset info0) "local")))
+  (let ((info1 '(:html-timezone 28800)))
+    (should (= (t--get-info-timezone-offset info1) 28800)))
+  (let ((info2 '(:html-timezone -18000)))
+    (should (= (t--get-info-timezone-offset info2) -18000)))
+  (let ((info3 '(:html-timezone "UTC+8")))
+    (should (= (t--get-info-timezone-offset info3) 28800))
+    (should (numberp (plist-get info3 :html-timezone)))
+    (should (= (plist-get info3 :html-timezone) 28800)))
+  (let ((info4 '(:html-timezone "-0500")))
+    (should (= (t--get-info-timezone-offset info4) -18000))
+    (should (numberp (plist-get info4 :html-timezone)))
+    (should (= (plist-get info4 :html-timezone) -18000)))
+  (let ((info5 '(:html-timezone "UTC+0")))
+    (should (= (t--get-info-timezone-offset info5) 0))
+    (should (= (plist-get info5 :html-timezone) 0)))
+  (let ((info6 '(:html-timezone "+0530")))
+    (should (= (t--get-info-timezone-offset info6) 19800))
+    (should (= (plist-get info6 :html-timezone) 19800)))
+  (let ((info7 '(:html-timezone "Invalid")))
+    (should-error (t--get-info-timezone-offset info7)))
+  (let ((info8 '(:html-timezone 3600 :other "value")))
+    (should (= (t--get-info-timezone-offset info8) 3600))
+    (should (equal info8 '(:html-timezone 3600 :other "value")))))
+
+(ert-deftest t--get-info-export-timezone-offset ()
+  ;; 1. When :html-export-timezone is nil, use :html-timezone
+  (let ((info1 '(:html-timezone 28800)))
+    (should (= (t--get-info-export-timezone-offset info1) 28800)))
+  (let ((info2 '(:html-timezone "UTC+8" :html-export-timezone nil)))
+    (should (= (t--get-info-export-timezone-offset info2) 28800)))
+  ;; 2. When :html-timezone is "local", always use "local"
+  (let ((info3 '(:html-timezone "local" :html-export-timezone 3600)))
+    (should (string= (t--get-info-export-timezone-offset info3) "local")))
+  (let ((info4 '(:html-timezone "local" :html-export-timezone "UTC+5")))
+    (should (string= (t--get-info-export-timezone-offset info4) "local")))
+  ;; 3. When :html-export-timezone is number, use directly
+  (let ((info5 '(:html-timezone 28800 :html-export-timezone -18000)))
+    (should (= (t--get-info-export-timezone-offset info5) -18000)))
+  ;; 4. When :html-export-timezone is string, convert and cache
+  (let ((info6 '(:html-timezone 28800 :html-export-timezone "-0500")))
+    (should (= (t--get-info-export-timezone-offset info6) -18000))
+    (should (numberp (plist-get info6 :html-export-timezone)))
+    (should (= (plist-get info6 :html-export-timezone) -18000)))
+  (let ((info7 '(:html-timezone 28800 :html-export-timezone "+0530")))
+    (should (= (t--get-info-export-timezone-offset info7) 19800))
+    (should (= (plist-get info7 :html-export-timezone) 19800)))
+  ;; Edge cases
+  (let ((info8 '(:html-timezone 0 :html-export-timezone "UTC+0")))
+    (should (= (t--get-info-export-timezone-offset info8) 0)))
+  (let ((info9 '(:html-timezone 3600 :html-export-timezone "Invalid")))
+    (should-error (t--get-info-export-timezone-offset info9)))
+  ;; Verify plist isn't modified unnecessarily
+  (let ((info10 '(:html-timezone 3600 :html-export-timezone -18000 :other "value")))
+    (should (= (t--get-info-export-timezone-offset info10) -18000))
+    (should (equal info10 '(:html-timezone 3600 :html-export-timezone -18000 :other "value")))))
+
+(ert-deftest t--get-info-normalized-timezone ()
+  (let ((info-local '(:html-timezone "local" :html-datetime-option space-none)))
+    (should (string= (t--get-info-normalized-timezone info-local) "")))
+  ;; Test UTC cases with different formatting options
+  (let ((info-utc1 '(:html-timezone 0 :html-datetime-option space-none)))
+    (should (string= (t--get-info-normalized-timezone info-utc1) "+0000")))
+  (let ((info-utc2 '(:html-timezone 0 :html-datetime-option space-none-zulu)))
+    (should (string= (t--get-info-normalized-timezone info-utc2) "Z")))
+  (let ((info-utc3 '(:html-timezone 0 :html-datetime-option T-colon-zulu)))
+    (should (string= (t--get-info-normalized-timezone info-utc3) "Z")))
+  ;; Test positive offsets with different formats
+  (let ((info-pos1 '(:html-timezone 28800 :html-datetime-option space-none)))
+    (should (string= (t--get-info-normalized-timezone info-pos1) "+0800")))
+  (let ((info-pos2 '(:html-timezone 28800 :html-datetime-option space-colon)))
+    (should (string= (t--get-info-normalized-timezone info-pos2) "+08:00")))
+  (let ((info-pos3 '(:html-timezone 19800 :html-datetime-option T-none)))
+    (should (string= (t--get-info-normalized-timezone info-pos3) "+0530")))
+  (let ((info-pos4 '(:html-timezone 19800 :html-datetime-option T-colon)))
+    (should (string= (t--get-info-normalized-timezone info-pos4) "+05:30")))
+  (let ((info-neg1 '(:html-timezone -18000 :html-datetime-option space-none)))
+    (should (string= (t--get-info-normalized-timezone info-neg1) "-0500")))
+  (let ((info-neg2 '(:html-timezone -18000 :html-datetime-option T-colon)))
+    (should (string= (t--get-info-normalized-timezone info-neg2) "-05:00")))
+  (let ((info-neg3 '(:html-timezone -16200 :html-datetime-option space-none)))
+    (should (string= (t--get-info-normalized-timezone info-neg3) "-0430")))
+  (let ((info-override '(:html-timezone 28800
+                         :html-export-timezone -18000
+                         :html-datetime-option space-none)))
+    (should (string= (t--get-info-normalized-timezone info-override) "-0500")))
+  ;; Test fractional timezones
+  (let ((info-frac1 '(:html-timezone 5400 :html-datetime-option space-none)))
+    (should (string= (t--get-info-normalized-timezone info-frac1) "+0130")))
+  (let ((info-frac2 '(:html-timezone -5400 :html-datetime-option T-colon)))
+    (should (string= (t--get-info-normalized-timezone info-frac2) "-01:30")))
+  ;; Test edge cases
+  (let ((info-max '(:html-timezone 50400 :html-datetime-option space-none)))
+    (should (string= (t--get-info-normalized-timezone info-max) "+1400")))
+  (let ((info-min '(:html-timezone -43200 :html-datetime-option space-colon)))
+    (should (string= (t--get-info-normalized-timezone info-min) "-12:00"))))
+
+(ert-deftest t--format-normalized-timestamp ()
+  ;; Basic test with space separator and +HHMM timezone
+  (let ((test-time (encode-time 0 0 12 1 1 2023))
+        (info1 '(:html-timezone 28800
+                 :html-export-timezone 28800
+                 :html-datetime-option space-none)))
+    (should (string= (t--format-normalized-timestamp
+		      test-time info1)
+                    "2023-01-01 12:00+0800")))
+  ;; Test with colon in time and -HHMM timezone
+  (let ((test-time (encode-time 0 30 9 15 6 2023))
+        (info2 '(:html-timezone -14400
+                 :html-export-timezone -14400
+                 :html-datetime-option space-colon)))
+    (should (string= (t--format-normalized-timestamp
+		      test-time info2)
+                    "2023-06-15 09:30-04:00")))
+  ;; Test UTC with Zulu timezone
+  (let ((test-time (encode-time 0 0 0 1 1 2023))
+        (info3 '(:html-timezone 0
+                 :html-export-timezone 0
+                 :html-datetime-option space-none-zulu)))
+    (should (string= (t--format-normalized-timestamp
+		      test-time info3)
+                    "2023-01-01 00:00Z")))
+  ;; Test with T separator and +HH:MM timezone
+  (let ((test-time (encode-time 0 45 18 31 12 2023))
+        (info4 '(:html-timezone 19800
+                 :html-export-timezone 19800
+                 :html-datetime-option T-colon)))
+    (should (string= (t--format-normalized-timestamp
+		      test-time info4)
+                    "2023-12-31T18:45+05:30")))
+
+  ;; Test with T separator and Zulu timezone for UTC
+  (let ((test-time (encode-time 0 0 12 1 1 2023))
+        (info5 '(:html-timezone 0
+                 :html-export-timezone 0
+                 :html-datetime-option T-colon-zulu)))
+    (should (string= (t--format-normalized-timestamp
+		      test-time info5)
+                    "2023-01-01T12:00Z")))
+  ;; Test local timezone
+  (let ((test-time (encode-time 0 0 12 1 1 2023))
+        (info6 '(:html-timezone "local"
+                 :html-export-timezone "local"
+                 :html-datetime-option space-none)))
+    (should (string= "2023-01-01 12:00"
+                     (t--format-normalized-timestamp
+		      test-time info6))))
+  ;; Test invalid timezone
+  (let ((test-time (encode-time 0 0 12 1 1 2023))
+        (info7 '(:html-timezone "Invalid")))
+    (should-error (t--format-normalized-timestamp
+		   test-time info7))))
+
+(ert-deftest t--get-timestamp-format ()
+  (let ((info '(:html-timestamp-format
+		("%Y-%m-%d" . "%Y-%m-%d %H:%M"))))
+    (should (string= (t--get-timestamp-format 'active t info)
+                     "<%Y-%m-%d %H:%M>"))
+    (should (string= (t--get-timestamp-format 'active nil info)
+                     "<%Y-%m-%d>"))
+    (should (string= (t--get-timestamp-format 'inactive t info)
+                     "[%Y-%m-%d %H:%M]"))
+    (should (string= (t--get-timestamp-format 'inactive-range nil info)
+                    "[%Y-%m-%d]")))
+  (let ((info '(:html-timestamp-format
+		("%Y-%m-%d" . "%Y-%m-%d %H:%M")))
+	(org-display-custom-times t)
+	(org-timestamp-custom-formats
+	 '("%m/%d/%y %a" . "%m/%d/%y %a %H:%M")))
+      (should (string= (t--get-timestamp-format 'active t info)
+                       "<%m/%d/%y %a %H:%M>"))
+      (should (string= (t--get-timestamp-format 'active nil info)
+                       "<%m/%d/%y %a>"))))
+
+(ert-deftest t-timestamp ()
+  (t-check-element-values
+   #'t-timestamp #'t-advice-return-value
+   '(("[2020-02-02]" "<time datetime=\"2020-02-02\">[2020-02-02]</time>")
+     ("<2006-01-02>" "<time datetime=\"2006-01-02\"><2006-01-02></time>")
+     ("[2006-01-02 15:04:05]"
+      "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>")
+     ("<2006-01-02 15:04:05>"
+      "<time datetime=\"2006-01-02 15:04+0800\"><2006-01-02 15:04></time>")
+     ("[2025-03-30]--[2025-03-31]"
+      "<time datetime=\"2025-03-30\">[2025-03-30]</time>&#x2013;\
+<time datetime=\"2025-03-31\">[2025-03-31]</time>")
+     ("<2025-03-30>--<2025-03-31>"
+      "<time datetime=\"2025-03-30\"><2025-03-30></time>&#x2013;\
+<time datetime=\"2025-03-31\"><2025-03-31></time>")
+     ("[2006-01-02 15:04:05]--[2006-01-03 04:05:06]"
+      "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>\
+&#x2013;<time datetime=\"2006-01-03 04:05+0800\">[2006-01-03 04:05]</time>")
+     ("<2006-01-02 15:04:05>--<2006-01-03 04:05:06>"
+      "<time datetime=\"2006-01-02 15:04+0800\"><2006-01-02 15:04></time>\
+&#x2013;<time datetime=\"2006-01-03 04:05+0800\"><2006-01-03 04:05></time>")
+     ("[2024-02-02]--<2025-02-02>"
+      "<time datetime=\"2024-02-02\">[2024-02-02]</time>&#x2013;\
+<time datetime=\"2025-02-02\">[2025-02-02]</time>")
+     ("<2024-02-02>--[2025-02-02]"
+      "<time datetime=\"2024-02-02\"><2024-02-02></time>&#x2013;\
+<time datetime=\"2025-02-02\"><2025-02-02></time>")
+     ("[2000-01-01]" "<time datetime=\"2000-01-01\">[2000-01-01]</time>"))))
 
 (defun t-parse-mathml-string (strs)
   (with-work-buffer
