@@ -697,6 +697,29 @@ customize `t-head-include-default-style'.")
 ;; do update
 (t-update-css-js)
 
+(defconst t-timezone-regex
+  (rx string-start
+      (or "local"
+	  (seq
+	   (or "UTC" "GMT")
+	   (group
+	    (seq (or "+" "-")
+		 (or (seq (? "0") num)
+		     (seq "1" (any (?0 . ?2)))))))
+	  (group
+	   (seq
+	    (or "+" "-")
+	    (or (seq "0" num)
+		(seq "1" (any (?0 . ?3))))
+	    (any (?0 . ?5))
+	    (any (?0 . ?9)))))
+      string-end)
+  "Regular expression for matching UTC/GMT time zone designators
+and time zone offsets. Also supports \"local\" for system timezone.
+
+This expression does not allow for missing `+' or `-' signs,
+and strictly validates both UTC/GMT and ±HHMM formats.")
+
 (defcustom t-timezone "local"
   "Time zone string for W3C TR export.
 
@@ -2835,29 +2858,6 @@ INFO is a plist holding contextual information.  See
 ;; `org-w3ctr-export-timezone' will have no effect. When
 ;; `org-w3ctr-export-timezone' is nil, it means using the same
 ;; timezone as `org-w3ctr-timezone'.
-
-(defconst t-timezone-regex
-  (rx string-start
-      (or "local"
-	  (seq
-	   (or "UTC" "GMT")
-	   (group
-	    (seq (or "+" "-")
-		 (or (seq (? "0") num)
-		     (seq "1" (any (?0 . ?2)))))))
-	  (group
-	   (seq
-	    (or "+" "-")
-	    (or (seq "0" num)
-		(seq "1" (any (?0 . ?3))))
-	    (any (?0 . ?5))
-	    (any (?0 . ?9)))))
-      string-end)
-  "Regular expression for matching UTC/GMT time zone designators
-and time zone offsets. Also supports \"local\" for system timezone.
-
-This expression does not allow for missing `+' or `-' signs,
-and strictly validates both UTC/GMT and ±HHMM formats.")
 
 (defun t--timezone-to-offset (zone-str)
   "Convert ZONE-STR timezone string to offset in seconds.
