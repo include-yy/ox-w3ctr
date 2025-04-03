@@ -1276,7 +1276,8 @@ CONTENTS holds the contents of the block."
   (format "<blockquote%s>%s</blockquote>"
 	  (t--make-attr__id quote-block info t)
 	  (t--maybe-contents contents)))
-
+
+
 ;;; Lesser elements (17 - 7 - 3 = 7)
 ;;; latex-environment, src-block, and table-row are not here.
 
@@ -1412,7 +1413,8 @@ CONTENTS is verse block contents."
 		       (regexp-quote "<br>"))))
       (replace-regexp-in-string
        re "<br>\n" (or contents ""))))))
-
+
+
 ;;; Objects (25 - 4 - 5 - 7 = 9)
 ;;; footnote-reference, inline-src-block are not here.
 ;;; latex-fragment, link and table-cell are not here.
@@ -1494,7 +1496,8 @@ information."
 (defun t-superscript (_superscript contents _info)
   "Transcode a SUPERSCRIPT object from Org to HTML."
   (format "<sup>%s</sup>" contents))
-
+
+
 ;;; Smallest objects (7)
 
 (defun t--get-markup-format (name info)

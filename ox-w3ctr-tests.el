@@ -73,8 +73,6 @@
   ;; Allow bare tags
   (should (string= (t--sexp2html '(p)) "<p></p>"))
   (should (string= (t--sexp2html '(hr)) "<hr>")))
-
-
 
 (defvar t-test-values nil)
 
@@ -580,7 +578,7 @@ int a = 1;</code></p>\n</details>")
                                     :with-special-strings t
                                     :preserve-breaks t))
                  "\"a &lt; b\" &#x2013; c<br>\nd")))
-
+
 (ert-deftest t--timezone-to-offset ()
   (should (= (t--timezone-to-offset "UTC+8") (* 8 3600)))
   (should (= (t--timezone-to-offset "GMT-5") (* -5 3600)))
