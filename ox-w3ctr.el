@@ -635,12 +635,6 @@ This option will override `org-export-use-babel'"
   :group 'org-export-w3ctr
   :type '(boolean))
 
-(defcustom t-timestamp-format '("%Y-%m-%d" . "%Y-%m-%d %H:%M")
-  "Format used for timestamps in
-See `format-time-string' for more information on its components."
-  :group 'org-export-w3ctr
-  :type 'string)
-
 (defcustom t-example-default-class "example"
   "default CSS class for example block, nil means no default class"
   :group 'org-export-w3ctr
