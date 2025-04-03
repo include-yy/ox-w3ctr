@@ -681,15 +681,13 @@ customize `t-head-include-default-style'.")
   "update `t-style-default' and t-fixup-js"
   (interactive)
   (setq t-style-default
-	(let ((fname (if (not load-in-progress) (expand-file-name "style.css")
-		       (concat (file-name-directory load-file-name) "style.css"))))
+	(let ((fname (file-name-concat t--dir "assets/style.css")))
 	  (format "<style>\n%s\n</style>\n"
 		  (with-temp-buffer
 		    (insert-file-contents fname)
 		    (buffer-string)))))
   (setq t-fixup-js
-	(let ((fname (if (not load-in-progress) (expand-file-name "fixup.js")
-		       (concat (file-name-directory load-file-name) "fixup.js"))))
+	(let ((fname (file-name-concat t--dir "assets/fixup.js")))
 	  (format "<script>\n%s\n</script>\n"
 		  (with-temp-buffer
 		    (insert-file-contents fname)
