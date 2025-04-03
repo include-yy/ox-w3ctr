@@ -535,20 +535,20 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t-strike-through ()
   (t-check-element-values
    #'t-strike-through #'t-advice-return-value
-   '(("+abc+" "<del>abc</del>")
+   '(("+abc+" "<s>abc</s>")
      ("++abc++"
-      "<del><del>abc</del></del>"
-      "<del>abc</del>")
+      "<s><s>abc</s></s>"
+      "<s>abc</s>")
      ("++" . nil)
-     ("+++" "<del>+</del>")
-     ("++++" "<del>++</del>")
+     ("+++" "<s>+</s>")
+     ("++++" "<s>++</s>")
      ("+++++"
-      "<del><del>+</del></del>"
-      "<del>+</del>")
-     ("+\\plus\\plus\\plus+" "<del>+++</del>")
+      "<s><s>+</s></s>"
+      "<s>+</s>")
+     ("+\\plus\\plus\\plus+" "<s>+++</s>")
      ("+hello world this world+"
-      "<del>hello world this world</del>")
-     ("+hello\nworld+" "<del>hello\nworld</del>"))))
+      "<s>hello world this world</s>")
+     ("+hello\nworld+" "<s>hello\nworld</s>"))))
 
 (ert-deftest t-convert-special-strings ()
   (dolist (a '(("hello..." . "hello&#x2026;")

@@ -228,7 +228,7 @@ See `org-html-checkbox-types' for the values used for each option."
   '((bold . "<strong>%s</strong>")
     (code . "<code>%s</code>")
     (italic . "<em>%s</em>")
-    (strike-through . "<del>%s</del>")
+    (strike-through . "<s>%s</s>")
     (underline . "<span class=\"underline\">%s</span>")
     (verbatim . "<code>%s</code>"))
   "Alist of HTML expressions to convert text markup.
