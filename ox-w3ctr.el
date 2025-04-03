@@ -1,4 +1,4 @@
-;;; ox-w3ctr.el --- An Org export Back-End -*- lexical-binding: t; -*-
+;;; ox-w3ctr.el --- An Org export Back-End -*- lexical-binding:t;-*-
 
 ;; Copyright (C) 2024 include-yy <yy@egh0bww1.com>
 
@@ -3102,6 +3102,7 @@ Return output file name."
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
 ;; fill-column: 72
 ;; coding: utf-8-unix
+;; no-native-compile: t
 ;; End:
 
 ;;; ox-w3ctr.el ends here

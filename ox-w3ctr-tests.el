@@ -1,4 +1,6 @@
-;; -*- lexical-binding: t; -*-
+;;; -*- lexical-binding:t;no-byte-compile:t; -*-
+
+(require 'ox-w3ctr)
 
 (ert-deftest t--2str ()
   (should (eq (t--2str nil) nil))
