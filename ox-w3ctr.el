@@ -382,10 +382,12 @@ See `org-html-with-latex' for more information."
 	  (const :tag "Use MathJax to display math" mathjax)
 	  (const :tag "Use MathJax to render mathML" mathml)))
 
-(defcustom t-mathjax-config ""
+;; FIXME: improve docstring
+(defcustom t-mathjax-config '("" . "")
   "mathjax code"
   :group 'org-export-w3ctr
-  :type 'string)
+  :type '(cons (string :tag "mathjax config")
+	       (string :tag "mathml  config")))
 
 (defvar t-creator-string
   (format "<a href=\"https://www.gnu.org/software/emacs/\">\
@@ -1727,15 +1729,21 @@ INFO is a plist used as a communication channel."
     (when (plist-get info :html-head-include-default-style)
       (t--normalize-string t-default-style)))))
 
-;; FIXME: Allow different option for non-mathjax config
 (defun t--build-mathjax-config (info)
   "Insert the user setup into the mathjax template.
 INFO is a plist used as a communication channel."
   (let ((type (plist-get info :with-latex))
 	(config (plist-get info :html-mathjax-config)))
-    (if (t--nw-p config) config
-      (when (eq type 'mathjax)
-	(org-html--build-mathjax-config info)))))
+    (unless (and (stringp (car config)) (stringp (cdr config)))
+      (error "Not a valid mathjax config: %s" config))
+    (pcase type
+      (`nil "")
+      (`mathjax (if (not (t--nw-p (car config)))
+		    (org-html--build-mathjax-config info)
+		  (t--normalize-string (car config))))
+      (`mathml (if (not (t--nw-p (cdr config))) ""
+		 (t--normalize-string (cdr config))))
+      (other (error "Not a valid mathjax option: %s" other)))))
 
 (defun t-get-date (info &optional boundary)
   (let ((date (plist-get info :date)))

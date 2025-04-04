@@ -608,6 +608,23 @@ int a = 1;</code></p>\n</details>")
                  "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n"))
   (should (equal (t--build-meta-entry "name" "version" "v%s.%s" "1" "2")
                 "<meta name=\"version\" content=\"v1.2\">\n")))
+
+(ert-deftest t--build-mathjax-config ()
+  "Test `t--build-mathjax-config' function."
+  (let ((info '(:with-latex mathjax :html-mathjax-config
+			    ("mjconfig" . "mlconfig"))))
+    (should (equal (t--build-mathjax-config info) "mjconfig\n")))
+  (let ((info '(:with-latex mathml :html-mathjax-config
+			    ("mjconfig" . "mlconfig"))))
+    (should (equal (t--build-mathjax-config info) "mlconfig\n")))
+  (let ((info '(:with-latex nil :html-mathjax-config
+			    ("mjconfig" . "mlconfig"))))
+    (should (equal (t--build-mathjax-config info) "")))
+  (let ((info '(:with-latex mathjax :html-mathjax-config (1 . 2))))
+    (should-error (t--build-mathjax-config info) :type 'error))
+  (let ((info '(:with-latex invalid :html-mathjax-config
+			    ("mjconfig" . "mlconfig"))))
+    (should-error (t--build-mathjax-config info) :type 'error)))
 
 (ert-deftest t--timezone-to-offset ()
   (should (= (t--timezone-to-offset "UTC+8") (* 8 3600)))
