@@ -367,6 +367,14 @@ style information."
 (put 't-head-include-default-style
      'safe-local-variable 'booleanp)
 
+(defcustom t-default-style ""
+  "The default style specification for exported HTML files.
+You can use `t-head' and `t-head-extra' to add to
+this style.  If you don't want to include this default style,
+customize `t-head-include-default-style'."
+  :group 'org-export-w3ctr
+  :type 'string)
+
 (defcustom t-with-latex 'mathjax
   "Non-nil means process LaTeX math snippets.
 
@@ -389,14 +397,16 @@ See `format-time-string' for more information on its components."
   :group 'org-export-w3ctr
   :type 'string)
 
-(defvar t-creator-string
+(defcustom t-creator-string
   (format "<a href=\"https://www.gnu.org/software/emacs/\">\
 Emacs</a> %s (<a href=\"https://orgmode.org\">Org</a> mode %s)"
 	  emacs-version
 	  (if (fboundp 'org-version) (org-version)
 	    "unknown version"))
   "Information about the creator of the HTML document.
-See `org-html-creator-string' for more information.")
+See `org-html-creator-string' for more information."
+  :group 'org-export-w3ctr
+  :type 'string)
 
 (defcustom t-validation-link
   "<a href=\"https://validator.w3.org/check?uri=referer\">\
@@ -463,6 +473,11 @@ See `org-html-postamble' for more information"
   :group 'org-export-w3ctr
   :type 'string)
 
+(defcustom t-language-string "zh-CN"
+  "default HTML lang attribtue"
+  :group 'org-export-w3ctr
+  :type 'string)
+
 (defcustom t-back-to-top-arrow
   "<p role=\"navigation\" id=\"back-to-top\">\
 <a href=\"#title\"><abbr title=\"Back to Top\">↑\
@@ -471,6 +486,14 @@ See `org-html-postamble' for more information"
   :group 'org-export-w3ctr
   :type 'string)
 
+(defvar t-fixup-js ""
+  "js code that control toc's hide and show")
+
+(defcustom t-back-to-top t
+  "add back-to-top arrow at the end of html file"
+  :group 'org-export-w3ctr
+  :type '(boolean))
+
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
 Warning: non-nil may break indentation of source code blocks."
@@ -624,11 +647,6 @@ This option will override `org-export-use-babel'"
   :group 'org-export-w3ctr
   :type '(boolean))
 
-(defcustom t-back-to-top t
-  "add back-to-top arrow at the end of html file"
-  :group 'org-export-w3ctr
-  :type '(boolean))
-
 (defcustom t-headline-level 5
   "max level of export headline"
   :group 'org-export-w3ctr
@@ -652,11 +670,6 @@ This option will override `org-export-use-babel'"
   :group 'org-export-w3ctr
   :type 'sexp)
 
-(defcustom t-language-string "zh-CN"
-  "default HTML lang attribtue"
-  :group 'org-export-w3ctr
-  :type 'string)
-
 (defcustom t-zeroth-section-tocname "Abstract"
   "default toc name of the zeroth section"
   :group 'org-export-w3ctr
@@ -678,15 +691,6 @@ property on the headline itself.")
 (defvar t--id-attr-prefix "ID-"
   "Prefix to use in ID attributes.
 This affects IDs that are determined from the ID property.")
-
-(defvar t-default-style ""
-  "The default style specification for exported HTML files.
-You can use `t-head' and `t-head-extra' to add to
-this style.  If you don't want to include this default style,
-customize `t-head-include-default-style'.")
-
-(defvar t-fixup-js ""
-  "js code that control toc's hide and show")
 
 ;; load default CSS from style.css
 (defun t-update-css-js ()
@@ -1745,7 +1749,7 @@ INFO is a plist used as a communication channel."
 		 (t--normalize-string (cdr config))))
       (other (error "Not a valid mathjax option: %s" other)))))
 
-(defun t-get-date (info &optional boundary)
+(defun t--get-info-date (info &optional boundary)
   (let ((date (plist-get info :date)))
     (cond
      ((not date) "[Date not specified]")
@@ -1760,8 +1764,8 @@ INFO is a plist used as a communication channel."
 	 (plist-get info :html-pre/post-timestamp-format)))
     `((?t . ,(org-export-data (plist-get info :title) info))
       (?s . ,(org-export-data (plist-get info :subtitle) info))
-      (?d . ,(t-get-date info 'start))
-      (?f . ,(t-get-date info 'end))
+      (?d . ,(t--get-info-date info 'start))
+      (?f . ,(t--get-info-date info 'end))
       (?T . ,(format-time-string timestamp-format))
       (?a . ,(org-export-data (plist-get info :author) info))
       (?e . ,(mapconcat
