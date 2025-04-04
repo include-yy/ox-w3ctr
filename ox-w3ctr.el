@@ -143,8 +143,8 @@
     (:subtitle "SUBTITLE" nil nil parse)
     (:html-head-include-default-style
      nil "html-style" t-head-include-default-style)
-    (:html-metadata-timestamp-format
-     nil nil t-metadata-timestamp-format)
+    (:html-pre/post-timestamp-format
+     nil nil t-pre/post-timestamp-format)
     ;; HTML TOP place naviagtion elements -------------------------
     (:html-link-home/up "HTML_LINK_HOMEUP" nil t-link-homeup parse)
     (:html-format-home/up-function nil nil t-format-home/up-function)
@@ -247,15 +247,21 @@ See also `org-html-text-markup-alist'."
 		:value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
 
-(defcustom t-file-timestamp-function #'t-file-timestamp-default
-  "Function to generate timestamp for exported files at top place.
-This function should take one argument (the export INFO plist) and
-return a string representing the timestamp.
+(defcustom t-meta-tags #'t-meta-tags-default
+  "Form that is used to produce meta tags in the HTML head.
 
-Default value is `t-file-timestamp-default' which generates
-timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+Can be a list where each item is a list of arguments to be passed
+to `t--build-meta-entry'.  Any nil items are ignored.
+
+Also accept a function which gives such a list when called with a
+single argument (INFO, a communication plist)."
   :group 'org-export-w3ctr
-  :type 'symbol)
+  :type '(choice
+	  (repeat
+	   (list (string :tag "Meta label")
+		 (string :tag "label value")
+		 (string :tag "Content value")))
+	  function))
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export.
@@ -267,11 +273,15 @@ platforms and version control systems."
   :group 'org-export-w3ctr
   :type 'coding-system)
 
-(defcustom t-metadata-timestamp-format "%Y-%m-%d %H:%M"
-  "Format used for timestamps in preamble, postamble and metadata.
-See `format-time-string' for more information on its components."
+(defcustom t-file-timestamp-function #'t-file-timestamp-default
+  "Function to generate timestamp for exported files at top place.
+This function should take one argument (the export INFO plist) and
+return a string representing the timestamp.
+
+Default value is `t-file-timestamp-default' which generates
+timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'symbol)
 
 (defcustom t-viewport '((width "device-width")
 			(initial-scale "1")
@@ -318,22 +328,6 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
 		(choice (const :tag "unset" "")
 			(const "true")
 			(const "false"))))))
-
-(defcustom t-meta-tags #'t-meta-tags-default
-  "Form that is used to produce meta tags in the HTML head.
-
-Can be a list where each item is a list of arguments to be passed
-to `t--build-meta-entry'.  Any nil items are ignored.
-
-Also accept a function which gives such a list when called with a
-single argument (INFO, a communication plist)."
-  :group 'org-export-w3ctr
-  :type '(choice
-	  (repeat
-	   (list (string :tag "Meta label")
-		 (string :tag "label value")
-		 (string :tag "Content value")))
-	  function))
 
 (defcustom t-head ""
   "Org-wide head definitions for exported HTML files.
@@ -388,6 +382,12 @@ See `org-html-with-latex' for more information."
   :group 'org-export-w3ctr
   :type '(cons (string :tag "mathjax config")
 	       (string :tag "mathml  config")))
+
+(defcustom t-pre/post-timestamp-format "%Y-%m-%d %H:%M"
+  "Format used for timestamps in preamble, postamble and metadata.
+See `format-time-string' for more information on its components."
+  :group 'org-export-w3ctr
+  :type 'string)
 
 (defvar t-creator-string
   (format "<a href=\"https://www.gnu.org/software/emacs/\">\
@@ -1757,7 +1757,7 @@ INFO is a plist used as a communication channel."
   "Return format specification for preamble and postamble.
 INFO is a plist used as a communication channel."
   (let ((timestamp-format
-	 (plist-get info :html-metadata-timestamp-format)))
+	 (plist-get info :html-pre/post-timestamp-format)))
     `((?t . ,(org-export-data (plist-get info :title) info))
       (?s . ,(org-export-data (plist-get info :subtitle) info))
       (?d . ,(t-get-date info 'start))
