@@ -1691,17 +1691,14 @@ INFO is a plist used as a communication channel."
 		 (fun (plist-get info :html-file-timestamp)))
        (format "<!-- %s -->\n" (funcall fun info)))
      (t--build-meta-entry "charset" charset)
-     (let ((viewport-options
-	    (cl-remove-if-not
-	     (lambda (cell) (org-string-nw-p (cadr cell)))
-	     (plist-get info :html-viewport))))
-       (if viewport-options
-	   (t--build-meta-entry
-	    "name" "viewport"
-	    (mapconcat
-	     (lambda (elm)
-               (format "%s=%s" (car elm) (cadr elm)))
-	     viewport-options ", "))))
+     (when-let*
+	 ((viewport-options
+	   (cl-remove-if-not (lambda (cell) (t--nw-p (cadr cell)))
+			     (plist-get info :html-viewport))))
+       (t--build-meta-entry
+	"name" "viewport"
+	(mapconcat (lambda (elm) (format "%s=%s" (car elm) (cadr elm)))
+		   viewport-options ", ")))
      (format "<title>%s</title>\n" title)
      (mapconcat
       (lambda (args) (apply #'t--build-meta-entry args))
