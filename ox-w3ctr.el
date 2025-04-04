@@ -1607,7 +1607,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 
 (defun t-encode-plain-text (text)
   "Convert plain text characters from TEXT to HTML equivalent.
-Possible conversions are set in `t-protect-char-alist'."
+Possible conversions are set in `org-w3ctr-protect-char-alist'."
   (dolist (pair t-protect-char-alist text)
     (setq text (replace-regexp-in-string
 		(car pair) (cdr pair) text t t))))
@@ -1636,10 +1636,10 @@ Possible conversions are set in `t-protect-char-alist'."
 
 ;;; Template
 (defun t-meta-tags-default (info)
-  "A default value for `t-meta-tags'.
+  "A default value for `org-w3ctr-meta-tags'.
 
 Generate a list items, each of which is a list of arguments
-that can be passed to `t--build-meta-entry', to generate meta
+that can be passed to `org-w3ctr--build-meta-entry', to generate meta
 tags to be included in the HTML head.
 
 Use document's INFO to derive relevant information for the tags."
@@ -1898,7 +1898,7 @@ holding export options."
    (t--nw-p (plist-get info :html-fixup-js))
    ;; Closing document.
    "</body>\n</html>"))
-
+
 ;;; Tables of Contents
 
 (defun t-toc (depth info)
@@ -3002,7 +3002,7 @@ The export timezone is determined by:
 The timezone string format depends on `:html-datetime-option' in INFO:
 - \"±HHMM\" (e.g. \"+0800\", \"-0500\")
 - \"±HH:MM\" (e.g. \"+08:00\", \"-05:00\")
-- \"Z\" for UTC (when option includes 'zulu')
+- \"Z\" for UTC (when option includes `zulu')
 - \"\" for local time"
   (let ((zone (t--get-info-export-timezone-offset info))
 	(tokens (t--get-info-timezone-tokens info)))
