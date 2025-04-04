@@ -1620,14 +1620,16 @@ Use document's INFO to derive relevant information for the tags."
 		    (auth (plist-get info :author)))
            ;; Return raw Org syntax.
            (org-element-interpret-data auth))))
-    (list
-     (when (t--nw-p author)
-       (list "name" "author" author))
-     (when-let* ((desc (t--nw-p (plist-get info :description))))
-       (list "name" "description" (t--trim desc)))
-     (when-let* ((keyw (t--nw-p (plist-get info :keywords))))
-       (list "name" "keywords" (t--trim keyw)))
-     '("name" "generator" "Org Mode"))))
+    (thread-last
+      (list
+       (when (t--nw-p author)
+	 (list "name" "author" author))
+       (when-let* ((desc (t--nw-p (plist-get info :description))))
+	 (list "name" "description" (t--trim desc)))
+       (when-let* ((keyw (t--nw-p (plist-get info :keywords))))
+	 (list "name" "keywords" (t--trim keyw)))
+       '("name" "generator" "Org Mode"))
+      (remove nil))))
 
 (defun t--build-meta-entry ( label identity
 			     &optional content-format
