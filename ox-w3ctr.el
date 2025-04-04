@@ -364,7 +364,7 @@ or for publication projects using the :html-head-extra property."
 
 (defcustom t-head-include-default-style t
   "Non-nil means include the default style in exported HTML files.
-The actual style is defined in `t-style-default' and
+The actual style is defined in `t-default-style' and
 should not be modified.  Use `t-head' to use your own
 style information."
   :group 'org-export-w3ctr
@@ -677,7 +677,7 @@ property on the headline itself.")
   "Prefix to use in ID attributes.
 This affects IDs that are determined from the ID property.")
 
-(defvar t-style-default ""
+(defvar t-default-style ""
   "The default style specification for exported HTML files.
 You can use `t-head' and `t-head-extra' to add to
 this style.  If you don't want to include this default style,
@@ -688,9 +688,9 @@ customize `t-head-include-default-style'.")
 
 ;; load default CSS from style.css
 (defun t-update-css-js ()
-  "update `t-style-default' and t-fixup-js"
+  "update `t-default-style' and t-fixup-js"
   (interactive)
-  (setq t-style-default
+  (setq t-default-style
 	(let ((fname (file-name-concat t--dir "assets/style.css")))
 	  (format "<style>\n%s\n</style>\n"
 		  (with-temp-buffer
@@ -823,6 +823,18 @@ See also `org-trim'."
   (replace-regexp-in-string
    (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
    (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
+
+(defsubst t--normalize-string (s)
+  "Ensure string S ends with a single newline character.
+
+If S isn't a string return it unchanged.  If S is the empty
+string, return it.  Otherwise, return a new string with a single
+newline character at its end."
+  (cond
+   ((not (stringp s)) s)
+   ((string= "" s) "")
+   (t (and (string-match "\\(\n[ \t]*\\)*\\'" s)
+	   (replace-match "\n" nil nil s)))))
 
 (defsubst t--maybe-contents (contents)
   "If CONTENTS is non-nil, prepend a newline and return it;
@@ -1708,15 +1720,14 @@ INFO is a plist used as a communication channel."
 (defun t--build-head (info)
   "Return information for the <head>..</head> of the HTML output.
 INFO is a plist used as a communication channel."
-  (org-element-normalize-string
+  (t--normalize-string
    (concat
-    (org-element-normalize-string
-     (plist-get info :html-head))
-    (org-element-normalize-string
-     (plist-get info :html-head-extra))
+    (t--normalize-string (plist-get info :html-head))
+    (t--normalize-string (plist-get info :html-head-extra))
     (when (plist-get info :html-head-include-default-style)
-      (org-element-normalize-string t-style-default)))))
+      (t--normalize-string t-default-style)))))
 
+;; FIXME: Allow different option for non-mathjax config
 (defun t--build-mathjax-config (info)
   "Insert the user setup into the mathjax template.
 INFO is a plist used as a communication channel."
