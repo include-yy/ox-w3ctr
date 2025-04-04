@@ -1607,7 +1607,6 @@ Possible conversions are set in `t-protect-char-alist'."
     output))
 
 ;;; Template
-;; FIXME: recheck
 (defun t-meta-tags-default (info)
   "A default value for `t-meta-tags'.
 
@@ -1617,18 +1616,17 @@ tags to be included in the HTML head.
 
 Use document's INFO to derive relevant information for the tags."
   (let ((author
-	 (and (plist-get info :with-author)
-              (let ((auth (plist-get info :author)))
-                ;; Return raw Org syntax.
-                (and auth (org-element-interpret-data auth))))))
+	 (and-let* (((plist-get info :with-author))
+		    (auth (plist-get info :author)))
+           ;; Return raw Org syntax.
+           (org-element-interpret-data auth))))
     (list
-     (when (org-string-nw-p author)
+     (when (t--nw-p author)
        (list "name" "author" author))
-     (when (org-string-nw-p (plist-get info :description))
-       (list "name" "description"
-             (plist-get info :description)))
-     (when (org-string-nw-p (plist-get info :keywords))
-       (list "name" "keywords" (plist-get info :keywords)))
+     (when-let* ((desc (t--nw-p (plist-get info :description))))
+       (list "name" "description" (t--trim desc)))
+     (when-let* ((keyw (t--nw-p (plist-get info :keywords))))
+       (list "name" "keywords" (t--trim keyw)))
      '("name" "generator" "Org Mode"))))
 
 (defun t--build-meta-entry ( label identity

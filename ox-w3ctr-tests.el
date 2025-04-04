@@ -579,6 +579,23 @@ int a = 1;</code></p>\n</details>")
                                     :preserve-breaks t))
                  "\"a &lt; b\" &#x2013; c<br>\nd")))
 
+(ert-deftest t-meta-tags-default ()
+  (let ((info-with-author '(:with-author t :author ("Alice")))
+        (info-with-desc '(:description "Test doc"))
+        (info-with-keywords '(:keywords "org, test"))
+        (info-empty '()))
+    (should (equal (t-meta-tags-default info-with-author)
+                  '(("name" "author" "Alice") nil nil
+                    ("name" "generator" "Org Mode"))))
+    (should (equal (t-meta-tags-default info-with-desc)
+                  '( nil ("name" "description" "Test doc") nil
+		     ("name" "generator" "Org Mode"))))
+    (should (equal (t-meta-tags-default info-with-keywords)
+                  '( nil nil ("name" "keywords" "org, test")
+		     ("name" "generator" "Org Mode"))))
+    (should (equal (t-meta-tags-default info-empty)
+                  '(nil nil nil("name" "generator" "Org Mode"))))))
+
 (ert-deftest t--timezone-to-offset ()
   (should (= (t--timezone-to-offset "UTC+8") (* 8 3600)))
   (should (= (t--timezone-to-offset "GMT-5") (* -5 3600)))
