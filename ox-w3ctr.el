@@ -208,6 +208,7 @@
     (:html-timezone "HTML_TIMEZONE" nil t-timezone)
     (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
     (:html-datetime-option nil "datetime" t-datetime-format-choice)
+    (:html-file-timestamp nil nil t-file-timestamp-function)
     ))
 
 ;;; User Configuration Variables
@@ -246,6 +247,15 @@ See also `org-html-text-markup-alist'."
 		:value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
 
+(defcustom t-file-timestamp-function #'t-file-timestamp-default
+  "Function to generate timestamp for exported files at top place.
+This function should take one argument (the export INFO plist) and
+return a string representing the timestamp.
+
+Default value is `t-file-timestamp-default' which generates
+timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+  :group 'org-export-w3ctr
+  :type 'symbol)
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export.
@@ -1655,30 +1665,31 @@ to the CONTENT-FORMAT and encoding the result as plain text."
 			content-format)))))
 	  "\">\n"))
 
+(defun t-file-timestamp-default (_info)
+  "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+  (format-time-string "%FT%RZ" nil t))
+
 (defun t--build-meta-info (info)
   "Return meta tags for exported document.
 INFO is a plist used as a communication channel."
-  (let* ((title (t-plain-text
-		 (org-element-interpret-data
-		  (plist-get info :title))
-		 info))
-	 ;; Set title to an invisible character instead of
-	 ;; leaving it empty, which is invalid.
-	 (title (if (org-string-nw-p title) title "&lrm;"))
-	 (charset (or (and t-coding-system
-			   (fboundp 'coding-system-get)
-			   (symbol-name
-			    (coding-system-get t-coding-system
-					       'mime-charset)))
-		      "iso-8859-1")))
+  (let* ((title
+	  (if-let* ((title (plist-get info :title))
+		    (data (org-element-interpret-data title))
+		    ((t--nw-p data))
+		    (text (t-plain-text data info)))
+	      ;; Set title to an invisible character instead of
+	      ;; leaving it empty, which is invalid.
+	      text "&lrm;"))
+	 (charset
+	  (if-let* ((coding t-coding-system)
+		    (name (coding-system-get coding 'mime-charset)))
+	      (symbol-name name) "utf-8")))
     (concat
-     (when (plist-get info :time-stamp-file)
-       (format-time-string
-	(format
-	 "<!-- %s%s -->\n"
-	 (plist-get info :html-metadata-timestamp-format)
-	 ;; Add time zone information here.
-	 (t--get-info-normalized-timezone info))))
+     ;; See `org-export-timestamp-file'
+     ;; Or `org-export-time-stamp-file' :p
+     (when-let* (((plist-get info :time-stamp-file))
+		 (fun (plist-get info :html-file-timestamp)))
+       (format "<!-- %s -->\n" (funcall fun info)))
      (t--build-meta-entry "charset" charset)
      (let ((viewport-options
 	    (cl-remove-if-not
@@ -1694,8 +1705,7 @@ INFO is a plist used as a communication channel."
      (format "<title>%s</title>\n" title)
      (mapconcat
       (lambda (args) (apply #'t--build-meta-entry args))
-      (delq nil (if (functionp t-meta-tags)
-		    (funcall t-meta-tags info)
+      (delq nil (if (functionp t-meta-tags) (funcall t-meta-tags info)
 		  t-meta-tags))))))
 
 (defun t--build-head (info)
