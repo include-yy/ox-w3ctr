@@ -1022,7 +1022,7 @@ input. Other data types will be ignored."
   (when-let* ((attrs (t--read-attr :attr__ element)))
     (mapcar
      (lambda (x) (if (not (vectorp x)) x
-		   (list "class" (mapconcat #'t--2str x " "))))
+	       (list "class" (mapconcat #'t--2str x " "))))
      attrs)))
 
 (defun t--make-attr__ (attributes)
@@ -1032,9 +1032,9 @@ ATTRIBUTES is a alist where values are either strings or nil. An
 attribute with a nil value means a boolean attribute."
   (mapconcat
    (lambda (x) (if (atom x)
-		   (and-let* ((s (t--2str x)))
-		     (concat " " (downcase s)))
-		 (t--make-attr x)))
+	       (and-let* ((s (t--2str x)))
+		 (concat " " (downcase s)))
+	     (t--make-attr x)))
    attributes))
 
 (defun t--make-attr__id (element info &optional named-only)
@@ -1241,7 +1241,7 @@ See `org-w3ctr-checkbox-types' for customization options."
        (`ordered
 	(let* ((counter term-counter-id)
 	       (extra (if (not counter) ""
-			  (format " value=\"%s\"" counter))))
+			(format " value=\"%s\"" counter))))
 	  (concat
 	   (format "<li%s>" extra)
 	   (when headline (concat headline br)))))
@@ -1400,7 +1400,7 @@ CONTENTS is the contents of the paragraph, as a string."
       (t-standalone-image-p paragraph info)
       (let* ((caption (org-export-get-caption paragraph))
 	     (cap (or (and caption (org-export-data caption info)) "")))
-	  (t--wrap-image contents info cap attrs)))
+	(t--wrap-image contents info cap attrs)))
      ;; Regular paragraph.
      (t (let ((c (t--trim contents)))
 	  (if (string= c "") ""
