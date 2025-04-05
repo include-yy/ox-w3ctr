@@ -85,6 +85,24 @@
 	  (should (equal t-test-values (cdr test)))))
     (advice-remove fn advice)))
 
+(defun t-check-element-values* (fn advice pairs)
+  (advice-add fn :filter-return advice)
+  (unwind-protect
+      (dolist (test pairs)
+	(let (t-test-values)
+	  (ignore (org-export-string-as (car test) 'w3ctr))
+	  (should (equal t-test-values (cdr test)))))
+    (advice-remove fn advice)))
+
+(defun t-check-element-values-full (fn advice info pairs)
+  (advice-add fn :filter-return advice)
+  (unwind-protect
+      (dolist (test pairs)
+	(let (t-test-values)
+	  (ignore (org-export-string-as (car test) 'w3ctr nil info))
+	  (should (equal t-test-values (cdr test)))))
+    (advice-remove fn advice)))
+
 (defun t-advice-return-value (str)
   (prog1 str
     (push (if (not (stringp str)) str
@@ -608,6 +626,27 @@ int a = 1;</code></p>\n</details>")
                  "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n"))
   (should (equal (t--build-meta-entry "name" "version" "v%s.%s" "1" "2")
                 "<meta name=\"version\" content=\"v1.2\">\n")))
+
+(ert-deftest t--get-info-title ()
+  (t-check-element-values*
+   #'t--get-info-title #'t-advice-return-value
+   '(("#+title: he" "he")
+     ("#+title:he" "he")
+     ("#+title: \t" "&lrm;")
+     ("#+title: \s\s\t" "&lrm;")
+     ("#+title:   3   " "3")
+     ;; zero width space
+     ("#+title:​" "​")
+     ("#+TITLE: hello\sworld" "hello world"))))
+
+(ert-deftest t--get-info-file-timestamp ()
+  (t-check-element-values-full
+   #'t--get-info-file-timestamp #'t-advice-return-value
+   '( :html-file-timestamp t-file-timestamp-default
+      :time-stamp-file t)
+   `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
+     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
+     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))))
 
 (ert-deftest t--build-mathjax-config ()
   "Test `t--build-mathjax-config' function."

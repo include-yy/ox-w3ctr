@@ -1687,27 +1687,41 @@ to the CONTENT-FORMAT and encoding the result as plain text."
   "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   (format-time-string "%FT%RZ" nil t))
 
+(defun t--get-info-title (info)
+  "Extract title from INFO plist and return as plain text.
+
+If title exists, is non-whitespace, and can be converted to plain text,
+return the text. Otherwise return a left-to-right mark (invisible)."
+  (if-let* ((title (plist-get info :title))
+	    (data (org-element-interpret-data title))
+	    ((t--nw-p data))
+	    (text (t-plain-text data info)))
+      ;; Set title to an invisible character instead of
+      ;; leaving it empty, which is invalid.
+      text "&lrm;"))
+
+(defun t--get-info-file-timestamp (info)
+  "Get file timestamp from INFO plist using :html-file-timestamp function.
+
+If the function exists and is valid, call it with INFO as argument.
+Otherwise, signal an error."
+  (if-let* ((fun (plist-get info :html-file-timestamp))
+	    ((functionp fun)))
+      (funcall fun info)
+    (error ":html-file-timestamp's value is not a valid function!")))
+
 (defun t--build-meta-info (info)
   "Return meta tags for exported document.
 INFO is a plist used as a communication channel."
-  (let* ((title
-	  (if-let* ((title (plist-get info :title))
-		    (data (org-element-interpret-data title))
-		    ((t--nw-p data))
-		    (text (t-plain-text data info)))
-	      ;; Set title to an invisible character instead of
-	      ;; leaving it empty, which is invalid.
-	      text "&lrm;"))
+  (let* ((title (t--get-info-title info))
 	 (charset
 	  (if-let* ((coding t-coding-system)
 		    (name (coding-system-get coding 'mime-charset)))
 	      (symbol-name name) "utf-8")))
     (concat
-     ;; See `org-export-timestamp-file'
-     ;; Or `org-export-time-stamp-file' :p
-     (when-let* (((plist-get info :time-stamp-file))
-		 (fun (plist-get info :html-file-timestamp)))
-       (format "<!-- %s -->\n" (funcall fun info)))
+     ;; See `org-export-timestamp-file' or `org-export-time-stamp-file'
+     (when (plist-get info :time-stamp-file)
+       (format "<!-- %s -->\n" (t--get-info-file-timestamp info)))
      (t--build-meta-entry "charset" charset)
      (when-let*
 	 ((viewport-options
