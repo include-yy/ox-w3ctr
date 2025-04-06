@@ -209,6 +209,8 @@
     (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
     (:html-datetime-option nil "datetime" t-datetime-format-choice)
     (:html-file-timestamp nil nil t-file-timestamp-function)
+    ;; public license
+    (:html-license nil "license" t-public-license)
     ))
 
 ;;; User Configuration Variables
@@ -415,20 +417,7 @@ Validate</a>"
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-preamble "\
-<details open>
-<summary>More details about this document</summary>
-<dl>
-<dt>Create Date:</dt> <dd>%d</dd>
-<dt>Publish Date:</dt> <dd>%f</dd>
-<dt>Update Date:</dt> <dd>%C</dd>
-<dt>Creator:</dt> <dd>%c</dd>
-<dt>License:</dt> <dd>This work is licensed under \
-<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">\
-CC BY-SA 4.0</a></dd>
-</dl>
-</details>
-<hr>"
+(defcustom t-preamble #'t-preamble-default-function
   "Non-nil means insert a preamble in HTML export.
 
 See `org-html-preamble' for more information"
@@ -493,6 +482,53 @@ See `org-html-postamble' for more information"
   "add back-to-top arrow at the end of html file"
   :group 'org-export-w3ctr
   :type '(boolean))
+
+(defcustom t-public-license 'cc-by-sa-4.0
+  "public license"
+  :group 'org-export-w3ctr
+  :type '(choice
+	  (const nil) (const cc0)
+	  (const all-rights-reserved)
+	  (const all-rights-reversed)
+	  (const cc-by-4.0) (const cc-by-nc-4.0)
+	  (const cc-by-nc-nd-4.0) (const cc-by-nc-sa-4.0)
+	  (const cc-by-nd-4.0) (const cc-by-sa-4.0)
+	  (const cc-by-3.0) (const cc-by-nc-3.0)
+	  (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
+	  (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
+
+(defconst t-public-license-alist
+  '((nil "Not Specified")
+    (all-rights-reserved "All Rights Reserved")
+    (all-rights-reversed "All Rights Reversed")
+    (cc0 "CC0" "https://creativecommons.org/public-domain/cc0/")
+    ;; 4.0
+    ( cc-by-4.0 "CC BY-SA 4.0"
+      "https://creativecommons.org/licenses/by/4.0/")
+    ( cc-by-nc-4.0 "CC BY-NC 4.0"
+      "https://creativecommons.org/licenses/by-nc/4.0/")
+    ( cc-by-nc-nd-4.0 "CC BY-NC-ND 4.0"
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/")
+    ( cc-by-nc-sa-4.0 "CC BY-NC-SA 4.0"
+      "https://creativecommons.org/licenses/by-nc-sa/4.0/")
+    ( cc-by-nd-4.0 "CC BY-ND 4.0"
+      "https://creativecommons.org/licenses/by-nd/4.0/")
+    ( cc-by-sa-4.0 "CC BY-SA 4.0"
+      "https://creativecommons.org/licenses/by-sa/4.0/")
+    ;; 3.0
+    ( cc-by-3.0 "CC BY-SA 3.0"
+      "https://creativecommons.org/licenses/by/3.0/")
+    ( cc-by-nc-3.0 "CC BY-NC 3.0"
+      "https://creativecommons.org/licenses/by-nc/3.0/")
+    ( cc-by-nc-nd-3.0 "CC BY-NC-ND 3.0"
+      "https://creativecommons.org/licenses/by-nc-nd/3.0/")
+    ( cc-by-nc-sa-3.0 "CC BY-NC-SA 3.0"
+      "https://creativecommons.org/licenses/by-nc-sa/3.0/")
+    ( cc-by-nd-3.0 "CC BY-ND 3.0"
+      "https://creativecommons.org/licenses/by-nd/3.0/")
+    ( cc-by-sa-3.0 "CC BY-SA 3.0"
+      "https://creativecommons.org/licenses/by-sa/3.0/"))
+  "license alist")
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -1683,10 +1719,6 @@ to the CONTENT-FORMAT and encoding the result as plain text."
 			content-format)))))
 	  "\">\n"))
 
-(defun t-file-timestamp-default (_info)
-  "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
-  (format-time-string "%FT%RZ" nil t))
-
 (defun t--get-info-title (info)
   "Extract title from INFO plist and return as plain text.
 
@@ -1700,8 +1732,12 @@ return the text. Otherwise return a left-to-right mark (invisible)."
       ;; leaving it empty, which is invalid.
       text "&lrm;"))
 
+(defun t-file-timestamp-default (_info)
+  "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+  (format-time-string "%FT%RZ" nil t))
+
 (defun t--get-info-file-timestamp (info)
-  "Get file timestamp from INFO plist using :html-file-timestamp function.
+  "Get file timestamp from INFO plist using :html-file-timestamp.
 
 If the function exists and is valid, call it with INFO as argument.
 Otherwise, signal an error."
@@ -1711,8 +1747,7 @@ Otherwise, signal an error."
     (error ":html-file-timestamp's value is not a valid function!")))
 
 (defun t--build-meta-info (info)
-  "Return meta tags for exported document.
-INFO is a plist used as a communication channel."
+  "Return meta tags for exported document."
   (let* ((title (t--get-info-title info))
 	 (charset
 	  (if-let* ((coding t-coding-system)
@@ -1738,8 +1773,7 @@ INFO is a plist used as a communication channel."
 		  t-meta-tags))))))
 
 (defun t--build-head (info)
-  "Return information for the <head>..</head> of the HTML output.
-INFO is a plist used as a communication channel."
+  "Return information for the <head>..</head> of the HTML output."
   (t--normalize-string
    (concat
     (t--normalize-string (plist-get info :html-head))
@@ -1748,8 +1782,7 @@ INFO is a plist used as a communication channel."
       (t--normalize-string t-default-style)))))
 
 (defun t--build-mathjax-config (info)
-  "Insert the user setup into the mathjax template.
-INFO is a plist used as a communication channel."
+  "Insert the user setup into the mathjax template."
   (let ((type (plist-get info :with-latex))
 	(config (plist-get info :html-mathjax-config)))
     (unless (and (stringp (car config)) (stringp (cdr config)))
@@ -1762,25 +1795,14 @@ INFO is a plist used as a communication channel."
       (`mathml (if (not (t--nw-p (cdr config))) ""
 		 (t--normalize-string (cdr config))))
       (other (error "Not a valid mathjax option: %s" other)))))
-
-(defun t--get-info-date (info &optional boundary)
-  (let ((date (plist-get info :date)))
-    (cond
-     ((not date) "[Date not specified]")
-     ((not (eq (org-element-type (car date)) 'timestamp))
-      "[Not a valid Org timestamp]")
-     (t (t-timestamp (car date) nil info boundary)))))
-
+
 (defun t-format-spec (info)
-  "Return format specification for preamble and postamble.
-INFO is a plist used as a communication channel."
-  (let ((timestamp-format
-	 (plist-get info :html-pre/post-timestamp-format)))
+  "Return format specification for preamble and postamble."
+  (let ((fmt (plist-get info :html-pre/post-timestamp-format)))
     `((?t . ,(org-export-data (plist-get info :title) info))
       (?s . ,(org-export-data (plist-get info :subtitle) info))
-      (?d . ,(t--get-info-date info 'start))
-      (?f . ,(t--get-info-date info 'end))
-      (?T . ,(format-time-string timestamp-format))
+      (?d . ,(org-export-data (org-export-get-date info fmt) info))
+      (?T . ,(format-time-string fmt))
       (?a . ,(org-export-data (plist-get info :author) info))
       (?e . ,(mapconcat
 	      (lambda (e) (format "<a href=\"mailto:%s\">%s</a>" e e))
@@ -1789,33 +1811,141 @@ INFO is a plist used as a communication channel."
       (?c . ,(plist-get info :creator))
       (?C . ,(let ((file (plist-get info :input-file)))
 	       (format-time-string
-		timestamp-format
-		(and file (file-attribute-modification-time
-			   (file-attributes file))))))
+		fmt (and file (file-attribute-modification-time
+			       (file-attributes file))))))
       (?v . ,(or (plist-get info :html-validation-link) "")))))
 
 (defun t--build-pre/postamble (type info)
-  "Return document preamble or postamble as a string, or nil.
-TYPE is either `preamble' or `postamble', INFO is a plist used
-as a communication channel."
-  (let ((section (plist-get
-		  info (intern (format ":html-%s" type))))
-	(spec (t-format-spec info)))
-    (if section
-	(let ((section-contents
-	       (cond
-		((functionp section) (funcall section info))
-		((stringp section) (format-spec section spec))
-		((symbolp section)
-		 (if (fboundp section) (funcall section info)
-		   (if (not (boundp section))
-		       (error "pre/postamble not exist: %s" section)
-		     (format-spec (symbol-value section) spec))))
-		(t ""))))
-	  (if (org-string-nw-p section-contents)
-	      (org-element-normalize-string section-contents) ""))
-      "")))
+  "Return document preamble or postamble as a string, or empty string.
 
+TYPE is either `preamble' or `postamble'"
+  (let ((section (plist-get info (intern (format ":html-%s" type))))
+	(spec (t-format-spec info))
+	it)
+    (cond
+     ((null section) (setq it ""))
+     ;; string formatted with `format-spec'.
+     ((stringp section) (setq it (format-spec section spec)))
+     ;; function.
+     ((functionp section) (setq it (funcall section info)))
+     ;; symbol's function cell is nil or not a function.
+     ((symbolp section)
+      (if-let* ((value (symbol-value section))
+		((t--nw-p value)))
+	  (setq it (format-spec value spec))
+	;; When pre/postamble's value type is symbol and symbol's
+	;; function cell is nil, its value cell must be string type.
+	(error "pre/postamble symbol's value must be string")))
+     ;; not nil, string or symbol
+     (t (error "pre/postamble's value is invalid: %s" section)))
+    (or (and (t--nw-p it) (t--normalize-string it) ""))))
+
+(defun t--get-info-date (info &optional boundary)
+  "Extract date from INFO plist and format as timestamp. Returns formatted
+timestamp string or nil if no valid timestamp found.
+
+When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
+  (when-let* ((date (plist-get info :date))
+	      ((and date (proper-list-p date) (null (cdr date))))
+	      ((org-element-type-p (car date) 'timestamp)))
+    (t-timestamp (car date) nil info boundary)))
+
+(defvar t--cc-svg-hashtable (make-hash-table :test 'equal)
+  "Hash table storing url-encoded svg file contents.
+
+Include cc, by, sa, nc, nd")
+
+(defun t--load-cc-svg (name)
+  (let ((file (file-name-concat t--dir "assets" (concat name ".svg"))))
+    (if (not (file-exists-p file))
+	(error "svg file %s not exists" file)
+      (with-work-buffer
+	(insert-file-contents file)
+	(url-encode-url (buffer-substring-no-properties
+			 (point-min) (point-max)))))))
+
+(defun t--load-cc-svg-once (name)
+  (if-let* ((str (gethash name t--cc-svg-hashtable)))
+      str (setf (gethash name t--cc-svg-hashtable)
+		(t--load-cc-svg name))))
+
+(defun t--get-cc-svgs (license)
+  (let ((names (split-string (symbol-name license)
+			     "[0-9.-]" t)))
+    (when (eq license 'cc0)
+      (setq names '("cc" "zero")))
+    (mapconcat
+     (lambda (name)
+       (format "<img style=\"height:22px!important;margin-left:3px;\
+vertical-align:text-bottom;\" src=\"data:image/svg+xml,%s\" alt=\"\">"
+	       (t--load-cc-svg-once name)))
+     names)))
+
+(defun t--build-public-license (info)
+  ""
+  (let* ((license (plist-get info :html-license))
+	 (details (assq license t-public-license-alist))
+	 (is-cc (string-match-p "^cc" (symbol-name license)))
+	 (author (plist-get info :author)))
+    (unless details
+      (error "Not a known license name: %s" license))
+    (cond
+     ((eq license 'all-rights-reserved) (nth 1 details))
+     ((eq license 'all-rights-reversed) (nth 1 details))
+     (t
+      (let* ((name (nth 1 details))
+	     (link (nth 2 details)))
+	(concat
+	 "This work"
+	 (when author (concat " by" author))
+	 " is licensed under "
+	 (if (null link) name
+	   (format "<a href=\"%s\">%s</a>" link name))
+	 (when is-cc (t--get-cc-svgs license))))))))
+
+(defun t-preamble-default-function (info)
+  "docstring here"
+  (concat
+   "<details open>\n"
+   " <summary>More details about this document</summary>\n"
+   " <dl>\n"
+   "  <dt>Create Time:</dt> <dd>"
+   (or (t--get-info-date info 'start) "[DATE Not Specified]")
+   "</dd>\n"
+   "  <dt>Publish Time:"
+   (or (t--get-info-date info 'end) "[DATE Not Specified]")
+   "</dd>\n"
+   "  <dt>Update Time</dt> <dd>"
+   (format "<time datetime=\"%s\">%s</time>"
+	   (t--format-normalized-timestamp (current-time) info)
+	   (format-time-string "%F %R"))
+   "</dd>\n"
+   "  <dt>Creator:</dt> <dd>"
+   (plist-get info :creator)
+   "</dd>\n"
+   "  <dt>License:</dt> <dd>"
+   (t--build-public-license info)
+   "</dd>\n"
+   " </dl>\n"
+   "</details>\n"
+   "<hr>"))
+
+(defvar t-preamble-default-template
+  "<details open>
+ <summary>More details about this document</summary>
+ <dl>
+  <dt>Create Date:</dt> <dd>%d</dd>
+  <dt>Publish Date:</dt> <dd>%f</dd>
+  <dt>Update Date:</dt> <dd>%C</dd>
+  <dt>Creator:</dt> <dd>%c</dd>
+  <dt>License:</dt> <dd>This work is licensed under \
+<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">\
+CC BY-SA 4.0</a></dd>
+ </dl>
+</details>
+<hr>"
+  "Add docstring here")
+
 (defun t-inner-template (contents info)
   "Return body of document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist

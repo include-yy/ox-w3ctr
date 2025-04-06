@@ -648,6 +648,18 @@ int a = 1;</code></p>\n</details>")
      ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
      ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))))
 
+(ert-deftest t--build-head ()
+  (ert-skip "need improvement")
+  (let ((info '(:html-head "<meta charset=\"utf-8\">"
+                :html-head-extra "<link rel=\"stylesheet\" href=\"extra.css\">"
+                :html-head-include-default-style t)))
+    (should (string-match-p "<meta charset=\"utf-8\">" (t--build-head info)))
+    (should (string-match-p "href=\"extra.css\"" (t--build-head info)))
+    (should (string-match-p (regexp-quote t-default-style) (t--build-head info))))
+
+  (let ((info '(:html-head "" :html-head-extra "" :html-head-include-default-style nil)))
+    (should (string= "" (t--build-head info)))))
+
 (ert-deftest t--build-mathjax-config ()
   "Test `t--build-mathjax-config' function."
   (let ((info '(:with-latex mathjax :html-mathjax-config
