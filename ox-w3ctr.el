@@ -1922,7 +1922,7 @@ vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" alt=\"\">"
    "  <dt>Publish Time:</dt> <dd>"
    (or (t--get-info-date info 'end) "[DATE Not Specified]")
    "</dd>\n"
-   "  <dt>Update Time</dt> <dd>"
+   "  <dt>Update Time:</dt> <dd>"
    (format "<time datetime=\"%s\">%s</time>"
 	   (t--format-normalized-timestamp (current-time) info)
 	   (format-time-string "%F %R"))
