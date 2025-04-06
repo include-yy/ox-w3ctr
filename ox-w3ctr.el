@@ -1838,7 +1838,7 @@ TYPE is either `preamble' or `postamble'"
 	(error "pre/postamble symbol's value must be string")))
      ;; not nil, string or symbol
      (t (error "pre/postamble's value is invalid: %s" section)))
-    (or (and (t--nw-p it) (t--normalize-string it) ""))))
+    (or (and (t--nw-p it) (t--normalize-string it)) "")))
 
 (defun t--get-info-date (info &optional boundary)
   "Extract date from INFO plist and format as timestamp. Returns formatted
@@ -1861,8 +1861,8 @@ Include cc, by, sa, nc, nd")
 	(error "svg file %s not exists" file)
       (with-work-buffer
 	(insert-file-contents file)
-	(url-encode-url (buffer-substring-no-properties
-			 (point-min) (point-max)))))))
+	(base64-encode-region (point-min) (point-max) t)
+	(buffer-substring-no-properties (point-min) (point-max))))))
 
 (defun t--load-cc-svg-once (name)
   (if-let* ((str (gethash name t--cc-svg-hashtable)))
@@ -1877,7 +1877,7 @@ Include cc, by, sa, nc, nd")
     (mapconcat
      (lambda (name)
        (format "<img style=\"height:22px!important;margin-left:3px;\
-vertical-align:text-bottom;\" src=\"data:image/svg+xml,%s\" alt=\"\">"
+vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" alt=\"\">"
 	       (t--load-cc-svg-once name)))
      names)))
 
@@ -1912,7 +1912,7 @@ vertical-align:text-bottom;\" src=\"data:image/svg+xml,%s\" alt=\"\">"
    "  <dt>Create Time:</dt> <dd>"
    (or (t--get-info-date info 'start) "[DATE Not Specified]")
    "</dd>\n"
-   "  <dt>Publish Time:"
+   "  <dt>Publish Time:</dt> <dd>"
    (or (t--get-info-date info 'end) "[DATE Not Specified]")
    "</dd>\n"
    "  <dt>Update Time</dt> <dd>"
