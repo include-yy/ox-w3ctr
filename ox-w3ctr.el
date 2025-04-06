@@ -1796,6 +1796,7 @@ Otherwise, signal an error."
 		 (t--normalize-string (cdr config))))
       (other (error "Not a valid mathjax option: %s" other)))))
 
+;; FIXME: Add test
 (defun t-format-spec (info)
   "Return format specification for preamble and postamble."
   (let ((fmt (plist-get info :html-pre/post-timestamp-format)))
@@ -1815,6 +1816,7 @@ Otherwise, signal an error."
 			       (file-attributes file))))))
       (?v . ,(or (plist-get info :html-validation-link) "")))))
 
+;; FIXME: Recheck and add test
 (defun t--build-pre/postamble (type info)
   "Return document preamble or postamble as a string, or empty string.
 
@@ -1850,6 +1852,7 @@ When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
 	      ((org-element-type-p (car date) 'timestamp)))
     (t-timestamp (car date) nil info boundary)))
 
+;; FIXME: improve docstring
 (defvar t--cc-svg-hashtable (make-hash-table :test 'equal)
   "Hash table storing url-encoded svg file contents.
 
@@ -1864,11 +1867,13 @@ Include cc, by, sa, nc, nd")
 	(base64-encode-region (point-min) (point-max) t)
 	(buffer-substring-no-properties (point-min) (point-max))))))
 
+;; FIXME: COnsider do the same thing with CSS and fixup js
 (defun t--load-cc-svg-once (name)
   (if-let* ((str (gethash name t--cc-svg-hashtable)))
       str (setf (gethash name t--cc-svg-hashtable)
 		(t--load-cc-svg name))))
 
+;; FIXME: Check it
 (defun t--get-cc-svgs (license)
   (let ((names (split-string (symbol-name license)
 			     "[0-9.-]" t)))
@@ -1881,6 +1886,7 @@ vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" alt=\"\">"
 	       (t--load-cc-svg-once name)))
      names)))
 
+;; FIXME: add docstring and test
 (defun t--build-public-license (info)
   ""
   (let* ((license (plist-get info :html-license))
@@ -1901,8 +1907,9 @@ vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" alt=\"\">"
 	 " is licensed under "
 	 (if (null link) name
 	   (format "<a href=\"%s\">%s</a>" link name))
-	 (when is-cc (t--get-cc-svgs license))))))))
+	 (when is-cc (concat " " (t--get-cc-svgs license)))))))))
 
+;; FIXME: Test
 (defun t-preamble-default-function (info)
   "docstring here"
   (concat
@@ -1930,6 +1937,7 @@ vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" alt=\"\">"
    "</details>\n"
    "<hr>"))
 
+;; FIXME: Consider remove it?
 (defvar t-preamble-default-template
   "<details open>
  <summary>More details about this document</summary>
