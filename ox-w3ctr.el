@@ -1670,7 +1670,7 @@ Possible conversions are set in `org-w3ctr-protect-char-alist'."
     ;; Return value.
     output))
 
-;;; Template
+;;; Meta tags and <head> contents
 (defun t-meta-tags-default (info)
   "A default value for `org-w3ctr-meta-tags'.
 
@@ -1796,9 +1796,22 @@ Otherwise, signal an error."
 		 (t--normalize-string (cdr config))))
       (other (error "Not a valid mathjax option: %s" other)))))
 
-;; FIXME: Add test
-(defun t-format-spec (info)
-  "Return format specification for preamble and postamble."
+;;; Preamble and Postamble
+
+;; Compared with org-html-format-spec, rename to make the name more
+;; specific, and add some helpful docstring.
+(defun t--pre/postamble-format-spec (info)
+  "Return format specification for preamble and postamble.
+
+%t means produce title.
+%s means produce subtitle.
+%d means produce (start)date.
+%T means produce current time formatted with pre/postamble format.
+%a means produce author.
+%e means produce mailto link.
+%c means produce creator string.
+%C means produce file modification time (if exists).
+%v means produce W3C HTML validation link."
   (let ((fmt (plist-get info :html-pre/post-timestamp-format)))
     `((?t . ,(org-export-data (plist-get info :title) info))
       (?s . ,(org-export-data (plist-get info :subtitle) info))
@@ -1822,7 +1835,7 @@ Otherwise, signal an error."
 
 TYPE is either `preamble' or `postamble'"
   (let ((section (plist-get info (intern (format ":html-%s" type))))
-	(spec (t-format-spec info))
+	(spec (t--pre/postamble-format-spec info))
 	it)
     (cond
      ((null section) (setq it ""))

@@ -677,6 +677,8 @@ int a = 1;</code></p>\n</details>")
 			    ("mjconfig" . "mlconfig"))))
     (should-error (t--build-mathjax-config info) :type 'error)))
 
+
+
 (ert-deftest t--timezone-to-offset ()
   (should (= (t--timezone-to-offset "UTC+8") (* 8 3600)))
   (should (= (t--timezone-to-offset "GMT-5") (* -5 3600)))
