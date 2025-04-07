@@ -1807,6 +1807,8 @@ Otherwise, signal an error."
       (other (error "Not a valid mathjax option: %s" other)))))
 
 ;;; Preamble and Postamble
+;; FIXME: Improve code style and test, comments
+;; Include this section/page's header comment
 
 ;; Compared with org-html-format-spec, rename to make the name more
 ;; specific, and add some helpful docstring.
@@ -1870,8 +1872,8 @@ TYPE is either `preamble' or `postamble'"
     (or (and (t--nw-p it) (t--normalize-string it)) "")))
 
 (defun t--get-info-date (info &optional boundary)
-  "Extract date from INFO plist and format as timestamp. Returns formatted
-timestamp string or nil if no valid timestamp found.
+  "Extract date from INFO plist and format as timestamp. Returns
+formatted timestamp string or nil if no valid timestamp found.
 
 When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
   (when-let* ((date (plist-get info :date))
@@ -1965,8 +1967,8 @@ vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" alt=\"\">"
    "<hr>"))
 
 ;; FIXME: Consider remove it?
-(defvar t-preamble-default-template
-  "<details open>
+(defvar t-preamble-default-template "\
+<details open>
  <summary>More details about this document</summary>
  <dl>
   <dt>Create Date:</dt> <dd>%d</dd>
@@ -1981,6 +1983,7 @@ CC BY-SA 4.0</a></dd>
 <hr>"
   "Add docstring here")
 
+;;; templates
 (defun t-inner-template (contents info)
   "Return body of document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
