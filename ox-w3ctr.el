@@ -53,7 +53,7 @@
       (file-name-directory load-file-name)
     default-directory)
   "Directory of ox-w3ctr package.")
-
+
 ;;; Define Back-End
 (org-export-define-backend 'w3ctr
   '(;; see https://orgmode.org/worg/org-syntax.html for details
@@ -212,8 +212,8 @@
     ;; public license
     (:html-license nil "license" t-public-license)
     ))
-
-;;; User Configuration Variables
+
+;;; User Configuration Variables.
 
 (defgroup org-export-w3ctr nil
   "Options for exporting Org mode files to HTML."
@@ -222,12 +222,20 @@
 
 (defcustom t-checkbox-type 'unicode
   "The type of checkboxes to use for HTML export.
-See `org-html-checkbox-types' for the values used for each option."
-  :group 'org-export-w3ctr
-  :type '(choice (const unicode) (const ascii) (const html)))
 
-;;;; Smallest objects.
+Possible values:
+  `unicode': Use Unicode symbols
+  `ascii'  : Use ASCII characters
+  `html'   : Use HTML input elements
+
+See `org-w3ctr-checkbox-types' for the exact characters used."
+  :group 'org-export-w3ctr
+  :type '(choice (const :tag "Unicode symbols" unicode)
+		 (const :tag "ASCII characters" ascii)
+		 (const :tag "HTML <input> elements" html)))
+
 (defcustom t-text-markup-alist
+  ;; See also `org-html-text-markup-alist'.
   '((bold . "<strong>%s</strong>")
     (code . "<code>%s</code>")
     (italic . "<em>%s</em>")
@@ -241,22 +249,21 @@ The key must be a symbol among `bold', `code', `italic',
 a formatting string to wrap fontified text with.
 
 If no association can be found for a given markup, text will be
-returned as-is.
-
-See also `org-html-text-markup-alist'."
+returned as-is."
   :group 'org-export-w3ctr
   :type '(alist :key-type (symbol :tag "Markup type")
 		:value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
 
 (defcustom t-meta-tags #'t-meta-tags-default
-  "Form that is used to produce meta tags in the HTML head.
+  "Form that is used to produce <meta> tags in the HTML head.
 
-Can be a list where each item is a list of arguments to be passed
-to `t--build-meta-entry'.  Any nil items are ignored.
-
-Also accept a function which gives such a list when called with a
-single argument (INFO, a communication plist)."
+This can be either:
+. A list where each item is a list with the form of (NAME VALUE CONTENT)
+  to be passed as arguments to `org-w3ctr--build-meta-entry'.  Any nil
+  items are ignored.
+. A function that takes the INFO plist as single argument and returns
+  such a list of items."
   :group 'org-export-w3ctr
   :type '(choice
 	  (repeat
@@ -265,25 +272,20 @@ single argument (INFO, a communication plist)."
 		 (string :tag "Content value")))
 	  function))
 
-(defcustom t-coding-system 'utf-8-unix
-  "Coding system for HTML export.
-
-Specifically uses `utf-8-unix' to ensure UTF-8 character encoding
-and Unix-style line endings (LF), avoiding Windows-style CRLF
-line endings. This is important for consistent behavior across
-platforms and version control systems."
-  :group 'org-export-w3ctr
-  :type 'coding-system)
-
 (defcustom t-file-timestamp-function #'t-file-timestamp-default
   "Function to generate timestamp for exported files at top place.
-This function should take one argument (the export INFO plist) and
-return a string representing the timestamp.
+This function should take INFO as the only argument and return a
+string representing the timestamp.
 
-Default value is `t-file-timestamp-default' which generates
+Default value is `org-w3ctr-file-timestamp-default' which generates
 timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :group 'org-export-w3ctr
-  :type 'symbol)
+  :type 'function)
+
+(defcustom t-coding-system 'utf-8-unix
+  "Coding system for HTML export."
+  :group 'org-export-w3ctr
+  :type 'coding-system)
 
 (defcustom t-viewport '((width "device-width")
 			(initial-scale "1")
@@ -332,14 +334,12 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
 			(const "false"))))))
 
 (defcustom t-head ""
-  "Org-wide head definitions for exported HTML files.
+  "Raw HTML content to insert into the <head> section.
 
-This variable can contain the full HTML structure to provide a
-style, including the surrounding HTML tags.
-
-As the value of this option simply gets inserted into the HTML
-<head> header, you can use it to add any arbitrary text to the
-header.
+This variable can contain the full HTML structure to provide a style,
+including the surrounding HTML tags.  As the value of this option simply
+gets inserted into the HTML <head> header, you can use it to add any
+arbitrary text to the header.
 
 You can set this on a per-file basis using #+HTML_HEAD:,
 or for publication projects using the :html-head property."
@@ -349,7 +349,7 @@ or for publication projects using the :html-head property."
 (put 't-head 'safe-local-variable 'stringp)
 
 (defcustom t-head-extra ""
-  "More head information to add in the HTML output.
+  "More head information to add in the <head> section.
 
 You can set this on a per-file basis using #+HTML_HEAD_EXTRA:,
 or for publication projects using the :html-head-extra property."
@@ -359,40 +359,76 @@ or for publication projects using the :html-head-extra property."
 (put 't-head-extra 'safe-local-variable 'stringp)
 
 (defcustom t-head-include-default-style t
-  "Non-nil means include the default style in exported HTML files.
-The actual style is defined in `t-default-style' and
-should not be modified.  Use `t-head' to use your own
-style information."
+  "Non-nil means include the default style in exported HTML files."
   :group 'org-export-w3ctr
   :type 'boolean)
 ;;;###autoload
-(put 't-head-include-default-style
-     'safe-local-variable 'booleanp)
+(put 't-head-include-default-style 'safe-local-variable 'booleanp)
+
+(defcustom t-default-style-file (file-name-concat
+				 t--dir "assets" "style.css")
+  "Default CSS stylesheet file for HTML export.
+
+This should be either nil (no default stylesheet) or an absolute
+path to a CSS file.  When set to a path, if `:html-style' is non-nil
+and `org-w3ctr-default-style' is an empty string, the CSS code will be
+loaded from the specified file and set as the value of this option.
+
+The default value points to \"assets/style.css\" relative to the
+package's installation directory `org-w3ctr--dir'."
+  :group 'org-export-w3ctr
+  :initialize #'custom-initialize-default
+  :set (lambda (symbol value)
+	 (unless (and (stringp value)
+		      (file-exists-p value)
+		      (file-name-absolute-p value))
+	   (error "Not a valid default CSS file: %s" value))
+	 (set symbol value)
+	 ;; Refresh cached CSS string.
+	 (setq t-default-style ""))
+  :type '(choice (const nil) file))
 
 (defcustom t-default-style ""
-  "The default style specification for exported HTML files.
-You can use `t-head' and `t-head-extra' to add to
-this style.  If you don't want to include this default style,
-customize `t-head-include-default-style'."
+  "Default CSS style content for exported HTML documents.
+
+When non-empty, this setting takes precedence over and will override
+`org-w3ctr-default-style-file' behavior (external CSS file loading).
+
+This string contains raw CSS rules that will be embedded in a <style>
+tag in the exported HTML's <head> section. Example:
+  \"body { font-family: sans-serif; margin: 2em; }\""
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-with-latex 'mathjax
-  "Non-nil means process LaTeX math snippets.
+  "Control how LaTeX math expressions are processed in HTML export.
 
-See `org-html-with-latex' for more information."
+When non-nil, enables processing of LaTeX math snippets.  The value
+specifies the rendering method:
+. `mathjax': Render math using MathJax (client-side)
+. `mathml' : Convert to MathML markup using MathJax  (server-side)"
   :group 'org-export-w3ctr
   :type '(choice
+	  (const :tag "Disable math processing" nil)
 	  (const :tag "Use MathJax to display math" mathjax)
 	  (const :tag "Use MathJax to render mathML" mathml)))
 
-;; FIXME: improve docstring
 (defcustom t-mathjax-config '("" . "")
-  "mathjax code"
+  "Configuration for MathJax rendering in HTML export.
+
+This cons cell contains two configuration strings:
+. car: MathJax JavaScript configuration
+. cdr: MathML fallback configuration
+
+The first config will be used for standard MathJax rendering,
+the second will be used when `org-w3ctr-with-latex' is set to `mathml'.
+
+For detailed configuration options, see:
+https://docs.mathjax.org/en/latest/options/index.html"
   :group 'org-export-w3ctr
   :type '(cons (string :tag "mathjax config")
 	       (string :tag "mathml  config")))
-
+
 (defcustom t-pre/post-timestamp-format "%Y-%m-%d %H:%M"
   "Format used for timestamps in preamble, postamble and metadata.
 See `format-time-string' for more information on its components."
@@ -742,12 +778,6 @@ This affects IDs that are determined from the ID property.")
 (defun t-update-css-js ()
   "update `t-default-style' and t-fixup-js"
   (interactive)
-  (setq t-default-style
-	(let ((fname (file-name-concat t--dir "assets/style.css")))
-	  (format "<style>\n%s\n</style>\n"
-		  (with-temp-buffer
-		    (insert-file-contents fname)
-		    (buffer-string)))))
   (setq t-fixup-js
 	(let ((fname (file-name-concat t--dir "assets/fixup.js")))
 	  (format "<script>\n%s\n</script>\n"
@@ -1782,6 +1812,31 @@ Otherwise, signal an error."
       (delq nil (if (functionp t-meta-tags) (funcall t-meta-tags info)
 		  t-meta-tags))))))
 
+(defun t--load-css (_info)
+  "Load CSS content for HTML export from configured sources.
+
+This function handles CSS loading in the following priority:
+. If `org-w3ctr-default-style' is non-empty string, use it directly
+. If `org-w3ctr-default-style-file' is non-nil, load CSS from that file
+. If both are empty/nil, return empty string (no styles)
+
+The loaded CSS will be wrapped in HTML <style> tags when non-empty."
+  (let ((style t-default-style)
+	(file t-default-style-file)
+	it)
+    (unless (stringp style)
+      (error "Default CSS is not string"))
+    (cond
+     ((not (string= "" style)) (setq it style))
+     ((null file) (setq it nil))
+     (t (setq it (with-temp-buffer
+		   (insert-file-contents file)
+		   (buffer-substring-no-properties
+		    (point-min) (point-max)))
+	      t-default-style it)))
+    (if (null it) ""
+      (format "<style>\n%s\n</style>\n" it))))
+	      
 (defun t--build-head (info)
   "Return information for the <head>..</head> of the HTML output."
   (t--normalize-string
@@ -1789,7 +1844,7 @@ Otherwise, signal an error."
     (t--normalize-string (plist-get info :html-head))
     (t--normalize-string (plist-get info :html-head-extra))
     (when (plist-get info :html-head-include-default-style)
-      (t--normalize-string t-default-style)))))
+      (t--normalize-string (t--load-css info))))))
 
 (defun t--build-mathjax-config (info)
   "Insert the user setup into the mathjax template."
