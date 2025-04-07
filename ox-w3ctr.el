@@ -420,16 +420,26 @@ Validate</a>"
 (defcustom t-preamble #'t-preamble-default-function
   "Non-nil means insert a preamble in HTML export.
 
-See `org-html-preamble' for more information"
+When set to a string, use this formatted string.
+
+When set to a function, apply this function and insert the
+returned string.  The function takes the property list of export
+options as its only argument.
+
+When set to a non-nil symbol and symbol's function cell is nil,
+insert formatted symbol's value string.
+
+Setting :html-preamble in publishing projects will take
+precedence over this variable."
   :group 'org-export-w3ctr
-  :type 'sexp)
+  :type '(choice string function symbol))
 
 (defcustom t-postamble nil
   "Non-nil means insert a postamble in HTML export.
 
-See `org-html-postamble' for more information"
+See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
-  :type 'sexp)
+  :type '(choice string function symbol))
 
 ;; FIXME: finish docstring.
 (defcustom t-link-homeup ""
@@ -1829,10 +1839,14 @@ Otherwise, signal an error."
 			       (file-attributes file))))))
       (?v . ,(or (plist-get info :html-validation-link) "")))))
 
-;; FIXME: Recheck and add test
+;; Modified preamble/postamble handling compared to ox-html:
+;; . Removed org-html-pre/postamble-format mechanism; values are now
+;;   set directly through org-html-pre/postamble
+;; . Dropped the 'auto option for postamble; when value is a symbol:
+;;   * Calls the symbol if it's a function
+;;   * Otherwise formats the symbol's string value if present
 (defun t--build-pre/postamble (type info)
   "Return document preamble or postamble as a string, or empty string.
-
 TYPE is either `preamble' or `postamble'"
   (let ((section (plist-get info (intern (format ":html-%s" type))))
 	(spec (t--pre/postamble-format-spec info))
