@@ -277,7 +277,7 @@ This can be either:
 This function should take INFO as the only argument and return a
 string representing the timestamp.
 
-Default value is `org-w3ctr-file-timestamp-default' which generates
+Default value is `org-w3ctr-file-timestamp-default', which generates
 timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :group 'org-export-w3ctr
   :type 'function)
@@ -337,9 +337,9 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
   "Raw HTML content to insert into the <head> section.
 
 This variable can contain the full HTML structure to provide a style,
-including the surrounding HTML tags.  As the value of this option simply
-gets inserted into the HTML <head> header, you can use it to add any
-arbitrary text to the header.
+including the surrounding HTML tags.  As the value of this option
+simply gets inserted into the HTML <head> header, you can use it to
+add any arbitrary text to the header.
 
 You can set this on a per-file basis using #+HTML_HEAD:,
 or for publication projects using the :html-head property."
@@ -1836,7 +1836,7 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
 	      t-default-style it)))
     (if (null it) ""
       (format "<style>\n%s\n</style>\n" it))))
-	      
+
 (defun t--build-head (info)
   "Return information for the <head>..</head> of the HTML output."
   (t--normalize-string
