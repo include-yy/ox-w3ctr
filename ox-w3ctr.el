@@ -169,8 +169,6 @@
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     ;; <yy> aux counter for unnumbered headline
     (:html-headline-cnt nil nil 0)
-    ;; <yy> store zeroth section's output
-    (:html-zeroth-section-output nil nil "")
     ;; <yy> zeroth section's toc title name
     (:html-zeroth-section-tocname
      nil "zeroth-name" t-zeroth-section-tocname)
@@ -477,38 +475,50 @@ precedence over this variable."
 See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
-
-;; FIXME: finish docstring.
-(defcustom t-link-homeup ""
-  "homeup, undocumented now."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-format-home/up-function
-  #'t-format-home/up-default-function
-  "function used for home/div formatting"
-  :group 'org-export-w3ctr
-  :type '(symbol))
-
-(defcustom t-home/up-format
-  "<div id=\"home-and-up\">
- <a href=\"%s\"> UP </a>
- <a href=\"%s\"> HOME </a>
-</div>"
-  "legacy home/up format"
-  :group 'org-export-w3ctr
-  :type 'string)
 
 (defcustom t-link-home ""
-  "home"
+  "Default value for :html-link-home in org export.
+
+Used as fallback navigation link when :html-link-home/up is not
+specified in document.  Should be a URL pointing to the home page."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-link-up ""
-  "up"
+  "Default value for :html-link-up in org export.
+
+Used as fallback navigation link when :html-link-home/up is not
+specified in document.  Should be a URL pointing to the parent page."
   :group 'org-export-w3ctr
   :type 'string)
 
+(defcustom t-home/up-format
+  "<div id=\"home-and-up\">\n <a href=\"%s\"> UP </a>
+ <a href=\"%s\"> HOME </a>\n</div>"
+  "Formatting string for legacy home/up navigation links.
+
+Used when :html-link-home/up is not specified. The first %s is
+replaced with the up link, the second with home link."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-link-homeup nil
+  "Default value for :html-link-home/up navigation links. Can be:
+. A vector of (LINK . NAME) cons pairs for multiple links
+. A list of Org elements (when set through #+HTML_LINK_HOMEUP)
+. nil to fall back to legacy home/up behavior
+
+Example: [(\"../index.html\" . \"UP\")
+          (\"../../index.html\" . \"HOME\")]"
+  :group 'org-export-w3ctr
+  :type 'sexp)
+
+(defcustom t-format-home/up-function
+  #'t-format-home/up-default-function
+  "Function used to generate home/up navigation links."
+  :group 'org-export-w3ctr
+  :type 'symbol)
+
 (defcustom t-language-string "zh-CN"
   "default HTML lang attribtue"
   :group 'org-export-w3ctr
@@ -2056,22 +2066,13 @@ Note: This variable is provided as an example only and may need
 adaptation for actual project use.")
 
 ;;; templates
-(defun t-inner-template (contents info)
-  "Return body of document string after HTML conversion.
-CONTENTS is the transcoded contents string.  INFO is a plist
-holding export options.
-
-See `org-html-inner-template' for more information"
-  (concat
-   (plist-get info :html-zeroth-section-output)
-   (when-let* ((depth (plist-get info :with-toc)))
-     (t-toc depth info))
-   "<main>\n"
-   contents
-   "</main>\n"
-   (t-footnote-section info)))
 
 (defun t-legacy-format-home/up (info)
+  "Format legacy-style home/up navigation links from export INFO.
+
+Generates HTML navigation links using either :html-link-up or
+:html-link-home from the INFO plist, falling back to each other when
+empty. Returns nil if both links are empty strings."
   (let ((link-up (t--trim (plist-get info :html-link-up)))
 	(link-home (t--trim (plist-get info :html-link-home))))
     (unless (and (string= link-up "")
@@ -2081,14 +2082,28 @@ See `org-html-inner-template' for more information"
 	      (or link-home link-up)))))
 
 (defun t-format-home/up-default-function (info)
+  "Generate HTML navigation links from the export INFO plist. This
+function processes the :html-link-home/up property to create a
+navigation section in the exported document.
+
+When :html-link-home/up is a vector, it should contain cons cells in
+the form (URL . LABEL) where URL is the target location and LABEL is
+the display text.
+
+When :html-link-home/up is a list, it is treated as containing Org
+link elements. These links will be processed through `org-export-data'
+to generate the final HTML output.
+
+The output is always wrapped in a <nav> HTML element with
+id=\"home-and-up\" for consistent styling and semantic markup.
+Each link is separated by newlines for readability in the output HTML."
   (let* ((links (plist-get info :html-link-home/up)))
     (pcase links
       ((pred vectorp)
        (concat "<nav id=\"home-and-up\">\n"
 	       (thread-first
 		 (pcase-lambda (`(,link . ,name))
-		   (format "<a href=\"%s\">%s</a>"
-			   link name))
+		   (format "<a href=\"%s\">%s</a>" link name))
 		 (mapconcat links "\n"))
 	       "\n</nav>\n"))
       ((pred listp)
@@ -2097,12 +2112,34 @@ See `org-html-inner-template' for more information"
 		(mapcar (lambda (x) (org-export-data x info)) links)
 		(cl-remove-if-not #'t--nw-p)
 		(funcall (lambda (x) (mapconcat #'identity x "\n"))))))
-	 (if (string= <a>s "") (t-legacy-format-home/up info)
+	 (if (string= <a>s "")
+	     (or (t-legacy-format-home/up info) nil)
 	   (concat
-	    "<nav id=\"home-and-up\">\n"
-	    <a>s
+	    "<nav id=\"home-and-up\">\n" <a>s
 	    "\n</nav>\n"))))
       (_ (error "Seems not a valid home/up value: %s" links)))))
+
+(defvar t--zeroth-section-output nil
+  "Internal variable storing zeroth section's HTML output.
+
+This is used to override the default ox-html behavior where TOC comes
+first, allowing zeroth section's content to appear before the TOC while
+the TOC remains near the beginning of the document.")
+
+(defun t-inner-template (contents info)
+  "Return body of document string after HTML conversion.
+CONTENTS is the transcoded contents string."
+  ;; See also `org-html-inner-template'
+  (concat
+   (prog1 t--zeroth-section-output
+     (setq t--zeroth-section-output nil))
+   (when-let* ((depth (plist-get info :with-toc)))
+     (t-toc depth info))
+   "<main>\n"
+   contents
+   "</main>\n"
+   (t-footnote-section info)))
+
 
 (defun t--build-title (info)
   (when (plist-get info :with-title)
@@ -2361,10 +2398,10 @@ holding contextual information."
     (if (not parent)
 	;; the zeroth section
 	(prog1 ""
-	  (plist-put info :html-zeroth-section-output
-		     (format "<div id=\"abstract\">\n%s</div>\n" (or contents ""))))
+	  (setq t--zeroth-section-output
+		(format "<div id=\"abstract\">\n%s</div>\n"
+			(or contents ""))))
       (or contents ""))))
-
 
 ;;;; Special Block
 ;; FIXME
