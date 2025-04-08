@@ -428,9 +428,9 @@ https://docs.mathjax.org/en/latest/options/index.html"
   :group 'org-export-w3ctr
   :type '(cons (string :tag "mathjax config")
 	       (string :tag "mathml  config")))
-
+
 (defcustom t-pre/post-timestamp-format "%Y-%m-%d %H:%M"
-  "Format used for timestamps in preamble, postamble and metadata.
+  "Formatting string used for timestamps in preamble and postamble.
 See `format-time-string' for more information on its components."
   :group 'org-export-w3ctr
   :type 'string)
@@ -441,8 +441,9 @@ Emacs</a> %s (<a href=\"https://orgmode.org\">Org</a> mode %s)"
 	  emacs-version
 	  (if (fboundp 'org-version) (org-version)
 	    "unknown version"))
+  ;; See also `org-html-creator-string'.
   "Information about the creator of the HTML document.
-See `org-html-creator-string' for more information."
+This option can also be set on with the CREATOR keyword."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -476,7 +477,7 @@ precedence over this variable."
 See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
-
+
 ;; FIXME: finish docstring.
 (defcustom t-link-homeup ""
   "homeup, undocumented now."
@@ -871,7 +872,7 @@ See `format-time-string' for more information on its components."
 	  (string :tag "Year, Month, Day ")
 	  (string :tag "Plus Hour, Minute")))
 
-(defcustom t-datetime-format-choice 'T-none
+(defcustom t-datetime-format-choice 'T-none-zulu
   "Format choice used for datetime property export. This option
 controls how timestamps are formatted, with variations in:
 
@@ -1860,10 +1861,8 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
       (`mathml (if (not (t--nw-p (cdr config))) ""
 		 (t--normalize-string (cdr config))))
       (other (error "Not a valid mathjax option: %s" other)))))
-
+
 ;;; Preamble and Postamble
-;; FIXME: Improve code style and test, comments
-;; Include this section/page's header comment
 
 ;; Compared with org-html-format-spec, rename to make the name more
 ;; specific, and add some helpful docstring.
@@ -1936,13 +1935,14 @@ When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
 	      ((org-element-type-p (car date) 'timestamp)))
     (t-timestamp (car date) nil info boundary)))
 
-;; FIXME: improve docstring
 (defvar t--cc-svg-hashtable (make-hash-table :test 'equal)
   "Hash table storing url-encoded svg file contents.
 
 Include cc, by, sa, nc, nd")
 
 (defun t--load-cc-svg (name)
+  "Load SVG file with given NAME from assets directory, return as base64
+encoded string. If the file does not exist, raise an error."
   (let ((file (file-name-concat t--dir "assets" (concat name ".svg"))))
     (if (not (file-exists-p file))
 	(error "svg file %s not exists" file)
@@ -1951,28 +1951,39 @@ Include cc, by, sa, nc, nd")
 	(base64-encode-region (point-min) (point-max) t)
 	(buffer-substring-no-properties (point-min) (point-max))))))
 
-;; FIXME: COnsider do the same thing with CSS and fixup js
 (defun t--load-cc-svg-once (name)
+  "Load SVG file with given NAME once and cache it in a hash table.
+If the SVG is already cached, return the cached base64 string."
   (if-let* ((str (gethash name t--cc-svg-hashtable)))
       str (setf (gethash name t--cc-svg-hashtable)
 		(t--load-cc-svg name))))
 
-;; FIXME: Check it
+(defun t--build-cc-img (base64)
+  "Create HTML img tag with embedded BASE64 encoded SVG.
+
+The image has fixed height (22px) and vertical alignment for text
+integration, which is the default style given by
+https://chooser-beta.creativecommons.org/"
+  (format "<img style=\"height:22px!important;margin-left:3px;\
+vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" \
+alt=\"\">" base64))
+
 (defun t--get-cc-svgs (license)
-  (let ((names (split-string (symbol-name license)
-			     "[0-9.-]" t)))
-    (when (eq license 'cc0)
-      (setq names '("cc" "zero")))
+  "Get HTML img tags for Creative Commons LICENSE icons.
+
+For CC0 license, returns both `cc' and `zero' icons. For other licenses,
+splits the license name to get individual component icons."
+  (let ((names (if (eq license 'cc0) '("cc" "zero")
+		 (split-string (symbol-name license) "[0-9.-]" t))))
     (mapconcat
-     (lambda (name)
-       (format "<img style=\"height:22px!important;margin-left:3px;\
-vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" alt=\"\">"
-	       (t--load-cc-svg-once name)))
+     (lambda (name) (t--build-cc-img (t--load-cc-svg-once name)))
      names)))
 
-;; FIXME: add docstring and test
 (defun t--build-public-license (info)
-  ""
+  "Generate HTML string describing the public license for a work.
+
+Extracts license information from INFO plist and formats it with author
+attribution and appropriate Creative Commons icons when applicable."
   (let* ((license (plist-get info :html-license))
 	 (details (assq license t-public-license-alist))
 	 (is-cc (string-match-p "^cc" (symbol-name license)))
@@ -1987,15 +1998,21 @@ vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" alt=\"\">"
 	     (link (nth 2 details)))
 	(concat
 	 "This work"
-	 (when author (concat " by" author))
+	 (when-let* ((a author)
+		     (str (org-export-data a info))
+		     ((t--nw-p str)))
+	   (concat " by " (t--trim str)))
 	 " is licensed under "
 	 (if (null link) name
 	   (format "<a href=\"%s\">%s</a>" link name))
 	 (when is-cc (concat " " (t--get-cc-svgs license)))))))))
 
-;; FIXME: Test
 (defun t-preamble-default-function (info)
-  "docstring here"
+  "Generate HTML preamble with document metadata in a <details> section.
+
+Includes creation time, publication time, last update time, creator
+information, and license details. Times are formatted according to INFO
+settings."
   (concat
    "<details open>\n"
    " <summary>More details about this document</summary>\n"
@@ -2021,14 +2038,11 @@ vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" alt=\"\">"
    "</details>\n"
    "<hr>"))
 
-;; FIXME: Consider remove it?
 (defvar t-preamble-default-template "\
 <details open>
  <summary>More details about this document</summary>
  <dl>
-  <dt>Create Date:</dt> <dd>%d</dd>
-  <dt>Publish Date:</dt> <dd>%f</dd>
-  <dt>Update Date:</dt> <dd>%C</dd>
+  <dt>Date:</dt> <dd>%d</dd>
   <dt>Creator:</dt> <dd>%c</dd>
   <dt>License:</dt> <dd>This work is licensed under \
 <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">\
@@ -2036,7 +2050,10 @@ CC BY-SA 4.0</a></dd>
  </dl>
 </details>
 <hr>"
-  "Add docstring here")
+  "Default HTML template for document preamble metadata section.
+
+Note: This variable is provided as an example only and may need
+adaptation for actual project use.")
 
 ;;; templates
 (defun t-inner-template (contents info)
