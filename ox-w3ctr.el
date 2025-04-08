@@ -2389,7 +2389,7 @@ holding contextual information."
 
 ;;;; Section
 
-(defun t-section (section contents info)
+(defun t-section (section contents _info)
   "Transcode a SECTION element from Org to HTML.
 CONTENTS holds the contents of the section.  INFO is a plist
 holding contextual information."
