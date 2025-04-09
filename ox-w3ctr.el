@@ -2119,90 +2119,18 @@ Each link is separated by newlines for readability in the output HTML."
 	    "\n</nav>\n"))))
       (_ (error "Seems not a valid home/up value: %s" links)))))
 
-(defvar t--zeroth-section-output nil
-  "Internal variable storing zeroth section's HTML output.
-
-This is used to override the default ox-html behavior where TOC comes
-first, allowing zeroth section's content to appear before the TOC while
-the TOC remains near the beginning of the document.")
-
-(defun t-inner-template (contents info)
-  "Return body of document string after HTML conversion.
-CONTENTS is the transcoded contents string."
-  ;; See also `org-html-inner-template'
-  (concat
-   (prog1 t--zeroth-section-output
-     (setq t--zeroth-section-output nil))
-   (when-let* ((depth (plist-get info :with-toc)))
-     (t-toc depth info))
-   "<main>\n"
-   contents
-   "</main>\n"
-   (t-footnote-section info)))
-
-
-(defun t--build-title (info)
-  (when (plist-get info :with-title)
-    (let ((title (plist-get info :title))
-	  (subtitle (plist-get info :subtitle)))
-      (concat
-       "<header>\n"
-       "<h1 id=\"title\">"
-       (let ((tit (org-export-data title info)))
-	 (or (t--nw-p tit)  "TITLE"))
-       "</h1>\n"
-       (let ((sub (org-export-data subtitle info)))
-	 (when (t--nw-p sub)
-	   (format "<p id=\"w3c-state\">%s</p>\n"
-		   sub)))
-       "</header>"))))
-
-(defun t-template (contents info)
-  "Return complete document string after HTML conversion.
-CONTENTS is the transcoded contents string.  INFO is a plist
-holding export options."
-  (concat
-   "<!DOCTYPE html>\n"
-   (format "<html lang=\"%s\">\n"
-	   (plist-get info :language))
-   "<head>\n"
-   (t--build-meta-info info)
-   (t--build-head info)
-   (t--build-mathjax-config info)
-   "</head>\n"
-   "<body>\n"
-   ;; home and up links
-   (when-let* ((fun (plist-get
-		     info :html-format-home/up-function)))
-     (funcall fun info))
-   ;; title and preamble
-   (format "<div class=\"head\">\n%s%s\n</div>\n"
-	   (t--build-title info)
-	   (t--build-pre/postamble 'preamble info))
-   contents
-   ;; back-to-top
-   (when (plist-get info :html-back-to-top)
-     t-back-to-top-arrow)
-   ;; Postamble.
-   (t--build-pre/postamble 'postamble info)
-   ;; fixup.js here
-   (t--nw-p (plist-get info :html-fixup-js))
-   ;; Closing document.
-   "</body>\n</html>"))
-
 ;;; Tables of Contents
-
-(defun t-toc (depth info)
+(defun t-toc (depth info &optional scope)
   "Build a table of contents.
 DEPTH is an integer specifying the depth of the table.  INFO is
 a plist used as a communication channel.  Optional argument SCOPE
 is an element defining the scope of the table.  Return the table
 of contents as a string, or nil if it is empty."
   (let ((toc-entries
-	 (mapcar (lambda (headline)
-		   (cons (t--format-toc-headline headline info)
-			 (org-export-get-relative-level headline info)))
-		 (org-export-collect-headlines info depth))))
+	 (mapcar
+	  (lambda (h) (cons (t--format-toc-headline h info)
+			(org-export-get-relative-level h info)))
+	  (org-export-collect-headlines info depth scope))))
     (when toc-entries
       (let* ((toc-entries
 	      (if-let* ((zeroth-tocname (plist-get info :html-zeroth-section-tocname)))
@@ -2258,6 +2186,76 @@ INFO is a plist used as a communication channel."
 		  (format "<span class=\"secno\">%s</span>"
 			  (mapconcat #'number-to-string headline-number ".")))
 	     text))))
+
+(defvar t--zeroth-section-output nil
+  "Internal variable storing zeroth section's HTML output.
+
+This is used to override the default ox-html behavior where TOC comes
+first, allowing zeroth section's content to appear before the TOC while
+the TOC remains near the beginning of the document.")
+
+(defun t-inner-template (contents info)
+  "Return body of document string after HTML conversion.
+CONTENTS is the transcoded contents string."
+  ;; See also `org-html-inner-template'
+  (concat
+   (prog1 t--zeroth-section-output
+     (setq t--zeroth-section-output nil))
+   (when-let* ((depth (plist-get info :with-toc)))
+     (t-toc depth info))
+   "<main>\n"
+   contents
+   "</main>\n"
+   (t-footnote-section info)))
+
+(defun t--build-title (info)
+  (when (plist-get info :with-title)
+    (let ((title (plist-get info :title))
+	  (subtitle (plist-get info :subtitle)))
+      (concat
+       "<header>\n"
+       "<h1 id=\"title\">"
+       (let ((tit (org-export-data title info)))
+	 (or (t--nw-p tit)  "TITLE"))
+       "</h1>\n"
+       (let ((sub (org-export-data subtitle info)))
+	 (when (t--nw-p sub)
+	   (format "<p id=\"w3c-state\">%s</p>\n"
+		   sub)))
+       "</header>"))))
+
+(defun t-template (contents info)
+  "Return complete document string after HTML conversion.
+CONTENTS is the transcoded contents string.  INFO is a plist
+holding export options."
+  (concat
+   "<!DOCTYPE html>\n"
+   (format "<html lang=\"%s\">\n"
+	   (plist-get info :language))
+   "<head>\n"
+   (t--build-meta-info info)
+   (t--build-head info)
+   (t--build-mathjax-config info)
+   "</head>\n"
+   "<body>\n"
+   ;; home and up links
+   (when-let* ((fun (plist-get
+		     info :html-format-home/up-function)))
+     (funcall fun info))
+   ;; title and preamble
+   (format "<div class=\"head\">\n%s%s\n</div>\n"
+	   (t--build-title info)
+	   (t--build-pre/postamble 'preamble info))
+   contents
+   ;; back-to-top
+   (when (plist-get info :html-back-to-top)
+     t-back-to-top-arrow)
+   ;; Postamble.
+   (t--build-pre/postamble 'postamble info)
+   ;; fixup.js here
+   (t--nw-p (plist-get info :html-fixup-js))
+   ;; Closing document.
+   "</body>\n</html>"))
 
 ;;; Headline
 
