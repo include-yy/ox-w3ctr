@@ -2064,8 +2064,8 @@ CC BY-SA 4.0</a></dd>
 
 Note: This variable is provided as an example only and may need
 adaptation for actual project use.")
-
-;;; templates
+
+;;; Home and up
 
 (defun t-legacy-format-home/up (info)
   "Format legacy-style home/up navigation links from export INFO.
@@ -2120,28 +2120,25 @@ Each link is separated by newlines for readability in the output HTML."
       (_ (error "Seems not a valid home/up value: %s" links)))))
 
 ;;; Tables of Contents
-(defun t-toc (depth info &optional scope)
-  "Build a table of contents.
-DEPTH is an integer specifying the depth of the table.  INFO is
-a plist used as a communication channel.  Optional argument SCOPE
-is an element defining the scope of the table.  Return the table
-of contents as a string, or nil if it is empty."
-  (let ((toc-entries
-	 (mapcar
-	  (lambda (h) (cons (t--format-toc-headline h info)
-			(org-export-get-relative-level h info)))
-	  (org-export-collect-headlines info depth scope))))
-    (when toc-entries
-      (let* ((toc (t--toc-text toc-entries)))
-	(if scope
-	    (format "<div role=\"doc-toc\">\n%s</div>" toc)
-	  (concat
-	   "<nav id=\"toc\">\n"
-	   (let ((top-level (plist-get info :html-toplevel-hlevel)))
-	     (format "<h%d id=\"table-of-contents\">%s</h%d>"
-		     top-level "Table of Contents" top-level))
-	   toc
-	   "</nav>\n"))))))
+
+(defun t--format-toc-headline (headline info)
+  "Return an appropriate table of contents entry for HEADLINE.
+INFO is a plist used as a communication channel."
+  (let* ((headline-number (org-export-get-headline-number headline info))
+	 (text (org-export-data-with-backend
+		(org-export-get-alt-title headline info)
+		(org-export-toc-entry-backend 'html)
+		info)))
+    (format "<a href=\"#%s\">%s</a>"
+	    ;; Label.
+	    (t--reference headline info)
+	    ;; Body.
+	    (concat
+	     (and (not (org-export-low-level-p headline info))
+		  (org-export-numbered-headline-p headline info)
+		  (format "<span class=\"secno\">%s</span>"
+			  (mapconcat #'number-to-string headline-number ".")))
+	     text))))
 
 (defun t--toc-text (toc-entries)
   "Return innards of a table of contents, as a string.
@@ -2167,24 +2164,29 @@ and value is its relative level, as an integer."
       toc-entries "")
      (t--make-string (- prev-level start-level) "</li>\n</ul>\n"))))
 
-(defun t--format-toc-headline (headline info)
-  "Return an appropriate table of contents entry for HEADLINE.
-INFO is a plist used as a communication channel."
-  (let* ((headline-number (org-export-get-headline-number headline info))
-	 (text (org-export-data-with-backend
-		(org-export-get-alt-title headline info)
-		(org-export-toc-entry-backend 'html)
-		info)))
-    (format "<a href=\"#%s\">%s</a>"
-	    ;; Label.
-	    (t--reference headline info)
-	    ;; Body.
-	    (concat
-	     (and (not (org-export-low-level-p headline info))
-		  (org-export-numbered-headline-p headline info)
-		  (format "<span class=\"secno\">%s</span>"
-			  (mapconcat #'number-to-string headline-number ".")))
-	     text))))
+(defun t-toc (depth info &optional scope)
+  "Build a table of contents.
+DEPTH is an integer specifying the depth of the table.  INFO is
+a plist used as a communication channel.  Optional argument SCOPE
+is an element defining the scope of the table.  Return the table
+of contents as a string, or nil if it is empty."
+  (let ((toc-entries
+	 (mapcar
+	  (lambda (h) (cons (t--format-toc-headline h info)
+			(org-export-get-relative-level h info)))
+	  (org-export-collect-headlines info depth scope))))
+    (when toc-entries
+      (let* ((toc (t--toc-text toc-entries)))
+	(if scope
+	    (format "<div role=\"doc-toc\">\n%s</div>" toc)
+	  (concat
+	   "<nav id=\"toc\">\n"
+	   (let ((top-level (plist-get info :html-toplevel-hlevel)))
+	     (format "<h%d id=\"table-of-contents\">%s</h%d>"
+		     top-level "Table of Contents" top-level))
+	   toc
+	   "</nav>\n"))))))
+
 
 (defvar t--zeroth-section-output nil
   "Internal variable storing zeroth section's HTML output.
