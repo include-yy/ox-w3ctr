@@ -2132,17 +2132,16 @@ of contents as a string, or nil if it is empty."
 			(org-export-get-relative-level h info)))
 	  (org-export-collect-headlines info depth scope))))
     (when toc-entries
-      (let* ((toc-entries
-	      (if-let* ((zeroth-tocname (plist-get info :html-zeroth-section-tocname)))
-		  (cons (cons (format "<a href=\"#abstract\">%s</a>" zeroth-tocname) 1) toc-entries)
-		toc-entries))
-	     (toc (t--toc-text toc-entries)))
-	(concat "<nav id=\"toc\">\n"
-		(let ((top-level (plist-get info :html-toplevel-hlevel)))
-		  (format "<h%d id=\"table-of-contents\">%s</h%d>\n"
-			  top-level "Table of Contents" top-level))
-		toc
-		"</nav>\n")))))
+      (let* ((toc (t--toc-text toc-entries)))
+	(if scope
+	    (format "<div role=\"doc-toc\">\n%s</div>" toc)
+	  (concat
+	   "<nav id=\"toc\">\n"
+	   (let ((top-level (plist-get info :html-toplevel-hlevel)))
+	     (format "<h%d id=\"table-of-contents\">%s</h%d>"
+		     top-level "Table of Contents" top-level))
+	   toc
+	   "</nav>\n"))))))
 
 (defun t--toc-text (toc-entries)
   "Return innards of a table of contents, as a string.
