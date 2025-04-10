@@ -166,7 +166,7 @@
     (:html-footnotes-section nil nil t-footnotes-section)
     ;; headline options -------------------------------------
     (:html-format-headline-function
-     nil nil t--format-headline-function)
+     nil nil t-format-headline-function)
     (:html-self-link-headlines nil nil t-self-link-headlines)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     ;; <yy> aux counter for unnumbered headline
@@ -2158,9 +2158,9 @@ description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
 INFO is a plist used as a communication channel."
   (let* ((headline-number
 	  (org-export-get-headline-number headline info))
-	 (todo (if-let* (((plist-get info :with-todo-keywords))
-			 ((todo (org-element-property
-				 :todo-keyword headline))))
+	 (todo (when-let* (((plist-get info :with-todo-keywords))
+			   (todo (org-element-property
+				  :todo-keyword headline)))
 		   (org-export-data todo info)))
 	 (todo-type (and todo (org-element-property
 			       :todo-type headline)))
