@@ -165,6 +165,8 @@
     (:html-footnote-separator nil nil t-footnote-separator)
     (:html-footnotes-section nil nil t-footnotes-section)
     ;; headline options -------------------------------------
+    (:html-format-headline-function
+     nil nil t--format-headline-function)
     (:html-self-link-headlines nil nil t-self-link-headlines)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     ;; <yy> aux counter for unnumbered headline
@@ -476,6 +478,55 @@ See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
 
+(defcustom t-public-license 'cc-by-sa-4.0
+  "Default license for exported content. Value should be one of the
+supported Creative Commons licenses or variants."
+  :group 'org-export-w3ctr
+  :type '(choice
+	  (const nil) (const cc0)
+	  (const all-rights-reserved)
+	  (const all-rights-reversed)
+	  (const cc-by-4.0) (const cc-by-nc-4.0)
+	  (const cc-by-nc-nd-4.0) (const cc-by-nc-sa-4.0)
+	  (const cc-by-nd-4.0) (const cc-by-sa-4.0)
+	  (const cc-by-3.0) (const cc-by-nc-3.0)
+	  (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
+	  (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
+
+(defconst t-public-license-alist
+  '((nil "Not Specified")
+    (all-rights-reserved "All Rights Reserved")
+    (all-rights-reversed "All Rights Reversed")
+    (cc0 "CC0" "https://creativecommons.org/public-domain/cc0/")
+    ;; 4.0
+    ( cc-by-4.0 "CC BY-SA 4.0"
+      "https://creativecommons.org/licenses/by/4.0/")
+    ( cc-by-nc-4.0 "CC BY-NC 4.0"
+      "https://creativecommons.org/licenses/by-nc/4.0/")
+    ( cc-by-nc-nd-4.0 "CC BY-NC-ND 4.0"
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/")
+    ( cc-by-nc-sa-4.0 "CC BY-NC-SA 4.0"
+      "https://creativecommons.org/licenses/by-nc-sa/4.0/")
+    ( cc-by-nd-4.0 "CC BY-ND 4.0"
+      "https://creativecommons.org/licenses/by-nd/4.0/")
+    ( cc-by-sa-4.0 "CC BY-SA 4.0"
+      "https://creativecommons.org/licenses/by-sa/4.0/")
+    ;; 3.0 (not recommended by Creative Commons)
+    ( cc-by-3.0 "CC BY-SA 3.0"
+      "https://creativecommons.org/licenses/by/3.0/")
+    ( cc-by-nc-3.0 "CC BY-NC 3.0"
+      "https://creativecommons.org/licenses/by-nc/3.0/")
+    ( cc-by-nc-nd-3.0 "CC BY-NC-ND 3.0"
+      "https://creativecommons.org/licenses/by-nc-nd/3.0/")
+    ( cc-by-nc-sa-3.0 "CC BY-NC-SA 3.0"
+      "https://creativecommons.org/licenses/by-nc-sa/3.0/")
+    ( cc-by-nd-3.0 "CC BY-ND 3.0"
+      "https://creativecommons.org/licenses/by-nd/3.0/")
+    ( cc-by-sa-3.0 "CC BY-SA 3.0"
+      "https://creativecommons.org/licenses/by-sa/3.0/"))
+  "Alist mapping license symbols to their display names and URLs.
+Each element is of form (SYMBOL DISPLAY-NAME &optional URL).")
+
 (defcustom t-link-home ""
   "Default value for :html-link-home in org export.
 
@@ -518,6 +569,22 @@ Example: [(\"../index.html\" . \"UP\")
   "Function used to generate home/up navigation links."
   :group 'org-export-w3ctr
   :type 'symbol)
+
+(defcustom t-format-headline-function
+  #'t-format-headline-default-function
+  "Function to format headline text.
+
+This function will be called with six arguments:
+TODO      the todo keyword (string or nil).
+TODO-TYPE the type of todo (symbol: `todo', `done', nil)
+PRIORITY  the priority of the headline (integer or nil)
+TEXT      the main headline text (string).
+TAGS      the tags (string or nil).
+INFO      the export options (plist).
+
+The function result will be used in the section format string."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 (defcustom t-language-string "zh-CN"
   "default HTML lang attribtue"
@@ -539,53 +606,6 @@ Example: [(\"../index.html\" . \"UP\")
   "add back-to-top arrow at the end of html file"
   :group 'org-export-w3ctr
   :type '(boolean))
-
-(defcustom t-public-license 'cc-by-sa-4.0
-  "public license"
-  :group 'org-export-w3ctr
-  :type '(choice
-	  (const nil) (const cc0)
-	  (const all-rights-reserved)
-	  (const all-rights-reversed)
-	  (const cc-by-4.0) (const cc-by-nc-4.0)
-	  (const cc-by-nc-nd-4.0) (const cc-by-nc-sa-4.0)
-	  (const cc-by-nd-4.0) (const cc-by-sa-4.0)
-	  (const cc-by-3.0) (const cc-by-nc-3.0)
-	  (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
-	  (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
-
-(defconst t-public-license-alist
-  '((nil "Not Specified")
-    (all-rights-reserved "All Rights Reserved")
-    (all-rights-reversed "All Rights Reversed")
-    (cc0 "CC0" "https://creativecommons.org/public-domain/cc0/")
-    ;; 4.0
-    ( cc-by-4.0 "CC BY-SA 4.0"
-      "https://creativecommons.org/licenses/by/4.0/")
-    ( cc-by-nc-4.0 "CC BY-NC 4.0"
-      "https://creativecommons.org/licenses/by-nc/4.0/")
-    ( cc-by-nc-nd-4.0 "CC BY-NC-ND 4.0"
-      "https://creativecommons.org/licenses/by-nc-nd/4.0/")
-    ( cc-by-nc-sa-4.0 "CC BY-NC-SA 4.0"
-      "https://creativecommons.org/licenses/by-nc-sa/4.0/")
-    ( cc-by-nd-4.0 "CC BY-ND 4.0"
-      "https://creativecommons.org/licenses/by-nd/4.0/")
-    ( cc-by-sa-4.0 "CC BY-SA 4.0"
-      "https://creativecommons.org/licenses/by-sa/4.0/")
-    ;; 3.0
-    ( cc-by-3.0 "CC BY-SA 3.0"
-      "https://creativecommons.org/licenses/by/3.0/")
-    ( cc-by-nc-3.0 "CC BY-NC 3.0"
-      "https://creativecommons.org/licenses/by-nc/3.0/")
-    ( cc-by-nc-nd-3.0 "CC BY-NC-ND 3.0"
-      "https://creativecommons.org/licenses/by-nc-nd/3.0/")
-    ( cc-by-nc-sa-3.0 "CC BY-NC-SA 3.0"
-      "https://creativecommons.org/licenses/by-nc-sa/3.0/")
-    ( cc-by-nd-3.0 "CC BY-ND 3.0"
-      "https://creativecommons.org/licenses/by-nd/3.0/")
-    ( cc-by-sa-3.0 "CC BY-SA 3.0"
-      "https://creativecommons.org/licenses/by-sa/3.0/"))
-  "license alist")
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -2120,25 +2140,52 @@ Each link is separated by newlines for readability in the output HTML."
       (_ (error "Seems not a valid home/up value: %s" links)))))
 
 ;;; Tables of Contents
+(defun t-format-headline-default-function
+    (todo _todo-type priority text tags info)
+  "Default format function for a headline.
+See `org-w3ctr-format-headline-function' for details and the
+description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
+  (let ((todo (t--todo todo info))
+	(priority (t--priority priority info))
+	(tags (t--tags tags info)))
+    (concat todo (and todo " ")
+	    priority (and priority " ")
+	    text
+	    (and tags "&#xa0;&#xa0;&#xa0;") tags)))
 
 (defun t--format-toc-headline (headline info)
   "Return an appropriate table of contents entry for HEADLINE.
 INFO is a plist used as a communication channel."
-  (let* ((headline-number (org-export-get-headline-number headline info))
+  (let* ((headline-number
+	  (org-export-get-headline-number headline info))
+	 (todo (if-let* (((plist-get info :with-todo-keywords))
+			 ((todo (org-element-property
+				 :todo-keyword headline))))
+		   (org-export-data todo info)))
+	 (todo-type (and todo (org-element-property
+			       :todo-type headline)))
+	 (priority (and (plist-get info :with-priority)
+			(org-element-property :priority headline)))
 	 (text (org-export-data-with-backend
 		(org-export-get-alt-title headline info)
-		(org-export-toc-entry-backend 'html)
-		info)))
+		(org-export-toc-entry-backend 'w3ctr)
+		info))
+	 (tags (and (eq (plist-get info :with-tags) t)
+		    (org-export-get-tags headline info))))
     (format "<a href=\"#%s\">%s</a>"
 	    ;; Label.
 	    (t--reference headline info)
 	    ;; Body.
 	    (concat
-	     (and (not (org-export-low-level-p headline info))
-		  (org-export-numbered-headline-p headline info)
-		  (format "<span class=\"secno\">%s</span>"
-			  (mapconcat #'number-to-string headline-number ".")))
-	     text))))
+	     (and
+	      (not (org-export-low-level-p headline info))
+	      (org-export-numbered-headline-p headline info)
+	      (when headline-number
+		(format "<span class=\"secno\">%s</span>"
+			(mapconcat #'number-to-string
+				   headline-number "."))))
+	     (funcall (plist-get info :html-format-headline-function)
+		      todo todo-type priority text tags info)))))
 
 (defun t--toc-text (toc-entries)
   "Return innards of a table of contents, as a string.
@@ -2157,9 +2204,11 @@ and value is its relative level, as an integer."
 	     (setq prev-level level)
 	     (concat
 	      (t--make-string
-	       times (cond ((> cnt 0) "\n<ul class=\"toc\">\n<li class=\"tocline\">")
+	       times (cond ((> cnt 0) "
+<ul class=\"toc\">\n<li class=\"tocline\">")
 			   ((< cnt 0) "</li>\n</ul>\n")))
-	      (if (> cnt 0) "\n<ul class=\"toc\">\n<li class=\"tocline\">" "</li>\n<li class=\"tocline\">")))
+	      (if (> cnt 0) "\n<ul class=\"toc\">\n<li class=\"tocline\">"
+		"</li>\n<li class=\"tocline\">")))
 	   headline)))
       toc-entries "")
      (t--make-string (- prev-level start-level) "</li>\n</ul>\n"))))
