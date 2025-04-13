@@ -2184,8 +2184,10 @@ INFO is a plist used as a communication channel."
 		(format "<span class=\"secno\">%s</span>"
 			(mapconcat #'number-to-string
 				   headline-number "."))))
-	     (funcall (plist-get info :html-format-headline-function)
-		      todo todo-type priority text tags info)))))
+	     (format
+	      "<span class=\"content\">%s</span>"
+	      (funcall (plist-get info :html-format-headline-function)
+		       todo todo-type priority text tags info))))))
 
 (defun t--toc-text (toc-entries)
   "Return innards of a table of contents, as a string.
@@ -2204,11 +2206,10 @@ and value is its relative level, as an integer."
 	     (setq prev-level level)
 	     (concat
 	      (t--make-string
-	       times (cond ((> cnt 0) "
-<ul class=\"toc\">\n<li class=\"tocline\">")
+	       times (cond ((> cnt 0) "\n<ul class=\"toc\">\n<li>")
 			   ((< cnt 0) "</li>\n</ul>\n")))
-	      (if (> cnt 0) "\n<ul class=\"toc\">\n<li class=\"tocline\">"
-		"</li>\n<li class=\"tocline\">")))
+	      (if (> cnt 0) "\n<ul class=\"toc\">\n<li>"
+		"</li>\n<li>")))
 	   headline)))
       toc-entries "")
      (t--make-string (- prev-level start-level) "</li>\n</ul>\n"))))
