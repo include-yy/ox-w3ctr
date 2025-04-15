@@ -2181,7 +2181,7 @@ INFO is a plist used as a communication channel."
 	      (not (org-export-low-level-p headline info))
 	      (org-export-numbered-headline-p headline info)
 	      (when headline-number
-		(format "<span class=\"secno\">%s</span>"
+		(format "<span class=\"secno\">%s</span> "
 			(mapconcat #'number-to-string
 				   headline-number "."))))
 	     (format
@@ -2208,7 +2208,7 @@ and value is its relative level, as an integer."
 	      (t--make-string
 	       times (if (> cnt 0) "\n<ol class=\"toc\">\n<li>"
 		       "</li>\n</ol>\n"))
-	      (if (> cnt 0) "<ol class=\"toc\">\n<li>"
+	      (if (> cnt 0) "\n<ol class=\"toc\">\n<li>"
 		"</li>\n<li>")))
 	   headline)))
       toc-entries "")
@@ -2232,7 +2232,7 @@ of contents as a string, or nil if it is empty."
 	  (concat
 	   "<nav id=\"toc\">\n"
 	   (let ((top-level (plist-get info :html-toplevel-hlevel)))
-	     (format "<h%d id=\"table-of-contents\">%s</h%d>"
+	     (format "<h%d id=\"contents\">%s</h%d>"
 		     top-level "Table of Contents" top-level))
 	   toc
 	   "</nav>\n"))))))
