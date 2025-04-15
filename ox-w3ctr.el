@@ -1129,7 +1129,7 @@ input. Other data types will be ignored."
   (when-let* ((attrs (t--read-attr :attr__ element)))
     (mapcar
      (lambda (x) (if (not (vectorp x)) x
-	       (list "class" (mapconcat #'t--2str x " "))))
+	           (list "class" (mapconcat #'t--2str x " "))))
      attrs)))
 
 (defun t--make-attr__ (attributes)
@@ -1139,9 +1139,9 @@ ATTRIBUTES is a alist where values are either strings or nil. An
 attribute with a nil value means a boolean attribute."
   (mapconcat
    (lambda (x) (if (atom x)
-	       (and-let* ((s (t--2str x)))
-		 (concat " " (downcase s)))
-	     (t--make-attr x)))
+	           (and-let* ((s (t--2str x)))
+		     (concat " " (downcase s)))
+	         (t--make-attr x)))
    attributes))
 
 (defun t--make-attr__id (element info &optional named-only)
@@ -1736,7 +1736,7 @@ Possible conversions are set in `org-w3ctr-protect-char-alist'."
     (when (plist-get info :preserve-breaks)
       (setq output
 	    (replace-regexp-in-string
-	     "\\(\\\\\\\\\\)?[ \t]*\n"
+             "\\(\\\\\\\\\\)?[ \t]*\n"
 	     "<br>\n" output)))
     ;; Return value.
     output))
@@ -2138,7 +2138,7 @@ Each link is separated by newlines for readability in the output HTML."
 	    "<nav id=\"home-and-up\">\n" <a>s
 	    "\n</nav>\n"))))
       (_ (error "Seems not a valid home/up value: %s" links)))))
-
+
 ;;; Tables of Contents
 (defun t-format-headline-default-function
     (todo _todo-type priority text tags info)
@@ -2161,7 +2161,7 @@ INFO is a plist used as a communication channel."
 	 (todo (when-let* (((plist-get info :with-todo-keywords))
 			   (todo (org-element-property
 				  :todo-keyword headline)))
-		   (org-export-data todo info)))
+		 (org-export-data todo info)))
 	 (todo-type (and todo (org-element-property
 			       :todo-type headline)))
 	 (priority (and (plist-get info :with-priority)
@@ -2223,7 +2223,7 @@ of contents as a string, or nil if it is empty."
   (let ((toc-entries
 	 (mapcar
 	  (lambda (h) (cons (t--format-toc-headline h info)
-			(org-export-get-relative-level h info)))
+			    (org-export-get-relative-level h info)))
 	  (org-export-collect-headlines info depth scope))))
     (when toc-entries
       (let* ((toc (t--toc-text toc-entries)))
@@ -2237,7 +2237,6 @@ of contents as a string, or nil if it is empty."
 	   toc
 	   "</nav>\n"))))))
 
-
 (defvar t--zeroth-section-output nil
   "Internal variable storing zeroth section's HTML output.
 
@@ -2264,16 +2263,12 @@ CONTENTS is the transcoded contents string."
     (let ((title (plist-get info :title))
 	  (subtitle (plist-get info :subtitle)))
       (concat
-       "<header>\n"
        "<h1 id=\"title\">"
        (let ((tit (org-export-data title info)))
-	 (or (t--nw-p tit)  "TITLE"))
+	 (or (t--nw-p tit)  "&lrm;"))
        "</h1>\n"
        (let ((sub (org-export-data subtitle info)))
-	 (when (t--nw-p sub)
-	   (format "<p id=\"w3c-state\">%s</p>\n"
-		   sub)))
-       "</header>"))))
+	 (format "<p id=\"w3c-state\">%s</p>\n" sub))))))
 
 (defun t-template (contents info)
   "Return complete document string after HTML conversion.
@@ -3490,6 +3485,7 @@ Return output file name."
 ;; fill-column: 72
 ;; coding: utf-8-unix
 ;; no-native-compile: t
+;; indent-tabs-mode: nil
 ;; End:
 
 ;;; ox-w3ctr.el ends here
