@@ -2206,13 +2206,13 @@ and value is its relative level, as an integer."
 	     (setq prev-level level)
 	     (concat
 	      (t--make-string
-	       times (cond ((> cnt 0) "\n<ul class=\"toc\">\n<li>")
-			   ((< cnt 0) "</li>\n</ul>\n")))
-	      (if (> cnt 0) "\n<ul class=\"toc\">\n<li>"
+	       times (if (> cnt 0) "\n<ol class=\"toc\">\n<li>"
+		       "</li>\n</ol>\n"))
+	      (if (> cnt 0) "<ol class=\"toc\">\n<li>"
 		"</li>\n<li>")))
 	   headline)))
       toc-entries "")
-     (t--make-string (- prev-level start-level) "</li>\n</ul>\n"))))
+     (t--make-string (- prev-level start-level) "</li>\n</ol>\n"))))
 
 (defun t-toc (depth info &optional scope)
   "Build a table of contents.
