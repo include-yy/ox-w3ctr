@@ -6,7 +6,7 @@
 ;; Maintainer: include-yy <yy@egh0bww1.com>
 ;; Created: 2024-03-18 04:51:00
 
-;; Package-Version: 0.2
+;; Package-Version: 0.2.1
 ;; Package-Requires: ((emacs "30.1"))
 ;; Keywords: tools, html
 ;; URL: https://github.com/include-yy/ox-w3ctr
@@ -1971,8 +1971,8 @@ When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
 Include cc, by, sa, nc, nd")
 
 (defun t--load-cc-svg (name)
-  "Load SVG file with given NAME from assets directory, return as base64
-encoded string. If the file does not exist, raise an error."
+  "Load SVG file with given NAME from assets directory, return as
+base64 encoded string. If the file does not exist, raise an error."
   (let ((file (file-name-concat t--dir "assets" (concat name ".svg"))))
     (if (not (file-exists-p file))
         (error "svg file %s not exists" file)
