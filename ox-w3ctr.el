@@ -211,6 +211,8 @@
     (:html-file-timestamp nil nil t-file-timestamp-function)
     ;; public license
     (:html-license nil "license" t-public-license)
+    ;; toc tag name
+    (:html-toc-tagname nil "toctag" t-toc-tagname)
     ))
 
 ;;; User Configuration Variables.
@@ -585,11 +587,27 @@ INFO      the export options (plist).
 The function result will be used in the section format string."
   :group 'org-export-w3ctr
   :type 'function)
-
+
+(defcustom t-toc-list-tag 'ul
+  "Ordered list or unordered list."
+  :group 'org-export-w3ctr
+  :type '(choice (const ol) (const ul)))
+
+(defcustom t-toplevel-hlevel 2
+  "The <H> level for level 1 headings in HTML export."
+;; See `org-html-toplevel-hlevel' for more information.
+  :group 'org-export-w3ctr
+  :type 'integer)
+
 (defcustom t-language-string "zh-CN"
   "default HTML lang attribtue"
   :group 'org-export-w3ctr
   :type 'string)
+
+(defcustom t-back-to-top t
+  "add back-to-top arrow at the end of html file"
+  :group 'org-export-w3ctr
+  :type '(boolean))
 
 (defcustom t-back-to-top-arrow
   "<p role=\"navigation\" id=\"back-to-top\">\
@@ -601,11 +619,6 @@ The function result will be used in the section format string."
 
 (defvar t-fixup-js ""
   "js code that control toc's hide and show")
-
-(defcustom t-back-to-top t
-  "add back-to-top arrow at the end of html file"
-  :group 'org-export-w3ctr
-  :type '(boolean))
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -637,13 +650,6 @@ by the footnotes themselves."
   :type 'string)
 
 ;;;; Headline
-
-(defcustom t-toplevel-hlevel 2
-  "The <H> level for level 1 headings in HTML export.
-
-See `org-html-toplevel-hlevel' for more information."
-  :group 'org-export-w3ctr
-  :type 'integer)
 
 (defcustom t-self-link-headlines t
   "When non-nil, the headlines contain a hyperlink to themselves."
@@ -2189,12 +2195,16 @@ INFO is a plist used as a communication channel."
               (funcall (plist-get info :html-format-headline-function)
                        todo todo-type priority text tags info))))))
 
-(defun t--toc-text (toc-entries)
+(defun t--toc-text (toc-entries info)
   "Return innards of a table of contents, as a string.
 TOC-ENTRIES is an alist where key is an entry title, as a string,
 and value is its relative level, as an integer."
   (let* ((prev-level (1- (cdar toc-entries)))
-         (start-level prev-level))
+         (start-level prev-level)
+         (tag (or (plist-get info :html-toc-tagname) 'ul))
+         (open (if (eq tag 'ol) "\n<ol class=\"toc\">\n<li>"
+                 "\n<ul class=\"toc\">\n<li>"))
+         (close (if (eq tag 'ol) "</li>\n</ol>\n" "</li>\n</ul>\n")))
     (concat
      (mapconcat
       (lambda (entry)
@@ -2206,13 +2216,12 @@ and value is its relative level, as an integer."
              (setq prev-level level)
              (concat
               (t--make-string
-               times (if (> cnt 0) "\n<ol class=\"toc\">\n<li>"
-                       "</li>\n</ol>\n"))
-              (if (> cnt 0) "\n<ol class=\"toc\">\n<li>"
-                "</li>\n<li>")))
+               times (cond ((> cnt 0) open)
+                           ((< cnt 0) close)))
+              (if (> cnt 0) open "</li>\n<li>")))
            headline)))
       toc-entries "")
-     (t--make-string (- prev-level start-level) "</li>\n</ol>\n"))))
+     (t--make-string (- prev-level start-level) close))))
 
 (defun t-toc (depth info &optional scope)
   "Build a table of contents.
@@ -2223,10 +2232,10 @@ of contents as a string, or nil if it is empty."
   (let ((toc-entries
          (mapcar
           (lambda (h) (cons (t--format-toc-headline h info)
-                            (org-export-get-relative-level h info)))
+                        (org-export-get-relative-level h info)))
           (org-export-collect-headlines info depth scope))))
     (when toc-entries
-      (let* ((toc (t--toc-text toc-entries)))
+      (let* ((toc (t--toc-text toc-entries info)))
         (if scope
             (format "<div role=\"doc-toc\">\n%s</div>" toc)
           (concat
@@ -2289,7 +2298,7 @@ holding export options."
                      info :html-format-home/up-function)))
      (funcall fun info))
    ;; title and preamble
-   (format "<div class=\"head\">\n%s%s\n</div>\n"
+   (format "<div class=\"head\">\n%s%s</div>\n"
            (t--build-title info)
            (t--build-pre/postamble 'preamble info))
    contents
