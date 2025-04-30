@@ -211,9 +211,10 @@
     (:html-file-timestamp nil nil t-file-timestamp-function)
     ;; public license
     (:html-license nil "license" t-public-license)
+    (:html-use-cc-budget "cc-budget" t-use-cc-budget)
     ;; toc tag name
     (:html-toc-tagname nil "toctag" t-toc-tagname)
-    (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
+    ;;(:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     ))
 
 ;;; User Configuration Variables.
@@ -632,6 +633,11 @@ But if you get into conflicts with other, existing CSS classes,
 then this prefix can be very useful."
   :group 'org-export-w3ctr
   :type 'string)
+
+(defcustom t-toc-tagname nil
+  "comment."
+  :group 'org-export-w3ctr
+  :type '(choice (const nil) string))
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -1513,6 +1519,15 @@ CONTENTS is the contents of the paragraph, as a string."
     (cond
      (;; Item's first line.
       (and (eq parent-type 'item)
+           ;; In a dd list item, the text immediately following "::" is
+           ;; not enclosed in a <p> tag. If this part of the export
+           ;; lacks HTML elements, the next text block will become the
+           ;; first-child of the dd element, which has a margin-top of 0
+           ;; by default CSS. Inserting "\\" (rendered as <br>) can
+           ;; prevent the subsequent text block from becoming the first
+           ;; child.
+           ;; Of course, we could wrap this part directly in a <p> tag,
+           ;; but the current approach offers more flexibility.
            (not (org-export-get-previous-element paragraph info)))
       (if (string= attrs "") contents
         (format "<span%s>%s</span>" attrs contents)))
