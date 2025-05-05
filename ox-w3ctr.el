@@ -1001,12 +1001,13 @@ ATTRIBUTES is a plist where values are either strings or nil.  An
 attribute with a nil value will be omitted from the result."
   (let (output)
     (dolist (item attributes (mapconcat 'identity (nreverse output) " "))
-      (cond ((null item) (pop output))
-            ((symbolp item) (push (substring (symbol-name item) 1) output))
-            (t (let ((key (car output))
-                     (value (replace-regexp-in-string
-                             "\"" "&quot;" (t-encode-plain-text item))))
-                 (setcar output (format "%s=\"%s\"" key value))))))))
+      (cond
+       ((null item) (pop output))
+       ((symbolp item) (push (substring (symbol-name item) 1) output))
+       (t (let ((key (car output))
+                (value (replace-regexp-in-string
+                        "\"" "&quot;" (t-encode-plain-text item))))
+            (setcar output (format "%s=\"%s\"" key value))))))))
 
 (defun t--reference (datum info &optional named-only)
   "Return an appropriate reference for DATUM.
@@ -1087,7 +1088,6 @@ ELEMENT is either a source or an example block."
 
 (defsubst t--2str (s)
   "Convert S to string.
-
 S can be number, symbol, string."
   (cl-typecase s
     (null nil)
@@ -1137,40 +1137,58 @@ input. Other data types will be ignored."
     (otherwise "")))
 
 (defun t--read-attr (attribute element)
-  "Turn ATTRIBUTE property from ELEMENT into a alist."
+  "Turn ATTRIBUTE property from ELEMENT into a list.
+Returns nil if ATTRIBUTE doesn't exist or is empty string."
   (when-let* ((value (org-element-property attribute element))
-              (str (mapconcat #'identity value " ")))
-    (when (org-string-nw-p str)
-      (read (concat "(" str ")")))))
+              (str (t--nw-p (mapconcat #'identity value " "))))
+    (read (concat "(" str ")"))))
 
 (defun t--read-attr__ (element)
-  "Like `t--read-attr', but treat vector as class sequence."
+  "Read ELEMENT's attr__ property using `org-w3ctr--read-attr'.
+Treats vector values as HTML class attributes."
   (when-let* ((attrs (t--read-attr :attr__ element)))
-    (mapcar
-     (lambda (x) (if (not (vectorp x)) x
-               (list "class" (mapconcat #'t--2str x " "))))
-     attrs)))
+    (mapcar (lambda (x) (if (not (vectorp x)) x
+                      (list "class" (mapconcat #'t--2str x " "))))
+            attrs)))
 
 (defun t--make-attr__ (attributes)
-  "Return a list of attributes, as a string.
-
-ATTRIBUTES is a alist where values are either strings or nil. An
-attribute with a nil value means a boolean attribute."
-  (mapconcat
-   (lambda (x) (if (atom x)
-               (and-let* ((s (t--2str x)))
-                 (concat " " (downcase s)))
-             (t--make-attr x)))
-   attributes))
+  "Convert ATTRIBUTES to attribute string.
+ATTRIBUTES is a list where values are either atom or list."
+  (replace-regexp-in-string
+   "\"" "&quot;"
+   (t-encode-plain-text
+    (mapconcat (lambda (x) (if-let* (((atom x)) (s (t--2str x)))
+                           (concat " " (downcase s))
+                         (t--make-attr x)))
+               attributes))))
 
 (defun t--make-attr__id (element info &optional named-only)
-  "Return ELEMENT's attribute string."
+  "Return ELEMENT's attr__ attribute string."
   (let* ((reference (t--reference element info named-only))
          (attributes (t--read-attr__ element))
          (a (t--make-attr__
              (if (not reference) attributes
                (cons `("id" ,reference) attributes)))))
-    (if (org-string-nw-p a) a "")))
+    (if (t--nw-p a) a "")))
+
+(defun t--make-attr_html (element info &optional named-only)
+  "Return ELEMENT's attr_html attribute string."
+  (let* ((attrs (org-export-read-attribute :attr_html element))
+         (reference (t--reference element info named-only))
+         (a (t--make-attribute-string
+             (if (or (not reference) (plist-member attrs :id))
+                 attrs (plist-put attrs :id reference)))))
+    (replace-regexp-in-string
+     "\"" "&quot;"
+     (t-encode-plain-text
+      (if (t--nw-p a) a "")))))
+
+(defun t--make-attr_id* (element info &optional named-only)
+  "Return ELEMENT's attribute string.
+Fall back to attr_html when attr__ is unavailable."
+  (if (org-element-property :attr__ element)
+      (t--make-attr__id element info named-only)
+    (t--make-attr_html element info named-only)))
 
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
