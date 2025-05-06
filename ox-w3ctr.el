@@ -975,9 +975,12 @@ newline character at its end."
            (replace-match "\n" nil nil s)))))
 
 (defsubst t--maybe-contents (contents)
-  "If CONTENTS is non-nil, prepend a newline and return it;
+  "If CONTENTS is string, prepend a newline and return it;
 otherwise, return an empty string."
-  (if contents (concat "\n" contents) ""))
+  (declare (ftype (function (t) string))
+           (pure t)
+           (important-return-value t))
+  (if (stringp contents) (concat "\n" contents) ""))
 
 (defun t--has-caption-p (element &optional _info)
   "Non-nil when ELEMENT has a caption affiliated keyword.
@@ -1085,7 +1088,6 @@ ELEMENT is either a source or an example block."
             code)))
 
 ;;; Basic utilties
-
 (defsubst t--2str (s)
   "Convert S to string.
 S can be number, symbol, string."
@@ -1101,8 +1103,13 @@ S can be number, symbol, string."
   (when-let* ((name (t--2str (nth 0 list))))
     (if-let* ((rest (cdr list)))
         ;; use lowercase prop name.
-        (concat " " (downcase name) "=\""
-                (mapconcat #'t--2str rest) "\"")
+        (concat " " (downcase name)
+                "=\""
+                (replace-regexp-in-string
+                 "\"" "&quot;"
+                 (t-encode-plain-text
+                  (mapconcat #'t--2str rest)))
+                "\"")
       (concat " " (downcase name)))))
 
 ;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
@@ -1154,13 +1161,10 @@ Treats vector values as HTML class attributes."
 (defun t--make-attr__ (attributes)
   "Convert ATTRIBUTES to attribute string.
 ATTRIBUTES is a list where values are either atom or list."
-  (replace-regexp-in-string
-   "\"" "&quot;"
-   (t-encode-plain-text
-    (mapconcat (lambda (x) (if-let* (((atom x)) (s (t--2str x)))
-                           (concat " " (downcase s))
-                         (t--make-attr x)))
-               attributes))))
+  (mapconcat (lambda (x) (if-let* (((atom x)) (s (t--2str x)))
+                         (concat " " (downcase s))
+                       (t--make-attr x)))
+             attributes))
 
 (defun t--make-attr__id (element info &optional named-only)
   "Return ELEMENT's attr__ attribute string."
@@ -1314,6 +1318,9 @@ Fall back to attr_html when attr__ is unavailable."
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
+  (declare (ftype (function (t (or nil string) plist) string))
+           (pure t)
+           (important-return-value t))
   (format "<div style=\"text-align:center;\">%s</div>"
           (t--maybe-contents contents)))
 

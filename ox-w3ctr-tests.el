@@ -2,6 +2,13 @@
 
 (require 'ox-w3ctr)
 
+(ert-deftest t--maybe-contents ()
+  (should (equal (t--maybe-contents nil) ""))
+  (should (equal (t--maybe-contents "") "\n"))
+  (should (equal (t--maybe-contents "abc") "\nabc"))
+  (should (equal (t--maybe-contents 123) ""))
+  (should (equal (t--maybe-contents '(1 2)) "")))
+
 (ert-deftest t--2str ()
   (should (eq (t--2str nil) nil))
   (should (string= (t--2str 1) "1"))
@@ -9,6 +16,7 @@
   (should (string= (t--2str ?a) "97"))
   (should (string= (t--2str 'hello) "hello"))
   (should (string= (t--2str 'has\ space) "has space"))
+  (should (string= (t--2str 'has\#) "has#"))
   (should (string= (t--2str "string") "string"))
   (should-not (t--2str [1]))
   (should-not (t--2str (make-char-table 'sub)))
@@ -78,55 +86,35 @@
   (should (string= (t--sexp2html '(p)) "<p></p>"))
   (should (string= (t--sexp2html '(hr)) "<hr>")))
 
-(defvar t-test-values nil)
-
-(defun t-check-element-values (fn advice pairs)
-  (advice-add fn :filter-return advice)
-  (unwind-protect
-      (dolist (test pairs)
-	(let (t-test-values)
-	  (ignore (org-export-string-as (car test) 'w3ctr t))
-	  (should (equal t-test-values (cdr test)))))
-    (advice-remove fn advice)))
-
-(defun t-check-element-values* (fn advice pairs)
-  (advice-add fn :filter-return advice)
-  (unwind-protect
-      (dolist (test pairs)
-	(let (t-test-values)
-	  (ignore (org-export-string-as (car test) 'w3ctr))
-	  (should (equal t-test-values (cdr test)))))
-    (advice-remove fn advice)))
-
-(defun t-check-element-values-full (fn advice info pairs)
-  (advice-add fn :filter-return advice)
-  (unwind-protect
-      (dolist (test pairs)
-	(let (t-test-values)
-	  (ignore (org-export-string-as (car test) 'w3ctr nil info))
-	  (should (equal t-test-values (cdr test)))))
-    (advice-remove fn advice)))
-
-(defun t-check-element-values-full* (fn advice info pairs)
-  (advice-add fn :filter-return advice)
-  (unwind-protect
-      (dolist (test pairs)
-	(let ((t-test-values)
-	      (data (car test))
-	      (test-fn (cdr test)))
-	  (ignore (org-export-string-as (car test) 'w3ctr nil info))
-	  (should (funcall test-fn t-test-values))))
-    (advice-remove fn advice)))
-
-(defun t-advice-return-value (str)
-  (prog1 str
-    (push (if (not (stringp str)) str
-	      (substring-no-properties str))
+(defvar t-test-values nil
+  "A list to store return values during testing.")
+(defun t-advice-return-value (result)
+  "Advice function to save and return RESULT.
+Pushes RESULT onto `org-w3ctr-test-values' and returns RESULT."
+  (prog1 result
+    (push (if (not (stringp result)) result
+	    (substring-no-properties result))
 	  t-test-values)))
+(defun t-check-element-values (fn pairs &optional body-only plist)
+  "Check that FN returns the expected values when exporting.
+
+FN is a function to advice.  PAIRS is a list of the form
+((INPUT . EXPECTED) ...).  INPUT is a string of Org markup to be
+exported.  EXPECTED is a list of expected return values from FN.
+BODY-ONLY and PLIST are optional arguments passed to
+`org-export-string-as'."
+  (advice-add fn :filter-return #'t-advice-return-value)
+  (unwind-protect
+      (dolist (test pairs)
+	(let (t-test-values)
+	  (ignore (org-export-string-as
+		   (car test) 'w3ctr body-only plist))
+	  (should (equal t-test-values (cdr test)))))
+    (advice-remove fn #'t-advice-return-value)))
 
 (ert-deftest t-center-block ()
   (t-check-element-values
-   #'t-center-block #'t-advice-return-value
+   #'t-center-block
    '(("#+begin_center\n#+end_center"
       "<div style=\"text-align:center;\"></div>")
      ("#+begin_center\n123\n#+end_center"
@@ -138,7 +126,7 @@
 
 (ert-deftest t-drawer ()
   (t-check-element-values
-   #'t-drawer #'t-advice-return-value
+   #'t-drawer
    '((":hello:\n:end:"
       "<details><summary>hello</summary></details>")
      ("#+caption: what can i say\n:test:\n:end:"
@@ -160,26 +148,26 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-dynamic-block ()
   (t-check-element-values
-   #'t-dynamic-block #'t-advice-return-value
+   #'t-dynamic-block
    '(("#+begin: hello\n123\n#+end:" "<p>123</p>\n")
      ("#+begin: nothing\n#+end:" ""))))
 
 (ert-deftest t-checkbox ()
   (let ((t-checkbox-type 'unicode))
     (t-check-element-values
-     #'t-checkbox #'t-advice-return-value
+     #'t-checkbox
      '(("- [ ] 123" "&#x2610;")
        ("- [X] 123" "&#x2611;")
        ("- [-] 123" "&#x2612;"))))
   (let ((t-checkbox-type 'ascii))
     (t-check-element-values
-     #'t-checkbox #'t-advice-return-value
+     #'t-checkbox
      '(("- [ ] 123" "<code>[&#xa0;]</code>")
        ("- [X] 123" "<code>[X]</code>")
        ("- [-] 123" "<code>[-]</code>"))))
   (let ((t-checkbox-type 'html))
     (t-check-element-values
-     #'t-checkbox #'t-advice-return-value
+     #'t-checkbox
      '(("- [ ] 123" "<input type='checkbox' disabled>")
        ("- [X] 123" "<input type='checkbox' checked disabled>")
        ("- [-] 123" "<input type='checkbox'>")))))
@@ -187,7 +175,7 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t-item-unordered ()
   (let ((t-checkbox-type 'unicode))
     (t-check-element-values
-     #'t-item #'t-advice-return-value
+     #'t-item
      '(("- 123" "<li>123</li>")
        ("- hello \n 123" "<li>hello \n123</li>")
        ("- hello \n\n123" "<li>hello</li>")
@@ -212,7 +200,7 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t-item-ordered ()
   (let ((t-checkbox-type 'unicode))
     (t-check-element-values
-     #'t-item #'t-advice-return-value
+     #'t-item
      '(("1. 123" "<li>123</li>")
        ("1. hello \n 123" "<li>hello \n123</li>")
        ("1. hello \n\n123" "<li>hello</li>")
@@ -238,7 +226,7 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t-item-descriptive ()
   (let ((t-checkbox-type 'unicode))
     (t-check-element-values
-     #'t-item #'t-advice-return-value
+     #'t-item
      '(("- 123 :: tag" "<dt>123</dt><dd>tag</dd>")
        ("- hello :: test \n 123" "<dt>hello</dt><dd>test \n123</dd>")
        ("- hello :: \n\n123" "<dt>hello</dt><dd></dd>")
@@ -274,7 +262,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-plain-list ()
   (t-check-element-values
-   #'t-plain-list #'t-advice-return-value
+   #'t-plain-list
    '(("- 123" "<ul>\n<li>123</li>\n</ul>")
      ("1. 123" "<ol>\n<li>123</li>\n</ol>")
      ("- x :: y" "<dl>\n<dt>x</dt><dd>y</dd>\n</dl>")
@@ -286,7 +274,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-quote-block ()
   (t-check-element-values
-   #'t-quote-block #'t-advice-return-value
+   #'t-quote-block
    '(("#+begin_quote\n#+end_quote" "<blockquote></blockquote>")
      ("#+BEGIN_QUOTE\n#+END_QUOTE" "<blockquote></blockquote>")
      ("#+begin_quote\n123\n#+end_quote"
@@ -299,7 +287,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-example-block ()
   (t-check-element-values
-   #'t-example-block #'t-advice-return-value
+   #'t-example-block
    '(("#+name: t\n#+begin_example\n#+end_example"
       "<div id=\"t\">\n<pre>\n</pre>\n</div>")
      ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
@@ -313,7 +301,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-export-block ()
   (t-check-element-values
-   #'t-export-block #'t-advice-return-value
+   #'t-export-block
    '(("#+begin_export html\nanythinghere\n#+end_export"
       "anythinghere\n")
      ("#+begin_export html\n#+end_export" "")
@@ -342,7 +330,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-fixed-width ()
   (t-check-element-values
-   #'t-fixed-width #'t-advice-return-value
+   #'t-fixed-width
    '((":           " "<pre></pre>")
      (": 1\n" "<pre>\n1\n</pre>")
      (": 1\n: 2\n" "<pre>\n1\n2\n</pre>")
@@ -354,7 +342,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-horizontal-rule ()
   (t-check-element-values
-   #'t-horizontal-rule #'t-advice-return-value
+   #'t-horizontal-rule
    '(("-")
      ("--")
      ("---")
@@ -368,7 +356,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-keyword ()
   (t-check-element-values
-   #'t-keyword #'t-advice-return-value
+   #'t-keyword
    '(("#+h: <p>123</p>" "<p>123</p>")
      ("#+h: " "")
      ("#+html: <p>123</p>" "<p>123</p>")
@@ -383,7 +371,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-paragraph ()
   (t-check-element-values
-   #'t-paragraph #'t-advice-return-value
+   #'t-paragraph
    '(("123" "<p>123</p>")
      ("123\n 234" "<p>123\n 234</p>")
      ("    123" "<p>123</p>")
@@ -412,7 +400,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-verse-block ()
   (t-check-element-values
-   #'t-verse-block #'t-advice-return-value
+   #'t-verse-block
    '(("#+begin_verse\n#+end_verse" "<p>\n</p>")
      ("#+BEGIN_VERSE\n#+END_VERSE" "<p>\n</p>")
      ("#+begin_verse\n1  2  3\n#+end_verse" "<p>\n1  2  3<br>\n</p>")
@@ -424,7 +412,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-entity ()
   (t-check-element-values
-   #'t-entity #'t-advice-return-value
+   #'t-entity
    '(("\\alpha \\beta \\eta \\gamma \\epsilon"
       "&epsilon;" "&gamma;" "&eta;" "&beta;" "&alpha;")
      ("\\AA" "&Aring;")
@@ -439,7 +427,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-export-snippet ()
   (t-check-element-values
-   #'t-export-snippet #'t-advice-return-value
+   #'t-export-snippet
    '(("@@h:<span>123</span>@@" "<span>123</span>")
      ("@@h:@@" "")
      ("@@html:<span>123</span>@@" "<span>123</span>")
@@ -458,7 +446,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-statistics-cookie ()
   (t-check-element-values
-   #'t-statistics-cookie #'t-advice-return-value
+   #'t-statistics-cookie
    '(("- hello [/]" "<code>[/]</code>")
      ("- hello [0/1]\n  - [ ] helllo" "<code>[0/1]</code>")
      ("- hello [33%]\n  - [X] hello" "<code>[33%]</code>")
@@ -469,21 +457,21 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-subscript ()
   (t-check-element-values
-   #'t-subscript #'t-advice-return-value
+   #'t-subscript
    '(("1_2" "<sub>2</sub>")
      ("x86_64" "<sub>64</sub>")
      ("f_{1}" "<sub>1</sub>"))))
 
 (ert-deftest t-superscript ()
   (t-check-element-values
-   #'t-superscript #'t-advice-return-value
+   #'t-superscript
    '(("1^2" "<sup>2</sup>")
      ("x86^64" "<sup>64</sup>")
      ("f^{1}" "<sup>1</sup>"))))
 
 (ert-deftest t-bold ()
   (t-check-element-values
-   #'t-bold #'t-advice-return-value
+   #'t-bold
    '(("*abc*" "<strong>abc</strong>")
      ("**abc**"
       "<strong><strong>abc</strong></strong>"
@@ -501,7 +489,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-italic ()
   (t-check-element-values
-   #'t-italic #'t-advice-return-value
+   #'t-italic
    '(("/abc/" "<em>abc</em>")
      ("//abc//"
       "<em><em>abc</em></em>" "<em>abc</em>")
@@ -517,7 +505,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-underline ()
   (t-check-element-values
-   #'t-underline #'t-advice-return-value
+   #'t-underline
    '(("_abc_" "<span class=\"underline\">abc</span>")
      ("__abc__"
       "<span class=\"underline\"><span class=\"underline\">abc</span></span>"
@@ -537,7 +525,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-verbatim ()
   (t-check-element-values
-   #'t-verbatim #'t-advice-return-value
+   #'t-verbatim
    '(("=abc=" "<code>abc</code>")
      ("==abc==" "<code>=abc=</code>")
      ("==" . nil)
@@ -552,7 +540,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-code ()
   (t-check-element-values
-   #'t-code #'t-advice-return-value
+   #'t-code
    '(("~abc~" "<code>abc</code>")
      ("~~abc~~" "<code>~abc~</code>")
      ("~~" . nil)
@@ -567,7 +555,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-strike-through ()
   (t-check-element-values
-   #'t-strike-through #'t-advice-return-value
+   #'t-strike-through
    '(("+abc+" "<s>abc</s>")
      ("++abc++"
       "<s><s>abc</s></s>"
@@ -643,8 +631,8 @@ int a = 1;</code></p>\n</details>")
                 "<meta name=\"version\" content=\"v1.2\">\n")))
 
 (ert-deftest t--get-info-title ()
-  (t-check-element-values*
-   #'t--get-info-title #'t-advice-return-value
+  (t-check-element-values 
+   #'t--get-info-title
    '(("#+title: he" "he")
      ("#+title:he" "he")
      ("#+title: \t" "&lrm;")
@@ -654,14 +642,16 @@ int a = 1;</code></p>\n</details>")
      ("#+title:​" "​")
      ("#+TITLE: hello\sworld" "hello world"))))
 
+
 (ert-deftest t--get-info-file-timestamp ()
-  (t-check-element-values-full
-   #'t--get-info-file-timestamp #'t-advice-return-value
-   '( :html-file-timestamp t-file-timestamp-default
-      :time-stamp-file t)
+  (t-check-element-values
+   #'t--get-info-file-timestamp
    `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
      ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
-     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))))
+     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))
+   nil
+   '( :html-file-timestamp t-file-timestamp-default
+      :time-stamp-file t)))
 
 (ert-deftest t--build-mathjax-config ()
   "Test `t--build-mathjax-config' function."
@@ -948,7 +938,7 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t-timestamp ()
   (ert-skip "skip now")
   (t-check-element-values
-   #'t-timestamp #'t-advice-return-value
+   #'t-timestamp
    '(("[2020-02-02]" "<time datetime=\"2020-02-02\">[2020-02-02]</time>")
      ("<2006-01-02>" "<time datetime=\"2006-01-02\"><2006-01-02></time>")
      ("[2006-01-02 15:04:05]"
