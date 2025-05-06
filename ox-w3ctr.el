@@ -1178,10 +1178,10 @@ ATTRIBUTES is a list where values are either atom or list."
          (a (t--make-attribute-string
              (if (or (not reference) (plist-member attrs :id))
                  attrs (plist-put attrs :id reference)))))
-    (replace-regexp-in-string
-     "\"" "&quot;"
-     (t-encode-plain-text
-      (if (t--nw-p a) a "")))))
+    (if (not (t--nw-p a)) ""
+      (replace-regexp-in-string
+       "\"" "&quot;"
+       (t-encode-plain-text a)))))
 
 (defun t--make-attr_id* (element info &optional named-only)
   "Return ELEMENT's attribute string.
