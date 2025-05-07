@@ -1003,7 +1003,8 @@ containing current export state."
 ATTRIBUTES is a plist where values are either strings or nil.  An
 attribute with a nil value will be omitted from the result."
   (let (output)
-    (dolist (item attributes (mapconcat 'identity (nreverse output) " "))
+    (dolist ( item attributes
+              (mapconcat 'identity (nreverse output) " "))
       (cond
        ((null item) (pop output))
        ((symbolp item) (push (substring (symbol-name item) 1) output))
@@ -1188,13 +1189,13 @@ Treats non-empty vector values as HTML class attributes."
 ATTRIBUTES is a list where values are either atom or list."
   (declare (ftype (function (list) string))
            (pure t) (important-return-value t))
-  (mapconcat (lambda (x) (if-let* (((atom x)) (s (t--2str x)))
-                         (concat " " (downcase s))
-                       (t--make-attr x)))
+  (mapconcat (lambda (x) (t--make-attr (if (atom x) (list x) x)))
              attributes))
 
 (defun t--make-attr__id (element info &optional named-only)
   "Return ELEMENT's attr__ attribute string."
+  (declare (ftype (function (t plist &optional boolean) string))
+           (important-return-value t))
   (let* ((reference (t--reference element info named-only))
          (attributes (t--read-attr__ element))
          (a (t--make-attr__
@@ -1204,15 +1205,14 @@ ATTRIBUTES is a list where values are either atom or list."
 
 (defun t--make-attr_html (element info &optional named-only)
   "Return ELEMENT's attr_html attribute string."
+  (declare (ftype (function (t plist &optional boolean) string))
+           (important-return-value t))
   (let* ((attrs (org-export-read-attribute :attr_html element))
          (reference (t--reference element info named-only))
          (a (t--make-attribute-string
              (if (or (not reference) (plist-member attrs :id))
                  attrs (plist-put attrs :id reference)))))
-    (if (not (t--nw-p a)) ""
-      (replace-regexp-in-string
-       "\"" "&quot;"
-       (t-encode-plain-text a)))))
+    (or (t--nw-p a) "")))
 
 (defun t--make-attr_id* (element info &optional named-only)
   "Return ELEMENT's attribute string.

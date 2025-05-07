@@ -121,6 +121,30 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (string= (t--make-attr '(data-he "\"hello world\""))
 		   " data-he=\"&quot;hello world&quot;\"")))
 
+(ert-deftest t--make-attr__ ()
+  (should (equal (t--make-attr__ nil) ""))
+  (should (equal (t--make-attr__ '(nil)) ""))
+  (should (equal (t--make-attr__ '(nil nil [])) ""))
+  (should (equal (t--make-attr__ '(a)) " a"))
+  (should (equal (t--make-attr__ '((id yy 123) (class a\ b) test))
+		 " id=\"yy123\" class=\"a b\" test"))
+  (should (equal (t--make-attr__ '((test this th&t <=>)))
+		 " test=\"thisth&amp;t&lt;=&gt;\"")))
+
+(ert-deftest t--make-attr__id ()
+  (t-check-element-values
+   #'t--make-attr__id
+   '(("#+attr__:\ntest" "")
+     ("#+name:test\n#+attr__: hello\ntest" " id=\"test\" hello")
+     ("#+name:1\n#+attr__:[data] (style {a:b})\ntest"
+      " id=\"1\" class=\"data\" style=\"{a:b}\"")
+     ("#+name:1\n#+attr__:[hello world]\ntest"
+      " id=\"1\" class=\"hello world\"")
+     ("#+name:1\n#+attr__:(data-test \"test double quote\")\nh"
+      " id=\"1\" data-test=\"test double quote\"")
+     ("#+name:1\n#+attr__:(something <=>)\nt"
+      " id=\"1\" something=\"&lt;=&gt;\""))))
+
 (ert-deftest t--sexp2html ()
   (should (string= (t--sexp2html nil) ""))
   ;; Basic tag with no attributes
