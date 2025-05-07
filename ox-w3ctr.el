@@ -1349,9 +1349,8 @@ input. Other data types will be ignored."
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
-  (declare (ftype (function (t (or nil string) plist) string))
-           (pure t)
-           (important-return-value t))
+  (declare (ftype (function (t (or null string) plist) string))
+           (pure t) (important-return-value t))
   (format "<div style=\"text-align:center;\">%s</div>"
           (t--maybe-contents contents)))
 
@@ -1361,6 +1360,8 @@ CONTENTS holds the contents of the block."
 (defun t-drawer (drawer contents info)
   "Transcode a DRAWER element from Org to HTML.
 CONTENTS holds the contents of the block."
+  (declare (ftype (function (t (or null string) plist) string))
+           (important-return-value t))
   (let* ((name (org-element-property :drawer-name drawer))
          (cap (if-let* ((cap (org-export-get-caption drawer))
                         (exp (t--nw-p (org-export-data cap info))))
@@ -1375,6 +1376,8 @@ CONTENTS holds the contents of the block."
 (defun t-dynamic-block (_dynamic-block contents _info)
   "Transcode a DYNAMIC-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
+  (declare (ftype (function (t (or null string) plist) string))
+           (pure t) (important-return-value t))
   (or contents ""))
 
 ;;; Item and Plain Lists
