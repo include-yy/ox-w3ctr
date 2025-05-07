@@ -2,12 +2,89 @@
 
 (require 'ox-w3ctr)
 
+(defvar t-test-values nil
+  "A list to store return values during testing.")
+(defun t-advice-return-value (result)
+  "Advice function to save and return RESULT.
+Pushes RESULT onto `org-w3ctr-test-values' and returns RESULT."
+  (prog1 result
+    (push (if (not (stringp result)) result
+	    (substring-no-properties result))
+	  t-test-values)))
+(defun t-check-element-values (fn pairs &optional body-only plist)
+  "Check that FN returns the expected values when exporting.
+
+FN is a function to advice.  PAIRS is a list of the form
+((INPUT . EXPECTED) ...).  INPUT is a string of Org markup to be
+exported.  EXPECTED is a list of expected return values from FN.
+BODY-ONLY and PLIST are optional arguments passed to
+`org-export-string-as'."
+  (advice-add fn :filter-return #'t-advice-return-value)
+  (unwind-protect
+      (dolist (test pairs t)
+	(let (t-test-values)
+	  (ignore (org-export-string-as
+		   (car test) 'w3ctr body-only plist))
+	  (should (equal t-test-values (cdr test)))))
+    (advice-remove fn #'t-advice-return-value)))
+
 (ert-deftest t--maybe-contents ()
   (should (equal (t--maybe-contents nil) ""))
   (should (equal (t--maybe-contents "") "\n"))
   (should (equal (t--maybe-contents "abc") "\nabc"))
   (should (equal (t--maybe-contents 123) ""))
   (should (equal (t--maybe-contents '(1 2)) "")))
+
+(ert-deftest t--nw-p ()
+  (should (equal (t--nw-p "123") "123"))
+  (should (equal (t--nw-p " 1") " 1"))
+  (should (equal (t--nw-p "\t\r\n2") "\t\r\n2"))
+  (should-not (t--nw-p ""))
+  (should-not (t--nw-p "\t\s\r\n")))
+
+(ert-deftest t--read-attr ()
+  ;; `org-element-property' use `org-element--property'
+  ;; and defined using `define-inline'.
+  (cl-letf (((symbol-function 'org-element--property)
+             (lambda (_p n _deft _force) n)))
+    (should (equal (org-element-property :attr__ 123) 123))
+    (should (equal (org-element-property nil 1) 1))
+    (should (equal (t--read-attr nil '("123")) '(123)))
+    (should (equal (t--read-attr nil '("1 2 3" "4 5 6"))
+                   '(1 2 3 4 5 6)))
+    (should (equal (t--read-attr nil '("(class data) [hello] (id ui)"))
+                   '((class data) [hello] (id ui))))
+    (should (equal (t--read-attr nil '("\"123\"")) '("123"))))
+  (t-check-element-values
+   #'t--read-attr
+   '(("#+attr__: 1 2 3\n#+attr__: 4 5 6\nhello world"
+      (1 2 3 4 5 6))
+     ("#+attr__: [hello world] (id no1)\nhello"
+      ([hello world] (id no1)))
+     ("nothing but text" nil)
+     ("#+attr__: \"str\"\nstring" ("str"))
+     ("#+attr__:\nempty" nil))))
+
+(ert-deftest t--read-attr__ ()
+  (cl-letf (((symbol-function 'org-element--property)
+             (lambda (_p n _deft _force) n)))
+    (should (equal (t--read-attr__ '("1 2 3")) '(1 2 3)))
+    (should (equal (t--read-attr__ '("(class data) open"))
+		   '((class data) open)))
+    (should (equal (t--read-attr__ '("(class hello world)" "foo"))
+		   '((class hello world) foo)))
+    (should (equal (t--read-attr__ '("[nim zig]"))
+		   '(("class" "nim zig"))))
+    (should (equal (t--read-attr__ '("[]")) '(nil)))
+    (should (equal (t--read-attr__ '("[][][]")) '(()()()))))
+  (t-check-element-values
+   #'t--read-attr__
+   '(("#+attr__: 1 2 3\n#+attr__: 4\ntest" (1 2 3 4))
+     ("#+attr__: [hello world] (id no1)\ntest"
+      (("class" "hello world") (id no1)))
+     ("test" nil)
+     ("#+attr__: []\ntest" (nil))
+     ("#+attr__: [][][]\ntest" (nil nil nil)))))
 
 (ert-deftest t--2str ()
   (should (eq (t--2str nil) nil))
@@ -86,31 +163,6 @@
   (should (string= (t--sexp2html '(p)) "<p></p>"))
   (should (string= (t--sexp2html '(hr)) "<hr>")))
 
-(defvar t-test-values nil
-  "A list to store return values during testing.")
-(defun t-advice-return-value (result)
-  "Advice function to save and return RESULT.
-Pushes RESULT onto `org-w3ctr-test-values' and returns RESULT."
-  (prog1 result
-    (push (if (not (stringp result)) result
-	    (substring-no-properties result))
-	  t-test-values)))
-(defun t-check-element-values (fn pairs &optional body-only plist)
-  "Check that FN returns the expected values when exporting.
-
-FN is a function to advice.  PAIRS is a list of the form
-((INPUT . EXPECTED) ...).  INPUT is a string of Org markup to be
-exported.  EXPECTED is a list of expected return values from FN.
-BODY-ONLY and PLIST are optional arguments passed to
-`org-export-string-as'."
-  (advice-add fn :filter-return #'t-advice-return-value)
-  (unwind-protect
-      (dolist (test pairs)
-	(let (t-test-values)
-	  (ignore (org-export-string-as
-		   (car test) 'w3ctr body-only plist))
-	  (should (equal t-test-values (cdr test)))))
-    (advice-remove fn #'t-advice-return-value)))
 
 (ert-deftest t-center-block ()
   (t-check-element-values

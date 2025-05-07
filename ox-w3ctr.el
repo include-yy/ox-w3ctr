@@ -945,12 +945,12 @@ controls how timestamps are formatted, with variations in:
   "Build a string by concatenating N times STRING."
   (let (out) (dotimes (_ n out) (setq out (concat string out)))))
 
-(define-inline t--nw-p (s)
+(defsubst t--nw-p (s)
   "Return S if S is a string containing a non-blank character.
 Otherwise, return nil. See also `org-string-nw-p'."
-  (inline-letevals (s)
-    (inline-quote
-     (and (stringp ,s) (string-match-p "[^ \r\t\n]" ,s) ,s))))
+  (declare (ftype (function (t) (or nil string)))
+           (pure t) (important-return-value t))
+  (and (stringp s) (string-match-p "[^ \r\t\n]" s) s))
 
 (defsubst t--trim (s &optional keep-lead)
   "Remove whitespace at the beginning and the end of string S.
@@ -1146,16 +1146,22 @@ input. Other data types will be ignored."
 (defun t--read-attr (attribute element)
   "Turn ATTRIBUTE property from ELEMENT into a list.
 Returns nil if ATTRIBUTE doesn't exist or is empty string."
+  (declare (ftype (function (keyword t) list))
+           (pure t) (important-return-value t))
   (when-let* ((value (org-element-property attribute element))
               (str (t--nw-p (mapconcat #'identity value " "))))
     (read (concat "(" str ")"))))
 
 (defun t--read-attr__ (element)
-  "Read ELEMENT's attr__ property using `org-w3ctr--read-attr'.
-Treats vector values as HTML class attributes."
+  "Read ELEMENT's :attr__ property using `org-w3ctr--read-attr'.
+Treats non-empty vector values as HTML class attributes."
+  (declare (ftype (function (t) list))
+           (pure t) (important-return-value t))
   (when-let* ((attrs (t--read-attr :attr__ element)))
-    (mapcar (lambda (x) (if (not (vectorp x)) x
-                      (list "class" (mapconcat #'t--2str x " "))))
+    (mapcar (lambda (x)
+              (cond ((not (vectorp x)) x)
+                    ((eq x []) nil)
+                    (t (list "class" (mapconcat #'t--2str x " ")))))
             attrs)))
 
 (defun t--make-attr__ (attributes)
