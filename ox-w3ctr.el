@@ -1199,7 +1199,9 @@ ATTRIBUTES is a list where values are either atom or list."
   (let* ((reference (t--reference element info named-only))
          (attributes (t--read-attr__ element))
          (a (t--make-attr__
-             (if (not reference) attributes
+             (if (or (not reference)
+                     (cl-find 'id attributes :key #'car-safe))
+                 attributes
                (cons `("id" ,reference) attributes)))))
     (if (t--nw-p a) a "")))
 
@@ -1212,11 +1214,13 @@ ATTRIBUTES is a list where values are either atom or list."
          (a (t--make-attribute-string
              (if (or (not reference) (plist-member attrs :id))
                  attrs (plist-put attrs :id reference)))))
-    (or (t--nw-p a) "")))
+    (if (t--nw-p a) (concat " " a) "")))
 
-(defun t--make-attr_id* (element info &optional named-only)
+(defun t--make-attr__id* (element info &optional named-only)
   "Return ELEMENT's attribute string.
 Fall back to attr_html when attr__ is unavailable."
+  (declare (ftype (function (t plist &optional boolean) string))
+           (important-return-value t))
   (if (org-element-property :attr__ element)
       (t--make-attr__id element info named-only)
     (t--make-attr_html element info named-only)))
@@ -1361,7 +1365,7 @@ CONTENTS holds the contents of the block."
          (cap (if-let* ((cap (org-export-get-caption drawer))
                         (exp (t--nw-p (org-export-data cap info))))
                   exp name))
-         (attrs (t--make-attr__id drawer info t)))
+         (attrs (t--make-attr__id* drawer info t)))
     (format "<details%s><summary>%s</summary>%s</details>"
             attrs cap (t--maybe-contents contents))))
 
@@ -1467,7 +1471,7 @@ CONTENTS is the contents of the list."
           (pcase (org-element-property :type plain-list)
             (`ordered "ol") (`unordered "ul") (`descriptive "dl")
             (other (error "Unknown HTML list type: %s" other))))
-         (attributes (t--make-attr__id plain-list info t)))
+         (attributes (t--make-attr__id* plain-list info t)))
     (format "<%s%s>\n%s</%s>"
             type attributes contents type)))
 
@@ -1478,7 +1482,7 @@ CONTENTS is the contents of the list."
   "Transcode a QUOTE-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
   (format "<blockquote%s>%s</blockquote>"
-          (t--make-attr__id quote-block info t)
+          (t--make-attr__id* quote-block info t)
           (t--maybe-contents contents)))
 
 
@@ -1492,7 +1496,7 @@ CONTENTS holds the contents of the block."
   "Transcode a EXAMPLE-BLOCK element from Org to HTML.
 CONTENTS is nil."
   (format "<div%s>\n<pre>\n%s</pre>\n</div>"
-          (t--make-attr__id example-block info)
+          (t--make-attr__id* example-block info)
           (org-remove-indentation
            (org-element-property :value example-block))))
 
@@ -1527,7 +1531,7 @@ CONTENTS is nil."
   "Transcode a FIXED-WIDTH element from Org to HTML.
 CONTENTS is nil."
   (format "<pre%s>%s</pre>"
-          (t--make-attr__id fixed-width info t)
+          (t--make-attr__id* fixed-width info t)
           (let ((value
                  (org-remove-indentation
                   (org-element-property
@@ -1567,7 +1571,7 @@ CONTENTS is nil."
 CONTENTS is the contents of the paragraph, as a string."
   (let* ((parent (org-export-get-parent paragraph))
          (parent-type (org-element-type parent))
-         (attrs (t--make-attr__id paragraph info t)))
+         (attrs (t--make-attr__id* paragraph info t)))
     (cond
      (;; Item's first line.
       (and (eq parent-type 'item)
@@ -1615,7 +1619,7 @@ Also check attributes and caption of paragraph."
 CONTENTS is verse block contents."
   (format
    "<p%s>\n%s</p>"
-   (t--make-attr__id verse-block info t)
+   (t--make-attr__id* verse-block info t)
    ;; Replace leading white spaces with non-breaking spaces.
    (replace-regexp-in-string
     "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))

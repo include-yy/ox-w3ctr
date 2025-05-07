@@ -1,6 +1,6 @@
 ;;; -*- lexical-binding:t;no-byte-compile:t; -*-
 
-(require 'ox-w3ctr)
+(load-file "ox-w3ctr.el")
 
 (defvar t-test-values nil
   "A list to store return values during testing.")
@@ -144,6 +144,29 @@ BODY-ONLY and PLIST are optional arguments passed to
       " id=\"1\" data-test=\"test double quote\"")
      ("#+name:1\n#+attr__:(something <=>)\nt"
       " id=\"1\" something=\"&lt;=&gt;\""))))
+
+(ert-deftest t--make-attr_html ()
+  (t-check-element-values
+   #'t--make-attr_html
+   '(("#+attr_html:\ntest" "")
+     ("#+attr_html: :hello hello\ntest" " hello=\"hello\"")
+     ("#+name: 1\n#+attr_html: :class data\ntest"
+      " class=\"data\" id=\"1\"")
+     ("#+attr_html: :id 1 :class data\ntest"
+      " id=\"1\" class=\"data\"")
+     ("#+name: 1\n#+attr_html: :id 2 :class data two\ntest"
+      " id=\"2\" class=\"data two\"")
+     ("#+attr_html: :data-id < > ? 2 =\ntest"
+      " data-id=\"&lt; &gt; ? 2 =\""))))
+
+(ert-deftest t--make-attr__id* ()
+  (t-check-element-values
+   #'t--make-attr__id*
+   '(("#+attr__:\n#+attr_html: :class a\ntest" "")
+     ("#+attr_html: :class a\ntest" " class=\"a\"")
+     ("#+name: 1\n#+attr__: (id 2)\n#+attr_html: :id 3\ntest"
+      " id=\"2\"")
+     ("#+name: 1\n#+attr_html: :id 3\ntest" " id=\"3\""))))
 
 (ert-deftest t--sexp2html ()
   (should (string= (t--sexp2html nil) ""))
