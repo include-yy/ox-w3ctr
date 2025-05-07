@@ -1090,7 +1090,11 @@ ELEMENT is either a source or an example block."
 ;;; Basic utilties
 (defsubst t--2str (s)
   "Convert S to string.
-S can be number, symbol, string."
+
+If S is a number, symbol, or string, return the corresponding
+string. Otherwise, return nil to indicate conversion failure."
+  (declare (ftype (function (t) (or string null)))
+           (pure t) (important-return-value t))
   (cl-typecase s
     (null nil)
     (symbol (symbol-name s))
@@ -1099,8 +1103,23 @@ S can be number, symbol, string."
     (otherwise nil)))
 
 (defsubst t--make-attr (list)
-  "Convert LIST to HTML attribute."
-  (when-let* ((name (t--2str (nth 0 list))))
+  "Convert LIST to HTML attribute string.
+Returns nil if LIST is nil or its first element is nil.
+
+If LIST has the form (ATTR), create a boolean attribute: ` ATTR'.
+If LIST has the form (ATTR VALUE1 VALUE2 ...), create an attribute
+with values: ` ATTR=\"VALUE1VALUE2...\"'.
+
+The ATTR name is lowercased.  The VALUEs are concatenated
+(after converting to strings) *without spaces*.
+
+Double quotes in the values are escaped as &quot;.
+Also escapes <, >, and & in the values."
+  (declare (ftype (function (list) (or string null)))
+           (pure t) (important-return-value t))
+  ;; (car nil) => nil
+  (when-let* (((not (null list)))
+              (name (t--2str (car list))))
     (if-let* ((rest (cdr list)))
         ;; use lowercase prop name.
         (concat " " (downcase name)
@@ -1165,8 +1184,10 @@ Treats non-empty vector values as HTML class attributes."
             attrs)))
 
 (defun t--make-attr__ (attributes)
-  "Convert ATTRIBUTES to attribute string.
+  "Convert ATTRIBUTES to HTML attribute string.
 ATTRIBUTES is a list where values are either atom or list."
+  (declare (ftype (function (list) string))
+           (pure t) (important-return-value t))
   (mapconcat (lambda (x) (if-let* (((atom x)) (s (t--2str x)))
                          (concat " " (downcase s))
                        (t--make-attr x)))
