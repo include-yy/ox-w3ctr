@@ -1132,37 +1132,6 @@ Also escapes <, >, and & in the values."
                 "\"")
       (concat " " (downcase name)))))
 
-;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
-(defconst t--void-element-regexp
-  (rx string-start
-      (or "area" "base" "br" "col" "embed" "hr"
-          "img" "input" "link" "meta" "param"
-          "source" "track" "wbr")
-      string-end)
-  "Regexp matching HTML void elements (self-closing tags).
-These elements do not require a closing tag in HTML.")
-
-(defun t--sexp2html (data)
-  "Convert S-expression DATA into an HTML string.
-
-The function only accepts symbols, strings, numbers, and lists as
-input. Other data types will be ignored."
-  (cl-typecase data
-    (null "")
-    ((or symbol string number) (t--2str data))
-    (list
-     ;; always use lowercase tagname.
-     (let* ((tag (downcase (t--2str (nth 0 data))))
-            (attr-ls (nth 1 data))
-            (attrs (if (or (eq attr-ls t) (eq attr-ls nil)) ""
-                     (mapconcat #'t--make-attr (nth 1 data)))))
-       (if (string-match-p t--void-element-regexp tag)
-           (format "<%s%s>" tag attrs)
-         (let ((children (mapconcat #'t--sexp2html (cddr data))))
-           (format "<%s%s>%s</%s>"
-                   tag attrs children tag)))))
-    (otherwise "")))
-
 (defun t--read-attr (attribute element)
   "Turn ATTRIBUTE property from ELEMENT into a list.
 Returns nil if ATTRIBUTE doesn't exist or is empty string."
@@ -1224,6 +1193,37 @@ Fall back to attr_html when attr__ is unavailable."
   (if (org-element-property :attr__ element)
       (t--make-attr__id element info named-only)
     (t--make-attr_html element info named-only)))
+
+;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
+(defconst t--void-element-regexp
+  (rx string-start
+      (or "area" "base" "br" "col" "embed" "hr"
+          "img" "input" "link" "meta" "param"
+          "source" "track" "wbr")
+      string-end)
+  "Regexp matching HTML void elements (self-closing tags).
+These elements do not require a closing tag in HTML.")
+
+(defun t--sexp2html (data)
+  "Convert S-expression DATA into an HTML string.
+
+The function only accepts symbols, strings, numbers, and lists as
+input. Other data types will be ignored."
+  (cl-typecase data
+    (null "")
+    ((or symbol string number) (t--2str data))
+    (list
+     ;; always use lowercase tagname.
+     (let* ((tag (downcase (t--2str (nth 0 data))))
+            (attr-ls (nth 1 data))
+            (attrs (if (or (eq attr-ls t) (eq attr-ls nil)) ""
+                     (mapconcat #'t--make-attr (nth 1 data)))))
+       (if (string-match-p t--void-element-regexp tag)
+           (format "<%s%s>" tag attrs)
+         (let ((children (mapconcat #'t--sexp2html (cddr data))))
+           (format "<%s%s>%s</%s>"
+                   tag attrs children tag)))))
+    (otherwise "")))
 
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
