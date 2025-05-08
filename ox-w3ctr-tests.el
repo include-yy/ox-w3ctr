@@ -42,6 +42,21 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should-not (t--nw-p ""))
   (should-not (t--nw-p "\t\s\r\n")))
 
+(ert-deftest t--2str ()
+  (should (eq (t--2str nil) nil))
+  (should (string= (t--2str 1) "1"))
+  (should (string= (t--2str 114.514) "114.514"))
+  (should (string= (t--2str ?a) "97"))
+  (should (string= (t--2str 'hello) "hello"))
+  (should (string= (t--2str 'has\ space) "has space"))
+  (should (string= (t--2str 'has\#) "has#"))
+  (should (string= (t--2str "string") "string"))
+  (should-not (t--2str [1]))
+  (should-not (t--2str (make-char-table 'sub)))
+  (should-not (t--2str (make-bool-vector 3 t)))
+  (should-not (t--2str (make-hash-table)))
+  (should-not (t--2str (lambda (x) x))))
+
 (ert-deftest t--read-attr ()
   ;; `org-element-property' use `org-element--property'
   ;; and defined using `define-inline'.
@@ -86,21 +101,6 @@ BODY-ONLY and PLIST are optional arguments passed to
      ("#+attr__:\n#+attr__:\ntest" nil)
      ("#+attr__: []\ntest" (nil))
      ("#+attr__: [][][]\ntest" (nil nil nil)))))
-
-(ert-deftest t--2str ()
-  (should (eq (t--2str nil) nil))
-  (should (string= (t--2str 1) "1"))
-  (should (string= (t--2str 114.514) "114.514"))
-  (should (string= (t--2str ?a) "97"))
-  (should (string= (t--2str 'hello) "hello"))
-  (should (string= (t--2str 'has\ space) "has space"))
-  (should (string= (t--2str 'has\#) "has#"))
-  (should (string= (t--2str "string") "string"))
-  (should-not (t--2str [1]))
-  (should-not (t--2str (make-char-table 'sub)))
-  (should-not (t--2str (make-bool-vector 3 t)))
-  (should-not (t--2str (make-hash-table)))
-  (should-not (t--2str (lambda (x) x))))
 
 (ert-deftest t--make-attr ()
   (should-not (t--make-attr nil))

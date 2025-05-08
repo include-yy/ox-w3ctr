@@ -945,13 +945,6 @@ controls how timestamps are formatted, with variations in:
   "Build a string by concatenating N times STRING."
   (let (out) (dotimes (_ n out) (setq out (concat string out)))))
 
-(defsubst t--nw-p (s)
-  "Return S if S is a string containing a non-blank character.
-Otherwise, return nil. See also `org-string-nw-p'."
-  (declare (ftype (function (t) (or nil string)))
-           (pure t) (important-return-value t))
-  (and (stringp s) (string-match-p "[^ \r\t\n]" s) s))
-
 (defsubst t--trim (s &optional keep-lead)
   "Remove whitespace at the beginning and the end of string S.
 When optional argument KEEP-LEAD is non-nil, removing blank lines
@@ -973,14 +966,6 @@ newline character at its end."
    ((string= "" s) "")
    (t (and (string-match "\\(\n[ \t]*\\)*\\'" s)
            (replace-match "\n" nil nil s)))))
-
-(defsubst t--maybe-contents (contents)
-  "If CONTENTS is string, prepend a newline and return it;
-otherwise, return an empty string."
-  (declare (ftype (function (t) string))
-           (pure t)
-           (important-return-value t))
-  (if (stringp contents) (concat "\n" contents) ""))
 
 (defun t--has-caption-p (element &optional _info)
   "Non-nil when ELEMENT has a caption affiliated keyword.
@@ -1089,6 +1074,21 @@ ELEMENT is either a source or an example block."
             code)))
 
 ;;; Basic utilties
+(defsubst t--maybe-contents (contents)
+  "If CONTENTS is string, prepend a newline and return it;
+otherwise, return an empty string."
+  (declare (ftype (function (t) string))
+           (pure t)
+           (important-return-value t))
+  (if (stringp contents) (concat "\n" contents) ""))
+
+(defsubst t--nw-p (s)
+  "Return S if S is a string containing a non-blank character.
+Otherwise, return nil. See also `org-string-nw-p'."
+  (declare (ftype (function (t) (or nil string)))
+           (pure t) (important-return-value t))
+  (and (stringp s) (string-match-p "[^ \r\t\n]" s) s))
+
 (defsubst t--2str (s)
   "Convert S to string.
 
@@ -1102,6 +1102,27 @@ string. Otherwise, return nil to indicate conversion failure."
     (string s)
     (number (number-to-string s))
     (otherwise nil)))
+
+(defun t--read-attr (attribute element)
+  "Turn ATTRIBUTE property from ELEMENT into a list.
+Returns nil if ATTRIBUTE doesn't exist or is empty string."
+  (declare (ftype (function (keyword t) list))
+           (pure t) (important-return-value t))
+  (when-let* ((value (org-element-property attribute element))
+              (str (t--nw-p (mapconcat #'identity value " "))))
+    (read (concat "(" str ")"))))
+
+(defun t--read-attr__ (element)
+  "Read ELEMENT's :attr__ property using `org-w3ctr--read-attr'.
+Treats non-empty vector values as HTML class attributes."
+  (declare (ftype (function (t) list))
+           (pure t) (important-return-value t))
+  (when-let* ((attrs (t--read-attr :attr__ element)))
+    (mapcar (lambda (x)
+              (cond ((not (vectorp x)) x)
+                    ((eq x []) nil)
+                    (t (list "class" (mapconcat #'t--2str x " ")))))
+            attrs)))
 
 (defsubst t--make-attr (list)
   "Convert LIST to HTML attribute string.
@@ -1131,27 +1152,6 @@ Also escapes <, >, and & in the values."
                   (mapconcat #'t--2str rest)))
                 "\"")
       (concat " " (downcase name)))))
-
-(defun t--read-attr (attribute element)
-  "Turn ATTRIBUTE property from ELEMENT into a list.
-Returns nil if ATTRIBUTE doesn't exist or is empty string."
-  (declare (ftype (function (keyword t) list))
-           (pure t) (important-return-value t))
-  (when-let* ((value (org-element-property attribute element))
-              (str (t--nw-p (mapconcat #'identity value " "))))
-    (read (concat "(" str ")"))))
-
-(defun t--read-attr__ (element)
-  "Read ELEMENT's :attr__ property using `org-w3ctr--read-attr'.
-Treats non-empty vector values as HTML class attributes."
-  (declare (ftype (function (t) list))
-           (pure t) (important-return-value t))
-  (when-let* ((attrs (t--read-attr :attr__ element)))
-    (mapcar (lambda (x)
-              (cond ((not (vectorp x)) x)
-                    ((eq x []) nil)
-                    (t (list "class" (mapconcat #'t--2str x " ")))))
-            attrs)))
 
 (defun t--make-attr__ (attributes)
   "Convert ATTRIBUTES to HTML attribute string.
