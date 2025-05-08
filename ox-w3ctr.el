@@ -1123,6 +1123,20 @@ Treats non-empty vector values as HTML class attributes."
                     (t (list "class" (mapconcat #'t--2str x " ")))))
             attrs)))
 
+(defconst t--protect-char-alist
+  '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;"))
+  "Alist of characters to be converted by
+`org-w3ctr--encode-plain-text'.")
+
+(defun t--encode-plain-text (text)
+  "Convert plain text characters from TEXT to HTML equivalent.
+Possible conversions are set in `org--w3ctr-protect-char-alist'."
+  (declare (ftype (function (string) string))
+           (side-effect-free t) (important-return-value t))
+  (dolist (pair t--protect-char-alist text)
+    (setq text (replace-regexp-in-string
+                (car pair) (cdr pair) text t t))))
+
 (defsubst t--make-attr (list)
   "Convert LIST to HTML attribute string.
 Returns nil if LIST is nil or its first element is nil.
@@ -1147,7 +1161,7 @@ Also escapes <, >, and & in the values."
                 "=\""
                 (replace-regexp-in-string
                  "\"" "&quot;"
-                 (t-encode-plain-text
+                 (t--encode-plain-text
                   (mapconcat #'t--2str rest)))
                 "\"")
       (concat " " (downcase name)))))
@@ -1763,7 +1777,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t-verbatim (verbatim _contents info)
   "Transcode VERBATIM from Org to HTML."
   (format (t--get-markup-format 'verbatim info)
-          (t-encode-plain-text
+          (t--encode-plain-text
            (org-element-property :value verbatim))))
 
 ;;;; Code
@@ -1772,7 +1786,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML."
   (format (t--get-markup-format 'code info)
-          (t-encode-plain-text
+          (t--encode-plain-text
            (org-element-property :value code))))
 
 ;;;; Strike-Through
@@ -1791,13 +1805,6 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
     ("\\.\\.\\." . "&#x2026;")); hellip
   "Regular expressions for special string conversion.")
 
-(defconst t-protect-char-alist
-  '(("&" . "&amp;")
-    ("<" . "&lt;")
-    (">" . "&gt;"))
-  "Alist of characters to be converted by
-`org-w3ctr-encode-plain-text'.")
-
 (defun t-convert-special-strings (string)
   "Convert special characters in STRING to HTML."
   (dolist (a t-special-string-regexps string)
@@ -1806,18 +1813,11 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
       (setq string (replace-regexp-in-string
                     re rpl string t)))))
 
-(defun t-encode-plain-text (text)
-  "Convert plain text characters from TEXT to HTML equivalent.
-Possible conversions are set in `org-w3ctr-protect-char-alist'."
-  (dolist (pair t-protect-char-alist text)
-    (setq text (replace-regexp-in-string
-                (car pair) (cdr pair) text t t))))
-
 (defun t-plain-text (text info)
   "Transcode a TEXT string from Org to HTML."
   (let ((output text))
     ;; Protect following characters: <, >, &.
-    (setq output (t-encode-plain-text output))
+    (setq output (t--encode-plain-text output))
     ;; Handle smart quotes.  Be sure to provide original
     ;; string since OUTPUT may have been modified.
     (when (plist-get info :with-smart-quotes)
@@ -1877,7 +1877,7 @@ to the CONTENT-FORMAT and encoding the result as plain text."
             (concat "\" content=\""
                     (replace-regexp-in-string
                      "\"" "&quot;"
-                     (t-encode-plain-text
+                     (t--encode-plain-text
                       (if content-formatters
                           (apply #'format content-format
                                  content-formatters)
@@ -2949,7 +2949,7 @@ This function is lifted from engrave-faces [2024-04-12]"
   (let* ((lang-mode (and lang (intern (format "%s-mode" lang)))))
     (cond
      ((not (functionp lang-mode))
-      (format "<code class=\"src src-%s\">%s</code>" lang (t-encode-plain-text code)))
+      (format "<code class=\"src src-%s\">%s</code>" lang (t--encode-plain-text code)))
      (t
       (setq code
             (let ((inhibit-read-only t))
@@ -2970,10 +2970,10 @@ CODE is a string representing the source code to colorize.  LANG
 is the language used for CODE, as a string, or nil."
   (cond
    ((or (string= code "") (not lang) (not t-fontify-method))
-    (format "<code>%s</code>" (t-encode-plain-text code)))
+    (format "<code>%s</code>" (t--encode-plain-text code)))
    ((eq t-fontify-method 'engrave)
     (t-faces-fontify-code code lang))
-   (t (format "<code>%s</code>" (t-encode-plain-text code)))))
+   (t (format "<code>%s</code>" (t--encode-plain-text code)))))
 
 (defun t-format-src-block-code (element _info)
   (let* ((lang (org-element-property :language element))
@@ -3297,7 +3297,7 @@ INFO is a plist holding contextual information.  See
      ;; Coderef: replace link with the reference name or the
      ;; equivalent line number.
      ((string= type "coderef")
-      (let ((fragment (concat "coderef-" (t-encode-plain-text path))))
+      (let ((fragment (concat "coderef-" (t--encode-plain-text path))))
         (format "<a href=\"#%s\" %s%s>%s</a>"
                 fragment
                 (format "class=\"coderef\" onmouseover=\"CodeHighlightOn(this, \
@@ -3309,12 +3309,12 @@ INFO is a plist holding contextual information.  See
      ;; External link with a description part.
      ((and path desc)
       (format "<a href=\"%s\"%s>%s</a>"
-              (t-encode-plain-text path)
+              (t--encode-plain-text path)
               attributes
               desc))
      ;; External link without a description part.
      (path
-      (let ((path (t-encode-plain-text path)))
+      (let ((path (t--encode-plain-text path)))
         (format "<a href=\"%s\"%s>%s</a>" path attributes path)))
      ;; No path, only description.  Try to do something useful.
      (t

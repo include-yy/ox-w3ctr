@@ -107,6 +107,16 @@ BODY-ONLY and PLIST are optional arguments passed to
      ("#+attr__: []\ntest" (nil))
      ("#+attr__: [][][]\ntest" (nil nil nil)))))
 
+(ert-deftest t--encode-plain-text ()
+  "Tests for `org-w3ctr--encode-plain-text'."
+  (should (equal (t--encode-plain-text "") ""))
+  (should (equal (t--encode-plain-text "123") "123"))
+  (should (equal (t--encode-plain-text "hello world") "hello world"))
+  (should (equal (t--encode-plain-text "&") "&amp;"))
+  (should (equal (t--encode-plain-text "<") "&lt;"))
+  (should (equal (t--encode-plain-text ">") "&gt;"))
+  (should (equal (t--encode-plain-text "<&>") "&lt;&amp;&gt;")))
+
 (ert-deftest t--make-attr ()
   "Tests for `org-w3ctr--make-attr'."
   (should-not (t--make-attr nil))
