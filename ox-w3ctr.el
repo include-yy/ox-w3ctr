@@ -983,21 +983,6 @@ containing current export state."
           (org-string-nw-p (concat " " attr))
           ">"))
 
-(defun t--make-attribute-string (attributes)
-  "Return a list of attributes, as a string.
-ATTRIBUTES is a plist where values are either strings or nil.  An
-attribute with a nil value will be omitted from the result."
-  (let (output)
-    (dolist ( item attributes
-              (mapconcat 'identity (nreverse output) " "))
-      (cond
-       ((null item) (pop output))
-       ((symbolp item) (push (substring (symbol-name item) 1) output))
-       (t (let ((key (car output))
-                (value (replace-regexp-in-string
-                        "\"" "&quot;" (t-encode-plain-text item))))
-            (setcar output (format "%s=\"%s\"" key value))))))))
-
 (defun t--reference (datum info &optional named-only)
   "Return an appropriate reference for DATUM.
 
@@ -1055,7 +1040,7 @@ a communication channel."
      (list :src source
            :alt (if (string-match-p
                      (concat "^" org-preview-latex-image-directory) source)
-                    (t-encode-plain-text
+                    (t--encode-plain-text
                      (org-find-text-property-in-string 'org-latex-src source))
                   (file-name-nondirectory source)))
      (if (string= "svg" (file-name-extension source))
@@ -1186,6 +1171,25 @@ ATTRIBUTES is a list where values are either atom or list."
                  attributes
                (cons `("id" ,reference) attributes)))))
     (if (t--nw-p a) a "")))
+
+;; Directly copied from `org-html--make-attribute-string'.
+(defun t--make-attribute-string (attributes)
+  "Return HTML attributes string represented by ATTRIBUTES.
+
+ATTRIBUTES is a plist where values are either strings or nil.
+An attribute with a nil value will be omitted from the result."
+  (declare (ftype (function (list) string))
+           (pure t) (important-return-value t))
+  (let (output)
+    (dolist ( item attributes
+              (mapconcat 'identity (nreverse output) " "))
+      (cond
+       ((null item) (pop output))
+       ((symbolp item) (push (substring (symbol-name item) 1) output))
+       (t (let ((key (car output))
+                (value (replace-regexp-in-string
+                        "\"" "&quot;" (t--encode-plain-text item))))
+            (setcar output (format "%s=\"%s\"" key value))))))))
 
 (defun t--make-attr_html (element info &optional named-only)
   "Return ELEMENT's attr_html attribute string."

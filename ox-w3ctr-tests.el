@@ -115,7 +115,11 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (equal (t--encode-plain-text "&") "&amp;"))
   (should (equal (t--encode-plain-text "<") "&lt;"))
   (should (equal (t--encode-plain-text ">") "&gt;"))
-  (should (equal (t--encode-plain-text "<&>") "&lt;&amp;&gt;")))
+  (should (equal (t--encode-plain-text "<&>") "&lt;&amp;&gt;"))
+  (dolist (a '(("a&b&c" . "a&amp;b&amp;c")
+	       ("<div>" . "&lt;div&gt;")
+	       ("<span>" . "&lt;span&gt;")))
+    (should (string= (t--encode-plain-text (car a)) (cdr a)))))
 
 (ert-deftest t--make-attr ()
   "Tests for `org-w3ctr--make-attr'."
@@ -163,6 +167,24 @@ BODY-ONLY and PLIST are optional arguments passed to
       " id=\"1\" data-test=\"test double quote\"")
      ("#+name:1\n#+attr__:(something <=>)\nt"
       " id=\"1\" something=\"&lt;=&gt;\""))))
+
+(ert-deftest t--make-attribute-string ()
+  "Tests for `org-w3ctr--make-attribute-string'."
+  (should (equal (t--make-attribute-string '(:a "1" :b "2"))
+		 "a=\"1\" b=\"2\""))
+  (should (equal (t--make-attribute-string nil) ""))
+  (should (equal (t--make-attribute-string '(:a nil)) ""))
+  (should (equal (t--make-attribute-string '(:a "\"a\""))
+		 "a=\"&quot;a&quot;\""))
+  (should (equal (t--make-attribute-string '(:open "open"))
+		 "open=\"open\""))
+  (t-check-element-values
+   #'t--make-attribute-string
+   '(("#+attr_html: :open open :class a\ntest"
+      "open=\"open\" class=\"a\"")
+     ("#+attr_html: :id wo-1 :two\ntest" "id=\"wo-1\"")
+     ("#+attr_html: :id :idd hhh\ntest" "idd=\"hhh\"")
+     ("#+attr_html: :null nil :this test\ntest" "this=\"test\""))))
 
 (ert-deftest t--make-attr_html ()
   "Tests for `org-w3ctr--make-attr_html'."
@@ -705,12 +727,6 @@ int a = 1;</code></p>\n</details>")
 	       ("---abc" . "&#x2014;abc")
 	       ("--abc" . "&#x2013;abc")))
     (should (string= (t-convert-special-strings (car a)) (cdr a)))))
-
-(ert-deftest t-encode-plain-text ()
-  (dolist (a '(("a&b&c" . "a&amp;b&amp;c")
-	       ("<div>" . "&lt;div&gt;")
-	       ("<span>" . "&lt;span&gt;")))
-    (should (string= (t-encode-plain-text (car a)) (cdr a)))))
 
 (ert-deftest t-plain-text ()
   (should (equal (t-plain-text "a < b & c > d" '())
