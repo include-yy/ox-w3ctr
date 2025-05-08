@@ -76,7 +76,7 @@ BODY-ONLY and PLIST are optional arguments passed to
       (1 2 3 4 5 6))
      ("#+attr__: [hello world] (id no1)\nhello"
       ([hello world] (id no1)))
-     ("nothing but text" nil)
+     ("nothing but text" . nil)
      ("#+attr__: \"str\"\nstring" ("str"))
      ("#+attr__:\nempty" nil))))
 
@@ -97,7 +97,7 @@ BODY-ONLY and PLIST are optional arguments passed to
    '(("#+attr__: 1 2 3\n#+attr__: 4\ntest" (1 2 3 4))
      ("#+attr__: [hello world] (id no1)\ntest"
       (("class" "hello world") (id no1)))
-     ("test" nil)
+     ("test" . nil)
      ("#+attr__:\n#+attr__:\ntest" nil)
      ("#+attr__: []\ntest" (nil))
      ("#+attr__: [][][]\ntest" (nil nil nil)))))
@@ -140,6 +140,7 @@ BODY-ONLY and PLIST are optional arguments passed to
       " id=\"1\" class=\"data\" style=\"{a:b}\"")
      ("#+name:1\n#+attr__:[hello world]\ntest"
       " id=\"1\" class=\"hello world\"")
+     ("#+name:1\n#+attr__:[]\ntest" " id=\"1\"")
      ("#+name:1\n#+attr__:(data-test \"test double quote\")\nh"
       " id=\"1\" data-test=\"test double quote\"")
      ("#+name:1\n#+attr__:(something <=>)\nt"
