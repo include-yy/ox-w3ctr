@@ -29,6 +29,7 @@ BODY-ONLY and PLIST are optional arguments passed to
     (advice-remove fn #'t-advice-return-value)))
 
 (ert-deftest t--maybe-contents ()
+  "Tests for `org-w3ctr--maybe-contents'."
   (should (equal (t--maybe-contents nil) ""))
   (should (equal (t--maybe-contents "") "\n"))
   (should (equal (t--maybe-contents "abc") "\nabc"))
@@ -36,6 +37,7 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (equal (t--maybe-contents '(1 2)) "")))
 
 (ert-deftest t--nw-p ()
+  "Tests for `org-w3ctr--nw-p'."
   (should (equal (t--nw-p "123") "123"))
   (should (equal (t--nw-p " 1") " 1"))
   (should (equal (t--nw-p "\t\r\n2") "\t\r\n2"))
@@ -43,6 +45,7 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should-not (t--nw-p "\t\s\r\n")))
 
 (ert-deftest t--2str ()
+  "Tests for `org-w3ctr--2str'."
   (should (eq (t--2str nil) nil))
   (should (string= (t--2str 1) "1"))
   (should (string= (t--2str 114.514) "114.514"))
@@ -58,6 +61,7 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should-not (t--2str (lambda (x) x))))
 
 (ert-deftest t--read-attr ()
+  "Tests for `org-w3ctr--read-attr'."
   ;; `org-element-property' use `org-element--property'
   ;; and defined using `define-inline'.
   (cl-letf (((symbol-function 'org-element--property)
@@ -81,6 +85,7 @@ BODY-ONLY and PLIST are optional arguments passed to
      ("#+attr__:\nempty" nil))))
 
 (ert-deftest t--read-attr__ ()
+  "Tests for `org-w3ctr--read-attr__'."
   (cl-letf (((symbol-function 'org-element--property)
              (lambda (_p n _deft _force) n)))
     (should (equal (t--read-attr__ '("1 2 3")) '(1 2 3)))
@@ -103,6 +108,7 @@ BODY-ONLY and PLIST are optional arguments passed to
      ("#+attr__: [][][]\ntest" (nil nil nil)))))
 
 (ert-deftest t--make-attr ()
+  "Tests for `org-w3ctr--make-attr'."
   (should-not (t--make-attr nil))
   (should-not (t--make-attr '(nil 1)))
   (should-not (t--make-attr '([x])))
@@ -122,6 +128,7 @@ BODY-ONLY and PLIST are optional arguments passed to
 		   " data-he=\"&quot;hello world&quot;\"")))
 
 (ert-deftest t--make-attr__ ()
+  "Tests for `org-w3ctr--make-attr__'."
   (should (equal (t--make-attr__ nil) ""))
   (should (equal (t--make-attr__ '(nil)) ""))
   (should (equal (t--make-attr__ '(nil nil [])) ""))
@@ -132,6 +139,7 @@ BODY-ONLY and PLIST are optional arguments passed to
 		 " test=\"thisth&amp;t&lt;=&gt;\"")))
 
 (ert-deftest t--make-attr__id ()
+  "Tests for `org-w3ctr--make-attr__id'."
   (t-check-element-values
    #'t--make-attr__id
    '(("#+attr__:\ntest" "")
@@ -147,6 +155,7 @@ BODY-ONLY and PLIST are optional arguments passed to
       " id=\"1\" something=\"&lt;=&gt;\""))))
 
 (ert-deftest t--make-attr_html ()
+  "Tests for `org-w3ctr--make-attr_html'."
   (t-check-element-values
    #'t--make-attr_html
    '(("#+attr_html:\ntest" "")
@@ -161,6 +170,7 @@ BODY-ONLY and PLIST are optional arguments passed to
       " data-id=\"&lt; &gt; ? 2 =\""))))
 
 (ert-deftest t--make-attr__id* ()
+  "Tests for `org-w3ctr--make-attr__id*'."
   (t-check-element-values
    #'t--make-attr__id*
    '(("#+attr__:\n#+attr_html: :class a\ntest" "")

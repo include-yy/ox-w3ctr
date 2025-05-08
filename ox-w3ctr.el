@@ -1119,7 +1119,7 @@ Treats non-empty vector values as HTML class attributes."
   (when-let* ((attrs (t--read-attr :attr__ element)))
     (mapcar (lambda (x)
               (cond ((not (vectorp x)) x)
-                    ((eq x []) nil)
+                    ((equal x []) nil)
                     (t (list "class" (mapconcat #'t--2str x " ")))))
             attrs)))
 
