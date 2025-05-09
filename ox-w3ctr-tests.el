@@ -121,6 +121,13 @@ BODY-ONLY and PLIST are optional arguments passed to
 	       ("<span>" . "&lt;span&gt;")))
     (should (string= (t--encode-plain-text (car a)) (cdr a)))))
 
+(ert-deftest t--encode-plain-text* ()
+  "Tests for `org-w3ctr--encode-plain-text*'."
+  (should (equal (t--encode-plain-text* "'") "&apos;"))
+  (should (equal (t--encode-plain-text* "\"") "&quot;"))
+  (should (equal (t--encode-plain-text* "\"'&\"")
+		 "&quot;&apos;&amp;&quot;")))
+
 (ert-deftest t--make-attr ()
   "Tests for `org-w3ctr--make-attr'."
   (should-not (t--make-attr nil))
@@ -320,8 +327,8 @@ int a = 1;</code></p>\n</details>")
   (let ((t-checkbox-type 'html))
     (t-check-element-values
      #'t-checkbox
-     '(("- [ ] 123" "<input type='checkbox' disabled>")
-       ("- [X] 123" "<input type='checkbox' checked disabled>")
+     '(("- [ ] 123" "<input type='checkbox'>")
+       ("- [X] 123" "<input type='checkbox' checked>")
        ("- [-] 123" "<input type='checkbox'>")))))
 
 (ert-deftest t-item-unordered ()

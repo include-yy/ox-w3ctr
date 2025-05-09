@@ -1122,6 +1122,17 @@ Possible conversions are set in `org--w3ctr-protect-char-alist'."
     (setq text (replace-regexp-in-string
                 (car pair) (cdr pair) text t t))))
 
+(defun t--encode-plain-text* (text)
+  "Compared to `org-w3ctr--encode-plain-text', plus
+single-quote and double-quote characters."
+  (declare (ftype (function (string) string))
+           (side-effect-free t) (important-return-value t))
+  (let ((t--protect-char-alist
+         `(,@t--protect-char-alist
+           ;; https://stackoverflow.com/a/2428595
+           ("'" . "&apos;") ("\"" . "&quot;"))))
+    (t--encode-plain-text text)))
+
 (defsubst t--make-attr (list)
   "Convert LIST to HTML attribute string.
 Returns nil if LIST is nil or its first element is nil.
@@ -1142,13 +1153,9 @@ Also escapes <, >, and & in the values."
               (name (t--2str (car list))))
     (if-let* ((rest (cdr list)))
         ;; use lowercase prop name.
-        (concat " " (downcase name)
-                "=\""
-                (replace-regexp-in-string
-                 "\"" "&quot;"
-                 (t--encode-plain-text
-                  (mapconcat #'t--2str rest)))
-                "\"")
+        (concat
+         " " (downcase name) "=\""
+         (t--encode-plain-text* (mapconcat #'t--2str rest)) "\"")
       (concat " " (downcase name)))))
 
 (defun t--make-attr__ (attributes)
@@ -1408,8 +1415,8 @@ CONTENTS holds the contents of the block."
        (off . "<code>[&#xa0;]</code>")
        (trans . "<code>[-]</code>")))
     ( html .
-      ((on . "<input type='checkbox' checked disabled>")
-       (off . "<input type='checkbox' disabled>")
+      ((on . "<input type='checkbox' checked>")
+       (off . "<input type='checkbox'>")
        (trans . "<input type='checkbox'>"))))
   "Alist of checkbox types.
 The cdr of each entry is an alist list three checkbox types for
