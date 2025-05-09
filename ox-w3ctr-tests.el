@@ -262,6 +262,7 @@ BODY-ONLY and PLIST are optional arguments passed to
 
 
 (ert-deftest t-center-block ()
+  "Tests for `org-w3ctr-center-block'."
   (t-check-element-values
    #'t-center-block
    '(("#+begin_center\n#+end_center"
@@ -274,6 +275,7 @@ BODY-ONLY and PLIST are optional arguments passed to
       "<div style=\"text-align:center;\">\n\n</div>"))))
 
 (ert-deftest t-drawer ()
+  "Tests for `org-w3ctr-drawer'."
   (t-check-element-values
    #'t-drawer
    '((":hello:\n:end:"
@@ -296,6 +298,7 @@ int a = 1;</code></p>\n</details>")
       "<details><summary>test</summary></details>"))))
 
 (ert-deftest t-dynamic-block ()
+  "Tests for `org-w3ctr-dynamic-block'."
   (t-check-element-values
    #'t-dynamic-block
    '(("#+begin: hello\n123\n#+end:" "<p>123</p>\n")

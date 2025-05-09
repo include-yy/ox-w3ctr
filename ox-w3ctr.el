@@ -1062,7 +1062,7 @@ ELEMENT is either a source or an example block."
 (defsubst t--maybe-contents (contents)
   "If CONTENTS is string, prepend a newline and return it;
 otherwise, return an empty string."
-  (declare (ftype (function (t) string))
+  (declare (ftype (function ((or string null)) string))
            (pure t) (important-return-value t))
   (if (stringp contents) (concat "\n" contents) ""))
 
