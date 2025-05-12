@@ -696,6 +696,18 @@ int a = 1;</code></p>\n</details>")
      ("#+hello: world" ""))
    t))
 
+(ert-deftest t--wrap-image ()
+  "Tests for `org-w3ctr--wrap-image'."
+  (should (equal (t--wrap-image "" nil "" "") "<figure>\n</figure>"))
+  (should (equal (t--wrap-image "hello" nil "" "")
+                 "<figure>\nhello</figure>"))
+  (should (equal
+           (t--wrap-image "hello" nil " abc" "")
+           "<figure>\nhello<figcaption>abc</figcaption>\n</figure>"))
+  (should (equal
+           (t--wrap-image "" nil "\ntest\n" "1")
+           "<figure1>\n<figcaption>test</figcaption>\n</figure>")))
+
 (ert-deftest t-paragraph ()
   "Tests for `org-w3ctr-paragraph'."
   (t-check-element-values
@@ -735,6 +747,12 @@ int a = 1;</code></p>\n</details>")
      ("[[./1.png][name]]" "<p><a href=\"./1.png\">name</a></p>")
      ("[[https://example.com/1.jpg][file:1.jpg]]"
       "<figure>\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))))
+
+(ert-deftest t-paragraph-filter ()
+  "Tests for `org-w3ctr-paragraph-filter'."
+  (should (equal (t-paragraph-filter "a\n\n" nil nil) "a\n"))
+  (should (equal (t-paragraph-filter "a" nil nil) "a\n"))
+  (should (equal (t-paragraph-filter "\na" nil nil) "\na\n")))
 
 (ert-deftest t-verse-block ()
   (t-check-element-values

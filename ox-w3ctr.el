@@ -1656,7 +1656,6 @@ CONTENTS is nil."
                       (read (format "(%s)" value))))
       (_ ""))))
 
-;; FIXME: Add tests
 (defsubst t--wrap-image (contents _info caption attrs)
   "Wrap CONTENTS string within <figure> tag for images.
 Also check attributes and caption of paragraph."
@@ -1707,7 +1706,6 @@ CONTENTS is the contents of the paragraph, as a string."
             (format "<p%s>%s</p>" attrs c)))))))
 
 ;; FIXME: Consider add an option to switch on/off this feature.
-;; Also, add tests.
 (defun t-paragraph-filter (value _backend _info)
   "Delete paragraph's trailing newlines."
   (declare (ftype (function (string t t) string))
@@ -1733,7 +1731,6 @@ CONTENTS is verse block contents."
                        (regexp-quote "<br>"))))
       (replace-regexp-in-string
        re "<br>\n" (or contents ""))))))
-
 
 ;;; Objects (25 - 4 - 5 - 7 = 9)
 ;;; footnote-reference, inline-src-block are not here.
