@@ -237,9 +237,11 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (equal (t--nw-trim 'hello) nil)))
 
 (ert-deftest t--sexp2html ()
+  "Tests for `org-w3ctr--sexp2html'."
   (should (string= (t--sexp2html nil) ""))
   ;; Basic tag with no attributes
   (should (string= (t--sexp2html '(p () "123")) "<p>123</p>"))
+  (should (string= (t--sexp2html '(p t "123")) "<p>123</p>"))
   ;; Tag with attributes
   (should (string= (t--sexp2html
                     '(a ((href "https://example.com")) "link"))

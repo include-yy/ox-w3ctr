@@ -1238,11 +1238,13 @@ Otherwise, return nil"
   "Regexp matching HTML void elements (self-closing tags).
 These elements do not require a closing tag in HTML.")
 
-(defun t--sexp2html (data)
+(defsubst t--sexp2html (data)
   "Convert S-expression DATA into an HTML string.
 
 The function only accepts symbols, strings, numbers, and lists as
 input. Other data types will be ignored."
+  (declare (ftype (function (t) string))
+           (pure t) (important-return-value t))
   (cl-typecase data
     (null "")
     ((or symbol string number) (t--2str data))
@@ -1250,7 +1252,7 @@ input. Other data types will be ignored."
      ;; always use lowercase tagname.
      (let* ((tag (downcase (t--2str (nth 0 data))))
             (attr-ls (nth 1 data))
-            (attrs (if (or (eq attr-ls t) (eq attr-ls nil)) ""
+            (attrs (if (booleanp attr-ls) ""
                      (mapconcat #'t--make-attr (nth 1 data)))))
        (if (string-match-p t--void-element-regexp tag)
            (format "<%s%s>" tag attrs)
@@ -1579,6 +1581,8 @@ CONTENTS holds the contents of the block."
 (defun t-example-block (example-block _contents info)
   "Transcode a EXAMPLE-BLOCK element from Org to HTML.
 CONTENTS is nil."
+  (declare (ftype (function (t t plist) string))
+           (important-return-value t))
   (format "<div%s>\n<pre>\n%s</pre>\n</div>"
           (t--make-attr__id* example-block info)
           (org-remove-indentation
@@ -1590,22 +1594,23 @@ CONTENTS is nil."
 (defun t-export-block (export-block _contents _info)
   "Transcode a EXPORT-BLOCK element from Org to HTML.
 CONTENTS is nil."
+  (declare (ftype (function (t t t) string))
+           (important-return-value t))
   (let* ((type (org-element-property :type export-block))
          (value (org-element-property :value export-block))
          (text (org-remove-indentation value)))
     (pcase type
       ;; Add mhtml-mode also.
       ((or "HTML" "MHTML") text)
-      ("CSS" (format "<style>%s</style>"
-                     (t--maybe-contents value)))
-      ((or "JS" "JAVASCRIPT")
-       (concat "<script>\n" text "</script>"))
+      ;; CSS
+      ("CSS" (format "<style>%s</style>" (t--maybe-contents value)))
+      ;; JavaScript
+      ((or "JS" "JAVASCRIPT") (concat "<script>\n" text "</script>"))
       ;; Expression that return HTML string.
       ((or "EMACS-LISP" "ELISP")
        (format "%s" (eval (read (or (t--nw-p value) "\"\"")))))
       ;; SEXP-style HTML data.
-      ("LISP-DATA"
-       (t--sexp2html (read (or (t--nw-p value) "\"\""))))
+      ("LISP-DATA" (t--sexp2html (read (or (t--nw-p value) "\"\""))))
       (_ ""))))
 
 ;;;; Fixed Width
