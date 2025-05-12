@@ -258,7 +258,7 @@ returned as-is."
   :type '(alist :key-type (symbol :tag "Markup type")
                 :value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
-
+
 (defcustom t-meta-tags #'t-meta-tags-default
   "Form that is used to produce <meta> tags in the HTML head.
 
@@ -1448,10 +1448,10 @@ The choices are:
 
 ;; See (info "(org)Checkboxes")
 ;; To modify checkbox style, set `org-w3ctr-checkbox-type'.
-(defun t--checkbox (checkbox info)
+(defsubst t--checkbox (checkbox info)
   "Format CHECKBOX into HTML.
 See `org-w3ctr-checkbox-types' for customization options."
-  (declare (ftype (function (t plist) string))
+  (declare (ftype (function (t plist) (or null string)))
            (side-effect-free t) (important-return-value t))
   (cdr (assq checkbox
              (cdr (assq (plist-get info :html-checkbox-type)
@@ -3699,7 +3699,6 @@ Return output file name."
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
 ;; fill-column: 72
 ;; coding: utf-8-unix
-;; no-native-compile: t
 ;; indent-tabs-mode: nil
 ;; End:
 

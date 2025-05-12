@@ -356,24 +356,17 @@ int a = 1;</code></p>\n</details>")
     (should (equal (t--checkbox "on" info) nil))
     (should (equal (t--checkbox "off" info) nil))
     (should (equal (t--checkbox "trans" info) nil)))
-  (let ((t-checkbox-type 'unicode))
-    (t-check-element-values
-     #'t--checkbox
-     '(("- [ ] 123" "&#x2610;")
-       ("- [X] 123" "&#x2611;")
-       ("- [-] 123" "&#x2612;"))))
-  (let ((t-checkbox-type 'ascii))
-    (t-check-element-values
-     #'t--checkbox
-     '(("- [ ] 123" "<code>[&#xa0;]</code>")
-       ("- [X] 123" "<code>[X]</code>")
-       ("- [-] 123" "<code>[-]</code>"))))
-  (let ((t-checkbox-type 'html))
-    (t-check-element-values
-     #'t--checkbox
-     '(("- [ ] 123" "<input type=\"checkbox\">")
-       ("- [X] 123" "<input type=\"checkbox\" checked>")
-       ("- [-] 123" "<input type=\"checkbox\">")))))
+  (let ((info '(:html-checkbox-type ascii)))
+    (should (equal (t--checkbox 'off info) "<code>[&#xa0;]</code>"))
+    (should (equal (t--checkbox 'on info) "<code>[X]</code>"))
+    (should (equal (t--checkbox 'trans info) "<code>[-]</code>")))
+  (let ((info '(:html-checkbox-type html)))
+    (should (equal (t--checkbox 'off info)
+                   "<input type=\"checkbox\">"))
+    (should (equal (t--checkbox 'on info)
+                   "<input type=\"checkbox\" checked>"))
+    (should (equal (t--checkbox 'trans info)
+                   "<input type=\"checkbox\">"))))
 
 (ert-deftest t--format-checkbox ()
   "Tests for `org-w3ctr--format-checkbox.'"
