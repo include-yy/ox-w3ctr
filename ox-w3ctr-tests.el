@@ -659,22 +659,37 @@ int a = 1;</code></p>\n</details>")
      ("-------" "<hr>")
      ("--------" "<hr>")
      ("---------" "<hr>")
-     ("----------" "<hr>"))))
+     ("----------" "<hr>")
+     ("-------------------------------" "<hr>"))))
 
 (ert-deftest t-keyword ()
   (t-check-element-values
    #'t-keyword
-   '(("#+h: <p>123</p>" "<p>123</p>")
+   '(;; H
      ("#+h: " "")
-     ("#+html: <p>123</p>" "<p>123</p>")
+     ("#+h: <p>123</p>" "<p>123</p>")
+     ("#+h: <br>\n#+h: <br>" "<br>" "<br>")
+     ;; HTML
      ("#+html: " "")
-     ("#+e: (concat \"1\" nil \"2\")" "12")
+     ("#+html: <p>123</p>" "<p>123</p>")
+     ("#+html: <a href=\"https://example.com\">Example</a>"
+      "<a href=\"https://example.com\">Example</a>")
+     ;; E
      ("#+e: " "")
-     ("#+d: (p((data-x \"1\"))123)" "<p data-x=\"1\">123</p>")
+     ("#+e: (concat \"1\" nil \"2\")" "12")
+     ("#+e: (string-join '(\"a\" \"b\") \",\")" "a,b")
+     ;; D
      ("#+d: " "")
+     ("#+d: (br)" "<br>")
+     ("#+d: (p((data-x \"1\"))123)" "<p data-x=\"1\">123</p>")
+     ;; L
      ("#+l: " "")
+     ("#+l: (br) (br)" "<br><br>")
+     ("#+l: (br) \" \" (br)" "<br> <br>")
      ("#+l: (p() 123) (p() 234)" "<p>123</p><p>234</p>")
-     ("#+hello: world" ""))))
+     ;; Otherwise
+     ("#+hello: world" ""))
+   t))
 
 (ert-deftest t-paragraph ()
   (t-check-element-values

@@ -1634,6 +1634,8 @@ CONTENTS is nil."
 (defun t-horizontal-rule (_horizontal-rule _contents _info)
   "Transcode an HORIZONTAL-RULE object from Org to HTML.
 CONTENTS is nil."
+  (declare (ftype (function (t t t) "<hr>"))
+           (pure t) (important-return-value t))
   "<hr>")
 
 ;;;; Keyword
@@ -1642,6 +1644,8 @@ CONTENTS is nil."
 (defun t-keyword (keyword _contents _info)
   "Transcode a KEYWORD element from Org to HTML.
 CONTENTS is nil."
+  (declare (ftype (function (t t t) string))
+           (important-return-value t))
   (let ((key (org-element-property :key keyword))
         (value (org-element-property :value keyword)))
     (pcase key
