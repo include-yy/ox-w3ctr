@@ -941,10 +941,6 @@ controls how timestamps are formatted, with variations in:
                 (const T-colon) (const T-colon-zulu)))
 
 ;;; Internal Functions
-(defun t--make-string (n string)
-  "Build a string by concatenating N times STRING."
-  (let (out) (dotimes (_ n out) (setq out (concat string out)))))
-
 (defsubst t--normalize-string (s)
   "Ensure string S ends with a single newline character.
 
@@ -1260,6 +1256,17 @@ input. Other data types will be ignored."
            (format "<%s%s>%s</%s>"
                    tag attrs children tag)))))
     (otherwise "")))
+
+(defsubst t--make-string (n string)
+  "Build a string by concatenating N times STRING."
+  (declare (ftype (function (fixnum string) string))
+           (pure t) (important-return-value t))
+  (cond
+   ((<= n 0) "")
+   ((string= string "") "")
+   (t (let (out) (dotimes (_ n (or out ""))
+                   (setq out (concat string out)))))))
+
 
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
@@ -1718,6 +1725,8 @@ CONTENTS is the contents of the paragraph, as a string."
 (defun t-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 CONTENTS is verse block contents."
+  (declare (ftype (function (t (or null string) plist) string))
+           (important-return-value t))
   (format
    "<p%s>\n%s</p>"
    (t--make-attr__id* verse-block info t)

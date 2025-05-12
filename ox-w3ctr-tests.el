@@ -286,6 +286,19 @@ BODY-ONLY and PLIST are optional arguments passed to
   ;; Allow bare tags
   (should (string= (t--sexp2html '(p)) "<p></p>"))
   (should (string= (t--sexp2html '(hr)) "<hr>")))
+
+(ert-deftest t--make-string ()
+  "Tests for `org-w3ctr--make-string'."
+  (should (equal (t--make-string 1 "a") "a"))
+  (should (equal (t--make-string 2 "a") "aa"))
+  (should (equal (t--make-string 3 "a") "aaa"))
+  (should (equal (t--make-string 2 "ab") "abab"))
+  (should (equal (t--make-string 0 "a") ""))
+  (should (equal (t--make-string -1 "a") ""))
+  (should (equal (t--make-string 100 "") ""))
+  (should-error (t--make-string 3 [?a ?b]))
+  (should-error (t--make-string "a" "a")))
+
 
 
 (ert-deftest t-center-block ()
