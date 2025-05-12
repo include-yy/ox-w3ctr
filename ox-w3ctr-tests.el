@@ -860,6 +860,7 @@ int a = 1;</code></p>\n</details>")
   (should (equal (t--get-markup-format 'anything nil) "%s")))
 
 (ert-deftest t-bold ()
+  "Tests for `org-w3ctr-bold'."
   (t-check-element-values
    #'t-bold
    '(("*abc*" "<strong>abc</strong>")
@@ -878,6 +879,7 @@ int a = 1;</code></p>\n</details>")
      ("*hello\nworld*" "<strong>hello\nworld</strong>"))))
 
 (ert-deftest t-italic ()
+  "Tests for `org-w3ctr-italic'."
   (t-check-element-values
    #'t-italic
    '(("/abc/" "<em>abc</em>")
@@ -894,6 +896,7 @@ int a = 1;</code></p>\n</details>")
      ("/hello\nworld/" "<em>hello\nworld</em>"))))
 
 (ert-deftest t-underline ()
+  "Tests for `org-w3ctr-underline'."
   (t-check-element-values
    #'t-underline
    '(("_abc_" "<span class=\"underline\">abc</span>")
@@ -914,6 +917,7 @@ int a = 1;</code></p>\n</details>")
       "<span class=\"underline\">hello\nworld</span>"))))
 
 (ert-deftest t-verbatim ()
+  "Tests for `org-w3ctr-verbatim'."
   (t-check-element-values
    #'t-verbatim
    '(("=abc=" "<code>abc</code>")
@@ -929,6 +933,7 @@ int a = 1;</code></p>\n</details>")
      ("=hello\nworld=" "<code>hello\nworld</code>"))))
 
 (ert-deftest t-code ()
+  "Tests for `org-w3ctr-code'."
   (t-check-element-values
    #'t-code
    '(("~abc~" "<code>abc</code>")
@@ -944,6 +949,7 @@ int a = 1;</code></p>\n</details>")
      ("~hello\nworld~" "<code>hello\nworld</code>"))))
 
 (ert-deftest t-strike-through ()
+  "Tests for `org-w3ctr-strike-through'."
   (t-check-element-values
    #'t-strike-through
    '(("+abc+" "<s>abc</s>")
@@ -961,15 +967,18 @@ int a = 1;</code></p>\n</details>")
       "<s>hello world this world</s>")
      ("+hello\nworld+" "<s>hello\nworld</s>"))))
 
-(ert-deftest t-convert-special-strings ()
+(ert-deftest t--convert-special-strings ()
+  "Tests for `org-w3ctr--convert-special-strings'."
   (dolist (a '(("hello..." . "hello&#x2026;")
                ("......" . "&#x2026;&#x2026;")
                ("\\\\-" . "\\&#x00ad;")
                ("---abc" . "&#x2014;abc")
                ("--abc" . "&#x2013;abc")))
-    (should (string= (t-convert-special-strings (car a)) (cdr a)))))
+    (should (string= (t--convert-special-strings (car a))
+                     (cdr a)))))
 
 (ert-deftest t-plain-text ()
+  "Tests for `org-w3ctr-plain-text'."
   (should (equal (t-plain-text "a < b & c > d" '())
                  "a &lt; b &amp; c &gt; d"))
   (should (equal (t-plain-text "\"hello\"" '(:with-smart-quotes t))

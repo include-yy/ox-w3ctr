@@ -1849,7 +1849,7 @@ Returns \"%s\" if not found.
 
 NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (declare (ftype (function (symbol plist) string))
-           (side-effect-free t) (important-return-value t))
+           (pure t) (important-return-value t))
   (if-let* ((alist (plist-get info :html-text-markup-alist))
             (str (cdr (assq name alist))))
       str "%s"))
@@ -1859,6 +1859,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-bold (_bold contents info)
   "Transcode BOLD from Org to HTML."
+  (declare (ftype (function (t string plist) string))
+           (pure t) (important-return-value t))
   (format (t--get-markup-format 'bold info) contents))
 
 ;;;; Italic
@@ -1866,6 +1868,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-italic (_italic contents info)
   "Transcode ITALIC from Org to HTML."
+  (declare (ftype (function (t string plist) string))
+           (pure t) (important-return-value t))
   (format (t--get-markup-format 'italic info) contents))
 
 ;;;; Underline
@@ -1873,6 +1877,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-underline (_underline contents info)
   "Transcode UNDERLINE from Org to HTML."
+  (declare (ftype (function (t string plist) string))
+           (pure t) (important-return-value t))
   (format (t--get-markup-format 'underline info) contents))
 
 ;;;; Verbatim
@@ -1880,6 +1886,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-verbatim (verbatim _contents info)
   "Transcode VERBATIM from Org to HTML."
+  (declare (ftype (function (t string plist) string))
+           (pure t) (important-return-value t))
   (format (t--get-markup-format 'verbatim info)
           (t--encode-plain-text
            (org-element-property :value verbatim))))
@@ -1889,6 +1897,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML."
+  (declare (ftype (function (t string plist) string))
+           (pure t) (important-return-value t))
   (format (t--get-markup-format 'code info)
           (t--encode-plain-text
            (org-element-property :value code))))
@@ -1898,6 +1908,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-strike-through (_strike-through contents info)
   "Transcode STRIKE-THROUGH from Org to HTML."
+  (declare (ftype (function (t string plist) string))
+           (pure t) (important-return-value t))
   (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
@@ -1909,8 +1921,10 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
     ("\\.\\.\\." . "&#x2026;")); hellip
   "Regular expressions for special string conversion.")
 
-(defun t-convert-special-strings (string)
+(defun t--convert-special-strings (string)
   "Convert special characters in STRING to HTML."
+  (declare (ftype (function (string) string))
+           (side-effect-free t) (important-return-value t))
   (dolist (a t-special-string-regexps string)
     (let ((re (car a))
           (rpl (cdr a)))
@@ -1919,6 +1933,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 
 (defun t-plain-text (text info)
   "Transcode a TEXT string from Org to HTML."
+  (declare (ftype (function (string plist) string))
+           (side-effect-free t) (important-return-value t))
   (let ((output text))
     ;; Protect following characters: <, >, &.
     (setq output (t--encode-plain-text output))
@@ -1929,7 +1945,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
                     output :html info text)))
     ;; Handle special strings.
     (when (plist-get info :with-special-strings)
-      (setq output (t-convert-special-strings output)))
+      (setq output (t--convert-special-strings output)))
     ;; Handle break preservation if required.
     (when (plist-get info :preserve-breaks)
       (setq output
