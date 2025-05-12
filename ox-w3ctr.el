@@ -1619,12 +1619,12 @@ CONTENTS is nil."
 (defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML.
 CONTENTS is nil."
+  (declare (ftype (function (t t plist) string))
+           (important-return-value t))
   (format "<pre%s>%s</pre>"
           (t--make-attr__id* fixed-width info t)
-          (let ((value
-                 (org-remove-indentation
-                  (org-element-property
-                   :value fixed-width))))
+          (let ((value (org-remove-indentation
+                        (org-element-property :value fixed-width))))
             (if (not (t--nw-p value)) value
               (concat "\n" value "\n")))))
 
