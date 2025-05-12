@@ -597,7 +597,7 @@ The function result will be used in the section format string."
 
 (defcustom t-toplevel-hlevel 2
   "The <H> level for level 1 headings in HTML export."
-;; See `org-html-toplevel-hlevel' for more information.
+  ;; See `org-html-toplevel-hlevel' for more information.
   :group 'org-export-w3ctr
   :type 'integer)
 
@@ -945,16 +945,6 @@ controls how timestamps are formatted, with variations in:
   "Build a string by concatenating N times STRING."
   (let (out) (dotimes (_ n out) (setq out (concat string out)))))
 
-(defsubst t--trim (s &optional keep-lead)
-  "Remove whitespace at the beginning and the end of string S.
-When optional argument KEEP-LEAD is non-nil, removing blank lines
-at the beginning of the string does not affect leading indentation.
-
-See also `org-trim'."
-  (replace-regexp-in-string
-   (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
-   (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
-
 (defsubst t--normalize-string (s)
   "Ensure string S ends with a single newline character.
 
@@ -1218,6 +1208,26 @@ Fall back to attr_html when attr__ is unavailable."
       (t--make-attr__id element info named-only)
     (t--make-attr_html element info named-only)))
 
+(defsubst t--trim (s &optional keep-lead)
+  "Remove whitespace at the beginning and the end of string S.
+
+When optional argument KEEP-LEAD is non-nil, removing blank lines
+at the beginning of the string does not affect leading indentation.
+
+See also `org-trim'."
+  (declare (ftype (function (string &optional boolean) string))
+           (pure t) (important-return-value t))
+  (replace-regexp-in-string
+   (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
+   (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
+
+(defsubst t--nw-trim (s)
+  "Remove whitespace at the beginning and the end of S if S is string.
+Otherwise, return nil"
+  (declare (ftype (function (t) string))
+           (pure t) (important-return-value t))
+  (and (t--nw-p s) (t--trim s)))
+
 ;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
 (defconst t--void-element-regexp
   (rx string-start
@@ -1415,9 +1425,9 @@ CONTENTS holds the contents of the block."
        (off . "<code>[&#xa0;]</code>")
        (trans . "<code>[-]</code>")))
     ( html .
-      ((on . "<input type='checkbox' checked>")
-       (off . "<input type='checkbox'>")
-       (trans . "<input type='checkbox'>"))))
+      ((on . "<input type=\"checkbox\" checked>")
+       (off . "<input type=\"checkbox\">")
+       (trans . "<input type=\"checkbox\">"))))
   "Alist of checkbox types.
 The cdr of each entry is an alist list three checkbox types for
 HTML export: `on', `off' and `trans'.
@@ -1429,18 +1439,21 @@ The choices are:
 
 ;; See (info "(org)Checkboxes")
 ;; To modify checkbox style, set `org-w3ctr-checkbox-type'.
-(defun t-checkbox (checkbox info)
+(defun t--checkbox (checkbox info)
   "Format CHECKBOX into HTML.
 See `org-w3ctr-checkbox-types' for customization options."
+  (declare (ftype (function (t plist) string))
+           (side-effect-free t) (important-return-value t))
   (cdr (assq checkbox
              (cdr (assq (plist-get info :html-checkbox-type)
                         t-checkbox-types)))))
 
+;; FIXME: Remove it one day after improve headline export.
 (defun t-format-list-item ( contents type checkbox info
                             &optional term-counter-id
                             headline)
   "Format a list item into HTML."
-  (let ((checkbox (concat (t-checkbox checkbox info)
+  (let ((checkbox (concat (t--checkbox checkbox info)
                           (and checkbox " ")))
         (br "<br>")
         (extra-newline (if (and (t--nw-p contents) headline)
@@ -1473,20 +1486,63 @@ See `org-w3ctr-checkbox-types' for customization options."
        (`ordered "</li>") (`unordered "</li>")
        (`descriptive "</dd>")))))
 
+(defsubst t--format-checkbox (checkbox info)
+  "Format a CHECKBOX option to string.
+
+CHECKBOX can be `on', `off', `trans', or anything else.
+Returns an empty string if CHECKBOX is not one of the these three."
+  (declare (ftype (function (t plist) string))
+           (side-effect-free t) (important-return-value t))
+  (let ((a (t--checkbox checkbox info)))
+    (concat a (and a " "))))
+
+(defun t--format-ordered-item (contents checkbox info cnt)
+  "Format a ORDERED list item into HTML."
+  (declare (ftype (function ((or null string) t plist t) string))
+           (side-effect-free t) (important-return-value t))
+  (let ((checkbox (t--format-checkbox checkbox info))
+        (counter (if (not cnt) "" (format " value=\"%s\"" cnt))))
+    (concat (format "<li%s>" counter) checkbox
+            (t--nw-trim contents) "</li>")))
+
+(defun t--format-unordered-item (contents checkbox info)
+  "Format a UNORDERED list item into HTML."
+  (declare (ftype (function ((or null string) t plist) string))
+           (side-effect-free t) (important-return-value t))
+  (let ((checkbox (t--format-checkbox checkbox info)))
+    (concat "<li>" checkbox (t--nw-trim contents) "</li>")))
+
+(defun t--format-descriptive-item (contents checkbox info term)
+  "Format a DESCRIPTIVE list item into HTML."
+  (declare (ftype (function ((or null string) t plist t) string))
+           (side-effect-free t) (important-return-value t))
+  (let ((checkbox (t--format-checkbox checkbox info))
+        (term (or term "(no term)")))
+    (concat (format "<dt>%s</dt>" (concat checkbox term))
+            "<dd>" (t--nw-trim contents) "</dd>")))
+
 ;;;; Item
 ;; See (info "(org)Plain Lists")
 ;; Fixed export. Not customizable.
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML.
 CONTENTS holds the contents of the item."
+  (declare (ftype (function (t (or null string) plist) string))
+           (side-effect-free t) (important-return-value t))
   (let* ((plain-list (org-export-get-parent item))
          (type (org-element-property :type plain-list))
-         (counter (org-element-property :counter item))
-         (checkbox (org-element-property :checkbox item))
-         (tag (let ((tag (org-element-property :tag item)))
-                (and tag (org-export-data tag info)))))
-    (t-format-list-item
-     contents type checkbox info (or tag counter))))
+         (checkbox (org-element-property :checkbox item)))
+    (pcase type
+      ('ordered
+       (let ((counter (org-element-property :counter item)))
+         (t--format-ordered-item contents checkbox info counter)))
+      ('unordered
+       (t--format-unordered-item contents checkbox info))
+      ('descriptive
+       (let ((term (when-let* ((a (org-element-property :tag item)))
+                     (org-export-data a info))))
+         (t--format-descriptive-item contents checkbox info term)))
+      (_ (error "Unrecognized list item type: %s" type)))))
 
 ;;;; Plain List
 ;; See (info "(org)Plain Lists")
@@ -1494,10 +1550,9 @@ CONTENTS holds the contents of the item."
 (defun t-plain-list (plain-list contents info)
   "Transcode a PLAIN-LIST element from Org to HTML.
 CONTENTS is the contents of the list."
-  (let* ((type
-          (pcase (org-element-property :type plain-list)
-            (`ordered "ol") (`unordered "ul") (`descriptive "dl")
-            (other (error "Unknown HTML list type: %s" other))))
+  (let* ((type (pcase (org-element-property :type plain-list)
+                 (`ordered "ol") (`unordered "ul") (`descriptive "dl")
+                 (other (error "Unknown HTML list type: %s" other))))
          (attributes (t--make-attr__id* plain-list info t)))
     (format "<%s%s>\n%s</%s>"
             type attributes contents type)))
@@ -2331,7 +2386,7 @@ of contents as a string, or nil if it is empty."
   (let ((toc-entries
          (mapcar
           (lambda (h) (cons (t--format-toc-headline h info)
-                        (org-export-get-relative-level h info)))
+                            (org-export-get-relative-level h info)))
           (org-export-collect-headlines info depth scope))))
     (when toc-entries
       (let* ((toc (t--toc-text toc-entries info)))

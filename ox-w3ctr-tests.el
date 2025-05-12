@@ -9,8 +9,8 @@
 Pushes RESULT onto `org-w3ctr-test-values' and returns RESULT."
   (prog1 result
     (push (if (not (stringp result)) result
-	    (substring-no-properties result))
-	  t-test-values)))
+            (substring-no-properties result))
+          t-test-values)))
 (defun t-check-element-values (fn pairs &optional body-only plist)
   "Check that FN returns the expected values when exporting.
 
@@ -22,10 +22,10 @@ BODY-ONLY and PLIST are optional arguments passed to
   (advice-add fn :filter-return #'t-advice-return-value)
   (unwind-protect
       (dolist (test pairs t)
-	(let (t-test-values)
-	  (ignore (org-export-string-as
-		   (car test) 'w3ctr body-only plist))
-	  (should (equal t-test-values (cdr test)))))
+        (let (t-test-values)
+          (ignore (org-export-string-as
+                   (car test) 'w3ctr body-only plist))
+          (should (equal t-test-values (cdr test)))))
     (advice-remove fn #'t-advice-return-value)))
 
 (ert-deftest t--maybe-contents ()
@@ -90,11 +90,11 @@ BODY-ONLY and PLIST are optional arguments passed to
              (lambda (_p n _deft _force) n)))
     (should (equal (t--read-attr__ '("1 2 3")) '(1 2 3)))
     (should (equal (t--read-attr__ '("(class data) open"))
-		   '((class data) open)))
+                   '((class data) open)))
     (should (equal (t--read-attr__ '("(class hello world)" "foo"))
-		   '((class hello world) foo)))
+                   '((class hello world) foo)))
     (should (equal (t--read-attr__ '("[nim zig]"))
-		   '(("class" "nim zig"))))
+                   '(("class" "nim zig"))))
     (should (equal (t--read-attr__ '("[]")) '(nil)))
     (should (equal (t--read-attr__ '("[][][]")) '(()()()))))
   (t-check-element-values
@@ -117,8 +117,8 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (equal (t--encode-plain-text ">") "&gt;"))
   (should (equal (t--encode-plain-text "<&>") "&lt;&amp;&gt;"))
   (dolist (a '(("a&b&c" . "a&amp;b&amp;c")
-	       ("<div>" . "&lt;div&gt;")
-	       ("<span>" . "&lt;span&gt;")))
+               ("<div>" . "&lt;div&gt;")
+               ("<span>" . "&lt;span&gt;")))
     (should (string= (t--encode-plain-text (car a)) (cdr a)))))
 
 (ert-deftest t--encode-plain-text* ()
@@ -126,7 +126,7 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (equal (t--encode-plain-text* "'") "&apos;"))
   (should (equal (t--encode-plain-text* "\"") "&quot;"))
   (should (equal (t--encode-plain-text* "\"'&\"")
-		 "&quot;&apos;&amp;&quot;")))
+                 "&quot;&apos;&amp;&quot;")))
 
 (ert-deftest t--make-attr ()
   "Tests for `org-w3ctr--make-attr'."
@@ -138,15 +138,15 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (string= (t--make-attr '(FOO)) " foo"))
   (should (string= (t--make-attr '(a b)) " a=\"b\""))
   (should (string= (t--make-attr '(class "example two"))
-		   " class=\"example two\""))
+                   " class=\"example two\""))
   (should (string= (t--make-attr '(foo [bar] baz))
-		   " foo=\"baz\""))
+                   " foo=\"baz\""))
   (should (string= (t--make-attr '(data-A "base64..."))
-		   " data-a=\"base64...\""))
+                   " data-a=\"base64...\""))
   (should (string= (t--make-attr '(data-tt "a < b && c"))
-		   " data-tt=\"a &lt; b &amp;&amp; c\""))
+                   " data-tt=\"a &lt; b &amp;&amp; c\""))
   (should (string= (t--make-attr '(data-he "\"hello world\""))
-		   " data-he=\"&quot;hello world&quot;\"")))
+                   " data-he=\"&quot;hello world&quot;\"")))
 
 (ert-deftest t--make-attr__ ()
   "Tests for `org-w3ctr--make-attr__'."
@@ -155,9 +155,9 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (equal (t--make-attr__ '(nil nil [])) ""))
   (should (equal (t--make-attr__ '(a)) " a"))
   (should (equal (t--make-attr__ '((id yy 123) (class a\ b) test))
-		 " id=\"yy123\" class=\"a b\" test"))
+                 " id=\"yy123\" class=\"a b\" test"))
   (should (equal (t--make-attr__ '((test this th&t <=>)))
-		 " test=\"thisth&amp;t&lt;=&gt;\"")))
+                 " test=\"thisth&amp;t&lt;=&gt;\"")))
 
 (ert-deftest t--make-attr__id ()
   "Tests for `org-w3ctr--make-attr__id'."
@@ -178,13 +178,13 @@ BODY-ONLY and PLIST are optional arguments passed to
 (ert-deftest t--make-attribute-string ()
   "Tests for `org-w3ctr--make-attribute-string'."
   (should (equal (t--make-attribute-string '(:a "1" :b "2"))
-		 "a=\"1\" b=\"2\""))
+                 "a=\"1\" b=\"2\""))
   (should (equal (t--make-attribute-string nil) ""))
   (should (equal (t--make-attribute-string '(:a nil)) ""))
   (should (equal (t--make-attribute-string '(:a "\"a\""))
-		 "a=\"&quot;a&quot;\""))
+                 "a=\"&quot;a&quot;\""))
   (should (equal (t--make-attribute-string '(:open "open"))
-		 "open=\"open\""))
+                 "open=\"open\""))
   (t-check-element-values
    #'t--make-attribute-string
    '(("#+attr_html: :open open :class a\ntest"
@@ -218,25 +218,43 @@ BODY-ONLY and PLIST are optional arguments passed to
       " id=\"2\"")
      ("#+name: 1\n#+attr_html: :id 3\ntest" " id=\"3\""))))
 
+(ert-deftest t--trim ()
+  "Tests for `org-w3ctr--trim'."
+  (should (equal (t--trim "123") "123"))
+  (should (equal (t--trim " 123") "123"))
+  (should (equal (t--trim " 123 ") "123"))
+  (should (equal (t--trim "  123  ") "123"))
+  (should (equal (t--trim "  123\n 456\n") "123\n 456"))
+  (should (equal (t--trim "\n 123" t) " 123"))
+  (should (equal (t--trim "\n\n  123\n" t) "  123")))
+
+(ert-deftest t--nw-trim ()
+  "Tests for `org-w3ctr--nw-trim'."
+  (should (equal (t--nw-trim " ") nil))
+  (should (equal (t--nw-trim " 1 ") "1"))
+  (should (equal (t--nw-trim "234\n") "234"))
+  (should (equal (t--nw-trim 1) nil))
+  (should (equal (t--nw-trim 'hello) nil)))
+
 (ert-deftest t--sexp2html ()
   (should (string= (t--sexp2html nil) ""))
   ;; Basic tag with no attributes
   (should (string= (t--sexp2html '(p () "123")) "<p>123</p>"))
   ;; Tag with attributes
   (should (string= (t--sexp2html
-		    '(a ((href "https://example.com")) "link"))
-		   "<a href=\"https://example.com\">link</a>"))
+                    '(a ((href "https://example.com")) "link"))
+                   "<a href=\"https://example.com\">link</a>"))
   (should (string= (t--sexp2html
-		    '(img ((src "../" "1.jpg")
-			   (alt "../1.jpg"))))
-		   "<img src=\"../1.jpg\" alt=\"../1.jpg\">"))
+                    '(img ((src "../" "1.jpg")
+                           (alt "../1.jpg"))))
+                   "<img src=\"../1.jpg\" alt=\"../1.jpg\">"))
   ;; Nested tags
   (should (string= (t--sexp2html
-		    '(div () (p () "Hello") (p () "World")))
-              "<div><p>Hello</p><p>World</p></div>"))
+                    '(div () (p () "Hello") (p () "World")))
+                   "<div><p>Hello</p><p>World</p></div>"))
   ;; Symbol as tag name
   (should (string= (t--sexp2html '(my-tag () "content"))
-              "<my-tag>content</my-tag>"))
+                   "<my-tag>content</my-tag>"))
   ;; Empty tag
   (should (string= (t--sexp2html '(area ())) "<area>"))
   (should (string= (t--sexp2html '(base ())) "<base>"))
@@ -256,13 +274,13 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (string= (t--sexp2html '(span () 42)) "<span>42</span>"))
   ;; Mixed content (text and elements)
   (should (string= (t--sexp2html
-		    '(div () "Text " (span () "inside") " more text"))
-              "<div>Text <span>inside</span> more text</div>"))
+                    '(div () "Text " (span () "inside") " more text"))
+                   "<div>Text <span>inside</span> more text</div>"))
   ;; Ignore unsupported types (e.g., vectors)
   (should (string= (t--sexp2html '(div () [1 2 3])) "<div></div>"))
   ;; Always downcase
   (should (string= (t--sexp2html '(DIV () "123"))
-		   "<div>123</div>"))
+                   "<div>123</div>"))
   ;; Allow bare tags
   (should (string= (t--sexp2html '(p)) "<p></p>"))
   (should (string= (t--sexp2html '(hr)) "<hr>")))
@@ -311,27 +329,127 @@ int a = 1;</code></p>\n</details>")
    '(("#+begin: hello\n123\n#+end:" "<p>123</p>\n")
      ("#+begin: nothing\n#+end:" ""))))
 
-(ert-deftest t-checkbox ()
+(ert-deftest t--checkbox ()
+  "Tests for `org-w3ctr-checkbox'."
+  (let ((info '(:html-checkbox-type unicode)))
+    (should (equal (t--checkbox 'on info) "&#x2611;"))
+    (should (equal (t--checkbox 'off info) "&#x2610;"))
+    (should (equal (t--checkbox 'trans info) "&#x2612;"))
+    (should (equal (t--checkbox nil info) nil))
+    (should (equal (t--checkbox [1] info) nil))
+    (should (equal (t--checkbox "hello" info) nil))
+    (should (equal (t--checkbox "on" info) nil))
+    (should (equal (t--checkbox "off" info) nil))
+    (should (equal (t--checkbox "trans" info) nil)))
   (let ((t-checkbox-type 'unicode))
     (t-check-element-values
-     #'t-checkbox
+     #'t--checkbox
      '(("- [ ] 123" "&#x2610;")
        ("- [X] 123" "&#x2611;")
        ("- [-] 123" "&#x2612;"))))
   (let ((t-checkbox-type 'ascii))
     (t-check-element-values
-     #'t-checkbox
+     #'t--checkbox
      '(("- [ ] 123" "<code>[&#xa0;]</code>")
        ("- [X] 123" "<code>[X]</code>")
        ("- [-] 123" "<code>[-]</code>"))))
   (let ((t-checkbox-type 'html))
     (t-check-element-values
-     #'t-checkbox
-     '(("- [ ] 123" "<input type='checkbox'>")
-       ("- [X] 123" "<input type='checkbox' checked>")
-       ("- [-] 123" "<input type='checkbox'>")))))
+     #'t--checkbox
+     '(("- [ ] 123" "<input type=\"checkbox\">")
+       ("- [X] 123" "<input type=\"checkbox\" checked>")
+       ("- [-] 123" "<input type=\"checkbox\">")))))
+
+(ert-deftest t--format-checkbox ()
+  "Tests for `org-w3ctr--format-checkbox.'"
+  (let ((info '(:html-checkbox-type unicode)))
+    (should (equal (t--format-checkbox 'off info) "&#x2610; "))
+    (should (equal (t--format-checkbox 'on info) "&#x2611; "))
+    (should (equal (t--format-checkbox 'trans info) "&#x2612; "))
+    (should (equal (t--format-checkbox nil info) ""))
+    (should (equal (t--format-checkbox 'test info) ""))
+    (should (equal (t--format-checkbox [1] info) ""))
+    (should (equal (t--format-checkbox '(1 . 2) info) ""))
+    (should (equal (t--format-checkbox #s(hello wtf) info) ""))))
+
+(ert-deftest t--format-ordered-item ()
+  "Tests for `org-w3ctr--format-ordered-item'."
+  (should (equal (t--format-ordered-item "" nil nil nil)
+                 "<li></li>"))
+  (should (equal (t--format-ordered-item "\n  \n" nil nil nil)
+                 "<li></li>"))
+  (should (equal (t--format-ordered-item "\t\r\n " nil nil nil)
+                 "<li></li>"))
+  (should (equal (t--format-ordered-item "123" nil nil nil)
+                 "<li>123</li>"))
+  (should (equal (t--format-ordered-item " 123 " nil nil nil)
+                 "<li>123</li>"))
+  (should (equal (t--format-ordered-item "123" nil nil 10)
+                 "<li value=\"10\">123</li>"))
+  (should (equal (t--format-ordered-item "123" nil nil 114514)
+                 "<li value=\"114514\">123</li>"))
+  (should (equal (t--format-ordered-item "123" nil nil 191981)
+                 "<li value=\"191981\">123</li>"))
+  (let ((info '(:html-checkbox-type unicode)))
+    (should (equal (t--format-ordered-item "123" 'off info nil)
+                   "<li>&#x2610; 123</li>"))
+    (should (equal (t--format-ordered-item "123" 'on info nil)
+                   "<li>&#x2611; 123</li>"))
+    (should (equal (t--format-ordered-item "123" 'trans info nil)
+                   "<li>&#x2612; 123</li>"))
+    (should (equal (t--format-ordered-item "123" 'on info 114)
+                   "<li value=\"114\">&#x2611; 123</li>"))))
+
+(ert-deftest t--format-unordered-item ()
+  "Tests for `org-w3ctr--format-unordered-item'."
+  (should (equal (t--format-unordered-item "" nil nil)
+                 "<li></li>"))
+  (should (equal (t--format-unordered-item "\n  \n" nil nil)
+                 "<li></li>"))
+  (should (equal (t--format-unordered-item "\t\r\n " nil nil)
+                 "<li></li>"))
+  (should (equal (t--format-unordered-item "123" nil nil)
+                 "<li>123</li>"))
+  (should (equal (t--format-unordered-item " 123 " nil nil)
+                 "<li>123</li>"))
+  (let ((info '(:html-checkbox-type unicode)))
+    (should (equal (t--format-unordered-item "123" 'off info)
+                   "<li>&#x2610; 123</li>"))
+    (should (equal (t--format-unordered-item "123" 'on info)
+                   "<li>&#x2611; 123</li>"))
+    (should (equal (t--format-unordered-item "123" 'trans info)
+                   "<li>&#x2612; 123</li>"))))
+
+(ert-deftest t--format-descriptive-item ()
+  "Tests for `org-w3ctr--format-descriptive-item'."
+  (should (equal (t--format-descriptive-item "" nil nil nil)
+                 "<dt>(no term)</dt><dd></dd>"))
+  (should (equal (t--format-descriptive-item " " nil nil nil)
+                 "<dt>(no term)</dt><dd></dd>"))
+  (should (equal (t--format-descriptive-item "\r\n\t " nil nil nil)
+                 "<dt>(no term)</dt><dd></dd>"))
+  (should (equal (t--format-descriptive-item "123" nil nil nil)
+                 "<dt>(no term)</dt><dd>123</dd>"))
+  (should (equal (t--format-descriptive-item " 123 " nil nil nil)
+                 "<dt>(no term)</dt><dd>123</dd>"))
+  (should (equal (t--format-descriptive-item " 123 " nil nil "ONE")
+                 "<dt>ONE</dt><dd>123</dd>"))
+  (should (equal (t--format-descriptive-item " 123 " nil nil "TWO")
+                 "<dt>TWO</dt><dd>123</dd>"))
+  (should (equal (t--format-descriptive-item " 123 " nil nil "THREE ")
+                 "<dt>THREE </dt><dd>123</dd>"))
+  (let ((info '(:html-checkbox-type unicode)))
+    (should (equal (t--format-descriptive-item "123" 'off info nil)
+                   "<dt>&#x2610; (no term)</dt><dd>123</dd>"))
+    (should (equal (t--format-descriptive-item "123" 'on info nil)
+                   "<dt>&#x2611; (no term)</dt><dd>123</dd>"))
+    (should (equal (t--format-descriptive-item "123" 'trans info nil)
+                   "<dt>&#x2612; (no term)</dt><dd>123</dd>"))
+    (should (equal (t--format-descriptive-item "123" 'trans info " test ")
+                   "<dt>&#x2612;  test </dt><dd>123</dd>"))))
 
 (ert-deftest t-item-unordered ()
+  "Tests for `org-w3ctr-item' ordered clause."
   (let ((t-checkbox-type 'unicode))
     (t-check-element-values
      #'t-item
@@ -357,6 +475,7 @@ int a = 1;</code></p>\n</details>")
        ("- [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>")))))
 
 (ert-deftest t-item-ordered ()
+  "Tests for `org-w3ctr-item' unordered item."
   (let ((t-checkbox-type 'unicode))
     (t-check-element-values
      #'t-item
@@ -383,6 +502,7 @@ int a = 1;</code></p>\n</details>")
        ("1. [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>")))))
 
 (ert-deftest t-item-descriptive ()
+  "Tests for `org-w3ctr-item' descriptive clause."
   (let ((t-checkbox-type 'unicode))
     (t-check-element-values
      #'t-item
@@ -417,9 +537,21 @@ int a = 1;</code></p>\n</details>")
        ("- [​@1] [ ] 123 :: " "<dt>[​@1] [ ] 123</dt><dd></dd>")
        ("- a ::" "<dt>a</dt><dd></dd>")
        ("- :: 3" "<li>:: 3</li>")
-       ("- a :: b\n- c" "<dt>(no term)</dt><dd>c</dd>" "<dt>a</dt><dd>b</dd>")))))
+       ("- a :: b\n- c" "<dt>(no term)</dt><dd>c</dd>"
+        "<dt>a</dt><dd>b</dd>")))))
+
+(ert-deftest t-item ()
+  "Tests for `org-w3ctr-item'."
+  (let ((t-checkbox-type 'unicode))
+    (t-check-element-values
+     #'t-item
+     '(("- [@a] [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
+       ("1. [@1] [ ] 123" "<li value=\"1\">&#x2610; 123</li>")
+       ("- [ ] 123 \n\n 234" "<li>&#x2610; 123\n<p>234</p></li>"))))
+  (should-error (t-item nil "123" nil)))
 
 (ert-deftest t-plain-list ()
+  "Tests for `org-w3ctr-plain-list'."
   (t-check-element-values
    #'t-plain-list
    '(("- 123" "<ul>\n<li>123</li>\n</ul>")
@@ -429,7 +561,8 @@ int a = 1;</code></p>\n</details>")
       "<ul id=\"test\" data-test=\"a joke\">\n<li>x</li>\n</ul>")
      ("1. 123\n   - 2 3 4"
       "<ol>\n<li>123\n<ul>\n<li>2 3 4</li>\n</ul></li>\n</ol>"
-      "<ul>\n<li>2 3 4</li>\n</ul>"))))
+      "<ul>\n<li>2 3 4</li>\n</ul>")))
+  (should-error (t-plain-list nil "123" nil)))
 
 (ert-deftest t-quote-block ()
   (t-check-element-values
@@ -732,10 +865,10 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-convert-special-strings ()
   (dolist (a '(("hello..." . "hello&#x2026;")
-	       ("......" . "&#x2026;&#x2026;")
-	       ("\\\\-" . "\\&#x00ad;")
-	       ("---abc" . "&#x2014;abc")
-	       ("--abc" . "&#x2013;abc")))
+               ("......" . "&#x2026;&#x2026;")
+               ("\\\\-" . "\\&#x00ad;")
+               ("---abc" . "&#x2014;abc")
+               ("--abc" . "&#x2013;abc")))
     (should (string= (t-convert-special-strings (car a)) (cdr a)))))
 
 (ert-deftest t-plain-text ()
@@ -748,9 +881,9 @@ int a = 1;</code></p>\n</details>")
   (should (equal (t-plain-text "line1\nline2" '(:preserve-breaks t))
                  "line1<br>\nline2"))
   (should (equal (t-plain-text "\"a < b\" -- c\nd"
-                                  '(:with-smart-quotes t
-                                    :with-special-strings t
-                                    :preserve-breaks t))
+                               '( :with-smart-quotes t
+                                  :with-special-strings t
+                                  :preserve-breaks t))
                  "\"a &lt; b\" &#x2013; c<br>\nd")))
 
 (ert-deftest t-meta-tags-default ()
@@ -759,32 +892,32 @@ int a = 1;</code></p>\n</details>")
         (info-with-keywords '(:keywords "org, test"))
         (info-empty '()))
     (should (equal (t-meta-tags-default info-with-author)
-                  '(("name" "author" "Alice")
-                    ("name" "generator" "Org Mode"))))
+                   '(("name" "author" "Alice")
+                     ("name" "generator" "Org Mode"))))
     (should (equal (t-meta-tags-default info-with-desc)
-                  '(("name" "description" "Test doc")
-		    ("name" "generator" "Org Mode"))))
+                   '(("name" "description" "Test doc")
+                     ("name" "generator" "Org Mode"))))
     (should (equal (t-meta-tags-default info-with-keywords)
-                  '(("name" "keywords" "org, test")
-		    ("name" "generator" "Org Mode"))))
+                   '(("name" "keywords" "org, test")
+                     ("name" "generator" "Org Mode"))))
     (should (equal (t-meta-tags-default info-empty)
-                  '(("name" "generator" "Org Mode"))))))
+                   '(("name" "generator" "Org Mode"))))))
 
 (ert-deftest t--build-meta-entry ()
   (should (equal (t--build-meta-entry "name" "author")
-                "<meta name=\"author\">\n"))
+                 "<meta name=\"author\">\n"))
   (should (equal (t--build-meta-entry "property" "og:title" "My Title")
-                "<meta property=\"og:title\" content=\"My Title\">\n"))
+                 "<meta property=\"og:title\" content=\"My Title\">\n"))
   (should (equal (t--build-meta-entry "name" "description"
-				      "Version %s" "1.0")
-                "<meta name=\"description\" content=\"Version 1.0\">\n"))
+                                      "Version %s" "1.0")
+                 "<meta name=\"description\" content=\"Version 1.0\">\n"))
   (should (equal (t--build-meta-entry "name" "quote" "He said \"Hello\"")
                  "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n"))
   (should (equal (t--build-meta-entry "name" "version" "v%s.%s" "1" "2")
-                "<meta name=\"version\" content=\"v1.2\">\n")))
+                 "<meta name=\"version\" content=\"v1.2\">\n")))
 
 (ert-deftest t--get-info-title ()
-  (t-check-element-values 
+  (t-check-element-values
    #'t--get-info-title
    '(("#+title: he" "he")
      ("#+title:he" "he")
@@ -809,18 +942,18 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t--build-mathjax-config ()
   "Test `t--build-mathjax-config' function."
   (let ((info '(:with-latex mathjax :html-mathjax-config
-			    ("mjconfig" . "mlconfig"))))
+                            ("mjconfig" . "mlconfig"))))
     (should (equal (t--build-mathjax-config info) "mjconfig\n")))
   (let ((info '(:with-latex mathml :html-mathjax-config
-			    ("mjconfig" . "mlconfig"))))
+                            ("mjconfig" . "mlconfig"))))
     (should (equal (t--build-mathjax-config info) "mlconfig\n")))
   (let ((info '(:with-latex nil :html-mathjax-config
-			    ("mjconfig" . "mlconfig"))))
+                            ("mjconfig" . "mlconfig"))))
     (should (equal (t--build-mathjax-config info) "")))
   (let ((info '(:with-latex mathjax :html-mathjax-config (1 . 2))))
     (should-error (t--build-mathjax-config info) :type 'error))
   (let ((info '(:with-latex invalid :html-mathjax-config
-			    ("mjconfig" . "mlconfig"))))
+                            ("mjconfig" . "mlconfig"))))
     (should-error (t--build-mathjax-config info) :type 'error)))
 
 ;; Add pre/postamble tests here.
@@ -831,9 +964,9 @@ int a = 1;</code></p>\n</details>")
   (should (= (t--timezone-to-offset "UTC+8") (* 8 3600)))
   (should (= (t--timezone-to-offset "GMT-5") (* -5 3600)))
   (should (= (t--timezone-to-offset "+0530")
-	     (+ (* 5 3600) (* 30 60))))
+             (+ (* 5 3600) (* 30 60))))
   (should (= (t--timezone-to-offset "-0830")
-	     (+ (* -8 3600) (* -30 60))))
+             (+ (* -8 3600) (* -30 60))))
   (should-error (t--timezone-to-offset "INVALID"))
   (should-error (t--timezone-to-offset "UTC+123"))
   (should-error (t--timezone-to-offset "+12345"))
@@ -844,73 +977,73 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--timestamp-option-to-tokens ()
   (should (equal (t--timestamp-option-to-tokens 'space-none)
-		 [" " "" "+0000"]))
+                 [" " "" "+0000"]))
   (should (equal (t--timestamp-option-to-tokens 'space-none-zulu)
-		 [" " "" "Z"]))
+                 [" " "" "Z"]))
   (should (equal (t--timestamp-option-to-tokens 'space-colon)
-		 [" " ":" "+0000"]))
+                 [" " ":" "+0000"]))
   (should (equal (t--timestamp-option-to-tokens 'space-colon-zulu)
-		 [" " ":" "Z"]))
+                 [" " ":" "Z"]))
   (should (equal (t--timestamp-option-to-tokens 'T-none)
-		 ["T" "" "+0000"]))
+                 ["T" "" "+0000"]))
   (should (equal (t--timestamp-option-to-tokens 'T-none-zulu)
-		 ["T" "" "Z"]))
+                 ["T" "" "Z"]))
   (should (equal (t--timestamp-option-to-tokens 'T-colon)
-		 ["T" ":" "+0000"]))
+                 ["T" ":" "+0000"]))
   (should (equal (t--timestamp-option-to-tokens 'T-colon-zulu)
-		 ["T" ":" "Z"]))
+                 ["T" ":" "Z"]))
   (should-error (t--timestamp-option-to-tokens 'invalid-option)))
 
 (ert-deftest t--normalize-timezone-offset ()
   (let ((space-none [" " "" "+0000"])
-	(space-none-zulu [" " "" "Z"])
-	(space-colon [" " ":" "+0000"])
-	(space-colon-zulu [" " ":" "Z"])
-	(T-none ["T" "" "+0000"])
-	(T-none-zulu ["T" "" "Z"])
-	(T-colon ["T" ":" "+0000"])
-	(T-colon-zulu ["T" ":" "Z"]))
-  ;; Test basic offset conversions
-  (should (string= (t--normalize-timezone-offset 28800 space-none)
-		   "+0800"))
-  (should (string= (t--normalize-timezone-offset 18000 space-none)
-		   "+0500"))
-  (should (string= (t--normalize-timezone-offset -18000 space-none)
-		   "-0500"))
-  (should (string= (t--normalize-timezone-offset -28800 space-none)
-		   "-0800"))
-  ;; Test zero offset with different options
-  (should (string= (t--normalize-timezone-offset 0 space-none)
-		   "+0000"))
-  (should (string= (t--normalize-timezone-offset 0 space-none-zulu)
-		   "Z"))
-  (should (string= (t--normalize-timezone-offset 0 T-none-zulu)
-		   "Z"))
-  ;; Test fractional hour offsets
-  (should (string= (t--normalize-timezone-offset 3600 space-colon)
-		   "+01:00"))
-  (should (string= (t--normalize-timezone-offset -900 space-colon)
-		   "-00:15"))
-  (should (string= (t--normalize-timezone-offset 19800 T-colon)
-		   "+05:30"))
-  (should (string= (t--normalize-timezone-offset -16200 T-colon)
-		   "-04:30"))
-  ;; Test different separator options
-  (should (string= (t--normalize-timezone-offset 5400 space-none)
-		   "+0130"))
-  (should (string= (t--normalize-timezone-offset 5400 space-colon)
-		   "+01:30"))
-  (should (string= (t--normalize-timezone-offset 5400 T-none)
-		   "+0130"))
-  (should (string= (t--normalize-timezone-offset 5400 T-colon)
-		   "+01:30"))
-  ;; Test edge cases
-  (should (string= (t--normalize-timezone-offset 50400 space-none)
-		   "+1400"))
-  (should (string= (t--normalize-timezone-offset -43200 space-none)
-		   "-1200"))
-  (should (string= (t--normalize-timezone-offset 37800 T-colon-zulu)
-		   "+10:30"))))
+        (space-none-zulu [" " "" "Z"])
+        (space-colon [" " ":" "+0000"])
+        (space-colon-zulu [" " ":" "Z"])
+        (T-none ["T" "" "+0000"])
+        (T-none-zulu ["T" "" "Z"])
+        (T-colon ["T" ":" "+0000"])
+        (T-colon-zulu ["T" ":" "Z"]))
+    ;; Test basic offset conversions
+    (should (string= (t--normalize-timezone-offset 28800 space-none)
+                     "+0800"))
+    (should (string= (t--normalize-timezone-offset 18000 space-none)
+                     "+0500"))
+    (should (string= (t--normalize-timezone-offset -18000 space-none)
+                     "-0500"))
+    (should (string= (t--normalize-timezone-offset -28800 space-none)
+                     "-0800"))
+    ;; Test zero offset with different options
+    (should (string= (t--normalize-timezone-offset 0 space-none)
+                     "+0000"))
+    (should (string= (t--normalize-timezone-offset 0 space-none-zulu)
+                     "Z"))
+    (should (string= (t--normalize-timezone-offset 0 T-none-zulu)
+                     "Z"))
+    ;; Test fractional hour offsets
+    (should (string= (t--normalize-timezone-offset 3600 space-colon)
+                     "+01:00"))
+    (should (string= (t--normalize-timezone-offset -900 space-colon)
+                     "-00:15"))
+    (should (string= (t--normalize-timezone-offset 19800 T-colon)
+                     "+05:30"))
+    (should (string= (t--normalize-timezone-offset -16200 T-colon)
+                     "-04:30"))
+    ;; Test different separator options
+    (should (string= (t--normalize-timezone-offset 5400 space-none)
+                     "+0130"))
+    (should (string= (t--normalize-timezone-offset 5400 space-colon)
+                     "+01:30"))
+    (should (string= (t--normalize-timezone-offset 5400 T-none)
+                     "+0130"))
+    (should (string= (t--normalize-timezone-offset 5400 T-colon)
+                     "+01:30"))
+    ;; Test edge cases
+    (should (string= (t--normalize-timezone-offset 50400 space-none)
+                     "+1400"))
+    (should (string= (t--normalize-timezone-offset -43200 space-none)
+                     "-1200"))
+    (should (string= (t--normalize-timezone-offset 37800 T-colon-zulu)
+                     "+10:30"))))
 
 (ert-deftest t--get-info-timezone-offset ()
   (let ((info0 '(:html-timezone "local")))
@@ -996,9 +1129,9 @@ int a = 1;</code></p>\n</details>")
     (should (string= (t--get-info-normalized-timezone info-neg2) "-05:00")))
   (let ((info-neg3 '(:html-timezone -16200 :html-datetime-option space-none)))
     (should (string= (t--get-info-normalized-timezone info-neg3) "-0430")))
-  (let ((info-override '(:html-timezone 28800
-                         :html-export-timezone -18000
-                         :html-datetime-option space-none)))
+  (let ((info-override '( :html-timezone 28800
+                          :html-export-timezone -18000
+                          :html-datetime-option space-none)))
     (should (string= (t--get-info-normalized-timezone info-override) "-0500")))
   ;; Test fractional timezones
   (let ((info-frac1 '(:html-timezone 5400 :html-datetime-option space-none)))
@@ -1014,62 +1147,62 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t--format-normalized-timestamp ()
   ;; Basic test with space separator and +HHMM timezone
   (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info1 '(:html-timezone 28800
-                 :html-export-timezone 28800
-                 :html-datetime-option space-none)))
+        (info1 '( :html-timezone 28800
+                  :html-export-timezone 28800
+                  :html-datetime-option space-none)))
     (should (string= (t--format-normalized-timestamp
-		      test-time info1)
-                    "2023-01-01 12:00+0800")))
+                      test-time info1)
+                     "2023-01-01 12:00+0800")))
   ;; Test with colon in time and -HHMM timezone
   (let ((test-time (encode-time 0 30 9 15 6 2023))
-        (info2 '(:html-timezone -14400
-                 :html-export-timezone -14400
-                 :html-datetime-option space-colon)))
+        (info2 '( :html-timezone -14400
+                  :html-export-timezone -14400
+                  :html-datetime-option space-colon)))
     (should (string= (t--format-normalized-timestamp
-		      test-time info2)
-                    "2023-06-15 09:30-04:00")))
+                      test-time info2)
+                     "2023-06-15 09:30-04:00")))
   ;; Test UTC with Zulu timezone
   (let ((test-time (encode-time 0 0 0 1 1 2023))
-        (info3 '(:html-timezone 0
-                 :html-export-timezone 0
-                 :html-datetime-option space-none-zulu)))
+        (info3 '( :html-timezone 0
+                  :html-export-timezone 0
+                  :html-datetime-option space-none-zulu)))
     (should (string= (t--format-normalized-timestamp
-		      test-time info3)
-                    "2023-01-01 00:00Z")))
+                      test-time info3)
+                     "2023-01-01 00:00Z")))
   ;; Test with T separator and +HH:MM timezone
   (let ((test-time (encode-time 0 45 18 31 12 2023))
-        (info4 '(:html-timezone 19800
-                 :html-export-timezone 19800
-                 :html-datetime-option T-colon)))
+        (info4 '( :html-timezone 19800
+                  :html-export-timezone 19800
+                  :html-datetime-option T-colon)))
     (should (string= (t--format-normalized-timestamp
-		      test-time info4)
-                    "2023-12-31T18:45+05:30")))
+                      test-time info4)
+                     "2023-12-31T18:45+05:30")))
 
   ;; Test with T separator and Zulu timezone for UTC
   (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info5 '(:html-timezone 0
-                 :html-export-timezone 0
-                 :html-datetime-option T-colon-zulu)))
+        (info5 '( :html-timezone 0
+                  :html-export-timezone 0
+                  :html-datetime-option T-colon-zulu)))
     (should (string= (t--format-normalized-timestamp
-		      test-time info5)
-                    "2023-01-01T12:00Z")))
+                      test-time info5)
+                     "2023-01-01T12:00Z")))
   ;; Test local timezone
   (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info6 '(:html-timezone "local"
-                 :html-export-timezone "local"
-                 :html-datetime-option space-none)))
+        (info6 '( :html-timezone "local"
+                  :html-export-timezone "local"
+                  :html-datetime-option space-none)))
     (should (string= "2023-01-01 12:00"
                      (t--format-normalized-timestamp
-		      test-time info6))))
+                      test-time info6))))
   ;; Test invalid timezone
   (let ((test-time (encode-time 0 0 12 1 1 2023))
         (info7 '(:html-timezone "Invalid")))
     (should-error (t--format-normalized-timestamp
-		   test-time info7))))
+                   test-time info7))))
 
 (ert-deftest t--get-timestamp-format ()
   (let ((info '(:html-timestamp-format
-		("%Y-%m-%d" . "%Y-%m-%d %H:%M"))))
+                ("%Y-%m-%d" . "%Y-%m-%d %H:%M"))))
     (should (string= (t--get-timestamp-format 'active t info)
                      "<%Y-%m-%d %H:%M>"))
     (should (string= (t--get-timestamp-format 'active nil info)
@@ -1077,16 +1210,16 @@ int a = 1;</code></p>\n</details>")
     (should (string= (t--get-timestamp-format 'inactive t info)
                      "[%Y-%m-%d %H:%M]"))
     (should (string= (t--get-timestamp-format 'inactive-range nil info)
-                    "[%Y-%m-%d]")))
+                     "[%Y-%m-%d]")))
   (let ((info '(:html-timestamp-format
-		("%Y-%m-%d" . "%Y-%m-%d %H:%M")))
-	(org-display-custom-times t)
-	(org-timestamp-custom-formats
-	 '("%m/%d/%y %a" . "%m/%d/%y %a %H:%M")))
-      (should (string= (t--get-timestamp-format 'active t info)
-                       "<%m/%d/%y %a %H:%M>"))
-      (should (string= (t--get-timestamp-format 'active nil info)
-                       "<%m/%d/%y %a>"))))
+                ("%Y-%m-%d" . "%Y-%m-%d %H:%M")))
+        (org-display-custom-times t)
+        (org-timestamp-custom-formats
+         '("%m/%d/%y %a" . "%m/%d/%y %a %H:%M")))
+    (should (string= (t--get-timestamp-format 'active t info)
+                     "<%m/%d/%y %a %H:%M>"))
+    (should (string= (t--get-timestamp-format 'active nil info)
+                     "<%m/%d/%y %a>"))))
 
 (ert-deftest t-timestamp ()
   (ert-skip "skip now")
@@ -1128,7 +1261,7 @@ int a = 1;</code></p>\n</details>")
 (defun t-check-mathml (pairs)
   (dolist (p pairs)
     (let ((xml (t-parse-mathml-string (cdr p)))
-	  (result (car p)))
+          (result (car p)))
       (should (equal result (t--mathml-to-oneline xml))))))
 
 (ert-deftest t--mathml-to-oneline ()
@@ -1159,4 +1292,5 @@ int a = 1;</code></p>\n</details>")
 
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
+;; indent-tabs-mode: nil
 ;; End:
