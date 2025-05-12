@@ -1656,6 +1656,7 @@ CONTENTS is nil."
                       (read (format "(%s)" value))))
       (_ ""))))
 
+;; FIXME: Add tests
 (defsubst t--wrap-image (contents _info caption attrs)
   "Wrap CONTENTS string within <figure> tag for images.
 Also check attributes and caption of paragraph."
@@ -1668,6 +1669,7 @@ Also check attributes and caption of paragraph."
           (if-let* ((c (t--nw-trim caption)))
               (format "<figcaption>%s</figcaption>\n" c) "")))
 
+;; FIXME: Consider add some tests after improve link's impl.
 ;;;; Paragraph
 ;; See (info "(org)Paragraphs")
 ;; Fixed export. Not customizable.
@@ -1704,8 +1706,12 @@ CONTENTS is the contents of the paragraph, as a string."
           (if (string= c "") ""
             (format "<p%s>%s</p>" attrs c)))))))
 
+;; FIXME: Consider add an option to switch on/off this feature.
+;; Also, add tests.
 (defun t-paragraph-filter (value _backend _info)
   "Delete paragraph's trailing newlines."
+  (declare (ftype (function (string t t) string))
+           (pure t) (important-return-value t))
   (concat (string-trim-right value) "\n"))
 
 ;;;; Verse Block
