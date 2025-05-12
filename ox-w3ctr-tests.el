@@ -597,31 +597,43 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t-export-block ()
   (t-check-element-values
    #'t-export-block
-   '(("#+begin_export html\nanythinghere\n#+end_export"
-      "anythinghere\n")
+   '(;; HTML
+     ("#+begin_export html\nanythinghere\n#+end_export" "anythinghere\n")
      ("#+begin_export html\n#+end_export" "")
-     ("#+begin_export mhtml\nanythinghere\n#+end_export"
-      "anythinghere\n")
+     ("#+begin_export html\n\n#+end_export" "\n")
+     ("#+begin_export html\n\n\n\n#+end_export" "\n\n\n")
+     ("#+begin_export html\n\n\n\n\n\n\n#+end_export" "\n\n\n\n\n\n")
+     ;; MHTML
+     ("#+begin_export mhtml\nanythinghere\n#+end_export" "anythinghere\n")
      ("#+begin_export mhtml\n#+end_export" "")
+     ("#+begin_export mhtml\n\n\n#+end_export" "\n\n")
+     ;; CSS
      ("#+begin_export css\np {color: red;}\n#+end_export"
       "<style>\np {color: red;}\n</style>")
      ("#+begin_export css\n#+end_export" "<style>\n</style>")
+     ("#+begin_export CSS\n.test {margin: auto;}\n#+end_export"
+      "<style>\n.test {margin: auto;}\n</style>")
+     ;; JS
      ("#+begin_export js\nlet f = x => x + 1;\n#+end_export"
       "<script>\nlet f = x => x + 1;\n</script>")
      ("#+begin_export js\n#+end_export" "<script>\n</script>")
      ("#+begin_export javascript\nlet f = x => x + 1;\n#+end_export"
       "<script>\nlet f = x => x + 1;\n</script>")
      ("#+begin_export javascript\n#+end_export" "<script>\n</script>")
+     ;; Elisp
      ("#+begin_export emacs-lisp\n(+ 1 2)\n#+end_export" "3")
      ("#+begin_export emacs-lisp\n#+end_export" "")
      ("#+begin_export elisp\n(+ 1 2)\n#+end_export" "3")
      ("#+begin_export elisp\n#+end_export" "")
+     ;; Lisp data
      ("#+begin_export lisp-data\n (p() \"123\")\n#+end_export"
       "<p>123</p>")
      ("#+begin_export lisp-data\n (br)\n#+end_export" "<br>")
      ("#+BEGIN_EXPORT lisp-data\n (br)\n#+END_EXPORT" "<br>")
+     ;; Unsupported type
      ("#+begin_export wtf\n no exported\n#+end_export" "")
-     ("#+begin_export\n not exported\n#+end_export" ""))))
+     ("#+begin_export\n not exported\n#+end_export" ""))
+   t))
 
 (ert-deftest t-fixed-width ()
   (t-check-element-values
