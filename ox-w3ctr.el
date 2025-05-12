@@ -1550,12 +1550,13 @@ CONTENTS holds the contents of the item."
 (defun t-plain-list (plain-list contents info)
   "Transcode a PLAIN-LIST element from Org to HTML.
 CONTENTS is the contents of the list."
+  (declare (ftype (function (t (or null string) plist) string))
+           (important-return-value t))
   (let* ((type (pcase (org-element-property :type plain-list)
                  (`ordered "ol") (`unordered "ul") (`descriptive "dl")
                  (other (error "Unknown HTML list type: %s" other))))
          (attributes (t--make-attr__id* plain-list info t)))
-    (format "<%s%s>\n%s</%s>"
-            type attributes contents type)))
+    (format "<%s%s>\n%s</%s>" type attributes contents type)))
 
 ;;;; Quote Block
 ;; See (info "(org)Paragraphs")
@@ -1563,10 +1564,11 @@ CONTENTS is the contents of the list."
 (defun t-quote-block (quote-block contents info)
   "Transcode a QUOTE-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
+  (declare (ftype (function (t (or null string) plist) string))
+           (important-return-value t))
   (format "<blockquote%s>%s</blockquote>"
           (t--make-attr__id* quote-block info t)
           (t--maybe-contents contents)))
-
 
 ;;; Lesser elements (17 - 7 - 3 = 7)
 ;;; latex-environment, src-block, and table-row are not here.

@@ -565,6 +565,7 @@ int a = 1;</code></p>\n</details>")
   (should-error (t-plain-list nil "123" nil)))
 
 (ert-deftest t-quote-block ()
+  "Tests for `org-w3ctr-quote-block'."
   (t-check-element-values
    #'t-quote-block
    '(("#+begin_quote\n#+end_quote" "<blockquote></blockquote>")
