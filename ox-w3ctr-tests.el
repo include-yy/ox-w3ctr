@@ -581,6 +581,7 @@ int a = 1;</code></p>\n</details>")
       "<blockquote>\n\n</blockquote>"))))
 
 (ert-deftest t-example-block ()
+  "Tests for `org-w3ctr-example-block'."
   (t-check-element-values
    #'t-example-block
    '(("#+name: t\n#+begin_example\n#+end_example"
@@ -595,6 +596,7 @@ int a = 1;</code></p>\n</details>")
       "<div id=\"t\">\n<pre>\n\n\n\n</pre>\n</div>"))))
 
 (ert-deftest t-export-block ()
+  "Tests for `org-w3ctr-export-block'."
   (t-check-element-values
    #'t-export-block
    '(;; HTML
@@ -636,6 +638,7 @@ int a = 1;</code></p>\n</details>")
    t))
 
 (ert-deftest t-fixed-width ()
+  "Tests for `org-w3ctr-fixed-width'."
   (t-check-element-values
    #'t-fixed-width
    '((":           " "<pre></pre>")
@@ -648,6 +651,7 @@ int a = 1;</code></p>\n</details>")
      (":\n:\n:\n:\n" "<pre>\n\n\n</pre>"))))
 
 (ert-deftest t-horizontal-rule ()
+  "Tests for `org-w3ctr-horizontal-rule'."
   (t-check-element-values
    #'t-horizontal-rule
    '(("-")
@@ -663,6 +667,7 @@ int a = 1;</code></p>\n</details>")
      ("-------------------------------" "<hr>"))))
 
 (ert-deftest t-keyword ()
+  "Tests for `org-w3ctr-keyword'."
   (t-check-element-values
    #'t-keyword
    '(;; H
@@ -692,25 +697,36 @@ int a = 1;</code></p>\n</details>")
    t))
 
 (ert-deftest t-paragraph ()
+  "Tests for `org-w3ctr-paragraph'."
   (t-check-element-values
    #'t-paragraph
    '(("123" "<p>123</p>")
      ("123\n 234" "<p>123\n 234</p>")
+     ;; trim
      ("    123" "<p>123</p>")
      ("123\n\t234" "<p>123\n\011234</p>")
+     ;; two newline, two paragraph
      ("123\n\n234" "<p>234</p>" "<p>123</p>")
+     ;; unordered list item's first object
      ("- 123 234" "123 234")
      ("- [ ] 123" "123")
      ("- 123\n 234" "123\n234")
      ("- 123\n\n   234" "<p>234</p>" "123\n")
+     ;; first object with attributes
      ("-\n  #+attr__: [example]\n  123"
       "<span class=\"example\">123</span>")
      ("-\n  #+name: id\n  123\n\n  #+name: id2\n  456"
       "<p id=\"id2\">456</p>" "<span id=\"id\">123\n</span>")
+     ;; standalone image
+     ;; since `org-export-data' doesn't apply `:filter-parse-tree'
+     ;; no newlines for test data.
      ("[[./1.png]]"
       "<figure>\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
      ("#+name: id\n#+caption:cap\n[[./1.png]]"
       "<figure id=\"id\">\n<img src=\"./1.png\" alt=\"1.png\"><figcaption>cap</figcaption>\n</figure>")
+     ;; empty caption
+     ("#+caption: \n[[./1.png]]"
+      "<figure>\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
      ("#+attr__:[sidefigure]\n[[./2.gif]]"
       "<figure class=\"sidefigure\">\n<img src=\"./2.gif\" alt=\"2.gif\"></figure>")
      ("[[https://example.com/1.jpg]]"
