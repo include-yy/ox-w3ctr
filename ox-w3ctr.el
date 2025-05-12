@@ -1656,23 +1656,37 @@ CONTENTS is nil."
                       (read (format "(%s)" value))))
       (_ ""))))
 
+(defsubst t--wrap-image (contents _info caption attrs)
+  "Wrap CONTENTS string within <figure> tag for images.
+Also check attributes and caption of paragraph."
+  (declare (ftype (function (string t string string) string))
+           (pure t) (important-return-value t))
+  (format "<figure%s>\n%s%s</figure>"
+          ;; Attributes and contents.
+          attrs contents
+          ;; Caption.
+          (if-let* ((c (t--nw-trim caption)))
+              (format "<figcaption>%s</figcaption>\n" c) "")))
+
 ;;;; Paragraph
 ;; See (info "(org)Paragraphs")
 ;; Fixed export. Not customizable.
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML.
 CONTENTS is the contents of the paragraph, as a string."
+  (declare (ftype (function (t string plist) string))
+           (important-return-value t))
   (let* ((parent (org-export-get-parent paragraph))
          (parent-type (org-element-type parent))
          (attrs (t--make-attr__id* paragraph info t)))
     (cond
      (;; Item's first line.
       (and (eq parent-type 'item)
-           ;; In a dd list item, the text immediately following "::" is
-           ;; not enclosed in a <p> tag. If this part of the export
+           ;; In a <dd> list item, the text immediately following "::"
+           ;; is not enclosed in a <p> tag. If this part of the export
            ;; lacks HTML elements, the next text block will become the
-           ;; first-child of the dd element, which has a margin-top of 0
-           ;; by default CSS. Inserting "\\" (rendered as <br>) can
+           ;; first-child of the dd element, which has a margin-top of
+           ;; 0 by default CSS. Inserting "\\" (rendered as <br>) can
            ;; prevent the subsequent text block from becoming the first
            ;; child.
            ;; Of course, we could wrap this part directly in a <p> tag,
@@ -1689,16 +1703,6 @@ CONTENTS is the contents of the paragraph, as a string."
      (t (let ((c (t--trim contents)))
           (if (string= c "") ""
             (format "<p%s>%s</p>" attrs c)))))))
-
-(defun t--wrap-image (contents _info caption attrs)
-  "Wrap CONTENTS string within <figure> tag for images.
-Also check attributes and caption of paragraph."
-  (format "<figure%s>\n%s%s</figure>"
-          ;; Attributes and contents.
-          attrs contents
-          ;; Caption.
-          (if (not (org-string-nw-p caption)) ""
-            (format "<figcaption>%s</figcaption>\n" caption))))
 
 (defun t-paragraph-filter (value _backend _info)
   "Delete paragraph's trailing newlines."
