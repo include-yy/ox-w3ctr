@@ -1752,6 +1752,8 @@ CONTENTS is verse block contents."
 ;; Fixed export. Not customizable.
 (defun t-entity (entity _contents _info)
   "Transcode an ENTITY object from Org to HTML."
+  (declare (ftype (function (t t t) string))
+           (pure t) (important-return-value t))
   (org-element-property :html entity))
 
 ;;;; Export Snippet
@@ -1759,6 +1761,8 @@ CONTENTS is verse block contents."
 ;; Fixed export. Not customizable.
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode a EXPORT-SNIPPET object from Org to HTML."
+  (declare (ftype (function (t t t) string))
+           (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
          (value (org-element-property :value export-snippet)))
     (pcase backend
@@ -1769,8 +1773,7 @@ CONTENTS is verse block contents."
       ;; sexp-style html data.
       ('d (t--sexp2html (read (or (t--nw-p value) "\"\""))))
       ;; sexp-style html data list.
-      ('l (mapconcat #'t--sexp2html
-                     (read (format "(%s)" value))))
+      ('l (mapconcat #'t--sexp2html (read (format "(%s)" value))))
       (_ ""))))
 
 ;;;; Line Break
@@ -1778,8 +1781,9 @@ CONTENTS is verse block contents."
 ;; Fixed export. Not customizable.
 (defun t-line-break (_line-break _contents _info)
   "Transcode a LINE-BREAK object from Org to HTML."
+  (declare (ftype (function (t t t) "<br>\n"))
+           (pure t) (important-return-value t))
   "<br>\n")
-
 
 ;;;; Target
 ;; FIXME: Add test after imporve t--reference
@@ -1813,6 +1817,8 @@ information."
 ;; Fixed export. Not customizable.
 (defun t-statistics-cookie (statistics-cookie _contents _info)
   "Transcode a STATISTICS-COOKIE object from Org to HTML."
+  (declare (ftype (function (t t t) string))
+           (pure t) (important-return-value t))
   (let ((cookie-value
          (org-element-property :value statistics-cookie)))
     (format "<code>%s</code>" cookie-value)))
@@ -1822,6 +1828,8 @@ information."
 ;; Fixed export. Not customizable.
 (defun t-subscript (_subscript contents _info)
   "Transcode a SUBSCRIPT object from Org to HTML."
+  (declare (ftype (function (t string t) string))
+           (pure t) (important-return-value t))
   (format "<sub>%s</sub>" contents))
 
 ;;;; Superscript
@@ -1829,16 +1837,19 @@ information."
 ;; Fixed export. Not customizable.
 (defun t-superscript (_superscript contents _info)
   "Transcode a SUPERSCRIPT object from Org to HTML."
+  (declare (ftype (function (t string t) string))
+           (pure t) (important-return-value t))
   (format "<sup>%s</sup>" contents))
-
 
 ;;; Smallest objects (7)
 
-(defun t--get-markup-format (name info)
+(defsubst t--get-markup-format (name info)
   "Get markup format string for NAME from INFO plist.
 Returns \"%s\" if not found.
 
 NAME is a symbol (like \\='bold), INFO is Org export info plist."
+  (declare (ftype (function (symbol plist) string))
+           (side-effect-free t) (important-return-value t))
   (if-let* ((alist (plist-get info :html-text-markup-alist))
             (str (cdr (assq name alist))))
       str "%s"))

@@ -768,6 +768,7 @@ int a = 1;</code></p>\n</details>")
   (should (equal (t-paragraph-filter "\na" nil nil) "\na\n")))
 
 (ert-deftest t-verse-block ()
+  "Tests for `org-w3ctr-verse-block'."
   (t-check-element-values
    #'t-verse-block
    '(("#+begin_verse\n#+end_verse" "<p>\n</p>")
@@ -775,11 +776,13 @@ int a = 1;</code></p>\n</details>")
      ("#+begin_verse\n1  2  3\n#+end_verse" "<p>\n1  2  3<br>\n</p>")
      ("#+begin_verse\n 1\n  2\n   3\n#+end_verse"
       "<p>\n1<br>\n&#xa0;2<br>\n&#xa0;&#xa0;3<br>\n</p>")
-     ("#+name: this\n#+begin_verse\n#+end_verse" "<p id=\"this\">\n</p>")
+     ("#+name: this\n#+begin_verse\n#+end_verse"
+      "<p id=\"this\">\n</p>")
      ("#+attr__:[hi]\n#+begin_verse\n\n\n#+end_verse"
       "<p class=\"hi\">\n<br>\n<br>\n</p>"))))
 
 (ert-deftest t-entity ()
+  "Tests for `org-w3ctr-entity'."
   (t-check-element-values
    #'t-entity
    '(("\\alpha \\beta \\eta \\gamma \\epsilon"
@@ -795,6 +798,7 @@ int a = 1;</code></p>\n</details>")
       "&sim;" "&prop;" "&radic;" "&frac34;" "&frac14;" "&frac12;"))))
 
 (ert-deftest t-export-snippet ()
+  "Tests for `org-w3ctr-export-snippet'."
   (t-check-element-values
    #'t-export-snippet
    '(("@@h:<span>123</span>@@" "<span>123</span>")
@@ -813,7 +817,14 @@ int a = 1;</code></p>\n</details>")
      ("@@l:\"1 \" \"2\"@@" "1 2")
      ("@@wtf::hello@@" ""))))
 
+(ert-deftest t-line-break ()
+  "Tests for `org-w3ctr-line-break'."
+  (should (equal (t-line-break nil nil nil) "<br>\n")))
+
+;; FIXME: Target and Radio Target's tests here
+
 (ert-deftest t-statistics-cookie ()
+  "Tests for `org-w3ctr-statistics-cookie'."
   (t-check-element-values
    #'t-statistics-cookie
    '(("- hello [/]" "<code>[/]</code>")
@@ -825,6 +836,7 @@ int a = 1;</code></p>\n</details>")
       "<code>[50%]</code>"))))
 
 (ert-deftest t-subscript ()
+  "Tests for `org-w3ctr-subscript'."
   (t-check-element-values
    #'t-subscript
    '(("1_2" "<sub>2</sub>")
@@ -832,11 +844,20 @@ int a = 1;</code></p>\n</details>")
      ("f_{1}" "<sub>1</sub>"))))
 
 (ert-deftest t-superscript ()
+  "Tests for `org-w3ctr-superscript'."
   (t-check-element-values
    #'t-superscript
    '(("1^2" "<sup>2</sup>")
      ("x86^64" "<sup>64</sup>")
      ("f^{1}" "<sup>1</sup>"))))
+
+(ert-deftest t--get-markup-format ()
+  "Tests for `org-w3ctr--get-markup-format'."
+  (let ((info '(:html-text-markup-alist ((a . 2) (b . 3) (c . 4)))))
+    (should (equal (t--get-markup-format 'a info) 2))
+    (should (equal (t--get-markup-format 'b info) 3))
+    (should (equal (t--get-markup-format 'c info) 4)))
+  (should (equal (t--get-markup-format 'anything nil) "%s")))
 
 (ert-deftest t-bold ()
   (t-check-element-values
