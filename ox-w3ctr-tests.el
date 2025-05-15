@@ -850,6 +850,11 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-statistics-cookie ()
   "Tests for `org-w3ctr-statistics-cookie'."
+  (cl-letf (((symbol-function 'org-element--property)
+             (lambda (_p n &optional _d _f) n)))
+    (should (equal (t-statistics-cookie "" nil nil) "<code></code>"))
+    (should (equal (t-statistics-cookie "y" nil nil) "<code>y</code>"))
+    (should (equal (t-statistics-cookie ()()()) "<code>nil</code>")))
   (t-check-element-values
    #'t-statistics-cookie
    '(("- hello [/]" "<code>[/]</code>")

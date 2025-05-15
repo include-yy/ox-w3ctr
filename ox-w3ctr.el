@@ -1837,6 +1837,8 @@ information."
 ;; Fixed export. Not customizable.
 (defun t-radio-target (radio-target text info)
   "Transcode a RADIO-TARGET object from Org to HTML."
+  (declare (ftype (function (t (or null string) plist) string))
+           (important-return-value t))
   (format "<span id=\"%s\">%s</span>"
           (t--reference radio-target info) (or text "")))
 
@@ -1847,9 +1849,8 @@ information."
   "Transcode a STATISTICS-COOKIE object from Org to HTML."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
-  (let ((cookie-value
-         (org-element-property :value statistics-cookie)))
-    (format "<code>%s</code>" cookie-value)))
+  (format "<code>%s</code>"
+          (org-element-property :value statistics-cookie)))
 
 ;;;; Subscript
 ;; See (info "(org)Subscripts and Superscripts")
