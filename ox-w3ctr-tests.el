@@ -867,6 +867,10 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-subscript ()
   "Tests for `org-w3ctr-subscript'."
+  (should (equal (t-subscript nil "123" nil) "<sub>123</sub>"))
+  (should (equal (t-subscript nil "" nil) "<sub></sub>"))
+  (should (equal (t-subscript nil t nil) "<sub>t</sub>"))
+  (should (equal (t-subscript nil nil nil) "<sub>nil</sub>"))
   (t-check-element-values
    #'t-subscript
    '(("1_2" "<sub>2</sub>")
@@ -875,6 +879,10 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-superscript ()
   "Tests for `org-w3ctr-superscript'."
+  (should (equal (t-superscript nil "123" nil) "<sup>123</sup>"))
+  (should (equal (t-superscript nil "" nil) "<sup></sup>"))
+  (should (equal (t-superscript nil t nil) "<sup>t</sup>"))
+  (should (equal (t-superscript nil nil nil) "<sup>nil</sup>"))
   (t-check-element-values
    #'t-superscript
    '(("1^2" "<sup>2</sup>")
