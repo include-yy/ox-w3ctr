@@ -1813,6 +1813,14 @@ CONTENTS is verse block contents."
            (pure t) (important-return-value t))
   "<br>\n")
 
+;; FIXME: Consider remove it.
+(defun t--anchor (id desc attributes _info)
+  "Format a HTML anchor."
+  (let* ((attributes
+          (concat (and id (format " id=\"%s\"" id))
+                  attributes)))
+    (format "<a%s>%s</a>" attributes (or desc ""))))
+
 ;;;; Target
 ;; See (info "(org)Internal Links")
 ;; Fixed export. Not customizable.
@@ -1824,22 +1832,13 @@ information."
            (important-return-value t))
   (format "<span id=\"%s\"></span>" (t--reference target info)))
 
-;; FIXME: Consider remove it.
-(defun t--anchor (id desc attributes _info)
-  "Format a HTML anchor."
-  (let* ((attributes
-          (concat (and id (format " id=\"%s\"" id))
-                  attributes)))
-    (format "<a%s>%s</a>" attributes (or desc ""))))
-
 ;;;; Radio Target
-;; FIXME: Add test after imporve t--reference
 ;; See (info "(org)Radio Targets")
 ;; Fixed export. Not customizable.
 (defun t-radio-target (radio-target text info)
   "Transcode a RADIO-TARGET object from Org to HTML."
-  (let ((ref (t--reference radio-target info)))
-    (t--anchor ref text nil info)))
+  (format "<span id=\"%s\">%s</span>"
+          (t--reference radio-target info) (or text "")))
 
 ;;;; Statistics Cookie
 ;; See (info "(org)Checkboxes")

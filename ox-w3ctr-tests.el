@@ -814,7 +814,6 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr-line-break'."
   (should (equal (t-line-break nil nil nil) "<br>\n")))
 
-;; FIXME: Target and Radio Target's tests here
 (ert-deftest t-target ()
   "Tests for `org-w3ctr-target'."
   (cl-letf* ((counter 0)
@@ -829,6 +828,25 @@ int a = 1;</code></p>\n</details>")
         "<span id=\"5\"></span>"
         "<span id=\"4\"></span>"
         "<span id=\"3\"></span>")))))
+
+(ert-deftest t-radio-target ()
+  "Tests for `org-w3ctr-radio-target'."
+  (cl-letf* ((counter 0)
+             ((symbol-function 't--reference)
+              (lambda (_d _i &optional _n)
+                (number-to-string (cl-incf counter)))))
+    (should (equal (t-radio-target nil "hello" nil)
+                   "<span id=\"1\">hello</span>"))
+    (should (equal (t-radio-target nil "world" nil)
+                   "<span id=\"2\">world</span>"))
+    (should (equal (t-radio-target nil nil nil)
+                   "<span id=\"3\"></span>"))
+    (t-check-element-values
+     #'t-radio-target
+     '(("<<<th1>>> <<<th2>>> <<<th3>>>"
+        "<span id=\"6\">th3</span>"
+        "<span id=\"5\">th2</span>"
+        "<span id=\"4\">th1</span>")))))
 
 (ert-deftest t-statistics-cookie ()
   "Tests for `org-w3ctr-statistics-cookie'."
