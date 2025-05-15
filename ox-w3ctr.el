@@ -1957,8 +1957,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (dolist (a t-special-string-regexps string)
     (let ((re (car a))
           (rpl (cdr a)))
-      (setq string (replace-regexp-in-string
-                    re rpl string t)))))
+      (setq string (replace-regexp-in-string re rpl string t)))))
 
 (defun t-plain-text (text info)
   "Transcode a TEXT string from Org to HTML."
