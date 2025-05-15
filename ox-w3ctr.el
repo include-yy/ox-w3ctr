@@ -1766,10 +1766,8 @@ CONTENTS is verse block contents."
     ;; Replace each newline character with line break. Also
     ;; remove any trailing "br" close-tag so as to avoid
     ;; duplicates.
-    (let* ((re (format "\\(?:%s\\)?[ \t]*\n"
-                       (regexp-quote "<br>"))))
-      (replace-regexp-in-string
-       re "<br>\n" (or contents ""))))))
+    (let* ((re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote "<br>"))))
+      (replace-regexp-in-string re "<br>\n" (or contents ""))))))
 
 ;;; Objects (25 - 4 - 5 - 7 = 9)
 ;;; footnote-reference, inline-src-block are not here.

@@ -1,6 +1,6 @@
 ;;; -*- lexical-binding:t;no-byte-compile:t; -*-
 
-(load-file "ox-w3ctr.el")
+(load "ox-w3ctr")
 
 (defvar t-test-values nil
   "A list to store return values during testing.")
