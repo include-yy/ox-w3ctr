@@ -1530,6 +1530,34 @@ Returns an empty string if CHECKBOX is not one of the these three."
     (concat (format "<dt>%s</dt>" (concat checkbox term))
             "<dd>" (t--nw-trim contents) "</dd>")))
 
+;; Not used and not tested.
+(defun t--format-descriptive-item-ex (contents item checkbox info term)
+  "Format a DESCRIPTION list item into HTML."
+  (declare (ftype (function ((or null string) t t plist t) string))
+           (side-effect-free t) (important-return-value t))
+  (let ((checkbox (t--format-checkbox checkbox info))
+        (contents (let ((c (t--nw-trim contents)))
+                    (if (equal c "") nil c))))
+    (cond
+     ;; first item
+     ;; not need actually.
+     ((not (org-export-get-previous-element item info))
+      (let ((term (or term "(no term)")))
+        (concat (format "<dt>%s</dt>" (concat checkbox term))
+                (when contents (format "<dd>%s</dd>" contents)))))
+     ;; last item
+     ((not (org-export-get-next-element item info))
+      (let ((term (let ((c (concat checkbox term)))
+                    (if (string= c "") nil c))))
+        (concat
+         (when term (format "<dt>%s</dt>" term))
+         "<dd>" contents "</dd>")))
+     ;; normal item
+     (t (let ((term (let ((c (concat checkbox term)))
+                      (if (string= c "") nil c))))
+          (concat (when term (format "<dt>%s</dt>" term))
+                  (when contents (format "<dd>%s</dd>" contents))))))))
+
 ;;;; Item
 ;; See (info "(org)Plain Lists")
 ;; Fixed export. Not customizable.
@@ -1550,6 +1578,8 @@ CONTENTS holds the contents of the item."
       ('descriptive
        (let ((term (when-let* ((a (org-element-property :tag item)))
                      (org-export-data a info))))
+         ;;(t--format-descriptive-item-ex
+         ;; contents item checkbox info term)))
          (t--format-descriptive-item contents checkbox info term)))
       (_ (error "Unrecognized list item type: %s" type)))))
 
