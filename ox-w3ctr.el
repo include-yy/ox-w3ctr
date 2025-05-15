@@ -1814,16 +1814,17 @@ CONTENTS is verse block contents."
   "<br>\n")
 
 ;;;; Target
-;; FIXME: Add test after imporve t--reference
 ;; See (info "(org)Internal Links")
 ;; Fixed export. Not customizable.
 (defun t-target (target _contents info)
   "Transcode a TARGET object from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual
 information."
-  (let ((ref (t--reference target info)))
-    (t--anchor ref nil nil info)))
+  (declare (ftype (function (t t plist) string))
+           (important-return-value t))
+  (format "<span id=\"%s\"></span>" (t--reference target info)))
 
+;; FIXME: Consider remove it.
 (defun t--anchor (id desc attributes _info)
   "Format a HTML anchor."
   (let* ((attributes
