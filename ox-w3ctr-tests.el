@@ -1031,6 +1031,15 @@ int a = 1;</code></p>\n</details>")
                                   :preserve-breaks t))
                  "\"a &lt; b\" &#x2013; c<br>\nd")))
 
+(ert-deftest t--get-author ()
+  "Tests for `org-w3ctr--get-author'."
+  (should-not (t--get-author nil))
+  (let ((info '(:with-author nil))) (should-not (t--get-author info)))
+  (let ((info '(:with-author nil :author "test")))
+    (should-not (t--get-author info)))
+  (let ((info '(:with-author t :author "test")))
+    (should (equal (t--get-author info) "test"))))
+
 (ert-deftest t-meta-tags-default ()
   (let ((info-with-author '(:with-author t :author ("Alice")))
         (info-with-desc '(:description "Test doc"))
@@ -1059,7 +1068,9 @@ int a = 1;</code></p>\n</details>")
   (should (equal (t--build-meta-entry "name" "quote" "He said \"Hello\"")
                  "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n"))
   (should (equal (t--build-meta-entry "name" "version" "v%s.%s" "1" "2")
-                 "<meta name=\"version\" content=\"v1.2\">\n")))
+                 "<meta name=\"version\" content=\"v1.2\">\n"))
+  (should (equal (t--build-meta-entry "name" "version" "'%s'" "v1.2")
+                 "<meta name=\"version\" content=\"&apos;v1.2&apos;\">\n")))
 
 (ert-deftest t--get-info-title ()
   (t-check-element-values
@@ -1072,7 +1083,6 @@ int a = 1;</code></p>\n</details>")
      ;; zero width space
      ("#+title:​" "​")
      ("#+TITLE: hello\sworld" "hello world"))))
-
 
 (ert-deftest t--get-info-file-timestamp ()
   (t-check-element-values

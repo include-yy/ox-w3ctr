@@ -1983,6 +1983,18 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
     ;; Return value.
     output))
 
+;;; Template and Inner Template
+
+(defsubst t--get-info-author (info)
+  "Get author from INFO if :with-author is non-nil."
+  (declare (ftype (function (plist) (or null string)))
+           (pure t) (important-return-value t))
+  (when-let* (((plist-get info :with-author))
+              (a (plist-get info :author)))
+    ;; Return raw Org syntax.
+    ;; #+author is parsed as Org object.
+    (org-element-interpret-data a)))
+
 ;;; Meta tags and <head> contents
 (defun t-meta-tags-default (info)
   "A default value for `org-w3ctr-meta-tags'.
@@ -1992,21 +2004,16 @@ that can be passed to `org-w3ctr--build-meta-entry', to generate meta
 tags to be included in the HTML head.
 
 Use document's INFO to derive relevant information for the tags."
-  (let ((author
-         (and-let* (((plist-get info :with-author))
-                    (auth (plist-get info :author)))
-           ;; Return raw Org syntax.
-           (org-element-interpret-data auth))))
-    (thread-last
-      (list
-       (when (t--nw-p author)
-         (list "name" "author" author))
-       (when-let* ((desc (t--nw-p (plist-get info :description))))
-         (list "name" "description" (t--trim desc)))
-       (when-let* ((keyw (t--nw-p (plist-get info :keywords))))
-         (list "name" "keywords" (t--trim keyw)))
-       '("name" "generator" "Org Mode"))
-      (remove nil))))
+  (thread-last
+    (list
+     (when-let* ((author (t--nw-trim (t--get-info-author info))))
+       (list "name" "author" author))
+     (when-let* ((desc (t--nw-trim (plist-get info :description))))
+       (list "name" "description" desc))
+     (when-let* ((keyw (t--nw-trim (plist-get info :keywords))))
+       (list "name" "keywords" keyw))
+     '("name" "generator" "Org Mode"))
+    (remove nil)))
 
 (defun t--build-meta-entry ( label identity
                              &optional content-format
@@ -2019,18 +2026,15 @@ or when CONTENT-FORMAT is present:
 
 Here {content} is determined by applying any CONTENT-FORMATTERS
 to the CONTENT-FORMAT and encoding the result as plain text."
-  (concat "<meta "
-          (format "%s=\"%s" label identity)
-          (when content-format
-            (concat "\" content=\""
-                    (replace-regexp-in-string
-                     "\"" "&quot;"
-                     (t--encode-plain-text
-                      (if content-formatters
-                          (apply #'format content-format
-                                 content-formatters)
-                        content-format)))))
-          "\">\n"))
+  (concat
+   "<meta " (format "%s=\"%s\"" label identity)
+   (when content-format
+     (format
+      " content=\"%s\""
+      (t--encode-plain-text*
+       (if (not content-formatters) content-format
+         (apply #'format content-format content-formatters)))))
+   ">\n"))
 
 (defun t--get-info-title (info)
   "Extract title from INFO plist and return as plain text.
@@ -2038,9 +2042,9 @@ to the CONTENT-FORMAT and encoding the result as plain text."
 If title exists, is non-whitespace, and can be converted to plain text,
 return the text. Otherwise return a left-to-right mark (invisible)."
   (if-let* ((title (plist-get info :title))
-            (data (org-element-interpret-data title))
-            ((t--nw-p data))
-            (text (t-plain-text data info)))
+            (str (org-element-interpret-data title))
+            ((t--nw-p str))
+            (text (t-plain-text str info)))
       ;; Set title to an invisible character instead of
       ;; leaving it empty, which is invalid.
       text "&lrm;"))
