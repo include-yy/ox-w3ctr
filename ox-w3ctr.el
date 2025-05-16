@@ -258,7 +258,22 @@ returned as-is."
   :type '(alist :key-type (symbol :tag "Markup type")
                 :value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
-
+
+(defcustom t-coding-system 'utf-8-unix
+  "Coding system for HTML export."
+  :group 'org-export-w3ctr
+  :type 'coding-system)
+
+(defcustom t-file-timestamp-function #'t-file-timestamp-default
+  "Function to generate timestamp for exported files at top place.
+This function should take INFO as the only argument and return a
+string representing the timestamp.
+
+Default value is `org-w3ctr-file-timestamp-default', which generates
+timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+  :group 'org-export-w3ctr
+  :type 'function)
+
 (defcustom t-meta-tags #'t-meta-tags-default
   "Form that is used to produce <meta> tags in the HTML head.
 
@@ -275,21 +290,6 @@ This can be either:
                  (string :tag "label value")
                  (string :tag "Content value")))
           function))
-
-(defcustom t-file-timestamp-function #'t-file-timestamp-default
-  "Function to generate timestamp for exported files at top place.
-This function should take INFO as the only argument and return a
-string representing the timestamp.
-
-Default value is `org-w3ctr-file-timestamp-default', which generates
-timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
-  :group 'org-export-w3ctr
-  :type 'function)
-
-(defcustom t-coding-system 'utf-8-unix
-  "Coding system for HTML export."
-  :group 'org-export-w3ctr
-  :type 'coding-system)
 
 (defcustom t-viewport '((width "device-width")
                         (initial-scale "1")
@@ -336,7 +336,7 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
                 (choice (const :tag "unset" "")
                         (const "true")
                         (const "false"))))))
-
+
 (defcustom t-head ""
   "Raw HTML content to insert into the <head> section.
 

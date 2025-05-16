@@ -1031,14 +1031,74 @@ int a = 1;</code></p>\n</details>")
                                   :preserve-breaks t))
                  "\"a &lt; b\" &#x2013; c<br>\nd")))
 
-(ert-deftest t--get-author ()
+(ert-deftest t--get-charset ()
+  "Tests for `org-w3ctr--get-charset'."
+  (cl-labels ((test (x) (let ((org-w3ctr-coding-system x))
+                          (t--get-charset))))
+    (should (string= (test nil) "utf-8"))
+    (should (string= (test 'utf-8-unix) "utf-8"))
+    (should (string= (test 'utf-8-dos) "utf-8"))
+    (should (string= (test 'utf-8-mac) "utf-8"))
+    (should (string= (test 'gbk) "gbk"))
+    (should (string= (test 'chinese-gbk) "gbk"))
+    (should (string= (test 'big5) "big5"))
+    (should (string= (test 'utf-7) "utf-7"))
+    (should (string= (test 'gb18030) "gb18030"))
+    (should (string= (test 'iso-latin-2) "iso-8859-2"))
+    (should (string= (test 'japanese-shift-jis) "shift_jis"))
+    (should (string= (test 'japanese-iso-8bit) "euc-jp"))
+    (should (string= (test 'cp936) "gbk"))
+    (should (string= (test 'cp65001) "utf-8"))))
+
+(ert-deftest t--get-info-author ()
   "Tests for `org-w3ctr--get-author'."
-  (should-not (t--get-author nil))
-  (let ((info '(:with-author nil))) (should-not (t--get-author info)))
+  (should-not (t--get-info-author nil))
+  (let ((info '(:with-author nil)))
+    (should-not (t--get-info-author info)))
   (let ((info '(:with-author nil :author "test")))
-    (should-not (t--get-author info)))
+    (should-not (t--get-info-author info)))
   (let ((info '(:with-author t :author "test")))
-    (should (equal (t--get-author info) "test"))))
+    (should (equal (t--get-info-author info) "test"))))
+
+(ert-deftest t--get-info-title ()
+  "Tests for `org-w3ctr--get-info-title'."
+  (t-check-element-values
+   #'t--get-info-title
+   '(("#+title: he" "he")
+     ("#+title:he" "he")
+     ("#+title: \t" "&lrm;")
+     ("#+title: \s\s\t" "&lrm;")
+     ("#+title:   3   " "3")
+     ;; zero width space
+     ("#+title:​" "​")
+     ("#+TITLE: hello\sworld" "hello world"))))
+
+(ert-deftest t--build-meta-entry ()
+  "Tests for `org-w3ctr--build-meta-entry'."
+  (should (equal (t--build-meta-entry "name" "author")
+                 "<meta name=\"author\">\n"))
+  (should (equal (t--build-meta-entry "property" "og:title" "My Title")
+                 "<meta property=\"og:title\" content=\"My Title\">\n"))
+  (should (equal (t--build-meta-entry "name" "description"
+                                      "Version %s" "1.0")
+                 "<meta name=\"description\" content=\"Version 1.0\">\n"))
+  (should (equal (t--build-meta-entry "name" "quote" "He said \"Hello\"")
+                 "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n"))
+  (should (equal (t--build-meta-entry "name" "version" "v%s.%s" "1" "2")
+                 "<meta name=\"version\" content=\"v1.2\">\n"))
+  (should (equal (t--build-meta-entry "name" "version" "'%s'" "v1.2")
+                 "<meta name=\"version\" content=\"&apos;v1.2&apos;\">\n")))
+
+(ert-deftest t--get-info-file-timestamp ()
+  "Tests for `org-w3ctr--get-info-file-timestamp'."
+  (t-check-element-values
+   #'t--get-info-file-timestamp
+   `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
+     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
+     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))
+   nil
+   '( :html-file-timestamp t-file-timestamp-default
+      :time-stamp-file t)))
 
 (ert-deftest t-meta-tags-default ()
   "Tests for `org-w3ctr-meta-tags-default'."
@@ -1058,64 +1118,14 @@ int a = 1;</code></p>\n</details>")
     (should (equal (t-meta-tags-default info-empty)
                    '(("name" "generator" "Org Mode"))))))
 
-(ert-deftest t--build-meta-entry ()
-  "Tests for `org-w3ctr--build-meta-entry'."
-  (should (equal (t--build-meta-entry "name" "author")
-                 "<meta name=\"author\">\n"))
-  (should (equal (t--build-meta-entry "property" "og:title" "My Title")
-                 "<meta property=\"og:title\" content=\"My Title\">\n"))
-  (should (equal (t--build-meta-entry "name" "description"
-                                      "Version %s" "1.0")
-                 "<meta name=\"description\" content=\"Version 1.0\">\n"))
-  (should (equal (t--build-meta-entry "name" "quote" "He said \"Hello\"")
-                 "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n"))
-  (should (equal (t--build-meta-entry "name" "version" "v%s.%s" "1" "2")
-                 "<meta name=\"version\" content=\"v1.2\">\n"))
-  (should (equal (t--build-meta-entry "name" "version" "'%s'" "v1.2")
-                 "<meta name=\"version\" content=\"&apos;v1.2&apos;\">\n")))
-
-(ert-deftest t--get-info-title ()
-  "Tests for `org-w3ctr--get-info-title'."
-  (t-check-element-values
-   #'t--get-info-title
-   '(("#+title: he" "he")
-     ("#+title:he" "he")
-     ("#+title: \t" "&lrm;")
-     ("#+title: \s\s\t" "&lrm;")
-     ("#+title:   3   " "3")
-     ;; zero width space
-     ("#+title:​" "​")
-     ("#+TITLE: hello\sworld" "hello world"))))
-
-(ert-deftest t--get-info-file-timestamp ()
-  "Tests for `org-w3ctr--get-info-file-timestamp'."
-  (t-check-element-values
-   #'t--get-info-file-timestamp
-   `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
-     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
-     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))
-   nil
-   '( :html-file-timestamp t-file-timestamp-default
-      :time-stamp-file t)))
-
-(ert-deftest t--get-charset ()
-  "Tests for `org-w3ctr--get-charset'."
-  (cl-labels ((test (x) (let ((org-w3ctr-coding-system x))
-                          (t--get-charset))))
-    (should (string= (test nil) "utf-8"))
-    (should (string= (test 'utf-8-unix) "utf-8"))
-    (should (string= (test 'utf-8-dos) "utf-8"))
-    (should (string= (test 'utf-8-mac) "utf-8"))
-    (should (string= (test 'gbk) "gbk"))
-    (should (string= (test 'chinese-gbk) "gbk"))
-    (should (string= (test 'big5) "big5"))
-    (should (string= (test 'utf-7) "utf-7"))
-    (should (string= (test 'gb18030) "gb18030"))
-    (should (string= (test 'iso-latin-2) "iso-8859-2"))
-    (should (string= (test 'japanese-shift-jis) "shift_jis"))
-    (should (string= (test 'japanese-iso-8bit) "euc-jp"))
-    (should (string= (test 'cp936) "gbk"))
-    (should (string= (test 'cp65001) "utf-8"))))
+(ert-deftest t--build-meta-tags ()
+  "Tests for `org-w3ctr--build-meta-tags'."
+  (let ((t-meta-tags '(("a" "b" "test"))))
+    (should (equal (t--build-meta-tags nil)
+                   "<meta a=\"b\" content=\"test\">\n")))
+  (let ((t-meta-tags '(("a" "b" nil))))
+    (should (equal (t--build-meta-tags nil)
+                   "<meta a=\"b\">\n"))))
 
 (ert-deftest t--build-viewport-options ()
   "Tests for `org-w3ctr--build-viewport-options'."
@@ -1136,15 +1146,6 @@ int a = 1;</code></p>\n</details>")
                          (minimum-scale "")
                          (maximum-scale "")
                          (user-scalable "")))))
-
-(ert-deftest t--build-meta-tags ()
-  "Tests for `org-w3ctr--build-meta-tags'."
-  (let ((t-meta-tags '(("a" "b" "test"))))
-    (should (equal (t--build-meta-tags nil)
-                   "<meta a=\"b\" content=\"test\">\n")))
-  (let ((t-meta-tags '(("a" "b" nil))))
-    (should (equal (t--build-meta-tags nil)
-                   "<meta a=\"b\">\n"))))
 
 (ert-deftest t--build-mathjax-config ()
   "Test `t--build-mathjax-config' function."
