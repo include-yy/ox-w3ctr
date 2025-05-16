@@ -1137,6 +1137,15 @@ int a = 1;</code></p>\n</details>")
                          (maximum-scale "")
                          (user-scalable "")))))
 
+(ert-deftest t--build-meta-tags ()
+  "Tests for `org-w3ctr--build-meta-tags'."
+  (let ((t-meta-tags '(("a" "b" "test"))))
+    (should (equal (t--build-meta-tags nil)
+                   "<meta a=\"b\" content=\"test\">\n")))
+  (let ((t-meta-tags '(("a" "b" nil))))
+    (should (equal (t--build-meta-tags nil)
+                   "<meta a=\"b\">\n"))))
+
 (ert-deftest t--build-mathjax-config ()
   "Test `t--build-mathjax-config' function."
   (let ((info '(:with-latex mathjax :html-mathjax-config

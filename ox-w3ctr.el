@@ -2095,21 +2095,26 @@ Otherwise, signal an error."
      (mapconcat (pcase-lambda (`(,k ,v)) (format "%s=%s" k v))
                 opts ", "))))
 
+(defun t--build-meta-tags (info)
+  "Build HTML <meta> tags get from `org-w3ctr-meta-tags'."
+  (declare (ftype (function (plist) string))
+           (side-effect-free t) (important-return-value t))
+  (mapconcat
+   (lambda (args) (apply #'t--build-meta-entry args))
+   (delq nil (if (functionp t-meta-tags) (funcall t-meta-tags info)
+               t-meta-tags))))
+
 (defun t--build-meta-info (info)
   "Return meta tags for exported document."
-  (let* ((title (t--get-info-title info))
-         (charset (t--get-charset)))
-    (concat
-     ;; See `org-export-timestamp-file' or `org-export-time-stamp-file'
-     (when (plist-get info :time-stamp-file)
-       (format "<!-- %s -->\n" (t--get-info-file-timestamp info)))
-     (t--build-meta-entry "charset" charset)
-     (t--build-viewport-options info)
-     (format "<title>%s</title>\n" title)
-     (mapconcat
-      (lambda (args) (apply #'t--build-meta-entry args))
-      (delq nil (if (functionp t-meta-tags) (funcall t-meta-tags info)
-                  t-meta-tags))))))
+  (declare (ftype (function (plist) string))
+           (side-effect-free t) (important-return-value t))
+  (concat
+   (when (plist-get info :time-stamp-file)
+     (format "<!-- %s -->\n" (t--get-info-file-timestamp info)))
+   (t--build-meta-entry "charset" (t--get-charset))
+   (t--build-viewport-options info)
+   (format "<title>%s</title>\n" (t--get-info-title info))
+   (t--build-meta-tags info)))
 
 (defun t--load-css (_info)
   "Load CSS content for HTML export from configured sources.
