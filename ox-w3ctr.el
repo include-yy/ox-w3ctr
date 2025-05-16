@@ -1985,6 +1985,25 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 
 ;;; Template and Inner Template
 
+;;;; <meta> tags export.
+;; Options:
+;; - `org-w3ctr-coding-system' specifies export file's encoding.
+;; - :with-author (`org-export-with-author')
+;; - :author specifies <meta name="author" ...>
+;; - :title (`org-export-with-title')
+;; - :time-stamp-file (`org-export-timestamp-file')
+;; - :html-file-timestamp (`org-w3ctr-file-timestamp-function')
+;; - `org-w3ctr-meta-tags'
+;; - :html-viewport (`org-w3ctr-viewport')
+
+(defsubst t--get-charset ()
+  "Determine charset by `org-w3ctr-coding-system'."
+  (declare (ftype (function () string))
+           (side-effect-free t) (important-return-value t))
+  (if-let* ((coding t-coding-system)
+            (name (coding-system-get coding 'mime-charset)))
+      (symbol-name name) "utf-8"))
+
 (defsubst t--get-info-author (info)
   "Get author from INFO if :with-author is non-nil."
   (declare (ftype (function (plist) (or null string)))
@@ -1995,27 +2014,26 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
     ;; #+author is parsed as Org object.
     (org-element-interpret-data a)))
 
-;;; Meta tags and <head> contents
-(defun t-meta-tags-default (info)
-  "A default value for `org-w3ctr-meta-tags'.
+(defun t--get-info-title (info)
+  "Extract title from INFO plist and return as plain text.
 
-Generate a list items, each of which is a list of arguments
-that can be passed to `org-w3ctr--build-meta-entry', to generate meta
-tags to be included in the HTML head.
-
-Use document's INFO to derive relevant information for the tags."
-  (declare (ftype (function (plist) list))
+If title exists, is non-whitespace, and can be converted to plain text,
+return the text. Otherwise return a left-to-right mark (invisible)."
+  (declare (ftype (function (plist) string))
            (pure t) (important-return-value t))
-  (thread-last
-    (list
-     (when-let* ((author (t--nw-trim (t--get-info-author info))))
-       (list "name" "author" author))
-     (when-let* ((desc (t--nw-trim (plist-get info :description))))
-       (list "name" "description" desc))
-     (when-let* ((keyw (t--nw-trim (plist-get info :keywords))))
-       (list "name" "keywords" keyw))
-     '("name" "generator" "Org Mode"))
-    (remove nil)))
+  (if-let* ((title (plist-get info :title))
+            (str (org-element-interpret-data title))
+            ((t--nw-p str))
+            (text (t-plain-text str info)))
+      ;; Set title to an invisible character instead of
+      ;; leaving it empty, which is invalid.
+      text "&lrm;"))
+
+(defun t-file-timestamp-default (_info)
+  "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+  (declare (ftype (function (t) string))
+           (side-effect-free t) (important-return-value t))
+  (format-time-string "%FT%RZ" nil t))
 
 (defun t--build-meta-entry ( label identity
                              &optional content-format
@@ -2042,27 +2060,6 @@ to the CONTENT-FORMAT and encoding the result as plain text."
          (apply #'format content-format content-formatters)))))
    ">\n"))
 
-(defun t--get-info-title (info)
-  "Extract title from INFO plist and return as plain text.
-
-If title exists, is non-whitespace, and can be converted to plain text,
-return the text. Otherwise return a left-to-right mark (invisible)."
-  (declare (ftype (function (plist) string))
-           (pure t) (important-return-value t))
-  (if-let* ((title (plist-get info :title))
-            (str (org-element-interpret-data title))
-            ((t--nw-p str))
-            (text (t-plain-text str info)))
-      ;; Set title to an invisible character instead of
-      ;; leaving it empty, which is invalid.
-      text "&lrm;"))
-
-(defun t-file-timestamp-default (_info)
-  "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
-  (declare (ftype (function (t) string))
-           (side-effect-free t) (important-return-value t))
-  (format-time-string "%FT%RZ" nil t))
-
 (defun t--get-info-file-timestamp (info)
   "Get file timestamp from INFO plist using :html-file-timestamp.
 
@@ -2075,13 +2072,35 @@ Otherwise, signal an error."
       (funcall fun info)
     (error ":html-file-timestamp's value is not a valid function!")))
 
-(defsubst t--get-charset ()
-  "Determine charset by `org-w3ctr-coding-system'."
-  (declare (ftype (function () string))
+(defun t-meta-tags-default (info)
+  "A default value for `org-w3ctr-meta-tags'.
+
+Generate a list items, each of which is a list of arguments
+that can be passed to `org-w3ctr--build-meta-entry', to generate meta
+tags to be included in the HTML head.
+
+Use document's INFO to derive relevant information for the tags."
+  (declare (ftype (function (plist) list))
+           (pure t) (important-return-value t))
+  (thread-last
+    (list
+     (when-let* ((author (t--nw-trim (t--get-info-author info))))
+       (list "name" "author" author))
+     (when-let* ((desc (t--nw-trim (plist-get info :description))))
+       (list "name" "description" desc))
+     (when-let* ((keyw (t--nw-trim (plist-get info :keywords))))
+       (list "name" "keywords" keyw))
+     '("name" "generator" "Org Mode"))
+    (remove nil)))
+
+(defun t--build-meta-tags (info)
+  "Build HTML <meta> tags get from `org-w3ctr-meta-tags'."
+  (declare (ftype (function (plist) string))
            (side-effect-free t) (important-return-value t))
-  (if-let* ((coding t-coding-system)
-            (name (coding-system-get coding 'mime-charset)))
-      (symbol-name name) "utf-8"))
+  (mapconcat
+   (lambda (args) (apply #'t--build-meta-entry args))
+   (delq nil (if (functionp t-meta-tags) (funcall t-meta-tags info)
+               t-meta-tags))))
 
 (defun t--build-viewport-options (info)
   "Build <meta> viewport tags."
@@ -2094,15 +2113,6 @@ Otherwise, signal an error."
      "name" "viewport"
      (mapconcat (pcase-lambda (`(,k ,v)) (format "%s=%s" k v))
                 opts ", "))))
-
-(defun t--build-meta-tags (info)
-  "Build HTML <meta> tags get from `org-w3ctr-meta-tags'."
-  (declare (ftype (function (plist) string))
-           (side-effect-free t) (important-return-value t))
-  (mapconcat
-   (lambda (args) (apply #'t--build-meta-entry args))
-   (delq nil (if (functionp t-meta-tags) (funcall t-meta-tags info)
-               t-meta-tags))))
 
 (defun t--build-meta-info (info)
   "Return meta tags for exported document."
