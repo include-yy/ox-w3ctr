@@ -1117,6 +1117,26 @@ int a = 1;</code></p>\n</details>")
     (should (string= (test 'cp936) "gbk"))
     (should (string= (test 'cp65001) "utf-8"))))
 
+(ert-deftest t--build-viewport-options ()
+  "Tests for `org-w3ctr--build-viewport-options'."
+  (should-not (t--build-viewport-options nil))
+  (cl-flet ((f (ls) (let ((info `(:html-viewport ,ls)))
+                      (t--build-viewport-options info))))
+    (should (equal (f '(("a" ""))) nil))
+    (should (equal (f '(("a" "b")))
+                   "<meta name=\"viewport\" content=\"a=b\">\n"))
+    (should (equal (f '(("a" "b") ("b" "") ("c" "d")))
+                   "<meta name=\"viewport\" content=\"a=b, c=d\">\n"))
+    (should-not (f '(("a" nil) ("b" nil) ("c" "  ")))))
+  (t-check-element-values
+   #'t--build-viewport-options
+   '(("" "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"))
+   nil '(:html-viewport ((width "device-width")
+                         (initial-scale "1")
+                         (minimum-scale "")
+                         (maximum-scale "")
+                         (user-scalable "")))))
+
 (ert-deftest t--build-mathjax-config ()
   "Test `t--build-mathjax-config' function."
   (let ((info '(:with-latex mathjax :html-mathjax-config

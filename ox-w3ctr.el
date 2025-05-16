@@ -2083,26 +2083,28 @@ Otherwise, signal an error."
             (name (coding-system-get coding 'mime-charset)))
       (symbol-name name) "utf-8"))
 
+(defun t--build-viewport-options (info)
+  "Build <meta> viewport tags."
+  (declare (ftype (function (plist) (or null string)))
+           (pure t) (important-return-value t))
+  (when-let* ((opts (cl-remove-if-not
+                     #'t--nw-p (plist-get info :html-viewport)
+                     :key #'cadr)))
+    (t--build-meta-entry
+     "name" "viewport"
+     (mapconcat (pcase-lambda (`(,k ,v)) (format "%s=%s" k v))
+                opts ", "))))
+
 (defun t--build-meta-info (info)
   "Return meta tags for exported document."
   (let* ((title (t--get-info-title info))
-         (charset
-          (if-let* ((coding t-coding-system)
-                    (name (coding-system-get coding 'mime-charset)))
-              (symbol-name name) "utf-8")))
+         (charset (t--get-charset)))
     (concat
      ;; See `org-export-timestamp-file' or `org-export-time-stamp-file'
      (when (plist-get info :time-stamp-file)
        (format "<!-- %s -->\n" (t--get-info-file-timestamp info)))
      (t--build-meta-entry "charset" charset)
-     (when-let*
-         ((viewport-options
-           (cl-remove-if-not (lambda (cell) (t--nw-p (cadr cell)))
-                             (plist-get info :html-viewport))))
-       (t--build-meta-entry
-        "name" "viewport"
-        (mapconcat (lambda (elm) (format "%s=%s" (car elm) (cadr elm)))
-                   viewport-options ", ")))
+     (t--build-viewport-options info)
      (format "<title>%s</title>\n" title)
      (mapconcat
       (lambda (args) (apply #'t--build-meta-entry args))
