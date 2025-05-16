@@ -2004,6 +2004,8 @@ that can be passed to `org-w3ctr--build-meta-entry', to generate meta
 tags to be included in the HTML head.
 
 Use document's INFO to derive relevant information for the tags."
+  (declare (ftype (function (plist) list))
+           (pure t) (important-return-value t))
   (thread-last
     (list
      (when-let* ((author (t--nw-trim (t--get-info-author info))))
@@ -2026,6 +2028,10 @@ or when CONTENT-FORMAT is present:
 
 Here {content} is determined by applying any CONTENT-FORMATTERS
 to the CONTENT-FORMAT and encoding the result as plain text."
+  (declare (ftype (function ( string string
+                              &optional string &rest t)
+                            string))
+           (pure t) (important-return-value t))
   (concat
    "<meta " (format "%s=\"%s\"" label identity)
    (when content-format
@@ -2041,6 +2047,8 @@ to the CONTENT-FORMAT and encoding the result as plain text."
 
 If title exists, is non-whitespace, and can be converted to plain text,
 return the text. Otherwise return a left-to-right mark (invisible)."
+  (declare (ftype (function (plist) string))
+           (pure t) (important-return-value t))
   (if-let* ((title (plist-get info :title))
             (str (org-element-interpret-data title))
             ((t--nw-p str))
@@ -2051,6 +2059,8 @@ return the text. Otherwise return a left-to-right mark (invisible)."
 
 (defun t-file-timestamp-default (_info)
   "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+  (declare (ftype (function (t) string))
+           (side-effect-free t) (important-return-value t))
   (format-time-string "%FT%RZ" nil t))
 
 (defun t--get-info-file-timestamp (info)
@@ -2058,10 +2068,20 @@ return the text. Otherwise return a left-to-right mark (invisible)."
 
 If the function exists and is valid, call it with INFO as argument.
 Otherwise, signal an error."
+  (declare (ftype (function (plist) string))
+           (side-effect-free t) (important-return-value t))
   (if-let* ((fun (plist-get info :html-file-timestamp))
             ((functionp fun)))
       (funcall fun info)
     (error ":html-file-timestamp's value is not a valid function!")))
+
+(defsubst t--get-charset ()
+  "Determine charset by `org-w3ctr-coding-system'."
+  (declare (ftype (function () string))
+           (side-effect-free t) (important-return-value t))
+  (if-let* ((coding t-coding-system)
+            (name (coding-system-get coding 'mime-charset)))
+      (symbol-name name) "utf-8"))
 
 (defun t--build-meta-info (info)
   "Return meta tags for exported document."

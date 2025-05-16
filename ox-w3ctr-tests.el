@@ -1041,6 +1041,7 @@ int a = 1;</code></p>\n</details>")
     (should (equal (t--get-author info) "test"))))
 
 (ert-deftest t-meta-tags-default ()
+  "Tests for `org-w3ctr-meta-tags-default'."
   (let ((info-with-author '(:with-author t :author ("Alice")))
         (info-with-desc '(:description "Test doc"))
         (info-with-keywords '(:keywords "org, test"))
@@ -1058,6 +1059,7 @@ int a = 1;</code></p>\n</details>")
                    '(("name" "generator" "Org Mode"))))))
 
 (ert-deftest t--build-meta-entry ()
+  "Tests for `org-w3ctr--build-meta-entry'."
   (should (equal (t--build-meta-entry "name" "author")
                  "<meta name=\"author\">\n"))
   (should (equal (t--build-meta-entry "property" "og:title" "My Title")
@@ -1073,6 +1075,7 @@ int a = 1;</code></p>\n</details>")
                  "<meta name=\"version\" content=\"&apos;v1.2&apos;\">\n")))
 
 (ert-deftest t--get-info-title ()
+  "Tests for `org-w3ctr--get-info-title'."
   (t-check-element-values
    #'t--get-info-title
    '(("#+title: he" "he")
@@ -1085,6 +1088,7 @@ int a = 1;</code></p>\n</details>")
      ("#+TITLE: hello\sworld" "hello world"))))
 
 (ert-deftest t--get-info-file-timestamp ()
+  "Tests for `org-w3ctr--get-info-file-timestamp'."
   (t-check-element-values
    #'t--get-info-file-timestamp
    `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
@@ -1093,6 +1097,25 @@ int a = 1;</code></p>\n</details>")
    nil
    '( :html-file-timestamp t-file-timestamp-default
       :time-stamp-file t)))
+
+(ert-deftest t--get-charset ()
+  "Tests for `org-w3ctr--get-charset'."
+  (cl-labels ((test (x) (let ((org-w3ctr-coding-system x))
+                          (t--get-charset))))
+    (should (string= (test nil) "utf-8"))
+    (should (string= (test 'utf-8-unix) "utf-8"))
+    (should (string= (test 'utf-8-dos) "utf-8"))
+    (should (string= (test 'utf-8-mac) "utf-8"))
+    (should (string= (test 'gbk) "gbk"))
+    (should (string= (test 'chinese-gbk) "gbk"))
+    (should (string= (test 'big5) "big5"))
+    (should (string= (test 'utf-7) "utf-7"))
+    (should (string= (test 'gb18030) "gb18030"))
+    (should (string= (test 'iso-latin-2) "iso-8859-2"))
+    (should (string= (test 'japanese-shift-jis) "shift_jis"))
+    (should (string= (test 'japanese-iso-8bit) "euc-jp"))
+    (should (string= (test 'cp936) "gbk"))
+    (should (string= (test 'cp65001) "utf-8"))))
 
 (ert-deftest t--build-mathjax-config ()
   "Test `t--build-mathjax-config' function."
