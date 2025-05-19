@@ -420,7 +420,7 @@ See https://developer.mozilla.org/en-US/docs/Web/MathML for details."
 Used when :with-latex is set to `custom'."
   :group 'org-export-w3ctr
   :type 'function)
-
+
 (defcustom t-head ""
   "Raw HTML content to insert into the <head> section.
 
@@ -445,7 +445,7 @@ or for publication projects using the :html-head-extra property."
   :type 'string)
 ;;;###autoload
 (put 't-head-extra 'safe-local-variable 'stringp)
-
+
 (defcustom t-pre/post-timestamp-format "%Y-%m-%d %H:%M"
   "Formatting string used for timestamps in preamble and postamble.
 See `format-time-string' for more information on its components."
@@ -2208,6 +2208,9 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
      ((null key) "")
      ((eq type 'custom) (t--normalize-string (funcall value info)))
      (t (if (t--nw-p value) (t--normalize-string value) "")))))
+
+;;;; <head>
+;; No options
 
 (defun t--has-math-p (info)
   "Test if org doc has latex fragment or latex environment."
