@@ -1182,21 +1182,24 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--build-math-config ()
   "Test `t--build-mathjax-config' function."
-  (ert-skip "nothing")
-  (let ((info '(:with-latex mathjax :html-mathjax-config
-                            ("mjconfig" . "mlconfig"))))
-    (should (equal (t--build-mathjax-config info) "mjconfig\n")))
-  (let ((info '(:with-latex mathml :html-mathjax-config
-                            ("mjconfig" . "mlconfig"))))
-    (should (equal (t--build-mathjax-config info) "mlconfig\n")))
-  (let ((info '(:with-latex nil :html-mathjax-config
-                            ("mjconfig" . "mlconfig"))))
-    (should (equal (t--build-mathjax-config info) "")))
-  (let ((info '(:with-latex mathjax :html-mathjax-config (1 . 2))))
+  (let ((info '( :with-latex nil)))
+    (should (equal (t--build-math-config info) "")))
+  (let ((info '( :with-latex mathjax
+                 :html-mathjax-config "mathjax")))
+    (should (equal (t--build-math-config info) "mathjax\n")))
+  (let ((info '( :with-latex mathml
+                 :html-mathml-config "mathml")))
+    (should (equal (t--build-math-config info) "mathml\n")))
+  (let ((info '(:with-latex invalid)))
     (should-error (t--build-mathjax-config info) :type 'error))
-  (let ((info '(:with-latex invalid :html-mathjax-config
-                            ("mjconfig" . "mlconfig"))))
-    (should-error (t--build-mathjax-config info) :type 'error)))
+  (let ((info '( :with-latex custom
+                 :html-math-custom-config-function
+                 (lambda (_i) "test"))))
+    (should (equal (t--build-math-config info) "test\n")))
+  (let ((info '( :with-latex custom
+                 :html-math-custom-config-function
+                 t-math-custom-config-function-default)))
+    (should (equal (t--build-math-config info) ""))))
 
 ;; Add pre/postamble tests here.
 
