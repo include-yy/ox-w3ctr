@@ -1181,7 +1181,7 @@ int a = 1;</code></p>\n</details>")
                    t-default-style-file))))
 
 (ert-deftest t--build-math-config ()
-  "Test `t--build-mathjax-config' function."
+  "Test `t--build-math-config' function."
   (let ((info '( :with-latex nil)))
     (should (equal (t--build-math-config info) "")))
   (let ((info '( :with-latex mathjax
@@ -1191,7 +1191,7 @@ int a = 1;</code></p>\n</details>")
                  :html-mathml-config "mathml")))
     (should (equal (t--build-math-config info) "mathml\n")))
   (let ((info '(:with-latex invalid)))
-    (should-error (t--build-mathjax-config info) :type 'error))
+    (should-error (t--build-math-config info) :type 'error))
   (let ((info '( :with-latex custom
                  :html-math-custom-config-function
                  (lambda (_i) "test"))))
