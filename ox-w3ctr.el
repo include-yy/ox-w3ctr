@@ -941,17 +941,6 @@ controls how timestamps are formatted, with variations in:
                 (const T-colon) (const T-colon-zulu)))
 
 ;;; Internal Functions
-(defsubst t--normalize-string (s)
-  "Ensure string S ends with a single newline character.
-
-If S isn't a string return it unchanged.  If S is the empty
-string, return it.  Otherwise, return a new string with a single
-newline character at its end."
-  (cond
-   ((not (stringp s)) s)
-   ((string= "" s) "")
-   (t (and (string-match "\\(\n[ \t]*\\)*\\'" s)
-           (replace-match "\n" nil nil s)))))
 
 (defun t--has-caption-p (element &optional _info)
   "Non-nil when ELEMENT has a caption affiliated keyword.
@@ -1266,6 +1255,18 @@ input. Other data types will be ignored."
    ((string= string "") "")
    (t (let (out) (dotimes (_ n (or out ""))
                    (setq out (concat string out)))))))
+
+(defsubst t--normalize-string (s)
+  "Ensure string S ends with a single newline character.
+
+If S isn't a string return it unchanged.  If S is the empty
+string, return it.  Otherwise, return a new string with a single
+newline character at its end."
+  (cond
+   ((not (stringp s)) s)
+   ((string= "" s) "")
+   (t (and (string-match "\\(\n[ \t]*\\)*\\'" s)
+           (replace-match "\n" nil nil s)))))
 
 
 ;;; Simple JSON based sync RPC, not JSONRPC
@@ -2152,7 +2153,9 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
       (format "<style>\n%s\n</style>\n" it))))
 
 (defun t--build-head (info)
-  "Return information for the <head>..</head> of the HTML output."
+  "Return information for the <head>..</head> of the HTML output.
+
+Includes head, head-extra and default CSS style."
   (t--normalize-string
    (concat
     (t--normalize-string (plist-get info :html-head))

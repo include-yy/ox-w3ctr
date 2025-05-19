@@ -299,6 +299,13 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should-error (t--make-string 3 [?a ?b]))
   (should-error (t--make-string "a" "a")))
 
+(ert-deftest t--normalize-string ()
+  "Tests for `org-w3ctr--normalize-string'."
+  (should-not (t--normalize-string nil))
+  (should (equal "" (t--normalize-string "")))
+  (should (equal "a\n" (t--normalize-string "a")))
+  (should (equal "a  \n" (t--normalize-string "a  \n\n\n"))))
+
 
 
 (ert-deftest t-center-block ()
