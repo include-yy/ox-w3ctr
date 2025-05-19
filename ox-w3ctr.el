@@ -1268,6 +1268,15 @@ newline character at its end."
    (t (and (string-match "\\(\n[ \t]*\\)*\\'" s)
            (replace-match "\n" nil nil s)))))
 
+(defun t--load-file (file)
+  "Read file content string from FILE, or nil if file not exists."
+  (declare (ftype (function (string) (or null string)))
+           (important-return-value t))
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (buffer-substring-no-properties
+       (point-min) (point-max)))))
 
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
@@ -2127,16 +2136,11 @@ Use document's INFO to derive relevant information for the tags."
    (format "<title>%s</title>\n" (t--get-info-title info))
    (t--build-meta-tags info)))
 
-(defun t--load-file (file)
-  "Read file content string from FILE, or nil if file not exists."
-  (declare (ftype (function (string) (or null string)))
-           (important-return-value t))
-  (when (file-exists-p file)
-    (with-temp-buffer
-      (insert-file-contents file)
-      (buffer-substring-no-properties
-       (point-min) (point-max)))))
-
+;;;; CSS export.
+;; Options:
+;; - `org-w3ctr-default-style'
+;; - `org-w3ctr-default-style-file'
+;; - :html-style (`org-w3ctr-head-include-default-style')
 (defun t--load-css (_info)
   "Load CSS content for HTML export from configured sources.
 

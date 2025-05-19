@@ -306,8 +306,15 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (equal "a\n" (t--normalize-string "a")))
   (should (equal "a  \n" (t--normalize-string "a  \n\n\n"))))
 
+(ert-deftest t--load-file ()
+  "Tests fro `org-w3ctr--load-file'."
+  (let ((ox (with-temp-buffer
+              (insert-file-contents "ox-w3ctr.el")
+              (buffer-substring-no-properties
+               (point-min) (point-max)))))
+    (should (equal ox (t--load-file "ox-w3ctr.el"))))
+  (should-not (t--load-file "not-exist")))
 
-
 (ert-deftest t-center-block ()
   "Tests for `org-w3ctr-center-block'."
   (t-check-element-values
