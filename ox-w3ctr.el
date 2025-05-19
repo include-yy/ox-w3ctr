@@ -336,31 +336,6 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
                 (choice (const :tag "unset" "")
                         (const "true")
                         (const "false"))))))
-
-(defcustom t-head ""
-  "Raw HTML content to insert into the <head> section.
-
-This variable can contain the full HTML structure to provide a style,
-including the surrounding HTML tags.  As the value of this option
-simply gets inserted into the HTML <head> header, you can use it to
-add any arbitrary text to the header.
-
-You can set this on a per-file basis using #+HTML_HEAD:,
-or for publication projects using the :html-head property."
-  :group 'org-export-w3ctr
-  :type 'string)
-;;;###autoload
-(put 't-head 'safe-local-variable 'stringp)
-
-(defcustom t-head-extra ""
-  "More head information to add in the <head> section.
-
-You can set this on a per-file basis using #+HTML_HEAD_EXTRA:,
-or for publication projects using the :html-head-extra property."
-  :group 'org-export-w3ctr
-  :type 'string)
-;;;###autoload
-(put 't-head-extra 'safe-local-variable 'stringp)
 
 (defcustom t-head-include-default-style t
   "Non-nil means include the default style in exported HTML files."
@@ -403,6 +378,31 @@ tag in the exported HTML's <head> section. Example:
   \"body { font-family: sans-serif; margin: 2em; }\""
   :group 'org-export-w3ctr
   :type 'string)
+
+(defcustom t-head ""
+  "Raw HTML content to insert into the <head> section.
+
+This variable can contain the full HTML structure to provide a style,
+including the surrounding HTML tags.  As the value of this option
+simply gets inserted into the HTML <head> header, you can use it to
+add any arbitrary text to the header.
+
+You can set this on a per-file basis using #+HTML_HEAD:,
+or for publication projects using the :html-head property."
+  :group 'org-export-w3ctr
+  :type 'string)
+;;;###autoload
+(put 't-head 'safe-local-variable 'stringp)
+
+(defcustom t-head-extra ""
+  "More head information to add in the <head> section.
+
+You can set this on a per-file basis using #+HTML_HEAD_EXTRA:,
+or for publication projects using the :html-head-extra property."
+  :group 'org-export-w3ctr
+  :type 'string)
+;;;###autoload
+(put 't-head-extra 'safe-local-variable 'stringp)
 
 (defcustom t-with-latex 'mathjax
   "Control how LaTeX math expressions are processed in HTML export.
@@ -2127,6 +2127,16 @@ Use document's INFO to derive relevant information for the tags."
    (format "<title>%s</title>\n" (t--get-info-title info))
    (t--build-meta-tags info)))
 
+(defun t--load-file (file)
+  "Read file content string from FILE, or nil if file not exists."
+  (declare (ftype (function (string) (or null string)))
+           (important-return-value t))
+  (when (file-exists-p file)
+    (with-temp-buffer
+      (insert-file-contents file)
+      (buffer-substring-no-properties
+       (point-min) (point-max)))))
+
 (defun t--load-css (_info)
   "Load CSS content for HTML export from configured sources.
 
@@ -2136,6 +2146,8 @@ This function handles CSS loading in the following priority:
 . If both are empty/nil, return empty string (no styles)
 
 The loaded CSS will be wrapped in HTML <style> tags when non-empty."
+  (declare (ftype (function (t) string))
+           (important-return-value t))
   (let ((style t-default-style)
         (file t-default-style-file)
         it)
@@ -2144,10 +2156,7 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
     (cond
      ((not (string= "" style)) (setq it style))
      ((null file) (setq it nil))
-     (t (setq it (with-temp-buffer
-                   (insert-file-contents file)
-                   (buffer-substring-no-properties
-                    (point-min) (point-max)))
+     (t (setq it (t--load-file file)
               t-default-style it)))
     (if (null it) ""
       (format "<style>\n%s\n</style>\n" it))))
