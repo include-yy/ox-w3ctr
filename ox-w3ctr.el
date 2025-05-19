@@ -396,8 +396,38 @@ specifies the rendering method:
           (const :tag "Use custom method" custom)))
 
 (defcustom t-mathjax-config "\
+<style>
+  window.MathJax = {
+    tex: {
+      ams: {
+        multlineWidth: '85%'
+      },
+      tags: 'ams',
+      tagSide: 'right',
+      tagIndent: '.8em'
+    },
+    chtml: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    svg: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    output: {
+      font: 'mathjax-modern',
+      displayOverflow: 'overflow'
+    }
+  };
+</style>
 
-"
+<script
+  id='MathJax-script'
+  async
+  src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'>
+</script>"
   "Configuration for MathJax rendering in HTML export,
 Used for MathJax rendering (:with-latex is set to `mathjax').
 
