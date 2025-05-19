@@ -2209,6 +2209,16 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
      ((eq type 'custom) (t--normalize-string (funcall value info)))
      (t (if (t--nw-p value) (t--normalize-string value) "")))))
 
+(defun t--has-math-p (info)
+  "Test if org doc has latex fragment or latex environment."
+  (declare (ftype (function (plist) boolean))
+           (pure t) (important-return-value t))
+  (and (plist-get info :with-latex)
+       (org-element-map (plist-get info :parse-tree)
+           '(latex-fragment latex-environment)
+         #'identity info t nil t)
+       t))
+
 (defun t--build-head (info)
   "Return information for the <head>..</head> of the HTML output.
 
@@ -2219,7 +2229,7 @@ Includes head, head-extra and default CSS style."
     (t--normalize-string (plist-get info :html-head-extra))
     (when (plist-get info :html-head-include-default-style)
       (t--normalize-string (t--load-css info))))))
-
+
 ;;;; Preamble and Postamble
 
 ;; Compared with org-html-format-spec, rename to make the name more

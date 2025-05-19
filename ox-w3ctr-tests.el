@@ -1200,6 +1200,22 @@ int a = 1;</code></p>\n</details>")
                  :html-math-custom-config-function
                  t-math-custom-config-function-default)))
     (should (equal (t--build-math-config info) ""))))
+
+(ert-deftest t--has-math-p ()
+  "Tests for `org-w3ctr--has-math-p'."
+  (cl-flet ((mkinfo (str) `( :with-latex t
+                             :parse-tree
+                             ,(with-temp-buffer
+                                (save-excursion (insert str))
+                                (org-element-parse-buffer)))))
+    (should-not (t--has-math-p (mkinfo "123")))
+    (should-not (t--has-math-p (mkinfo "$1+2")))
+    (should (equal (t--has-math-p (mkinfo "$1+2$")) t))
+    (should (equal (t--has-math-p (mkinfo "\\(1+2\\)")) t))
+    (should (equal (t--has-math-p (mkinfo "\\[1+2\\]")) t))
+    (should (equal (t--has-math-p (mkinfo "\\begin_equation\n123\n\\end_equation")) t))))
+
+
 
 ;; Add pre/postamble tests here.
 
