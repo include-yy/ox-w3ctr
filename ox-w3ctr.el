@@ -2246,6 +2246,60 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
    (t--normalize-string (plist-get info :html-head-extra))
    "</head>\n"))
 
+;;;; Home and up
+
+(defun t-legacy-format-home/up (info)
+  "Format legacy-style home/up navigation links from export INFO.
+
+Generates HTML navigation links using either :html-link-up or
+:html-link-home from the INFO plist, falling back to each other when
+empty. Returns nil if both links are empty strings."
+  (let ((link-up (t--trim (plist-get info :html-link-up)))
+        (link-home (t--trim (plist-get info :html-link-home))))
+    (unless (and (string= link-up "")
+                 (string= link-home ""))
+      (format (plist-get info :html-home/up-format)
+              (or link-up link-home)
+              (or link-home link-up)))))
+
+(defun t-format-home/up-default-function (info)
+  "Generate HTML navigation links from the export INFO plist. This
+function processes the :html-link-home/up property to create a
+navigation section in the exported document.
+
+When :html-link-home/up is a vector, it should contain cons cells in
+the form (URL . LABEL) where URL is the target location and LABEL is
+the display text.
+
+When :html-link-home/up is a list, it is treated as containing Org
+link elements. These links will be processed through `org-export-data'
+to generate the final HTML output.
+
+The output is always wrapped in a <nav> HTML element with
+id=\"home-and-up\" for consistent styling and semantic markup.
+Each link is separated by newlines for readability in the output HTML."
+  (let* ((links (plist-get info :html-link-home/up)))
+    (pcase links
+      ((pred vectorp)
+       (concat "<nav id=\"home-and-up\">\n"
+               (thread-first
+                 (pcase-lambda (`(,link . ,name))
+                   (format "<a href=\"%s\">%s</a>" link name))
+                 (mapconcat links "\n"))
+               "\n</nav>\n"))
+      ((pred listp)
+       (let ((<a>s
+              (thread-last
+                (mapcar (lambda (x) (org-export-data x info)) links)
+                (cl-remove-if-not #'t--nw-p)
+                (funcall (lambda (x) (mapconcat #'identity x "\n"))))))
+         (if (string= <a>s "")
+             (or (t-legacy-format-home/up info) nil)
+           (concat
+            "<nav id=\"home-and-up\">\n" <a>s
+            "\n</nav>\n"))))
+      (_ (error "Seems not a valid home/up value: %s" links)))))
+
 ;;;; Preamble and Postamble
 
 ;; Compared with org-html-format-spec, rename to make the name more
@@ -2438,61 +2492,7 @@ CC BY-SA 4.0</a></dd>
 
 Note: This variable is provided as an example only and may need
 adaptation for actual project use.")
-
-;;; Home and up
-
-(defun t-legacy-format-home/up (info)
-  "Format legacy-style home/up navigation links from export INFO.
-
-Generates HTML navigation links using either :html-link-up or
-:html-link-home from the INFO plist, falling back to each other when
-empty. Returns nil if both links are empty strings."
-  (let ((link-up (t--trim (plist-get info :html-link-up)))
-        (link-home (t--trim (plist-get info :html-link-home))))
-    (unless (and (string= link-up "")
-                 (string= link-home ""))
-      (format (plist-get info :html-home/up-format)
-              (or link-up link-home)
-              (or link-home link-up)))))
-
-(defun t-format-home/up-default-function (info)
-  "Generate HTML navigation links from the export INFO plist. This
-function processes the :html-link-home/up property to create a
-navigation section in the exported document.
-
-When :html-link-home/up is a vector, it should contain cons cells in
-the form (URL . LABEL) where URL is the target location and LABEL is
-the display text.
-
-When :html-link-home/up is a list, it is treated as containing Org
-link elements. These links will be processed through `org-export-data'
-to generate the final HTML output.
-
-The output is always wrapped in a <nav> HTML element with
-id=\"home-and-up\" for consistent styling and semantic markup.
-Each link is separated by newlines for readability in the output HTML."
-  (let* ((links (plist-get info :html-link-home/up)))
-    (pcase links
-      ((pred vectorp)
-       (concat "<nav id=\"home-and-up\">\n"
-               (thread-first
-                 (pcase-lambda (`(,link . ,name))
-                   (format "<a href=\"%s\">%s</a>" link name))
-                 (mapconcat links "\n"))
-               "\n</nav>\n"))
-      ((pred listp)
-       (let ((<a>s
-              (thread-last
-                (mapcar (lambda (x) (org-export-data x info)) links)
-                (cl-remove-if-not #'t--nw-p)
-                (funcall (lambda (x) (mapconcat #'identity x "\n"))))))
-         (if (string= <a>s "")
-             (or (t-legacy-format-home/up info) nil)
-           (concat
-            "<nav id=\"home-and-up\">\n" <a>s
-            "\n</nav>\n"))))
-      (_ (error "Seems not a valid home/up value: %s" links)))))
-
+
 ;;; Tables of Contents
 (defun t-format-headline-default-function
     (todo _todo-type priority text tags info)
@@ -2593,7 +2593,7 @@ of contents as a string, or nil if it is empty."
                      top-level "Table of Contents" top-level))
            toc
            "</nav>\n"))))))
-
+
 (defvar t--zeroth-section-output nil
   "Internal variable storing zeroth section's HTML output.
 
