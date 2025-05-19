@@ -2219,16 +2219,29 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
          #'identity info t nil t)
        t))
 
-(defun t--build-head (info)
-  "Return information for the <head>..</head> of the HTML output.
+(defun t--use-default-style-p (info)
+  "Test if org export use default CSS style."
+  (declare (ftype (function (plist) boolean))
+           (pure t) (important-return-value t))
+  (and (plist-get info :html-head-include-default-style) t))
 
-Includes head, head-extra and default CSS style."
-  (t--normalize-string
-   (concat
-    (t--normalize-string (plist-get info :html-head))
-    (t--normalize-string (plist-get info :html-head-extra))
-    (when (plist-get info :html-head-include-default-style)
-      (t--normalize-string (t--load-css info))))))
+;; FIXME: Consider add code hightlight (such as highlight.js) codes.
+(defun t--build-head (info)
+  "Return information for the <head>...</head> of the HTML output."
+  (declare (ftype (function (plist) string))
+           (important-return-value t))
+  (concat
+   "<head>\n"
+   ;; <meta>
+   (t--build-meta-info info)
+   ;; <style>
+   (when (t--use-default-style-p info) (t--load-css info))
+   ;; Mathjax or MathML config.
+   (when (t--has-math-p info) (t--build-math-config info))
+   ;; User defined <head> contents
+   (t--normalize-string (plist-get info :html-head))
+   (t--normalize-string (plist-get info :html-head-extra))
+   "</head>\n"))
 
 ;;;; Preamble and Postamble
 
@@ -2617,13 +2630,8 @@ CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
   (concat
    "<!DOCTYPE html>\n"
-   (format "<html lang=\"%s\">\n"
-           (plist-get info :language))
-   "<head>\n"
-   (t--build-meta-info info)
+   (format "<html lang=\"%s\">\n" (plist-get info :language))
    (t--build-head info)
-   (t--build-math-config info)
-   "</head>\n"
    "<body>\n"
    ;; home and up links
    (when-let* ((fun (plist-get info :html-format-home/up-function)))

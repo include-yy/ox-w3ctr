@@ -1215,7 +1215,12 @@ int a = 1;</code></p>\n</details>")
     (should (equal (t--has-math-p (mkinfo "\\[1+2\\]")) t))
     (should (equal (t--has-math-p (mkinfo "\\begin_equation\n123\n\\end_equation")) t))))
 
-
+(ert-deftest t--use-default-style-p ()
+  "Tests for `org-w3ctr--use-default-styple-p'."
+  (should-not (t--use-default-style-p nil))
+  (should (equal (t--use-default-style-p
+                  '(:html-head-include-default-style t))
+                 t)))
 
 ;; Add pre/postamble tests here.
 
