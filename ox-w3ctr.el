@@ -154,8 +154,9 @@
     ;; Latex and MathJAX options -------
     (:with-latex nil "tex" t-with-latex)
     (:html-mathjax-config nil nil t-mathjax-config)
-    (:html-mathjax-options nil nil org-html-mathjax-options)
-    (:html-mathjax-template nil nil org-html-mathjax-template)
+    (:html-mathml-config nil nil t-mathml-config)
+    (:html-math-custom-config-function
+     nil nil t-math-custom-config-function)
     ;; postamble and preamble ------------------------
     (:html-postamble nil "html-postamble" t-postamble)
     (:html-preamble nil "html-preamble" t-preamble)
@@ -378,6 +379,47 @@ tag in the exported HTML's <head> section. Example:
   \"body { font-family: sans-serif; margin: 2em; }\""
   :group 'org-export-w3ctr
   :type 'string)
+
+(defcustom t-with-latex 'mathjax
+  "Control how LaTeX math expressions are processed in HTML export.
+
+When non-nil, enables processing of LaTeX math snippets.  The value
+specifies the rendering method:
+. `mathjax': Render math using MathJax (client-side)
+. `mathml' : Convert to MathML markup using MathJax  (server-side)
+. `custom' : Use custom option and function to do what you want."
+  :group 'org-export-w3ctr
+  :type '(choice
+          (const :tag "Disable math processing" nil)
+          (const :tag "Use MathJax to display math" mathjax)
+          (const :tag "Use MathJax to render mathML" mathml)
+          (const :tag "Use custom method" custom)))
+
+(defcustom t-mathjax-config "\
+
+"
+  "Configuration for MathJax rendering in HTML export,
+Used for MathJax rendering (:with-latex is set to `mathjax').
+
+For detailed configuration options, see:
+https://docs.mathjax.org/en/latest/options/index.html"
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-mathml-config ""
+  "Configuration for MathML in HTML export. Used when :with-latex
+is set to `mathml'.
+
+See https://developer.mozilla.org/en-US/docs/Web/MathML for details."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-math-custom-config-function
+  #'t-math-custom-config-function-default
+  "Configuration for custom Math rendering in HTML export.
+Used when :with-latex is set to `custom'."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 (defcustom t-head ""
   "Raw HTML content to insert into the <head> section.
@@ -403,35 +445,6 @@ or for publication projects using the :html-head-extra property."
   :type 'string)
 ;;;###autoload
 (put 't-head-extra 'safe-local-variable 'stringp)
-
-(defcustom t-with-latex 'mathjax
-  "Control how LaTeX math expressions are processed in HTML export.
-
-When non-nil, enables processing of LaTeX math snippets.  The value
-specifies the rendering method:
-. `mathjax': Render math using MathJax (client-side)
-. `mathml' : Convert to MathML markup using MathJax  (server-side)"
-  :group 'org-export-w3ctr
-  :type '(choice
-          (const :tag "Disable math processing" nil)
-          (const :tag "Use MathJax to display math" mathjax)
-          (const :tag "Use MathJax to render mathML" mathml)))
-
-(defcustom t-mathjax-config '("" . "")
-  "Configuration for MathJax rendering in HTML export.
-
-This cons cell contains two configuration strings:
-. car: MathJax JavaScript configuration
-. cdr: MathML fallback configuration
-
-The first config will be used for standard MathJax rendering,
-the second will be used when `org-w3ctr-with-latex' is set to `mathml'.
-
-For detailed configuration options, see:
-https://docs.mathjax.org/en/latest/options/index.html"
-  :group 'org-export-w3ctr
-  :type '(cons (string :tag "mathjax config")
-               (string :tag "mathml  config")))
 
 (defcustom t-pre/post-timestamp-format "%Y-%m-%d %H:%M"
   "Formatting string used for timestamps in preamble and postamble.
@@ -2141,6 +2154,7 @@ Use document's INFO to derive relevant information for the tags."
 ;; - `org-w3ctr-default-style'
 ;; - `org-w3ctr-default-style-file'
 ;; - :html-style (`org-w3ctr-head-include-default-style')
+
 (defun t--load-css (_info)
   "Load CSS content for HTML export from configured sources.
 
@@ -2165,6 +2179,36 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
     (if (null it) ""
       (format "<style>\n%s\n</style>\n" it))))
 
+;;;; Mathjax config
+;; Options:
+;; - :with-latex (`org-w3ctr-with-latex')
+;; - :html-mathjax-config (`org-w3ctr-mathjax-config')
+;; - :html-mathml-config (`org-w3ctr-mathml-config')
+;; - :html-math-custom-config (`org-w3ctr-math-custom-config-function')
+
+(defun t-math-custom-config-function-default (_info)
+  "Default function for `org-w3ctr-math-custom-config-function'."
+  (declare (ftype (function (t) string))
+           (important-return-value t))
+  "")
+
+(defun t--build-math-config (info)
+  "Insert the user setup into the mathjax template."
+  (declare (ftype (function (plist) string))
+           (important-return-value t))
+  (let* ((type (plist-get info :with-latex))
+         (key (pcase type
+                (`nil nil)
+                (`mathjax :html-mathjax-config)
+                (`mathml :html-mathml-config)
+                (`custom :html-math-custom-config-function)
+                (other (error "Unrecognized math option: %s" other))))
+         (value (and key (plist-get info key))))
+    (cond
+     ((null key) "")
+     ((eq type 'custom) (t--normalize-string (funcall value info)))
+     (t (if (t--nw-p value) (t--normalize-string value) "")))))
+
 (defun t--build-head (info)
   "Return information for the <head>..</head> of the HTML output.
 
@@ -2176,22 +2220,7 @@ Includes head, head-extra and default CSS style."
     (when (plist-get info :html-head-include-default-style)
       (t--normalize-string (t--load-css info))))))
 
-(defun t--build-mathjax-config (info)
-  "Insert the user setup into the mathjax template."
-  (let ((type (plist-get info :with-latex))
-        (config (plist-get info :html-mathjax-config)))
-    (unless (and (stringp (car config)) (stringp (cdr config)))
-      (error "Not a valid mathjax config: %s" config))
-    (pcase type
-      (`nil "")
-      (`mathjax (if (not (t--nw-p (car config)))
-                    (org-html--build-mathjax-config info)
-                  (t--normalize-string (car config))))
-      (`mathml (if (not (t--nw-p (cdr config))) ""
-                 (t--normalize-string (cdr config))))
-      (other (error "Not a valid mathjax option: %s" other)))))
-
-;;; Preamble and Postamble
+;;;; Preamble and Postamble
 
 ;; Compared with org-html-format-spec, rename to make the name more
 ;; specific, and add some helpful docstring.
@@ -2583,7 +2612,7 @@ holding export options."
    "<head>\n"
    (t--build-meta-info info)
    (t--build-head info)
-   (t--build-mathjax-config info)
+   (t--build-math-config info)
    "</head>\n"
    "<body>\n"
    ;; home and up links

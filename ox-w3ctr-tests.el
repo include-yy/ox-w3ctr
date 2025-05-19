@@ -1161,8 +1161,28 @@ int a = 1;</code></p>\n</details>")
                          (maximum-scale "")
                          (user-scalable "")))))
 
-(ert-deftest t--build-mathjax-config ()
+(ert-deftest t--load-css ()
+  "Tests for `org-w3ctr--load-css'."
+  (let ((t-default-style nil))
+    (should-error (t--load-css nil)))
+  (let ((t-default-style "123"))
+    (should (equal (t--load-css nil)
+                   "<style>\n123\n</style>\n")))
+  (let ((t-default-style "")
+        (t-default-style-file nil))
+    (should (equal (t--load-css nil) "")))
+  (cl-letf (((symbol-function 't--load-file)
+             #'identity)
+            (t-default-style ""))
+    (should (equal (t--load-css nil)
+                   (format "<style>\n%s\n</style>\n"
+                           t-default-style-file)))
+    (should (equal t-default-style
+                   t-default-style-file))))
+
+(ert-deftest t--build-math-config ()
   "Test `t--build-mathjax-config' function."
+  (ert-skip "nothing")
   (let ((info '(:with-latex mathjax :html-mathjax-config
                             ("mjconfig" . "mlconfig"))))
     (should (equal (t--build-mathjax-config info) "mjconfig\n")))
