@@ -1221,6 +1221,25 @@ int a = 1;</code></p>\n</details>")
   (should (equal (t--use-default-style-p
                   '(:html-head-include-default-style t))
                  t)))
+
+(ert-deftest t-legacy-format-home/up ()
+  "Tests for `org-w3ctr-legacy-format-home/up'."
+  (let ((info '(:html-link-up "" :html-link-home "")))
+    (should-not (t-legacy-format-home/up info)))
+  (let ((info `( :html-link-up "1" :html-link-home "2"
+                 :html-home/up-format ,t-home/up-format)))
+    (should (equal (t-legacy-format-home/up info) "\
+<div id=\"home-and-up\">\n <a href=\"1\"> UP </a>
+ <a href=\"2\"> HOME </a>\n</div>"))
+    (setq info (plist-put info :html-link-home ""))
+    (should (equal (t-legacy-format-home/up info) "\
+<div id=\"home-and-up\">\n <a href=\"1\"> UP </a>
+ <a href=\"1\"> HOME </a>\n</div>"))
+    (setq info (plist-put info :html-link-up ""))
+    (setf (plist-get info :html-link-home) "2")
+    (should (equal (t-legacy-format-home/up info) "\
+<div id=\"home-and-up\">\n <a href=\"2\"> UP </a>
+ <a href=\"2\"> HOME </a>\n</div>"))))
 
 ;; Add pre/postamble tests here.
 
