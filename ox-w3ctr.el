@@ -475,6 +475,49 @@ or for publication projects using the :html-head-extra property."
   :type 'string)
 ;;;###autoload
 (put 't-head-extra 'safe-local-variable 'stringp)
+
+(defcustom t-link-home ""
+  "Default value for :html-link-home in org export.
+
+Used as fallback navigation link when :html-link-home/up is not
+specified in document.  Should be a URL pointing to the home page."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-link-up ""
+  "Default value for :html-link-up in org export.
+
+Used as fallback navigation link when :html-link-home/up is not
+specified in document.  Should be a URL pointing to the parent page."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-home/up-format
+  "<div id=\"home-and-up\">\n <a href=\"%s\"> UP </a>
+ <a href=\"%s\"> HOME </a>\n</div>"
+  "Formatting string for legacy home/up navigation links.
+
+Used when :html-link-home/up is not specified. The first %s is
+replaced with the up link, the second with home link."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-link-homeup nil
+  "Default value for :html-link-home/up navigation links. Can be:
+. A vector of (LINK . NAME) cons pairs for multiple links
+. A list of Org elements (when set through #+HTML_LINK_HOMEUP)
+. nil to fall back to legacy home/up behavior
+
+Example: [(\"../index.html\" . \"UP\")
+          (\"../../index.html\" . \"HOME\")]"
+  :group 'org-export-w3ctr
+  :type 'sexp)
+
+(defcustom t-format-home/up-function
+  #'t-format-home/up-default-function
+  "Function used to generate home/up navigation links."
+  :group 'org-export-w3ctr
+  :type 'symbol)
 
 (defcustom t-pre/post-timestamp-format "%Y-%m-%d %H:%M"
   "Formatting string used for timestamps in preamble and postamble.
@@ -573,49 +616,6 @@ supported Creative Commons licenses or variants."
       "https://creativecommons.org/licenses/by-sa/3.0/"))
   "Alist mapping license symbols to their display names and URLs.
 Each element is of form (SYMBOL DISPLAY-NAME &optional URL).")
-
-(defcustom t-link-home ""
-  "Default value for :html-link-home in org export.
-
-Used as fallback navigation link when :html-link-home/up is not
-specified in document.  Should be a URL pointing to the home page."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-link-up ""
-  "Default value for :html-link-up in org export.
-
-Used as fallback navigation link when :html-link-home/up is not
-specified in document.  Should be a URL pointing to the parent page."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-home/up-format
-  "<div id=\"home-and-up\">\n <a href=\"%s\"> UP </a>
- <a href=\"%s\"> HOME </a>\n</div>"
-  "Formatting string for legacy home/up navigation links.
-
-Used when :html-link-home/up is not specified. The first %s is
-replaced with the up link, the second with home link."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-link-homeup nil
-  "Default value for :html-link-home/up navigation links. Can be:
-. A vector of (LINK . NAME) cons pairs for multiple links
-. A list of Org elements (when set through #+HTML_LINK_HOMEUP)
-. nil to fall back to legacy home/up behavior
-
-Example: [(\"../index.html\" . \"UP\")
-          (\"../../index.html\" . \"HOME\")]"
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-(defcustom t-format-home/up-function
-  #'t-format-home/up-default-function
-  "Function used to generate home/up navigation links."
-  :group 'org-export-w3ctr
-  :type 'symbol)
 
 (defcustom t-format-headline-function
   #'t-format-headline-default-function
@@ -2277,6 +2277,10 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
    "</head>\n"))
 
 ;;;; Home and up
+;; Options
+;; - :html-link-up (`org-w3ctr-link-up')
+;; - :html-link-home (`org-w3ctr-link-home')
+;; - :html-home/up-format (`org-w3ctr-home/up-format')
 
 (defun t-legacy-format-home/up (info)
   "Format legacy-style home/up navigation links from export INFO.
