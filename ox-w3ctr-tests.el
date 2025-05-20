@@ -1239,7 +1239,18 @@ int a = 1;</code></p>\n</details>")
     (setf (plist-get info :html-link-home) "2")
     (should (equal (t-legacy-format-home/up info) "\
 <div id=\"home-and-up\">\n <a href=\"2\"> UP </a>
- <a href=\"2\"> HOME </a>\n</div>"))))
+ <a href=\"2\"> HOME </a>\n</div>")))
+  (t-check-element-values
+   #'t-legacy-format-home/up
+   '(("#+html_link_up: https://example.com"
+      "<div id=\"home-and-up\">\n <a href=\"https://example.com\"> UP </a>\n <a href=\"https://example.com\"> HOME </a>\n</div>")
+     ("#+html_link_home: https://a.com"
+      "<div id=\"home-and-up\">\n <a href=\"https://a.com\"> UP </a>\n <a href=\"https://a.com\"> HOME </a>\n</div>")
+     ("#+html_link_home: a\n#+html_link_up:b"
+      "<div id=\"home-and-up\">\n <a href=\"b\"> UP </a>\n <a href=\"a\"> HOME </a>\n</div>"))
+   nil `( :html-link-up "" :html-link-home ""
+          :html-link-home/up nil
+          :html-home/up-format ,t-home/up-format)))
 
 ;; Add pre/postamble tests here.
 

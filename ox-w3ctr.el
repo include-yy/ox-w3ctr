@@ -2288,6 +2288,8 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
 Generates HTML navigation links using either :html-link-up or
 :html-link-home from the INFO plist, falling back to each other when
 empty. Returns nil if both links are empty strings."
+  (declare (ftype (function (plist) (or null string)))
+           (pure t) (important-return-value t))
   (let ((link-up (t--nw-trim (plist-get info :html-link-up)))
         (link-home (t--nw-trim (plist-get info :html-link-home))))
     (unless (and (null link-up) (null link-home))
