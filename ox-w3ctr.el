@@ -2429,33 +2429,41 @@ splits the license name to get individual component icons."
      (lambda (name) (t--build-cc-img (t--load-cc-svg-once name)))
      names)))
 
+(defun t--get-info-author (info)
+  "Get exported author string from INFO if :with-author is non-nil."
+  (declare (ftype (function (plist) (or null string)))
+           (pure t) (important-return-value t))
+  (when-let* (((plist-get info :with-author))
+              (a (plist-get info :author)))
+    (t--nw-trim (org-export-data a info))))
+
 (defun t--build-public-license (info)
   "Generate HTML string describing the public license for a work.
 
 Extracts license information from INFO plist and formats it with author
 attribution and appropriate Creative Commons icons when applicable."
+  (declare (ftype (function (plist) string))
+           (important-return-value t))
   (let* ((license (plist-get info :html-license))
          (details (assq license t-public-license-alist))
          (is-cc (string-match-p "^cc" (symbol-name license)))
-         (author (plist-get info :author)))
+         (use-budget (plist-get info :html-use-cc-budget))
+         (author (t--get-info-author info)))
     (unless details
       (error "Not a known license name: %s" license))
     (cond
      ((eq license 'all-rights-reserved) (nth 1 details))
      ((eq license 'all-rights-reversed) (nth 1 details))
-     (t
-      (let* ((name (nth 1 details))
-             (link (nth 2 details)))
-        (concat
-         "This work"
-         (when-let* ((a author)
-                     (str (org-export-data a info))
-                     ((t--nw-p str)))
-           (concat " by " (t--trim str)))
-         " is licensed under "
-         (if (null link) name
-           (format "<a href=\"%s\">%s</a>" link name))
-         (when is-cc (concat " " (t--get-cc-svgs license)))))))))
+     (t (let* ((name (nth 1 details))
+               (link (nth 2 details)))
+          (concat
+           "This work"
+           (when author (concat " by " author))
+           " is licensed under "
+           (if (null link) name
+             (format "<a href=\"%s\">%s</a>" link name))
+           (when (and is-cc use-budget)
+             (concat " " (t--get-cc-svgs license)))))))))
 
 ;;;; Preamble and Postamble
 
