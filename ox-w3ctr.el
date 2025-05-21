@@ -1306,7 +1306,7 @@ newline character at its end."
   (declare (ftype (function (string) t)))
   (unless (and (file-exists-p file) (not (file-directory-p file)))
     (error "(ox-w3ctr) Bad File: %s" file))
-  (insert-file-literally file))
+  (insert-file-contents-literally file))
 
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
