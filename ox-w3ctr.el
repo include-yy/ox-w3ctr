@@ -1292,13 +1292,21 @@ newline character at its end."
 
 (defun t--load-file (file)
   "Read file content string from FILE, or nil if file not exists."
-  (declare (ftype (function (string) (or null string)))
+  (declare (ftype (function (string) string))
            (important-return-value t))
-  (when (file-exists-p file)
-    (with-temp-buffer
-      (insert-file-contents file)
-      (buffer-substring-no-properties
-       (point-min) (point-max)))))
+  (unless (and (file-exists-p file) (not (file-directory-p file)))
+    (error "(ox-w3ctr) Bad File: %s" file))
+  (with-temp-buffer
+    (insert-file-contents file)
+    (buffer-substring-no-properties
+     (point-min) (point-max))))
+
+(defun t--insert-file (file)
+  "Insert file contents into current buffer's point."
+  (declare (ftype (function (string) t)))
+  (unless (and (file-exists-p file) (not (file-directory-p file)))
+    (error "(ox-w3ctr) Bad File: %s" file))
+  (insert-file-literally file))
 
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
