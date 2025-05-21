@@ -1251,6 +1251,20 @@ int a = 1;</code></p>\n</details>")
    nil `( :html-link-up "" :html-link-home ""
           :html-link-home/up nil
           :html-home/up-format ,t-home/up-format)))
+
+(ert-deftest t--format-home/up-vector ()
+  "Tests for `org-w3ctr--format-home/up-vector'."
+  (should (equal "" (t--format-home/up-vector [])))
+  (should (equal (t--format-home/up-vector [("a" . "b")]) "\
+<nav id=\"home-and-up\">
+<a href=\"a\">b</a>
+</nav>\n"))
+  (should (equal (t--format-home/up-vector [("a" . "b") ("c" . "d")]) "\
+<nav id=\"home-and-up\">
+<a href=\"a\">b</a>
+<a href=\"c\">d</a>
+</nav>\n")))
+
 
 ;; Add pre/postamble tests here.
 

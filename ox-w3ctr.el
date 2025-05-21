@@ -217,7 +217,7 @@
     (:html-toc-tagname nil "toctag" t-toc-tagname)
     ;;(:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     ))
-
+
 ;;; User Configuration Variables.
 
 (defgroup org-export-w3ctr nil
@@ -2276,7 +2276,7 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
    (t--normalize-string (plist-get info :html-head-extra))
    "</head>\n"))
 
-;;;; Home and up
+;;;; Legacy home and up
 ;; Options
 ;; - :html-link-up (`org-w3ctr-link-up')
 ;; - :html-link-home (`org-w3ctr-link-home')
@@ -2296,6 +2296,23 @@ empty. Returns nil if both links are empty strings."
       (format (plist-get info :html-home/up-format)
               (or link-up link-home) (or link-home link-up)))))
 
+;;;; New home and up
+;; Options
+;; - :html-link-home/up (`org-w3ctr-link-homeup')
+;; - :html-format-home/up-function (`org-w3ctr-format-home/up-function')
+
+(defun t--format-home/up-vector (v)
+  "Submodule of `t-format-home/up-default-function'."
+  (declare (ftype (function (vector) string))
+           (pure t) (important-return-value t))
+  (if (equal v []) ""
+    (concat "<nav id=\"home-and-up\">\n"
+            (mapconcat
+             (pcase-lambda (`(,link . ,name))
+               (format "<a href=\"%s\">%s</a>" link name))
+             v "\n")
+            "\n</nav>\n")))
+
 (defun t-format-home/up-default-function (info)
   "Generate HTML navigation links from the export INFO plist. This
 function processes the :html-link-home/up property to create a
@@ -2312,6 +2329,8 @@ to generate the final HTML output.
 The output is always wrapped in a <nav> HTML element with
 id=\"home-and-up\" for consistent styling and semantic markup.
 Each link is separated by newlines for readability in the output HTML."
+  (declare (ftype (function (plist) string))
+           (important-return-value t))
   (let* ((links (plist-get info :html-link-home/up)))
     (pcase links
       ((pred vectorp)
