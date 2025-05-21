@@ -212,7 +212,9 @@
     (:html-file-timestamp nil nil t-file-timestamp-function)
     ;; public license
     (:html-license nil "license" t-public-license)
-    (:html-use-cc-budget "cc-budget" t-use-cc-budget)
+    (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
+    (:html-format-license-function
+     nil nil t-format-public-license-function)
     ;; toc tag name
     (:html-toc-tagname nil "toctag" t-toc-tagname)
     ;;(:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
@@ -539,8 +541,8 @@ supported Creative Commons licenses or variants."
           (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
           (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
 
-(defcustom t-format-license-function
-  #'t--build-public-license
+(defcustom t-format-public-license-function
+  #'t-format-public-license-default-function
   "Default function to build license string. Used for default preamble."
   :group 'org-export-w3ctr
   :type 'function)
@@ -2341,8 +2343,8 @@ Each link is separated by newlines for readability in the output HTML."
 ;;;; Preamble CC license budget
 ;; Options
 ;; - :html-use-cc-budget (`org-w3ctr-use-cc-budget')
-;; FIXME: Add this option
 ;; - :html-license (`org-w3ctr-public-license')
+;; - :html-format-license-function (`t-format-public-license-function')
 
 (defconst t-public-license-alist
   '((nil "Not Specified")
@@ -2437,7 +2439,7 @@ splits the license name to get individual component icons."
               (a (plist-get info :author)))
     (t--nw-trim (org-export-data a info))))
 
-(defun t--build-public-license (info)
+(defun t-format-public-license-default-function (info)
   "Generate HTML string describing the public license for a work.
 
 Extracts license information from INFO plist and formats it with author
@@ -2464,6 +2466,12 @@ attribution and appropriate Creative Commons icons when applicable."
              (format "<a href=\"%s\">%s</a>" link name))
            (when (and is-cc use-budget)
              (concat " " (t--get-cc-svgs license)))))))))
+
+(defun t-format-public-license (info)
+  "Generate HTML string describing the public license for a work."
+  (declare (ftype (function (plist) string))
+           (important-return-value t))
+  (funcall (plist-get info :html-format-license-function) info))
 
 ;;;; Preamble and Postamble
 
@@ -2563,7 +2571,7 @@ settings."
    (plist-get info :creator)
    "</dd>\n"
    "  <dt>License:</dt> <dd>"
-   (t--build-public-license info)
+   (t-format-public-license info)
    "</dd>\n"
    " </dl>\n"
    "</details>\n"
