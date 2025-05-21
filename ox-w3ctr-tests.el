@@ -1284,6 +1284,49 @@ int a = 1;</code></p>\n</details>")
                    "a\nb\nc"))
     (should (equal (t--format-home/up-list '("a" " " "\t" "\n" "e") nil)
                    "a\ne"))))
+
+(ert-deftest t-format-home/up-default-function ()
+  "Tests for `org-w3ctr-format-home/up-default-function'."
+  (let ((info '(:html-link-home/up [("a" . "b")])))
+    (should (equal (t-format-home/up-default-function info)
+                   "<nav id=\"home-and-up\">\n<a href=\"a\">b</a>\n</nav>\n")))
+  (let ((info '(:html-link-home/up [("a" . "b") ("c" . "d")])))
+    (should (equal (t-format-home/up-default-function info)
+                   "<nav id=\"home-and-up\">\n<a href=\"a\">b</a>\n<a href=\"c\">d</a>\n</nav>\n")))
+  (let ((info '(:html-link-home/up [(a . "b")])))
+    (should-error (t-format-home/up-default-function info)))
+  (let ((info '(:html-link-home/up [("a" . b)])))
+    (should-error (t-format-home/up-default-function info)))
+  (let ((info '(:html-link-home/up [(a . b)])))
+    (should-error (t-format-home/up-default-function info)))
+  (t-check-element-values
+   #'t-format-home/up-default-function
+   '(("" "<nav id=\"home-and-up\">\n<a href=\"https://example.com\">example</a>\n</nav>\n"))
+   nil '( :html-link-home/up [("https://example.com" . "example")]
+          :html-format-home/up-function
+          t-format-home/up-default-function))
+  (t-check-element-values
+   #'t-format-home/up-default-function
+   '(("#+html_link_homeup: [[https://a.com][b]]"
+      "<nav id=\"home-and-up\">\n<a href=\"https://a.com\">b</a>\n</nav>\n")
+     ("#+html_link_homeup: [[https://a.com]]"
+      "<nav id=\"home-and-up\">\n<a href=\"https://a.com\">https://a.com</a>\n</nav>\n")
+     ("#+html_link_homeup: [[https://a.com]]\n#+html_link_homeup: [[https://b.com]]"
+      "<nav id=\"home-and-up\">\n<a href=\"https://a.com\">https://a.com</a>\n<a href=\"https://b.com\">https://b.com</a>\n</nav>\n")
+     ("#+html_link_homeup: [[https://a.com]] [[https://b.com]]"
+      "<nav id=\"home-and-up\">\n<a href=\"https://a.com\">https://a.com</a>\n<a href=\"https://b.com\">https://b.com</a>\n</nav>\n")
+     ("#+html_link_homeup: 1 2 3"
+      "<nav id=\"home-and-up\">\n1 2 3\n</nav>\n")
+     ("#+html_link_homeup: \n#+html_link_home: 123"
+      "<div id=\"home-and-up\">\n <a href=\"123\"> UP </a>\n <a href=\"123\"> HOME </a>\n</div>")
+     ("#+html_link_up: 456"
+      "<div id=\"home-and-up\">\n <a href=\"456\"> UP </a>\n <a href=\"456\"> HOME </a>\n</div>")
+     ("#+html_link_home: 123\n#+html_link_up: 456"
+      "<div id=\"home-and-up\">\n <a href=\"456\"> UP </a>\n <a href=\"123\"> HOME </a>\n</div>"))
+   nil `(:html-format-home/up-function
+         t-format-home/up-default-function
+         :html-link-up "" :html-link-home ""
+         :html-home/up-format ,t-home/up-format)))
 
 ;; Add pre/postamble tests here.
 

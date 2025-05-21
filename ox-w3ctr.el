@@ -396,7 +396,7 @@ specifies the rendering method:
           (const :tag "Use custom method" custom)))
 
 (defcustom t-mathjax-config "\
-<style>
+<script>
   window.MathJax = {
     tex: {
       ams: {
@@ -421,7 +421,7 @@ specifies the rendering method:
       displayOverflow: 'overflow'
     }
   };
-</style>
+</script>
 
 <script
   id='MathJax-script'
@@ -2324,8 +2324,9 @@ empty. Returns nil if both links are empty strings."
            (important-return-value t))
   (if (null ll) ""
     (let* ((elems (mapcar (lambda (x) (org-export-data x info)) ll))
-           (links (cl-remove-if-not #'t--nw-p elems)))
-      (t--format-home/up-nav (string-join links "\n")))))
+           (links (cl-remove-if-not #'t--nw-p elems))
+           (as (mapcar #'t--trim links)))
+      (t--format-home/up-nav (string-join as "\n")))))
 
 (defun t-format-home/up-default-function (info)
   "Generate HTML navigation links from the export INFO plist. This
