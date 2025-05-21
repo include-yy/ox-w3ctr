@@ -538,6 +538,12 @@ supported Creative Commons licenses or variants."
           (const cc-by-3.0) (const cc-by-nc-3.0)
           (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
           (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
+
+(defcustom t-format-license-function
+  #'t--build-public-license
+  "Default function to build license string. Used for default preamble."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 (defcustom t-pre/post-timestamp-format "%Y-%m-%d %H:%M"
   "Formatting string used for timestamps in preamble and postamble.
@@ -2028,7 +2034,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
             (name (coding-system-get coding 'mime-charset)))
       (symbol-name name) "utf-8"))
 
-(defsubst t--get-info-author (info)
+(defsubst t--get-info-author-raw (info)
   "Get author from INFO if :with-author is non-nil."
   (declare (ftype (function (plist) (or null string)))
            (pure t) (important-return-value t))
@@ -2108,7 +2114,7 @@ Use document's INFO to derive relevant information for the tags."
            (pure t) (important-return-value t))
   (thread-last
     (list
-     (when-let* ((author (t--nw-trim (t--get-info-author info))))
+     (when-let* ((author (t--nw-trim (t--get-info-author-raw info))))
        (list "name" "author" author))
      (when-let* ((desc (t--nw-trim (plist-get info :description))))
        (list "name" "description" desc))
