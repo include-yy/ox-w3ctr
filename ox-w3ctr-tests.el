@@ -1252,6 +1252,13 @@ int a = 1;</code></p>\n</details>")
           :html-link-home/up nil
           :html-home/up-format ,t-home/up-format)))
 
+(ert-deftest t--format-home/up-nav ()
+  "Tests for `org-w3ctr--format-home/up-nav'."
+  (should (equal (t--format-home/up-nav "")
+                 "<nav id=\"home-and-up\">\n\n</nav>\n"))
+  (should (equal (t--format-home/up-nav "1")
+                 "<nav id=\"home-and-up\">\n1\n</nav>\n")))
+
 (ert-deftest t--format-home/up-vector ()
   "Tests for `org-w3ctr--format-home/up-vector'."
   (should (equal "" (t--format-home/up-vector [])))
@@ -1265,6 +1272,18 @@ int a = 1;</code></p>\n</details>")
 <a href=\"c\">d</a>
 </nav>\n")))
 
+(ert-deftest t--format-home/up-list ()
+  "Tests for `org-w3ctr--format-home/up-list'."
+  (should (t--format-home/up-list nil nil))
+  (cl-letf (((symbol-function 'org-export-data)
+             (lambda (x _info) x))
+            ((symbol-function 't--format-home/up-nav)
+             (lambda (x) x)))
+    (should (equal (t--format-home/up-list '("a") nil) "a"))
+    (should (equal (t--format-home/up-list '("a" "b" "c") nil)
+                   "a\nb\nc"))
+    (should (equal (t--format-home/up-list '("a" " " "\t" "\n" "e") nil)
+                   "a\ne"))))
 
 ;; Add pre/postamble tests here.
 

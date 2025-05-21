@@ -2301,17 +2301,31 @@ empty. Returns nil if both links are empty strings."
 ;; - :html-link-home/up (`org-w3ctr-link-homeup')
 ;; - :html-format-home/up-function (`org-w3ctr-format-home/up-function')
 
+(defun t--format-home/up-nav (s)
+  "Format home/up <nav> element."
+  (declare (ftype (function (string) string))
+           (pure t) (important-return-value t))
+  (format "<nav id=\"home-and-up\">\n%s\n</nav>\n" s))
+
 (defun t--format-home/up-vector (v)
   "Submodule of `t-format-home/up-default-function'."
   (declare (ftype (function (vector) string))
            (pure t) (important-return-value t))
   (if (equal v []) ""
-    (concat "<nav id=\"home-and-up\">\n"
-            (mapconcat
-             (pcase-lambda (`(,link . ,name))
-               (format "<a href=\"%s\">%s</a>" link name))
-             v "\n")
-            "\n</nav>\n")))
+    (t--format-home/up-nav
+     (mapconcat
+      (pcase-lambda (`(,link . ,name))
+        (format "<a href=\"%s\">%s</a>" link name))
+      v "\n"))))
+
+(defun t--format-home/up-list (ll info)
+  "Submodule of `t-format-home/up-default-function'."
+  (declare (ftype (function (list plist) string))
+           (important-return-value t))
+  (if (null ll) ""
+    (let* ((elems (mapcar (lambda (x) (org-export-data x info)) ll))
+           (links (cl-remove-if-not #'t--nw-p elems)))
+      (t--format-home/up-nav (string-join links "\n")))))
 
 (defun t-format-home/up-default-function (info)
   "Generate HTML navigation links from the export INFO plist. This
@@ -2334,24 +2348,17 @@ Each link is separated by newlines for readability in the output HTML."
   (let* ((links (plist-get info :html-link-home/up)))
     (pcase links
       ((pred vectorp)
-       (concat "<nav id=\"home-and-up\">\n"
-               (thread-first
-                 (pcase-lambda (`(,link . ,name))
-                   (format "<a href=\"%s\">%s</a>" link name))
-                 (mapconcat links "\n"))
-               "\n</nav>\n"))
+       (mapc (lambda (x)
+               (or (and (consp x) (stringp (car x))
+                        (stringp (cdr x)))
+                   (error "home/up vector element not valid: %s" x)))
+             links)
+       (t--format-home/up-vector links))
       ((pred listp)
-       (let ((<a>s
-              (thread-last
-                (mapcar (lambda (x) (org-export-data x info)) links)
-                (cl-remove-if-not #'t--nw-p)
-                (funcall (lambda (x) (mapconcat #'identity x "\n"))))))
-         (if (string= <a>s "")
-             (or (t-legacy-format-home/up info) nil)
-           (concat
-            "<nav id=\"home-and-up\">\n" <a>s
-            "\n</nav>\n"))))
-      (_ (error "Seems not a valid home/up value: %s" links)))))
+       (let ((res (t--format-home/up-list links info)))
+         (if (not (string= res "")) res
+           (or (t-legacy-format-home/up info) ""))))
+      (other (error "Seems not a valid home/up type: %s" other)))))
 
 ;;;; Preamble and Postamble
 
