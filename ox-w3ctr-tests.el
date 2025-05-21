@@ -1064,15 +1064,15 @@ int a = 1;</code></p>\n</details>")
     (should (string= (test 'cp936) "gbk"))
     (should (string= (test 'cp65001) "utf-8"))))
 
-(ert-deftest t--get-info-author ()
-  "Tests for `org-w3ctr--get-author'."
-  (should-not (t--get-info-author nil))
+(ert-deftest t--get-info-author-raw ()
+  "Tests for `org-w3ctr--get-author-raw'."
+  (should-not (t--get-info-author-raw nil))
   (let ((info '(:with-author nil)))
-    (should-not (t--get-info-author info)))
+    (should-not (t--get-info-author-raw info)))
   (let ((info '(:with-author nil :author "test")))
-    (should-not (t--get-info-author info)))
+    (should-not (t--get-info-author-raw info)))
   (let ((info '(:with-author t :author "test")))
-    (should (equal (t--get-info-author info) "test"))))
+    (should (equal (t--get-info-author-raw info) "test"))))
 
 (ert-deftest t--get-info-title ()
   "Tests for `org-w3ctr--get-info-title'."
