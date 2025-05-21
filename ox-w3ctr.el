@@ -2402,7 +2402,7 @@ base64 encoded string. If the file does not exist, raise an error."
     (if (not (file-exists-p file))
         (error "svg file %s not exists" file)
       (with-temp-buffer
-        (insert-file-contents file)
+        (t--insert-file file)
         (base64-encode-region (point-min) (point-max) t)
         (buffer-substring-no-properties (point-min) (point-max))))))
 

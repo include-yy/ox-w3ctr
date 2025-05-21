@@ -1332,6 +1332,24 @@ int a = 1;</code></p>\n</details>")
          t-format-home/up-default-function
          :html-link-up "" :html-link-home ""
          :html-home/up-format ,t-home/up-format)))
+
+(ert-deftest t--load-cc-svg ()
+  "Tests for `org-w3ctr--load-cc-svg'."
+  (cl-letf (((symbol-function 't--insert-file)
+             (lambda (file) file)))
+    (dolist (a '("by" "cc" "nc" "nd" "sa" "zero"))
+      (should (t--load-cc-svg a)))))
+
+(ert-deftest t--load-cc-svg-once ()
+  "Tests for `org-w3ctr--load-cc-svg-once'."
+  (cl-letf (((symbol-function 't--insert-file)
+             (lambda (file) file))
+            (t--cc-svg-hashtable (make-hash-table :test 'equal)))
+    (dolist (a '("by" "cc" "nc" "nd" "sa" "zero"))
+      (t--load-cc-svg-once a))
+    (dolist (a '("by" "cc" "nc" "nd" "sa" "zero"))
+      (should (equal (gethash a t--cc-svg-hashtable)
+                     (t--load-cc-svg a))))))
 
 ;; Add pre/postamble tests here.
 
