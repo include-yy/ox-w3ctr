@@ -2052,7 +2052,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
               (a (plist-get info :author)))
     ;; Return raw Org syntax.
     ;; #+author is parsed as Org object.
-    (org-element-interpret-data a)))
+    (t--nw-trim (org-element-interpret-data a))))
 
 (defun t--get-info-title (info)
   "Extract title from INFO plist and return as plain text.
@@ -2124,7 +2124,7 @@ Use document's INFO to derive relevant information for the tags."
            (pure t) (important-return-value t))
   (thread-last
     (list
-     (when-let* ((author (t--nw-trim (t--get-info-author-raw info))))
+     (when-let* ((author (t--get-info-author-raw info)))
        (list "name" "author" author))
      (when-let* ((desc (t--nw-trim (plist-get info :description))))
        (list "name" "description" desc))
