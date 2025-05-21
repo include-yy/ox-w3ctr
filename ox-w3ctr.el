@@ -2361,6 +2361,91 @@ Each link is separated by newlines for readability in the output HTML."
            (or (t-legacy-format-home/up info) ""))))
       (other (error "Seems not a valid home/up type: %s" other)))))
 
+;;;; Preamble CC license budget
+;; Options
+;; - :html-use-cc-budget (`org-w3ctr-use-cc-budget')
+;; FIXME: Add this option
+;; - :html-
+
+(defvar t--cc-svg-hashtable (make-hash-table :test 'equal)
+  "Hash table stores base64 encoded svg file contents.
+
+Include cc, by, sa, nc, nd, and zero.")
+
+(defun t--load-cc-svg (name)
+  "Load SVG file with given NAME from assets directory, return as
+base64 encoded string. If the file does not exist, raise an error."
+  (declare (ftype (function (string) string))
+           (important-return-value t))
+  (let ((file (file-name-concat t--dir "assets" (concat name ".svg"))))
+    (if (not (file-exists-p file))
+        (error "svg file %s not exists" file)
+      (with-temp-buffer
+        (insert-file-contents file)
+        (base64-encode-region (point-min) (point-max) t)
+        (buffer-substring-no-properties (point-min) (point-max))))))
+
+(defun t--load-cc-svg-once (name)
+  "Load SVG file with given NAME once and cache it in a hash table.
+If the SVG is already cached, return the cached base64 string."
+  (declare (ftype (function (string) string))
+           (important-return-value t))
+  (with-memoization (gethash name t--cc-svg-hashtable)
+    (t--load-cc-svg name)))
+
+(defun t--build-cc-img (base64)
+  "Create HTML img tag with embedded BASE64 encoded SVG.
+
+The image has fixed height (22px) and vertical alignment for text
+integration, which is the default style given by
+https://chooser-beta.creativecommons.org/"
+  (declare (ftype (function (string) string))
+           (pure t) (important-return-value t))
+  (format "<img style=\"height:22px!important;margin-left:3px;\
+vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" \
+alt=\"\">" base64))
+
+(defun t--get-cc-svgs (license)
+  "Get HTML img tags for Creative Commons LICENSE icons.
+
+For CC0 license, returns both `cc' and `zero' icons. For other licenses,
+splits the license name to get individual component icons."
+  (declare (ftype (function (symbol) string))
+           (important-return-value t))
+  (let ((names (if (eq license 'cc0) '("cc" "zero")
+                 (split-string (symbol-name license) "[0-9.-]" t))))
+    (mapconcat
+     (lambda (name) (t--build-cc-img (t--load-cc-svg-once name)))
+     names)))
+
+(defun t--build-public-license (info)
+  "Generate HTML string describing the public license for a work.
+
+Extracts license information from INFO plist and formats it with author
+attribution and appropriate Creative Commons icons when applicable."
+  (let* ((license (plist-get info :html-license))
+         (details (assq license t-public-license-alist))
+         (is-cc (string-match-p "^cc" (symbol-name license)))
+         (author (plist-get info :author)))
+    (unless details
+      (error "Not a known license name: %s" license))
+    (cond
+     ((eq license 'all-rights-reserved) (nth 1 details))
+     ((eq license 'all-rights-reversed) (nth 1 details))
+     (t
+      (let* ((name (nth 1 details))
+             (link (nth 2 details)))
+        (concat
+         "This work"
+         (when-let* ((a author)
+                     (str (org-export-data a info))
+                     ((t--nw-p str)))
+           (concat " by " (t--trim str)))
+         " is licensed under "
+         (if (null link) name
+           (format "<a href=\"%s\">%s</a>" link name))
+         (when is-cc (concat " " (t--get-cc-svgs license)))))))))
+
 ;;;; Preamble and Postamble
 
 ;; Compared with org-html-format-spec, rename to make the name more
@@ -2433,78 +2518,6 @@ When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
               ((and date (proper-list-p date) (null (cdr date))))
               ((org-element-type-p (car date) 'timestamp)))
     (t-timestamp (car date) nil info boundary)))
-
-(defvar t--cc-svg-hashtable (make-hash-table :test 'equal)
-  "Hash table storing url-encoded svg file contents.
-
-Include cc, by, sa, nc, nd")
-
-(defun t--load-cc-svg (name)
-  "Load SVG file with given NAME from assets directory, return as
-base64 encoded string. If the file does not exist, raise an error."
-  (let ((file (file-name-concat t--dir "assets" (concat name ".svg"))))
-    (if (not (file-exists-p file))
-        (error "svg file %s not exists" file)
-      (with-work-buffer
-        (insert-file-contents file)
-        (base64-encode-region (point-min) (point-max) t)
-        (buffer-substring-no-properties (point-min) (point-max))))))
-
-(defun t--load-cc-svg-once (name)
-  "Load SVG file with given NAME once and cache it in a hash table.
-If the SVG is already cached, return the cached base64 string."
-  (if-let* ((str (gethash name t--cc-svg-hashtable)))
-      str (setf (gethash name t--cc-svg-hashtable)
-                (t--load-cc-svg name))))
-
-(defun t--build-cc-img (base64)
-  "Create HTML img tag with embedded BASE64 encoded SVG.
-
-The image has fixed height (22px) and vertical alignment for text
-integration, which is the default style given by
-https://chooser-beta.creativecommons.org/"
-  (format "<img style=\"height:22px!important;margin-left:3px;\
-vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" \
-alt=\"\">" base64))
-
-(defun t--get-cc-svgs (license)
-  "Get HTML img tags for Creative Commons LICENSE icons.
-
-For CC0 license, returns both `cc' and `zero' icons. For other licenses,
-splits the license name to get individual component icons."
-  (let ((names (if (eq license 'cc0) '("cc" "zero")
-                 (split-string (symbol-name license) "[0-9.-]" t))))
-    (mapconcat
-     (lambda (name) (t--build-cc-img (t--load-cc-svg-once name)))
-     names)))
-
-(defun t--build-public-license (info)
-  "Generate HTML string describing the public license for a work.
-
-Extracts license information from INFO plist and formats it with author
-attribution and appropriate Creative Commons icons when applicable."
-  (let* ((license (plist-get info :html-license))
-         (details (assq license t-public-license-alist))
-         (is-cc (string-match-p "^cc" (symbol-name license)))
-         (author (plist-get info :author)))
-    (unless details
-      (error "Not a known license name: %s" license))
-    (cond
-     ((eq license 'all-rights-reserved) (nth 1 details))
-     ((eq license 'all-rights-reversed) (nth 1 details))
-     (t
-      (let* ((name (nth 1 details))
-             (link (nth 2 details)))
-        (concat
-         "This work"
-         (when-let* ((a author)
-                     (str (org-export-data a info))
-                     ((t--nw-p str)))
-           (concat " by " (t--trim str)))
-         " is licensed under "
-         (if (null link) name
-           (format "<a href=\"%s\">%s</a>" link name))
-         (when is-cc (concat " " (t--get-cc-svgs license)))))))))
 
 (defun t-preamble-default-function (info)
   "Generate HTML preamble with document metadata in a <details> section.
