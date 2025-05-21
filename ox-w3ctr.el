@@ -518,6 +518,26 @@ Example: [(\"../index.html\" . \"UP\")
   "Function used to generate home/up navigation links."
   :group 'org-export-w3ctr
   :type 'symbol)
+
+(defcustom t-use-cc-budget t
+  "Use CC budget or not."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
+(defcustom t-public-license nil
+  "Default license for exported content. Value should be one of the
+supported Creative Commons licenses or variants."
+  :group 'org-export-w3ctr
+  :type '(choice
+          (const nil) (const cc0)
+          (const all-rights-reserved)
+          (const all-rights-reversed)
+          (const cc-by-4.0) (const cc-by-nc-4.0)
+          (const cc-by-nc-nd-4.0) (const cc-by-nc-sa-4.0)
+          (const cc-by-nd-4.0) (const cc-by-sa-4.0)
+          (const cc-by-3.0) (const cc-by-nc-3.0)
+          (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
+          (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
 
 (defcustom t-pre/post-timestamp-format "%Y-%m-%d %H:%M"
   "Formatting string used for timestamps in preamble and postamble.
@@ -567,55 +587,6 @@ precedence over this variable."
 See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
-
-(defcustom t-public-license 'cc-by-sa-4.0
-  "Default license for exported content. Value should be one of the
-supported Creative Commons licenses or variants."
-  :group 'org-export-w3ctr
-  :type '(choice
-          (const nil) (const cc0)
-          (const all-rights-reserved)
-          (const all-rights-reversed)
-          (const cc-by-4.0) (const cc-by-nc-4.0)
-          (const cc-by-nc-nd-4.0) (const cc-by-nc-sa-4.0)
-          (const cc-by-nd-4.0) (const cc-by-sa-4.0)
-          (const cc-by-3.0) (const cc-by-nc-3.0)
-          (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
-          (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
-
-(defconst t-public-license-alist
-  '((nil "Not Specified")
-    (all-rights-reserved "All Rights Reserved")
-    (all-rights-reversed "All Rights Reversed")
-    (cc0 "CC0" "https://creativecommons.org/public-domain/cc0/")
-    ;; 4.0
-    ( cc-by-4.0 "CC BY-SA 4.0"
-      "https://creativecommons.org/licenses/by/4.0/")
-    ( cc-by-nc-4.0 "CC BY-NC 4.0"
-      "https://creativecommons.org/licenses/by-nc/4.0/")
-    ( cc-by-nc-nd-4.0 "CC BY-NC-ND 4.0"
-      "https://creativecommons.org/licenses/by-nc-nd/4.0/")
-    ( cc-by-nc-sa-4.0 "CC BY-NC-SA 4.0"
-      "https://creativecommons.org/licenses/by-nc-sa/4.0/")
-    ( cc-by-nd-4.0 "CC BY-ND 4.0"
-      "https://creativecommons.org/licenses/by-nd/4.0/")
-    ( cc-by-sa-4.0 "CC BY-SA 4.0"
-      "https://creativecommons.org/licenses/by-sa/4.0/")
-    ;; 3.0 (not recommended by Creative Commons)
-    ( cc-by-3.0 "CC BY-SA 3.0"
-      "https://creativecommons.org/licenses/by/3.0/")
-    ( cc-by-nc-3.0 "CC BY-NC 3.0"
-      "https://creativecommons.org/licenses/by-nc/3.0/")
-    ( cc-by-nc-nd-3.0 "CC BY-NC-ND 3.0"
-      "https://creativecommons.org/licenses/by-nc-nd/3.0/")
-    ( cc-by-nc-sa-3.0 "CC BY-NC-SA 3.0"
-      "https://creativecommons.org/licenses/by-nc-sa/3.0/")
-    ( cc-by-nd-3.0 "CC BY-ND 3.0"
-      "https://creativecommons.org/licenses/by-nd/3.0/")
-    ( cc-by-sa-3.0 "CC BY-SA 3.0"
-      "https://creativecommons.org/licenses/by-sa/3.0/"))
-  "Alist mapping license symbols to their display names and URLs.
-Each element is of form (SYMBOL DISPLAY-NAME &optional URL).")
 
 (defcustom t-format-headline-function
   #'t-format-headline-default-function
@@ -2365,7 +2336,41 @@ Each link is separated by newlines for readability in the output HTML."
 ;; Options
 ;; - :html-use-cc-budget (`org-w3ctr-use-cc-budget')
 ;; FIXME: Add this option
-;; - :html-
+;; - :html-license (`org-w3ctr-public-license')
+
+(defconst t-public-license-alist
+  '((nil "Not Specified")
+    (all-rights-reserved "All Rights Reserved")
+    (all-rights-reversed "All Rights Reversed")
+    (cc0 "CC0" "https://creativecommons.org/public-domain/cc0/")
+    ;; 4.0
+    ( cc-by-4.0 "CC BY-SA 4.0"
+      "https://creativecommons.org/licenses/by/4.0/")
+    ( cc-by-nc-4.0 "CC BY-NC 4.0"
+      "https://creativecommons.org/licenses/by-nc/4.0/")
+    ( cc-by-nc-nd-4.0 "CC BY-NC-ND 4.0"
+      "https://creativecommons.org/licenses/by-nc-nd/4.0/")
+    ( cc-by-nc-sa-4.0 "CC BY-NC-SA 4.0"
+      "https://creativecommons.org/licenses/by-nc-sa/4.0/")
+    ( cc-by-nd-4.0 "CC BY-ND 4.0"
+      "https://creativecommons.org/licenses/by-nd/4.0/")
+    ( cc-by-sa-4.0 "CC BY-SA 4.0"
+      "https://creativecommons.org/licenses/by-sa/4.0/")
+    ;; 3.0 (not recommended by Creative Commons)
+    ( cc-by-3.0 "CC BY-SA 3.0"
+      "https://creativecommons.org/licenses/by/3.0/")
+    ( cc-by-nc-3.0 "CC BY-NC 3.0"
+      "https://creativecommons.org/licenses/by-nc/3.0/")
+    ( cc-by-nc-nd-3.0 "CC BY-NC-ND 3.0"
+      "https://creativecommons.org/licenses/by-nc-nd/3.0/")
+    ( cc-by-nc-sa-3.0 "CC BY-NC-SA 3.0"
+      "https://creativecommons.org/licenses/by-nc-sa/3.0/")
+    ( cc-by-nd-3.0 "CC BY-ND 3.0"
+      "https://creativecommons.org/licenses/by-nd/3.0/")
+    ( cc-by-sa-3.0 "CC BY-SA 3.0"
+      "https://creativecommons.org/licenses/by-sa/3.0/"))
+  "Alist mapping license symbols to their display names and URLs.
+Each element is of form (SYMBOL DISPLAY-NAME &optional URL).")
 
 (defvar t--cc-svg-hashtable (make-hash-table :test 'equal)
   "Hash table stores base64 encoded svg file contents.
