@@ -2360,7 +2360,7 @@ Each link is separated by newlines for readability in the output HTML."
     (all-rights-reversed "All Rights Reversed")
     (cc0 "CC0" "https://creativecommons.org/public-domain/cc0/")
     ;; 4.0
-    ( cc-by-4.0 "CC BY-SA 4.0"
+    ( cc-by-4.0 "CC BY 4.0"
       "https://creativecommons.org/licenses/by/4.0/")
     ( cc-by-nc-4.0 "CC BY-NC 4.0"
       "https://creativecommons.org/licenses/by-nc/4.0/")
@@ -2373,7 +2373,7 @@ Each link is separated by newlines for readability in the output HTML."
     ( cc-by-sa-4.0 "CC BY-SA 4.0"
       "https://creativecommons.org/licenses/by-sa/4.0/")
     ;; 3.0 (not recommended by Creative Commons)
-    ( cc-by-3.0 "CC BY-SA 3.0"
+    ( cc-by-3.0 "CC BY 3.0"
       "https://creativecommons.org/licenses/by/3.0/")
     ( cc-by-nc-3.0 "CC BY-NC 3.0"
       "https://creativecommons.org/licenses/by-nc/3.0/")
@@ -2462,6 +2462,7 @@ attribution and appropriate Creative Commons icons when applicable."
     (unless details
       (error "Not a known license name: %s" license))
     (cond
+     ((eq license nil) (nth 1 details))
      ((eq license 'all-rights-reserved) (nth 1 details))
      ((eq license 'all-rights-reversed) (nth 1 details))
      (t (let* ((name (nth 1 details))
