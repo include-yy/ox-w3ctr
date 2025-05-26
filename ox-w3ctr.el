@@ -347,6 +347,18 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
 ;;;###autoload
 (put 't-head-include-default-style 'safe-local-variable 'booleanp)
 
+(defcustom t-default-style ""
+  "Default CSS style content for exported HTML documents.
+
+When non-empty, this setting takes precedence over and will override
+`org-w3ctr-default-style-file' behavior (external CSS file loading).
+
+This string contains raw CSS rules that will be embedded in a <style>
+tag in the exported HTML's <head> section. Example:
+  \"body { font-family: sans-serif; margin: 2em; }\""
+  :group 'org-export-w3ctr
+  :type 'string)
+
 (defcustom t-default-style-file (file-name-concat
                                  t--dir "assets" "style.css")
   "Default CSS stylesheet file for HTML export.
@@ -369,18 +381,6 @@ package's installation directory `org-w3ctr--dir'."
          ;; Refresh cached CSS string.
          (setq t-default-style ""))
   :type '(choice (const nil) file))
-
-(defcustom t-default-style ""
-  "Default CSS style content for exported HTML documents.
-
-When non-empty, this setting takes precedence over and will override
-`org-w3ctr-default-style-file' behavior (external CSS file loading).
-
-This string contains raw CSS rules that will be embedded in a <style>
-tag in the exported HTML's <head> section. Example:
-  \"body { font-family: sans-serif; margin: 2em; }\""
-  :group 'org-export-w3ctr
-  :type 'string)
 
 (defcustom t-with-latex 'mathjax
   "Control how LaTeX math expressions are processed in HTML export.
@@ -1307,6 +1307,41 @@ newline character at its end."
   (unless (and (file-exists-p file) (not (file-directory-p file)))
     (error "(ox-w3ctr) Bad File: %s" file))
   (insert-file-contents-literally file))
+
+(eval-and-compile
+  (oclosure-define t--oinfo
+    "Communication Channel info cache closure."
+    (pid :mutable t :type plist)
+    (val :mutable t :type t))
+
+  (defun t--make-cache-oclosure ()
+    (oclosure-lambda (t--oinfo (pid nil) (val nil)) (info prop)
+      (let ((id (sxhash-eq info)))
+        (if (equal pid id) val
+          (setq pid id val (plist-get info prop))))))
+
+  (defvar t--oinfo-cache-functions
+    '(:test))
+
+  (defvar t--oinfo-cache-kv-hashtable
+    (let ((ht (make-hash-table)))
+      (dolist (a t--oinfo-cache-functions ht)
+        (puthash a (t--make-cache-oclosure) ht))))
+
+  (defmacro t--oget (info prop)
+    (if (keywordp prop)
+        (if-let* ((func (map-elt t--oinfo-cache-kv-hashtable prop)))
+            `(funcall ,func ,info ,prop) `(plist-get ,info ,prop))
+      `(plist-get ,info ,prop)))
+
+  (defmacro t--oset (info prop value)
+    (if (keywordp prop)
+        (if-let* ((func (map-elt t--oinfo-cache-kv-hashtable prop)))
+            `(setf (t--oinfo--pid ,func (sxhash-eq ,info))
+                   (t--oinfo--val ,func ,value))
+          `(plist-put ,info ,prop ,value))
+      `(plist-put ,info ,prop ,value)))
+  )
 
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
