@@ -261,7 +261,7 @@ returned as-is."
   :type '(alist :key-type (symbol :tag "Markup type")
                 :value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
-
+
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export."
   :group 'org-export-w3ctr
@@ -1114,7 +1114,7 @@ Treats non-empty vector values as HTML class attributes."
   "Convert plain text characters from TEXT to HTML equivalent.
 Possible conversions are set in `org--w3ctr-protect-char-alist'."
   (declare (ftype (function (string) string))
-           (side-effect-free t) (important-return-value t))
+           (pure t) (important-return-value t))
   (dolist (pair t--protect-char-alist text)
     (setq text (replace-regexp-in-string
                 (car pair) (cdr pair) text t t))))
@@ -1123,7 +1123,7 @@ Possible conversions are set in `org--w3ctr-protect-char-alist'."
   "Compared to `org-w3ctr--encode-plain-text', plus
 single-quote and double-quote characters."
   (declare (ftype (function (string) string))
-           (side-effect-free t) (important-return-value t))
+           (pure t) (important-return-value t))
   (let ((t--protect-char-alist
          `(,@t--protect-char-alist
            ;; https://stackoverflow.com/a/2428595
@@ -1308,19 +1308,19 @@ newline character at its end."
     (error "(ox-w3ctr) Bad File: %s" file))
   (insert-file-contents-literally file))
 
+;; A lightweight caching system for property lookups within the INFO
+;; plist used during Org export.
+
+;; Each property marked for caching associates a dedicated closure,
+;; which remembers the last INFO object and the corresponding property
+;; value. If a subsequent lookup uses the same INFO object, the cached
+;; value is returned immediately, avoiding redundant `plist-get'
+;; calls.
+
+;; Oclosure's PID field is explicitly reset in `org-w3ctr-template' to
+;; prevent stale references to obsolete INFO objects.
+
 (eval-and-compile
-  ;; A lightweight caching system for property lookups within the INFO
-  ;; plist used during Org export.
-
-  ;; Each property marked for caching associates a dedicated closure,
-  ;; which remembers the last INFO object and the corresponding property
-  ;; value. If a subsequent lookup uses the same INFO object, the cached
-  ;; value is returned immediately, avoiding redundant `plist-get'
-  ;; calls.
-
-  ;; Oclosure's PID field is explicitly reset in `org-w3ctr-template' to
-  ;; prevent stale references to obsolete INFO objects.
-
   (oclosure-define t--oinfo
      "Cache oclosure for org export INFO property lookups.
 
@@ -1330,8 +1330,9 @@ VAL - The cached property value associated with the last INFO.
 CNT - An integer counter used to track cache hits."
     (pid :mutable t :type list)
     (val :mutable t)
-    (cnt :mutable t :type integer))
+    (cnt :mutable t :type integer)))
 
+(eval-when-compile
   (defun t--make-cache-oclosure ()
     "Create and return a cache oclosure for Org INFO property lookups.
 
@@ -1347,9 +1348,12 @@ with the new INFO and the corresponding property value."
       (if (eq pid info) val
         (setq pid info val (plist-get info prop)))))
 
+  ;; (defvar t--oinfo-cache-props nil) ; For test only.
+
   (defvar t--oinfo-cache-props
-    '(:test)
-    "List of property keys (as keywords) to be cached in org export info.")
+    '( :html-checkbox-type :html-text-markup-alist
+       :with-smart-quotes :with-special-strings :preserve-breaks)
+    "List of property keys to be cached in org export info.")
 
   (defvar t--oinfo-cache-table
     (let ((ht (make-hash-table)))
@@ -1370,11 +1374,14 @@ with the new INFO and the corresponding property value."
                             (t--oinfo--val ,f) ,value))
       (inline-quote (plist-put ,info ,prop ,value))))
 
-  (defun t--oinfo-cleanup ()
+  (define-inline t--oinfo-cleanup ()
     "Clear cached INFO references and values from all cache oclosures."
-    (maphash
-     (lambda (_k f) (setf (t--oinfo--pid f) nil (t--oinfo--val f) nil))
-     t--oinfo-cache-table))
+    (inline-letevals ((ht t--oinfo-cache-table))
+      (inline-quote
+       (maphash
+        (lambda (_k f) (setf (t--oinfo--pid f) nil (t--oinfo--val f) nil))
+        ,ht))))
+  ;; oinfo cache related code ends here.
   )
 
 ;;; Simple JSON based sync RPC, not JSONRPC
@@ -1557,13 +1564,13 @@ Choices are:
 
 ;; See (info "(org)Checkboxes")
 ;; To modify checkbox style, set `org-w3ctr-checkbox-type'.
-(defsubst t--checkbox (checkbox info)
+(defun t--checkbox (checkbox info)
   "Format CHECKBOX into HTML.
 See `org-w3ctr-checkbox-types' for customization options."
   (declare (ftype (function (t list) (or null string)))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (cdr (assq checkbox
-             (cdr (assq (plist-get info :html-checkbox-type)
+             (cdr (assq (t--pget info :html-checkbox-type)
                         t-checkbox-types)))))
 
 ;; FIXME: Remove it one day after improve headline export.
@@ -1610,14 +1617,14 @@ See `org-w3ctr-checkbox-types' for customization options."
 CHECKBOX can be `on', `off', `trans', or anything else.
 Returns an empty string if CHECKBOX is not one of the these three."
   (declare (ftype (function (t list) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (let ((a (t--checkbox checkbox info)))
     (concat a (and a " "))))
 
 (defun t--format-ordered-item (contents checkbox info cnt)
   "Format a ORDERED list item into HTML."
   (declare (ftype (function ((or null string) t list t) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (counter (if (not cnt) "" (format " value=\"%s\"" cnt))))
     (concat (format "<li%s>" counter) checkbox
@@ -1626,14 +1633,14 @@ Returns an empty string if CHECKBOX is not one of the these three."
 (defun t--format-unordered-item (contents checkbox info)
   "Format a UNORDERED list item into HTML."
   (declare (ftype (function ((or null string) t list) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info)))
     (concat "<li>" checkbox (t--nw-trim contents) "</li>")))
 
 (defun t--format-descriptive-item (contents checkbox info term)
   "Format a DESCRIPTIVE list item into HTML."
   (declare (ftype (function ((or null string) t list t) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (term (or term "(no term)")))
     (concat (format "<dt>%s</dt>" (concat checkbox term))
@@ -1643,7 +1650,7 @@ Returns an empty string if CHECKBOX is not one of the these three."
 (defun t--format-descriptive-item-ex (contents item checkbox info term)
   "Format a DESCRIPTION list item into HTML."
   (declare (ftype (function ((or null string) t t list t) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (contents (let ((c (t--nw-trim contents)))
                     (if (equal c "") nil c))))
@@ -1674,7 +1681,7 @@ Returns an empty string if CHECKBOX is not one of the these three."
   "Transcode an ITEM element from Org to HTML.
 CONTENTS holds the contents of the item."
   (declare (ftype (function (t (or null string) list) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (let* ((plain-list (org-export-get-parent item))
          (type (org-element-property :type plain-list))
          (checkbox (org-element-property :checkbox item)))
@@ -1981,14 +1988,14 @@ information."
 
 ;;; Smallest objects (7)
 
-(defsubst t--get-markup-format (name info)
+(defun t--get-markup-format (name info)
   "Get markup format string for NAME from INFO plist.
 Returns \"%s\" if not found.
 
 NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (declare (ftype (function (symbol list) string))
-           (pure t) (important-return-value t))
-  (if-let* ((alist (plist-get info :html-text-markup-alist))
+           (important-return-value t))
+  (if-let* ((alist (t--pget info :html-text-markup-alist))
             (str (cdr (assq name alist))))
       str "%s"))
 
@@ -1998,7 +2005,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t-bold (_bold contents info)
   "Transcode BOLD from Org to HTML."
   (declare (ftype (function (t string list) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (format (t--get-markup-format 'bold info) contents))
 
 ;;;; Italic
@@ -2007,7 +2014,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t-italic (_italic contents info)
   "Transcode ITALIC from Org to HTML."
   (declare (ftype (function (t string list) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (format (t--get-markup-format 'italic info) contents))
 
 ;;;; Underline
@@ -2016,7 +2023,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t-underline (_underline contents info)
   "Transcode UNDERLINE from Org to HTML."
   (declare (ftype (function (t string list) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (format (t--get-markup-format 'underline info) contents))
 
 ;;;; Verbatim
@@ -2025,7 +2032,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t-verbatim (verbatim _contents info)
   "Transcode VERBATIM from Org to HTML."
   (declare (ftype (function (t string list) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (format (t--get-markup-format 'verbatim info)
           (t--encode-plain-text
            (org-element-property :value verbatim))))
@@ -2036,7 +2043,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML."
   (declare (ftype (function (t string list) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (format (t--get-markup-format 'code info)
           (t--encode-plain-text
            (org-element-property :value code))))
@@ -2047,7 +2054,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t-strike-through (_strike-through contents info)
   "Transcode STRIKE-THROUGH from Org to HTML."
   (declare (ftype (function (t string list) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
@@ -2062,7 +2069,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t--convert-special-strings (string)
   "Convert special characters in STRING to HTML."
   (declare (ftype (function (string) string))
-           (side-effect-free t) (important-return-value t))
+           (pure t) (important-return-value t))
   (dolist (a t-special-string-regexps string)
     (let ((re (car a))
           (rpl (cdr a)))
@@ -2071,20 +2078,20 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t-plain-text (text info)
   "Transcode a TEXT string from Org to HTML."
   (declare (ftype (function (string list) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (let ((output text))
     ;; Protect following characters: <, >, &.
     (setq output (t--encode-plain-text output))
     ;; Handle smart quotes.  Be sure to provide original
     ;; string since OUTPUT may have been modified.
-    (when (plist-get info :with-smart-quotes)
+    (when (t--pget info :with-smart-quotes)
       (setq output (org-export-activate-smart-quotes
                     output :html info text)))
     ;; Handle special strings.
-    (when (plist-get info :with-special-strings)
+    (when (t--pget info :with-special-strings)
       (setq output (t--convert-special-strings output)))
     ;; Handle break preservation if required.
-    (when (plist-get info :preserve-breaks)
+    (when (t--pget info :preserve-breaks)
       (setq output
             (replace-regexp-in-string
              "\\(\\\\\\\\\\)?[ \t]*\n"
@@ -2358,7 +2365,7 @@ to the CONTENT-FORMAT and encoding the result as plain text."
 If the function exists and is valid, call it with INFO as argument.
 Otherwise, signal an error."
   (declare (ftype (function (plist) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (if-let* ((fun (plist-get info :html-file-timestamp))
             ((functionp fun)))
       (funcall fun info)
@@ -2388,7 +2395,7 @@ Use document's INFO to derive relevant information for the tags."
 (defun t--build-meta-tags (info)
   "Build HTML <meta> tags get from `org-w3ctr-meta-tags'."
   (declare (ftype (function (plist) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (mapconcat
    (lambda (args) (apply #'t--build-meta-entry args))
    (delq nil (if (functionp t-meta-tags) (funcall t-meta-tags info)
@@ -2409,7 +2416,7 @@ Use document's INFO to derive relevant information for the tags."
 (defun t--build-meta-info (info)
   "Return meta tags for exported document."
   (declare (ftype (function (plist) string))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (concat
    (when (plist-get info :time-stamp-file)
      (format "<!-- %s -->\n" (t--get-info-file-timestamp info)))
@@ -2704,7 +2711,7 @@ splits the license name to get individual component icons."
 
 Extracts license information from INFO plist and formats it with author
 attribution and appropriate Creative Commons icons when applicable."
-  (declare (ftype (function (plist) string))
+  (declare (ftype (function (list) string))
            (important-return-value t))
   (let* ((license (plist-get info :html-license))
          (details (assq license t-public-license-alist))
@@ -2993,6 +3000,7 @@ CONTENTS is the transcoded contents string."
   "Return complete document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
+  (t--oinfo-cleanup)
   (concat
    "<!DOCTYPE html>\n"
    (format "<html lang=\"%s\">\n" (plist-get info :language))
@@ -3599,7 +3607,6 @@ is the language used for CODE, as a string, or nil."
          (code (car code-info)))
     (let ((code (t-fontify-code code lang)))
       code)))
-
 
 ;;;; Src Block
 ;; FIXME
