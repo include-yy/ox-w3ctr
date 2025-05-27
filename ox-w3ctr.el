@@ -1501,7 +1501,7 @@ with the new INFO and the corresponding property value."
 (defun t-center-block (_center-block contents _info)
   "Transcode a CENTER-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
-  (declare (ftype (function (t (or null string) plist) string))
+  (declare (ftype (function (t (or null string) t) string))
            (pure t) (important-return-value t))
   (format "<div style=\"text-align:center;\">%s</div>"
           (t--maybe-contents contents)))
@@ -1512,7 +1512,7 @@ CONTENTS holds the contents of the block."
 (defun t-drawer (drawer contents info)
   "Transcode a DRAWER element from Org to HTML.
 CONTENTS holds the contents of the block."
-  (declare (ftype (function (t (or null string) plist) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((name (org-element-property :drawer-name drawer))
          (cap (if-let* ((cap (org-export-get-caption drawer))
@@ -1528,7 +1528,7 @@ CONTENTS holds the contents of the block."
 (defun t-dynamic-block (_dynamic-block contents _info)
   "Transcode a DYNAMIC-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
-  (declare (ftype (function (t (or null string) plist) string))
+  (declare (ftype (function (t (or null string) t) string))
            (pure t) (important-return-value t))
   (or contents ""))
 
@@ -1550,7 +1550,7 @@ CONTENTS holds the contents of the block."
 The cdr of each entry is an alist list three checkbox types for
 HTML export: `on', `off' and `trans'.
 
-The choices are:
+Choices are:
   `unicode' Unicode characters (HTML entities)
   `ascii'   ASCII characters
   `html'    HTML checkboxes")
@@ -1560,7 +1560,7 @@ The choices are:
 (defsubst t--checkbox (checkbox info)
   "Format CHECKBOX into HTML.
 See `org-w3ctr-checkbox-types' for customization options."
-  (declare (ftype (function (t plist) (or null string)))
+  (declare (ftype (function (t list) (or null string)))
            (side-effect-free t) (important-return-value t))
   (cdr (assq checkbox
              (cdr (assq (plist-get info :html-checkbox-type)
@@ -1609,14 +1609,14 @@ See `org-w3ctr-checkbox-types' for customization options."
 
 CHECKBOX can be `on', `off', `trans', or anything else.
 Returns an empty string if CHECKBOX is not one of the these three."
-  (declare (ftype (function (t plist) string))
+  (declare (ftype (function (t list) string))
            (side-effect-free t) (important-return-value t))
   (let ((a (t--checkbox checkbox info)))
     (concat a (and a " "))))
 
 (defun t--format-ordered-item (contents checkbox info cnt)
   "Format a ORDERED list item into HTML."
-  (declare (ftype (function ((or null string) t plist t) string))
+  (declare (ftype (function ((or null string) t list t) string))
            (side-effect-free t) (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (counter (if (not cnt) "" (format " value=\"%s\"" cnt))))
@@ -1625,14 +1625,14 @@ Returns an empty string if CHECKBOX is not one of the these three."
 
 (defun t--format-unordered-item (contents checkbox info)
   "Format a UNORDERED list item into HTML."
-  (declare (ftype (function ((or null string) t plist) string))
+  (declare (ftype (function ((or null string) t list) string))
            (side-effect-free t) (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info)))
     (concat "<li>" checkbox (t--nw-trim contents) "</li>")))
 
 (defun t--format-descriptive-item (contents checkbox info term)
   "Format a DESCRIPTIVE list item into HTML."
-  (declare (ftype (function ((or null string) t plist t) string))
+  (declare (ftype (function ((or null string) t list t) string))
            (side-effect-free t) (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (term (or term "(no term)")))
@@ -1642,7 +1642,7 @@ Returns an empty string if CHECKBOX is not one of the these three."
 ;; Not used and not tested.
 (defun t--format-descriptive-item-ex (contents item checkbox info term)
   "Format a DESCRIPTION list item into HTML."
-  (declare (ftype (function ((or null string) t t plist t) string))
+  (declare (ftype (function ((or null string) t t list t) string))
            (side-effect-free t) (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (contents (let ((c (t--nw-trim contents)))
@@ -1673,7 +1673,7 @@ Returns an empty string if CHECKBOX is not one of the these three."
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML.
 CONTENTS holds the contents of the item."
-  (declare (ftype (function (t (or null string) plist) string))
+  (declare (ftype (function (t (or null string) list) string))
            (side-effect-free t) (important-return-value t))
   (let* ((plain-list (org-export-get-parent item))
          (type (org-element-property :type plain-list))
@@ -1698,7 +1698,7 @@ CONTENTS holds the contents of the item."
 (defun t-plain-list (plain-list contents info)
   "Transcode a PLAIN-LIST element from Org to HTML.
 CONTENTS is the contents of the list."
-  (declare (ftype (function (t (or null string) plist) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((type (pcase (org-element-property :type plain-list)
                  (`ordered "ol") (`unordered "ul") (`descriptive "dl")
@@ -1712,7 +1712,7 @@ CONTENTS is the contents of the list."
 (defun t-quote-block (quote-block contents info)
   "Transcode a QUOTE-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
-  (declare (ftype (function (t (or null string) plist) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format "<blockquote%s>%s</blockquote>"
           (t--make-attr__id* quote-block info t)
@@ -1727,7 +1727,7 @@ CONTENTS holds the contents of the block."
 (defun t-example-block (example-block _contents info)
   "Transcode a EXAMPLE-BLOCK element from Org to HTML.
 CONTENTS is nil."
-  (declare (ftype (function (t t plist) string))
+  (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format "<div%s>\n<pre>\n%s</pre>\n</div>"
           (t--make-attr__id* example-block info)
@@ -1765,7 +1765,7 @@ CONTENTS is nil."
 (defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML.
 CONTENTS is nil."
-  (declare (ftype (function (t t plist) string))
+  (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format "<pre%s>%s</pre>"
           (t--make-attr__id* fixed-width info t)
@@ -1821,7 +1821,7 @@ Also check attributes and caption of paragraph."
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML.
 CONTENTS is the contents of the paragraph, as a string."
-  (declare (ftype (function (t string plist) string))
+  (declare (ftype (function (t string list) string))
            (important-return-value t))
   (let* ((parent (org-export-get-parent paragraph))
          (parent-type (org-element-type parent))
@@ -1864,7 +1864,7 @@ CONTENTS is the contents of the paragraph, as a string."
 (defun t-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 CONTENTS is verse block contents."
-  (declare (ftype (function (t (or null string) plist) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format
    "<p%s>\n%s</p>"
@@ -1935,9 +1935,9 @@ CONTENTS is verse block contents."
 ;; Fixed export. Not customizable.
 (defun t-target (target _contents info)
   "Transcode a TARGET object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual
+CONTENTS is nil.  INFO is a list holding contextual
 information."
-  (declare (ftype (function (t t plist) string))
+  (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format "<span id=\"%s\"></span>" (t--reference target info)))
 
@@ -1946,7 +1946,7 @@ information."
 ;; Fixed export. Not customizable.
 (defun t-radio-target (radio-target text info)
   "Transcode a RADIO-TARGET object from Org to HTML."
-  (declare (ftype (function (t (or null string) plist) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format "<span id=\"%s\">%s</span>"
           (t--reference radio-target info) (or text "")))
@@ -1986,7 +1986,7 @@ information."
 Returns \"%s\" if not found.
 
 NAME is a symbol (like \\='bold), INFO is Org export info plist."
-  (declare (ftype (function (symbol plist) string))
+  (declare (ftype (function (symbol list) string))
            (pure t) (important-return-value t))
   (if-let* ((alist (plist-get info :html-text-markup-alist))
             (str (cdr (assq name alist))))
@@ -1997,7 +1997,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-bold (_bold contents info)
   "Transcode BOLD from Org to HTML."
-  (declare (ftype (function (t string plist) string))
+  (declare (ftype (function (t string list) string))
            (pure t) (important-return-value t))
   (format (t--get-markup-format 'bold info) contents))
 
@@ -2006,7 +2006,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-italic (_italic contents info)
   "Transcode ITALIC from Org to HTML."
-  (declare (ftype (function (t string plist) string))
+  (declare (ftype (function (t string list) string))
            (pure t) (important-return-value t))
   (format (t--get-markup-format 'italic info) contents))
 
@@ -2015,7 +2015,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-underline (_underline contents info)
   "Transcode UNDERLINE from Org to HTML."
-  (declare (ftype (function (t string plist) string))
+  (declare (ftype (function (t string list) string))
            (pure t) (important-return-value t))
   (format (t--get-markup-format 'underline info) contents))
 
@@ -2024,7 +2024,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-verbatim (verbatim _contents info)
   "Transcode VERBATIM from Org to HTML."
-  (declare (ftype (function (t string plist) string))
+  (declare (ftype (function (t string list) string))
            (pure t) (important-return-value t))
   (format (t--get-markup-format 'verbatim info)
           (t--encode-plain-text
@@ -2035,7 +2035,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML."
-  (declare (ftype (function (t string plist) string))
+  (declare (ftype (function (t string list) string))
            (pure t) (important-return-value t))
   (format (t--get-markup-format 'code info)
           (t--encode-plain-text
@@ -2046,7 +2046,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-strike-through (_strike-through contents info)
   "Transcode STRIKE-THROUGH from Org to HTML."
-  (declare (ftype (function (t string plist) string))
+  (declare (ftype (function (t string list) string))
            (pure t) (important-return-value t))
   (format (t--get-markup-format 'strike-through info) contents))
 
@@ -2070,7 +2070,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 
 (defun t-plain-text (text info)
   "Transcode a TEXT string from Org to HTML."
-  (declare (ftype (function (string plist) string))
+  (declare (ftype (function (string list) string))
            (side-effect-free t) (important-return-value t))
   (let ((output text))
     ;; Protect following characters: <, >, &.
