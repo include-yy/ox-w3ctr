@@ -1309,38 +1309,72 @@ newline character at its end."
   (insert-file-contents-literally file))
 
 (eval-and-compile
+  ;; A lightweight caching system for property lookups within the INFO
+  ;; plist used during Org export.
+
+  ;; Each property marked for caching associates a dedicated closure,
+  ;; which remembers the last INFO object and the corresponding property
+  ;; value. If a subsequent lookup uses the same INFO object, the cached
+  ;; value is returned immediately, avoiding redundant `plist-get'
+  ;; calls.
+
+  ;; Oclosure's PID field is explicitly reset in `org-w3ctr-template' to
+  ;; prevent stale references to obsolete INFO objects.
+
   (oclosure-define t--oinfo
-    "Communication Channel info cache closure."
-    (pid :mutable t :type plist)
-    (val :mutable t :type t))
+     "Cache oclosure for org export INFO property lookups.
+
+PID - Stores the last INFO object the closure was applied to. This allows
+      detecting whether the cached value is still valid.
+VAL - The cached property value associated with the last INFO.
+CNT - An integer counter used to track cache hits."
+    (pid :mutable t :type list)
+    (val :mutable t)
+    (cnt :mutable t :type integer))
 
   (defun t--make-cache-oclosure ()
-    (oclosure-lambda (t--oinfo (pid nil) (val nil)) (info prop)
-      (let ((id (sxhash-eq info)))
-        (if (equal pid id) val
-          (setq pid id val (plist-get info prop))))))
+    "Create and return a cache oclosure for Org INFO property lookups.
 
-  (defvar t--oinfo-cache-functions
-    '(:test))
+The returned oclosure caches the value of a specific property from an
+INFO plist. It remembers the last INFO object it was applied to and the
+associated property value in PID and VAL slots.
 
-  (defvar t--oinfo-cache-kv-hashtable
+On subsequent calls, if the INFO object is the same, the cached value
+VAL is returned directly; if different, the oclosure updates PID and VAL
+with the new INFO and the corresponding property value."
+    (oclosure-lambda (t--oinfo (pid nil) (val nil) (cnt 0)) (info prop)
+      (incf cnt)
+      (if (eq pid info) val
+        (setq pid info val (plist-get info prop)))))
+
+  (defvar t--oinfo-cache-props
+    '(:test)
+    "List of property keys (as keywords) to be cached in org export info.")
+
+  (defvar t--oinfo-cache-table
     (let ((ht (make-hash-table)))
-      (dolist (a t--oinfo-cache-functions ht)
-        (puthash a (t--make-cache-oclosure) ht))))
+      (dolist (prop t--oinfo-cache-props ht)
+        (puthash prop (t--make-cache-oclosure) ht)))
+    "Hash table mapping property keys to their cache oclosures")
 
-  (defmacro t--oget (info prop)
-    (if (keywordp prop)
-        (if-let* ((func (map-elt t--oinfo-cache-kv-hashtable prop)))
-            `(funcall ,func ,info ,prop) `(plist-get ,info ,prop))
-      `(plist-get ,info ,prop)))
+  (define-inline t--pget (info prop)
+    "Cached alternative to `plist-get' for Org export INFO lookups."
+    (if-let* ((f (gethash (inline-const-val prop) t--oinfo-cache-table)))
+        (inline-quote (funcall ,f ,info ,prop))
+      (inline-quote (plist-get ,info ,prop))))
 
-  (defmacro t--oset (info prop value)
-    (if (keywordp prop)
-        (if-let* ((func (map-elt t--oinfo-cache-kv-hashtable prop)))
-            `(setf (t--oinfo--pid ,func (sxhash-eq ,info))
-                   (t--oinfo--val ,func ,value))
-          `(plist-put ,info ,prop ,value))
-      `(plist-put ,info ,prop ,value)))
+  (define-inline t--pput (info prop value)
+    "Cached alternative to `plist-put' for Org export INFO lookups."
+    (if-let* ((f (gethash (inline-const-val prop) t--oinfo-cache-table)))
+        (inline-quote (setf (t--oinfo--pid ,f) ,info
+                            (t--oinfo--val ,f) ,value))
+      (inline-quote (plist-put ,info ,prop ,value))))
+
+  (defun t--oinfo-cleanup ()
+    "Clear cached INFO references and values from all cache oclosures."
+    (maphash
+     (lambda (_k f) (setf (t--oinfo--pid f) nil (t--oinfo--val f) nil))
+     t--oinfo-cache-table))
   )
 
 ;;; Simple JSON based sync RPC, not JSONRPC
