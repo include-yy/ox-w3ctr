@@ -4011,9 +4011,7 @@ Return output file name."
 
 ;; Local variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
-;; fill-column: 72
 ;; coding: utf-8-unix
-;; indent-tabs-mode: nil
 ;; End:
 
 ;;; ox-w3ctr.el ends here

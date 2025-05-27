@@ -1849,5 +1849,5 @@ int a = 1;</code></p>\n</details>")
 
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
-;; indent-tabs-mode: nil
+;; coding: utf-8-unix
 ;; End:
