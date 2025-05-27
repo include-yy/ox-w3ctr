@@ -1165,7 +1165,7 @@ ATTRIBUTES is a list where values are either atom or list."
 
 (defun t--make-attr__id (element info &optional named-only)
   "Return ELEMENT's attr__ attribute string."
-  (declare (ftype (function (t plist &optional boolean) string))
+  (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (let* ((reference (t--reference element info named-only))
          (attributes (t--read-attr__ element))
@@ -1197,7 +1197,7 @@ An attribute with a nil value will be omitted from the result."
 
 (defun t--make-attr_html (element info &optional named-only)
   "Return ELEMENT's attr_html attribute string."
-  (declare (ftype (function (t plist &optional boolean) string))
+  (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (let* ((attrs (org-export-read-attribute :attr_html element))
          (reference (t--reference element info named-only))
@@ -1209,7 +1209,7 @@ An attribute with a nil value will be omitted from the result."
 (defun t--make-attr__id* (element info &optional named-only)
   "Return ELEMENT's attribute string.
 Fall back to attr_html when attr__ is unavailable."
-  (declare (ftype (function (t plist &optional boolean) string))
+  (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (if (org-element-property :attr__ element)
       (t--make-attr__id element info named-only)
