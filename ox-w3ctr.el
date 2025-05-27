@@ -1386,6 +1386,10 @@ with the new INFO and the corresponding property value."
       (inline-quote (plist-put ,info ,prop ,value))))
   )
 
+;; Test code
+;; (mapcar (lambda (x) (cons (car x) (null (org-w3ctr--oinfo--pid
+;; (symbol-function (cdr x)))))) org-w3ctr--oinfo-cache-alist)
+
 (defun t--oinfo-cleanup ()
   "Clear cached INFO references and values from all cache oclosures."
   (map-do
@@ -3029,11 +3033,7 @@ CONTENTS is the transcoded contents string."
        (let ((sub (org-export-data subtitle info)))
          (format "<p id=\"w3c-state\">%s</p>\n" sub))))))
 
-(defun t-template (contents info)
-  "Return complete document string after HTML conversion.
-CONTENTS is the transcoded contents string.  INFO is a plist
-holding export options."
-  (t--oinfo-cleanup)
+(defun t-template-1 (contents info)
   (concat
    "<!DOCTYPE html>\n"
    (format "<html lang=\"%s\">\n" (plist-get info :language))
@@ -3056,6 +3056,14 @@ holding export options."
    (t--nw-p (plist-get info :html-fixup-js))
    ;; Closing document.
    "</body>\n</html>"))
+
+(defun t-template (contents info)
+  "Return complete document string after HTML conversion.
+CONTENTS is the transcoded contents string.  INFO is a plist
+holding export options."
+  (prog1 (t-template-1 contents info)
+    (t--oinfo-cleanup)))
+
 
 ;;; Headline
 
