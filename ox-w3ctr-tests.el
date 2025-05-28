@@ -149,12 +149,7 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (equal (t--maybe-contents "") "\n"))
   (should (equal (t--maybe-contents "abc") "\nabc"))
   (should (equal (t--maybe-contents 123) ""))
-  (should (equal (t--maybe-contents '(1 2)) ""))
-  (should (equal (byte-compile '(t--maybe-contents nil)) ""))
-  (should (equal (byte-compile '(t--maybe-contents "")) "\n"))
-  (should (equal (byte-compile '(t--maybe-contents "abc")) "\nabc"))
-  (should (equal (byte-compile '(t--maybe-contents 123)) ""))
-  (should (equal (byte-compile '(t--maybe-contents '(1 2))) "")))
+  (should (equal (t--maybe-contents '(1 2)) "")))
 
 (ert-deftest t--nw-p ()
   "Tests for `org-w3ctr--nw-p'."
@@ -243,6 +238,10 @@ BODY-ONLY and PLIST are optional arguments passed to
 
 (ert-deftest t--encode-plain-text* ()
   "Tests for `org-w3ctr--encode-plain-text*'."
+  (should (equal (t--encode-plain-text* "&") "&amp;"))
+  (should (equal (t--encode-plain-text* "<") "&lt;"))
+  (should (equal (t--encode-plain-text* ">") "&gt;"))
+  (should (equal (t--encode-plain-text* "<&>") "&lt;&amp;&gt;"))
   (should (equal (t--encode-plain-text* "'") "&apos;"))
   (should (equal (t--encode-plain-text* "\"") "&quot;"))
   (should (equal (t--encode-plain-text* "\"'&\"")
@@ -266,7 +265,10 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (string= (t--make-attr '(data-tt "a < b && c"))
                    " data-tt=\"a &lt; b &amp;&amp; c\""))
   (should (string= (t--make-attr '(data-he "\"hello world\""))
-                   " data-he=\"&quot;hello world&quot;\"")))
+                   " data-he=\"&quot;hello world&quot;\""))
+  (should (string= (t--make-attr '(sig "''")) " sig=\"&apos;&apos;\""))
+  (should (string= (t--make-attr '(test ">'\""))
+                   " test=\"&gt;&apos;&quot;\"")))
 
 (ert-deftest t--make-attr__ ()
   "Tests for `org-w3ctr--make-attr__'."
@@ -305,6 +307,8 @@ BODY-ONLY and PLIST are optional arguments passed to
                  "a=\"&quot;a&quot;\""))
   (should (equal (t--make-attribute-string '(:open "open"))
                  "open=\"open\""))
+  (should (equal (t--make-attribute-string '(:test "'\"'"))
+                 "test=\"&apos;&quot;&apos;\""))
   (t-check-element-values
    #'t--make-attribute-string
    '(("#+attr_html: :open open :class a\ntest"
@@ -405,7 +409,12 @@ BODY-ONLY and PLIST are optional arguments passed to
                    "<div>123</div>"))
   ;; Allow bare tags
   (should (string= (t--sexp2html '(p)) "<p></p>"))
-  (should (string= (t--sexp2html '(hr)) "<hr>")))
+  (should (string= (t--sexp2html '(hr)) "<hr>"))
+  ;; Escape
+  (should (string= (t--sexp2html '(p () "123<456>"))
+                   "<p>123&lt;456&gt;</p>"))
+  (should (string= (t--sexp2html '(p () (b () "a&b")))
+                   "<p><b>a&amp;b</b></p>")))
 
 (ert-deftest t--make-string ()
   "Tests for `org-w3ctr--make-string'."

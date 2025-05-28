@@ -1344,7 +1344,7 @@ Treats non-empty vector values as HTML class attributes."
 `org-w3ctr--encode-plain-text'.")
 
 (defun t--encode-plain-text (text)
-  "Convert plain text characters from TEXT to HTML equivalent.
+  "Convert plain text characters from TEXT to HTML equivalents.
 Possible conversions are set in `org--w3ctr-protect-char-alist'."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
@@ -1352,30 +1352,37 @@ Possible conversions are set in `org--w3ctr-protect-char-alist'."
     (setq text (replace-regexp-in-string
                 (car pair) (cdr pair) text t t))))
 
+(defconst t--protect-char-alist*
+  '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;")
+    ;; https://stackoverflow.com/a/2428595
+    ("'" . "&apos;") ("\"" . "&quot;"))
+  "Alist of characters to be converted by
+`org-w3ctr--encode-plain-text*'.")
+
 (defun t--encode-plain-text* (text)
-  "Compared to `org-w3ctr--encode-plain-text', plus
+  "Convert plain text characters from TEXT to HTML equivalents.
+
+Compared to `org-w3ctr--encode-plain-text', this also converts
 single-quote and double-quote characters."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
-  (let ((t--protect-char-alist
-         `(,@t--protect-char-alist
-           ;; https://stackoverflow.com/a/2428595
-           ("'" . "&apos;") ("\"" . "&quot;"))))
-    (t--encode-plain-text text)))
+  (dolist (pair t--protect-char-alist* text)
+    (setq text (replace-regexp-in-string
+                (car pair) (cdr pair) text t t))))
 
-(defsubst t--make-attr (list)
+(defun t--make-attr (list)
   "Convert LIST to HTML attribute string.
 Returns nil if LIST is nil or its first element is nil.
 
-If LIST has the form (ATTR), create a boolean attribute: ` ATTR'.
+If LIST has the form (ATTR), create a boolean attribute: \\=' ATTR\\='.
 If LIST has the form (ATTR VALUE1 VALUE2 ...), create an attribute
-with values: ` ATTR=\"VALUE1VALUE2...\"'.
+with values: \\=' ATTR=\"VALUE1VALUE2...\"\\='.
 
 The ATTR name is lowercased.  The VALUEs are concatenated
 (after converting to strings) *without spaces*.
 
 Double quotes in the values are escaped as &quot;.
-Also escapes <, >, and & in the values."
+Also escapes '<', '>', and '&' in the values."
   (declare (ftype (function (list) (or string null)))
            (pure t) (important-return-value t))
   ;; (car nil) => nil
@@ -1424,8 +1431,7 @@ An attribute with a nil value will be omitted from the result."
        ((null item) (pop output))
        ((symbolp item) (push (substring (symbol-name item) 1) output))
        (t (let ((key (car output))
-                (value (replace-regexp-in-string
-                        "\"" "&quot;" (t--encode-plain-text item))))
+                (value (t--encode-plain-text* item)))
             (setcar output (format "%s=\"%s\"" key value))))))))
 
 (defun t--make-attr_html (element info &optional named-only)
@@ -1448,24 +1454,19 @@ Fall back to attr_html when attr__ is unavailable."
       (t--make-attr__id element info named-only)
     (t--make-attr_html element info named-only)))
 
+;; Copied from `org-trim'
 (defsubst t--trim (s &optional keep-lead)
   "Remove whitespace at the beginning and the end of string S.
 
 When optional argument KEEP-LEAD is non-nil, removing blank lines
-at the beginning of the string does not affect leading indentation.
-
-See also `org-trim'."
-  (declare (ftype (function (string &optional boolean) string))
-           (pure t) (important-return-value t))
+at the beginning of the string does not affect leading indentation."
   (replace-regexp-in-string
    (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
    (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
 
 (defsubst t--nw-trim (s)
-  "Remove whitespace at the beginning and the end of S if S is string.
-Otherwise, return nil"
-  (declare (ftype (function (t) string))
-           (pure t) (important-return-value t))
+  "Remove whitespace at the beginning and the end of S if S is string;
+otherwise, return nil."
   (and (t--nw-p s) (t--trim s)))
 
 ;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
@@ -1478,7 +1479,7 @@ Otherwise, return nil"
   "Regexp matching HTML void elements (self-closing tags).
 These elements do not require a closing tag in HTML.")
 
-(defsubst t--sexp2html (data)
+(defun t--sexp2html (data)
   "Convert S-expression DATA into an HTML string.
 
 The function only accepts symbols, strings, numbers, and lists as
@@ -1487,7 +1488,8 @@ input. Other data types will be ignored."
            (pure t) (important-return-value t))
   (cl-typecase data
     (null "")
-    ((or symbol string number) (t--2str data))
+    ((or symbol string number)
+     (t--encode-plain-text (t--2str data)))
     (list
      ;; always use lowercase tagname.
      (let* ((tag (downcase (t--2str (nth 0 data))))
@@ -1501,7 +1503,7 @@ input. Other data types will be ignored."
                    tag attrs children tag)))))
     (otherwise "")))
 
-(defsubst t--make-string (n string)
+(defun t--make-string (n string)
   "Build a string by concatenating N times STRING."
   (declare (ftype (function (fixnum string) string))
            (pure t) (important-return-value t))
