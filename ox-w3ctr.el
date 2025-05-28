@@ -1660,8 +1660,6 @@ See `org-w3ctr-checkbox-types' for customization options."
 
 CHECKBOX can be `on', `off', `trans', or anything else.
 Returns an empty string if CHECKBOX is not one of the these three."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
   (let ((a (t--checkbox checkbox info)))
     (concat a (and a " "))))
 
@@ -1691,6 +1689,7 @@ Returns an empty string if CHECKBOX is not one of the these three."
             "<dd>" (t--nw-trim contents) "</dd>")))
 
 ;; Not used and not tested.
+;; Allow 1-x, x-1, x-x <dt> and <dd> map.
 (defun t--format-descriptive-item-ex (contents item checkbox info term)
   "Format a DESCRIPTION list item into HTML."
   (declare (ftype (function ((or null string) t t list t) string))
@@ -1831,7 +1830,7 @@ CONTENTS is nil."
 (defun t-horizontal-rule (_horizontal-rule _contents _info)
   "Transcode an HORIZONTAL-RULE object from Org to HTML.
 CONTENTS is nil."
-  (declare (ftype (function (t t t) "<hr>"))
+  (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
   "<hr>")
 
@@ -1903,6 +1902,7 @@ CONTENTS is the contents of the paragraph, as a string."
             (format "<p%s>%s</p>" attrs c)))))))
 
 ;; FIXME: Consider add an option to switch on/off this feature.
+;; Or totally disable it.
 (defun t-paragraph-filter (value _backend _info)
   "Delete paragraph's trailing newlines."
   (declare (ftype (function (string t t) string))
@@ -1969,7 +1969,7 @@ CONTENTS is verse block contents."
 ;; Fixed export. Not customizable.
 (defun t-line-break (_line-break _contents _info)
   "Transcode a LINE-BREAK object from Org to HTML."
-  (declare (ftype (function (t t t) "<br>\n"))
+  (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
   "<br>\n")
 
