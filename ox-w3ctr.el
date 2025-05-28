@@ -1294,7 +1294,7 @@ Useful for clearing accumulated state and usage counts."
        (setf (t--oinfo--val o) nil)
        (setf (t--oinfo--cnt o) 0)))
    t--oinfo-cache-alist))
-
+
 ;;; Basic utilties
 (defsubst t--maybe-contents (contents)
   "If CONTENTS is a string, return it with a newline prepended;
@@ -1542,7 +1542,7 @@ newline character at its end."
   (unless (and (file-exists-p file) (not (file-directory-p file)))
     (error "(ox-w3ctr) Bad File: %s" file))
   (insert-file-contents-literally file))
-
+
 ;;; Greater elements (11 - 3 - 2 = 6).
 ;;; special-block and table are not here.
 
