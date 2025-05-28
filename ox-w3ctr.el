@@ -1061,7 +1061,7 @@ ELEMENT is either a source or an example block."
 
 ;; Each property marked for caching associates a dedicated oclosure,
 ;; which remembers the last INFO object and the corresponding property
-;; value. If a subsequent lookup uses the same INFO object, the cached
+;; value.  If a subsequent lookup uses the same INFO object, the cached
 ;; value is returned immediately, avoiding redundant `plist-get' calls.
 
 ;; Oclosure's PID field is explicitly reset in `org-w3ctr-template' to
@@ -1071,8 +1071,7 @@ ELEMENT is either a source or an example block."
   (oclosure-define t--oinfo
     "Cache oclosure for org export INFO property lookups.
 
-PID - Stores the last INFO object the oclosure was applied to. This
-      allows detecting whether the cached value is still valid.
+PID - The last INFO object the oclosure was applied to.
 KEY - The property keyword passed to lookup function.
 VAL - The cached property value associated with the last INFO.
 CNT - An integer counter used to track cache hits."
@@ -1084,10 +1083,10 @@ CNT - An integer counter used to track cache hits."
   (defun t--make-cache-oclosure (keyword)
     "Create and return a cache oclosure for Org INFO property lookups.
 
-The returned oclosure caches the value of a specific property KEYWORD in
-an INFO property list (plist). It keeps track of the last INFO object it
-was applied to, along with the corresponding property value, stored in
-the PID and VAL slots.
+The returned oclosure caches the value of a specific property KEYWORD
+in an INFO property list (plist).  It keeps track of the last INFO
+object it was applied to, along with the corresponding property value,
+stored in the PID and VAL slots.
 
 On subsequent calls, if the INFO object is the same, the cached value
 VAL is returned directly; if different, the oclosure updates PID and VAL
@@ -1186,15 +1185,12 @@ Useful for clearing accumulated state and usage counts."
 (defsubst t--maybe-contents (contents)
   "If CONTENTS is a string, return it with a newline prepended;
 otherwise, return an empty string."
-  (declare (ftype (function ((or string null)) string))
-           (pure t) (important-return-value t))
   (if (stringp contents) (concat "\n" contents) ""))
 
+;; Copied from `org-string-nw-p'.
 (defsubst t--nw-p (s)
-  "Return S if S is a string containing a non-blank character.
-Otherwise, return nil. See also `org-string-nw-p'."
-  (declare (ftype (function (t) (or nil string)))
-           (pure t) (important-return-value t))
+  "Return S if it is a string containing at least one non-blank
+character; otherwise, return nil."
   (and (stringp s) (string-match-p "[^ \r\t\n]" s) s))
 
 (defsubst t--2str (s)
@@ -1202,19 +1198,15 @@ Otherwise, return nil. See also `org-string-nw-p'."
 
 If S is a number, symbol, or string, return the corresponding
 string. Otherwise, return nil to indicate conversion failure."
-  (declare (ftype (function (t) (or string null)))
-           (pure t) (important-return-value t))
   (cl-typecase s
-    (null nil)
-    (symbol (symbol-name s))
-    (string s)
-    (number (number-to-string s))
+    (null nil) (symbol (symbol-name s))
+    (string s) (number (number-to-string s))
     (otherwise nil)))
 
 (defun t--read-attr (attribute element)
   "Turn ATTRIBUTE property from ELEMENT into a list.
-Returns nil if ATTRIBUTE doesn't exist or is empty string."
-  (declare (ftype (function (keyword t) list))
+Returns nil if ATTRIBUTE doesn't exist or is an empty string."
+  (declare (ftype (function (symbol t) list))
            (pure t) (important-return-value t))
   (when-let* ((value (org-element-property attribute element))
               (str (t--nw-p (mapconcat #'identity value " "))))

@@ -149,7 +149,12 @@ BODY-ONLY and PLIST are optional arguments passed to
   (should (equal (t--maybe-contents "") "\n"))
   (should (equal (t--maybe-contents "abc") "\nabc"))
   (should (equal (t--maybe-contents 123) ""))
-  (should (equal (t--maybe-contents '(1 2)) "")))
+  (should (equal (t--maybe-contents '(1 2)) ""))
+  (should (equal (byte-compile '(t--maybe-contents nil)) ""))
+  (should (equal (byte-compile '(t--maybe-contents "")) "\n"))
+  (should (equal (byte-compile '(t--maybe-contents "abc")) "\nabc"))
+  (should (equal (byte-compile '(t--maybe-contents 123)) ""))
+  (should (equal (byte-compile '(t--maybe-contents '(1 2))) "")))
 
 (ert-deftest t--nw-p ()
   "Tests for `org-w3ctr--nw-p'."
