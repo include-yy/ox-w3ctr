@@ -1059,11 +1059,10 @@ ELEMENT is either a source or an example block."
 ;; A lightweight caching system for property lookups within the INFO
 ;; plist used during Org export.
 
-;; Each property marked for caching associates a dedicated closure,
+;; Each property marked for caching associates a dedicated oclosure,
 ;; which remembers the last INFO object and the corresponding property
 ;; value. If a subsequent lookup uses the same INFO object, the cached
-;; value is returned immediately, avoiding redundant `plist-get'
-;; calls.
+;; value is returned immediately, avoiding redundant `plist-get' calls.
 
 ;; Oclosure's PID field is explicitly reset in `org-w3ctr-template' to
 ;; prevent stale references to obsolete INFO objects.
@@ -1072,22 +1071,23 @@ ELEMENT is either a source or an example block."
   (oclosure-define t--oinfo
     "Cache oclosure for org export INFO property lookups.
 
-PID - Stores the last INFO object the closure was applied to. This
+PID - Stores the last INFO object the oclosure was applied to. This
       allows detecting whether the cached value is still valid.
 KEY - The property keyword passed to lookup function.
 VAL - The cached property value associated with the last INFO.
 CNT - An integer counter used to track cache hits."
     (pid :mutable t :type list)
-    (key :type keyword)
+    (key :type symbol)
     (val :mutable t)
     (cnt :mutable t :type integer))
 
   (defun t--make-cache-oclosure (keyword)
     "Create and return a cache oclosure for Org INFO property lookups.
 
-The returned oclosure caches the value of a specific property from an
-INFO plist. It remembers the last INFO object it was applied to and the
-associated property value in PID and VAL slots.
+The returned oclosure caches the value of a specific property KEYWORD in
+an INFO property list (plist). It keeps track of the last INFO object it
+was applied to, along with the corresponding property value, stored in
+the PID and VAL slots.
 
 On subsequent calls, if the INFO object is the same, the cached value
 VAL is returned directly; if different, the oclosure updates PID and VAL
@@ -1105,7 +1105,7 @@ with the new INFO and the corresponding property value."
     '( :html-checkbox-type :html-text-markup-alist
        :with-smart-quotes :with-special-strings :preserve-breaks
        )
-    "List of property keys to be cached in org export info.")
+    "List of property keys to be cached.")
 
   (defconst t--oinfo-cache-alist
     (let (alist)
@@ -1138,7 +1138,7 @@ with the new INFO and the corresponding property value."
 ;; (symbol-function (cdr x)))))) org-w3ctr--oinfo-cache-alist)
 
 (defun t--oinfo-cleanup ()
-  "Clear cached INFO references and values from all cache oclosures."
+  "Clear PID and VAL fields from all oclosures."
   (map-do
    (lambda (_k v)
      (let ((o (symbol-function v)))
@@ -1146,11 +1146,18 @@ with the new INFO and the corresponding property value."
    t--oinfo-cache-alist))
 
 (defun t-collect-oinfo-statistics ()
+  "Collect and display the usage count of all oclosures in
+`org-w3ctr--oinfo-cache-alist'.
+
+The function retrieves the CNT field from each oclosure, sorts the
+entries by count in descending order, and displays the result in a
+buffer named \"*ox-w3ctr-oinfo*\".
+
+Intended for debugging or monitoring oclosure usage."
   (interactive)
   (let* ((buf (get-buffer-create "*ox-w3ctr-oinfo*"))
          (ls (mapcar
-              (lambda (x) (let ((key (car x))
-                            (o (symbol-function (cdr x))))
+              (lambda (x) (let ((key (car x)) (o (symbol-function (cdr x))))
                         (cons key (t--oinfo--cnt o))))
               t--oinfo-cache-alist))
          (sorted (sort ls :key #'cdr :reverse t)))
@@ -1159,6 +1166,13 @@ with the new INFO and the corresponding property value."
     (switch-to-buffer-other-window buf)))
 
 (defun t-clear-oinfo-statistics ()
+  "Clear cached data and reset usage statistics for all oclosures in
+`org-w3ctr--oinfo-cache-alist'.
+
+This function sets the PID and VAL fields of each oclosure to nil, and
+resets their CNT field to 0.
+
+Useful for clearing accumulated state and usage counts."
   (interactive)
   (map-do
    (lambda (_k v)
