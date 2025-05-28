@@ -229,14 +229,14 @@
   :group 'org-export)
 
 (defcustom t-checkbox-type 'unicode
-  "The type of checkboxes to use for HTML export.
+  "The type of checkboxes for HTML export.
 
-Possible values:
+Possible types:
   `unicode': Use Unicode symbols
   `ascii'  : Use ASCII characters
   `html'   : Use HTML input elements
 
-See `org-w3ctr-checkbox-types' for the exact characters used."
+See `org-w3ctr-checkbox-types' for details."
   :group 'org-export-w3ctr
   :type '(choice (const :tag "Unicode symbols" unicode)
                  (const :tag "ASCII characters" ascii)
@@ -248,15 +248,15 @@ See `org-w3ctr-checkbox-types' for the exact characters used."
     (code . "<code>%s</code>")
     (italic . "<em>%s</em>")
     (strike-through . "<s>%s</s>")
-    (underline . "<span class=\"underline\">%s</span>")
+    (underline . "<u>%s</u>")
     (verbatim . "<code>%s</code>"))
   "Alist of HTML expressions to convert text markup.
 
-The key must be a symbol among `bold', `code', `italic',
-`strike-through', `underline' and `verbatim'.  The value is
-a formatting string to wrap fontified text with.
+The key must be a one of the symbols: `bold', `code', `italic',
+`strike-through', `underline' and `verbatim'.  The value is a
+formatting string used to to wrap the fontified text.
 
-If no association can be found for a given markup, text will be
+If no association is found for a given markup, the text will be
 returned as-is."
   :group 'org-export-w3ctr
   :type '(alist :key-type (symbol :tag "Markup type")

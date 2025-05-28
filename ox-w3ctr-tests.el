@@ -1070,22 +1070,22 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr-underline'."
   (t-check-element-values
    #'t-underline
-   '(("_abc_" "<span class=\"underline\">abc</span>")
+   '(("_abc_" "<u>abc</u>")
      ("__abc__"
-      "<span class=\"underline\"><span class=\"underline\">abc</span></span>"
-      "<span class=\"underline\">abc</span>")
+      "<u><u>abc</u></u>"
+      "<u>abc</u>")
      ("__" . nil)
-     ("___" "<span class=\"underline\">_</span>")
-     ("____" "<span class=\"underline\">__</span>")
+     ("___" "<u>_</u>")
+     ("____" "<u>__</u>")
      ("_____"
-      "<span class=\"underline\"><span class=\"underline\">_</span></span>"
-      "<span class=\"underline\">_</span>")
+      "<u><u>_</u></u>"
+      "<u>_</u>")
      ("_\\under\\under\\under_"
-      "<span class=\"underline\">___</span>")
+      "<u>___</u>")
      ("_hello world this world_"
-      "<span class=\"underline\">hello world this world</span>")
+      "<u>hello world this world</u>")
      ("_hello\nworld_"
-      "<span class=\"underline\">hello\nworld</span>"))))
+      "<u>hello\nworld</u>"))))
 
 (ert-deftest t-verbatim ()
   "Tests for `org-w3ctr-verbatim'."
