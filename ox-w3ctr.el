@@ -228,6 +228,7 @@
   :tag "Org Export W3CTR HTML"
   :group 'org-export)
 
+;;;; Item and Plain Lists
 (defcustom t-checkbox-type 'unicode
   "The type of checkboxes for HTML export.
 
@@ -242,6 +243,7 @@ See `org-w3ctr-checkbox-types' for details."
                  (const :tag "ASCII characters" ascii)
                  (const :tag "HTML <input> elements" html)))
 
+;;;; Markup texts
 (defcustom t-text-markup-alist
   ;; See also `org-html-text-markup-alist'.
   '((bold . "<strong>%s</strong>")
@@ -2102,7 +2104,9 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
-;; Fixed export. Not customizable.
+;; :with-smart-quotes (`org-export-with-smart-quotes')
+;; :with-special-strings (`org-export-with-special-strings')
+;; :preserve-breaks (`org-export-preserve-breaks')
 (defconst t-special-string-regexps
   '(("\\\\-" . "&#x00ad;"); shy
     ("---\\([^-]\\)" . "&#x2014;\\1"); mdash
