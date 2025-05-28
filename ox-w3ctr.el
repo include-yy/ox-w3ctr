@@ -964,7 +964,6 @@ controls how timestamps are formatted, with variations in:
                 (const T-colon) (const T-colon-zulu)))
 
 ;;; Internal Functions
-
 (defun t--has-caption-p (element &optional _info)
   "Non-nil when ELEMENT has a caption affiliated keyword.
 INFO is a plist used as a communication channel.  This function
@@ -1055,6 +1054,121 @@ ELEMENT is either a source or an example block."
             (or (plist-get attr :width) 80)
             (or (plist-get attr :height) (org-count-lines code))
             code)))
+
+;;; Simple JSON based sync RPC, not JSONRPC
+(defvar t--rpc-timeout 1.0
+  "Timeout for a rpc, in seconds.")
+(defvar t--rpc-id 0
+  "JSON-rpc ID for request.")
+
+;; https://www.jsonrpc.org/specification
+(defun t--rpc-make-json (func args)
+  (json-serialize
+   `( :jsonrpc "2.0" :method ,(format "%s" func)
+      :params ,args  :id ,(incf t--rpc-id))))
+
+(defun t--rpc-send (proc jstr)
+  (process-send-string proc (concat jstr "\n")))
+
+(defun t--rpc-call (proc func args)
+  (t--rpc-send proc (t--rpc-make-json func args)))
+
+(defun t--rpc-filter (proc string)
+  (when (buffer-live-p (process-buffer proc))
+    (with-current-buffer (process-buffer proc)
+      ;; insert string
+      (save-excursion
+        (goto-char (process-mark proc))
+        (insert string)
+        (set-marker (process-mark proc) (point)))
+      ;; find json data
+      (when-let* ((curr (point))
+                  (end (search-forward "\n" nil t)))
+        (goto-char curr)
+        (let* ((hash (json-parse-buffer)))
+          (if (not (process-get proc 'debug))
+              (delete-region curr end)
+            (goto-char (point-max)))
+          (set-marker (process-mark proc) (point))
+          (throw 't--rpc hash))))))
+
+(defun t--rpc-sentinel (proc _change)
+  (when (not (process-live-p proc))
+    (unless (process-get proc 'debug)
+      (let* ((re " \\*ox-w3ctr-proc-\\[")
+             (buf (process-buffer proc))
+             (bufname (buffer-name buf)))
+        (when (string-match-p re bufname)
+          (kill-buffer buf))))))
+
+(defun t--rpc-start (name cmd-list &optional debug)
+  (let* ((buf (get-buffer-create
+               (concat " *ox-w3ctr-proc-[" name "]*")))
+         (proc (make-process
+                :name name :buffer buf
+                :command cmd-list :coding 'utf-8
+                :noquery t :filter #'t--rpc-filter
+                :sentinel #'t--rpc-sentinel)))
+    (with-current-buffer buf
+      (goto-char (point-max))
+      (set-marker (process-mark proc) (point)))
+    (when debug (process-put proc 'debug t))
+    proc))
+
+(defun t--rpc-request-sync (proc fun args)
+  (catch 't--rpc
+    (t--rpc-call proc fun args)
+    (let ((curr-time (float-time)))
+      (while (< (- (float-time) curr-time) t--rpc-timeout)
+        (accept-process-output nil 1))
+      (error "ox-w3ctr RPC timeout: (%s %s)" fun args))))
+
+(defun t--rpc-request! (proc fun args)
+  (let* ((data (t--rpc-request-sync proc fun args)))
+    (if-let* ((err (gethash "error" data)))
+        (error "ox-w3ctr RPC error: %s %s %s"
+               (gethash "code" err)
+               (gethash "message" err)
+               (gethash "data" err))
+      (gethash "result" data))))
+
+(defvar t--jstools-proc nil
+  "js-tools process object.")
+(defvar t-jstools-debug nil)
+
+(defvar t--jstools-timeout 30000
+  "default server side timeout, in milliseconds.")
+
+(defun t-toggle-jstools-debug ()
+  (interactive)
+  (if t-jstools-debug
+      (progn
+        (setq t-jstools-debug nil)
+        (message "ox-w3ctr: jstools debug disabled."))
+    (setq t-jstools-debug t)
+    (message "ox-w3ctr: jstools debug enabled.")))
+
+(defun t--start-jstools ()
+  (unless (process-live-p t--jstools-proc)
+    (setq t--jstools-proc
+          (t--rpc-start
+           "jstools"
+           `("node" ,(file-name-concat t--dir "jstools/index.js")
+             "--timeout" ,(number-to-string t--jstools-timeout))
+           t-jstools-debug))))
+
+(defun t--restart-jstools ()
+  (when (process-live-p t--jstools-proc)
+    (delete-process t--jstools-proc))
+  (t--start-jstools))
+
+(defun t-launch-jstools ()
+  (interactive)
+  (t--restart-jstools))
+
+(defun t--jstools-call (fun args)
+  (t--start-jstools)
+  (t--rpc-request! t--jstools-proc fun args))
 
 ;; A lightweight caching system for property lookups within the INFO
 ;; plist used during Org export.
@@ -1426,121 +1540,6 @@ newline character at its end."
   (unless (and (file-exists-p file) (not (file-directory-p file)))
     (error "(ox-w3ctr) Bad File: %s" file))
   (insert-file-contents-literally file))
-
-;;; Simple JSON based sync RPC, not JSONRPC
-(defvar t--rpc-timeout 1.0
-  "Timeout for a rpc, in seconds.")
-(defvar t--rpc-id 0
-  "JSON-rpc ID for request.")
-
-;; https://www.jsonrpc.org/specification
-(defun t--rpc-make-json (func args)
-  (json-serialize
-   `( :jsonrpc "2.0" :method ,(format "%s" func)
-      :params ,args  :id ,(incf t--rpc-id))))
-
-(defun t--rpc-send (proc jstr)
-  (process-send-string proc (concat jstr "\n")))
-
-(defun t--rpc-call (proc func args)
-  (t--rpc-send proc (t--rpc-make-json func args)))
-
-(defun t--rpc-filter (proc string)
-  (when (buffer-live-p (process-buffer proc))
-    (with-current-buffer (process-buffer proc)
-      ;; insert string
-      (save-excursion
-        (goto-char (process-mark proc))
-        (insert string)
-        (set-marker (process-mark proc) (point)))
-      ;; find json data
-      (when-let* ((curr (point))
-                  (end (search-forward "\n" nil t)))
-        (goto-char curr)
-        (let* ((hash (json-parse-buffer)))
-          (if (not (process-get proc 'debug))
-              (delete-region curr end)
-            (goto-char (point-max)))
-          (set-marker (process-mark proc) (point))
-          (throw 't--rpc hash))))))
-
-(defun t--rpc-sentinel (proc _change)
-  (when (not (process-live-p proc))
-    (unless (process-get proc 'debug)
-      (let* ((re " \\*ox-w3ctr-proc-\\[")
-             (buf (process-buffer proc))
-             (bufname (buffer-name buf)))
-        (when (string-match-p re bufname)
-          (kill-buffer buf))))))
-
-(defun t--rpc-start (name cmd-list &optional debug)
-  (let* ((buf (get-buffer-create
-               (concat " *ox-w3ctr-proc-[" name "]*")))
-         (proc (make-process
-                :name name :buffer buf
-                :command cmd-list :coding 'utf-8
-                :noquery t :filter #'t--rpc-filter
-                :sentinel #'t--rpc-sentinel)))
-    (with-current-buffer buf
-      (goto-char (point-max))
-      (set-marker (process-mark proc) (point)))
-    (when debug (process-put proc 'debug t))
-    proc))
-
-(defun t--rpc-request-sync (proc fun args)
-  (catch 't--rpc
-    (t--rpc-call proc fun args)
-    (let ((curr-time (float-time)))
-      (while (< (- (float-time) curr-time) t--rpc-timeout)
-        (accept-process-output nil 1))
-      (error "ox-w3ctr RPC timeout: (%s %s)" fun args))))
-
-(defun t--rpc-request! (proc fun args)
-  (let* ((data (t--rpc-request-sync proc fun args)))
-    (if-let* ((err (gethash "error" data)))
-        (error "ox-w3ctr RPC error: %s %s %s"
-               (gethash "code" err)
-               (gethash "message" err)
-               (gethash "data" err))
-      (gethash "result" data))))
-
-(defvar t--jstools-proc nil
-  "js-tools process object.")
-(defvar t-jstools-debug nil)
-
-(defvar t--jstools-timeout 30000
-  "default server side timeout, in milliseconds.")
-
-(defun t-toggle-jstools-debug ()
-  (interactive)
-  (if t-jstools-debug
-      (progn
-        (setq t-jstools-debug nil)
-        (message "ox-w3ctr: jstools debug disabled."))
-    (setq t-jstools-debug t)
-    (message "ox-w3ctr: jstools debug enabled.")))
-
-(defun t--start-jstools ()
-  (unless (process-live-p t--jstools-proc)
-    (setq t--jstools-proc
-          (t--rpc-start
-           "jstools"
-           `("node" ,(file-name-concat t--dir "jstools/index.js")
-             "--timeout" ,(number-to-string t--jstools-timeout))
-           t-jstools-debug))))
-
-(defun t--restart-jstools ()
-  (when (process-live-p t--jstools-proc)
-    (delete-process t--jstools-proc))
-  (t--start-jstools))
-
-(defun t-launch-jstools ()
-  (interactive)
-  (t--restart-jstools))
-
-(defun t--jstools-call (fun args)
-  (t--start-jstools)
-  (t--rpc-request! t--jstools-proc fun args))
 
 ;;; Greater elements (11 - 3 - 2 = 6).
 ;;; special-block and table are not here.
