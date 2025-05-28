@@ -1184,7 +1184,7 @@ Useful for clearing accumulated state and usage counts."
 
 ;;; Basic utilties
 (defsubst t--maybe-contents (contents)
-  "If CONTENTS is string, prepend a newline and return it;
+  "If CONTENTS is a string, return it with a newline prepended;
 otherwise, return an empty string."
   (declare (ftype (function ((or string null)) string))
            (pure t) (important-return-value t))

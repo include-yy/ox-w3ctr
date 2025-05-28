@@ -2,10 +2,37 @@
 
 (load "ox-w3ctr")
 
+;; Test helper functions
 (defun t--oinfo-oget (prop)
   (when-let* ((f (alist-get prop t--oinfo-cache-alist)))
     (symbol-function f)))
 
+(defvar t-test-values nil
+  "A list to store return values during testing.")
+(defun t-advice-return-value (result)
+  "Advice function to save and return RESULT.
+Pushes RESULT onto `org-w3ctr-test-values' and returns RESULT."
+  (prog1 result
+    (push (if (not (stringp result)) result
+            (substring-no-properties result))
+          t-test-values)))
+(defun t-check-element-values (fn pairs &optional body-only plist)
+  "Check that FN returns the expected values when exporting.
+
+FN is a function to advice.  PAIRS is a list of the form
+((INPUT . EXPECTED) ...).  INPUT is a string of Org markup to be
+exported.  EXPECTED is a list of expected return values from FN.
+BODY-ONLY and PLIST are optional arguments passed to
+`org-export-string-as'."
+  (advice-add fn :filter-return #'t-advice-return-value)
+  (unwind-protect
+      (dolist (test pairs t)
+        (let (t-test-values)
+          (ignore (org-export-string-as
+                   (car test) 'w3ctr body-only plist))
+          (should (equal t-test-values (cdr test)))))
+    (advice-remove fn #'t-advice-return-value)))
+
 (ert-deftest t--make-cache-oclosure ()
   "Tests for `org-w3ctr--make-cache-oclosure'."
   (let ((x (t--make-cache-oclosure :wtf)))
@@ -116,32 +143,6 @@
     (should (equal (t--oinfo--cnt (t--oinfo-oget :a)) 1))
     (should (equal (t--oinfo--cnt (t--oinfo-oget :a)) 1))))
 
-(defvar t-test-values nil
-  "A list to store return values during testing.")
-(defun t-advice-return-value (result)
-  "Advice function to save and return RESULT.
-Pushes RESULT onto `org-w3ctr-test-values' and returns RESULT."
-  (prog1 result
-    (push (if (not (stringp result)) result
-            (substring-no-properties result))
-          t-test-values)))
-(defun t-check-element-values (fn pairs &optional body-only plist)
-  "Check that FN returns the expected values when exporting.
-
-FN is a function to advice.  PAIRS is a list of the form
-((INPUT . EXPECTED) ...).  INPUT is a string of Org markup to be
-exported.  EXPECTED is a list of expected return values from FN.
-BODY-ONLY and PLIST are optional arguments passed to
-`org-export-string-as'."
-  (advice-add fn :filter-return #'t-advice-return-value)
-  (unwind-protect
-      (dolist (test pairs t)
-        (let (t-test-values)
-          (ignore (org-export-string-as
-                   (car test) 'w3ctr body-only plist))
-          (should (equal t-test-values (cdr test)))))
-    (advice-remove fn #'t-advice-return-value)))
-
 (ert-deftest t--maybe-contents ()
   "Tests for `org-w3ctr--maybe-contents'."
   (should (equal (t--maybe-contents nil) ""))
