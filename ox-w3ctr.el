@@ -3216,8 +3216,8 @@ holding contextual information."
         (prog1 ""
           (setq t--zeroth-section-output
                 (format "<div id=\"abstract\">\n%s</div>\n"
-                        (or contents ""))))
-      (or contents ""))))
+                        (or (t--nw-trim contents) ""))))
+      (or (t--nw-trim contents) ""))))
 
 ;;;; Special Block
 ;; FIXME
