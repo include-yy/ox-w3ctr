@@ -2152,34 +2152,29 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; Options:
 ;; - :html-timezone (`org-w3ctr-timezone')
 ;; - :html-export-timezone (`org-w3ctr-export-timezone')
-;; - :
-;; `org-w3ctr-timezone' specifies the timezone of the timestamps in the
-;; Org text, while `org-w3ctr-export-timezone' specifies the timezone
-;; used in the datetime attribute of the exported <time> tags.
-
-;; For example, when `org-w3ctr-timezone' is "+0800", the time
-;; [2025-04-03 9:08] corresponds to UTC 2025-04-03 1:08. If
-;; `org-w3ctr-export-timezone' is set to "+0900", the exported
-;; <time> tag's `datetime' attribute will be like 2025-04-03 10:08.
-
-;; When `org-w3ctr-timezone' is set to "local", both the exported
-;; timestamps and datetime attributes will use local time, and
-;; `org-w3ctr-export-timezone' will have no effect. When
-;; `org-w3ctr-export-timezone' is nil, it means using the same
-;; timezone as `org-w3ctr-timezone'.
-
-;; For example, if `org-w3ctr-timezone' is set to "+0800", a timestamp like
-;; [2025-04-03 9:08] will correspond to 2025-04-03T01:08Z. If
-;; `org-w3ctr-export-timezone' is set to "+0900", the `datetime' attribute
-;; of the exported <time> tag will be "2025-04-03 10:08", and the displayed
-;; timestamp will also be shown in the +0900 timezone.
+;; - :html-timestamp-format (`org-w3ctr-timestamp-format')
+;; - :html-datetime-option (`org-w3ctr-datetime-format-choice')
 ;;
-;; If `org-w3ctr-timezone' is set to "local", both the exported timestamps
-;; and the `datetime' attribute will use the local system time, and
-;; `org-w3ctr-export-timezone' will have no effect.
+;; `org-w3ctr-timezone' specifies the timezone of timestamps in the Org
+;; document, while `org-w3ctr-export-timezone' specifies the timezone
+;; used in the `datetime' attribute of exported <time> tags.
 ;;
-;; If `org-w3ctr-export-timezone' is nil, the same timezone as
-;; `org-w3ctr-timezone' will be used for displaying timestamps.
+;; `org-w3ctr-timestamp-format' specifies the text format for timestamps
+;; in the exported document, and `org-w3ctr-datetime-format-choice'
+;; determines the format of the `datetime' attribute in the <time> tags.
+;;
+;; For detailed usage, please refer to the docstrings of these options.
+;;
+;; For example, if `org-w3ctr-timezone' is set to "+0800", a timestamp
+;; like [2025-04-03 9:08] will correspond to "2025-04-03T01:08Z".  If
+;; `org-w3ctr-export-timezone' is set to "+0900", the `datetime'
+;; attribute of the exported <time> tag will be "2025-04-03T10:08+0900".
+;;
+;; If `org-w3ctr-timezone' is set to "local", the `datetime' attribute
+;; will use the local system time, and `org-w3ctr-export-timezone' will
+;; have no effect.  If `org-w3ctr-export-timezone' is nil, the timezone
+;; specified by `org-w3ctr-timezone' will be used for the `datetime'
+;; attribute.
 
 (defun t--timezone-to-offset (zone-str)
   "Convert ZONE-STR timezone string to offset in seconds.
