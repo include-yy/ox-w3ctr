@@ -219,6 +219,11 @@
      nil nil t-format-public-license-function)
     ;; toc tag name
     (:html-toc-tagname nil "toctag" t-toc-tagname)
+    ;; FIXME: Reformat whole info options
+    ;; timestamp new feature [2025-06-12 16:23]
+    (:html-timestamp-format-option nil "ts" t-timestamp-format-option)
+    (:html-timestamp-custom-format-function
+     nil nil t-timestamp-custom-format-function)
     ;;(:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     ))
 
@@ -266,6 +271,22 @@ returned as-is."
                 :value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
 
+(defcustom t-timestamp-format-option 'raw
+  "Timestamp format option."
+  :group 'org-export-w3ctr
+  :type '(choice (const raw) (const time) (const time+datetime)
+                 (const custom)))
+
+(defun t-timestamp-default-custom-format-function (timestamp info)
+  "The default custom function for timestamp transcode."
+  (org-element-property :raw-value timestamp))
+
+(defcustom t-timestamp-custom-format-function
+  #'t-timestamp-default-custom-function
+  "Custom function for timestamp export."
+  :group 'org-export-w3ctr
+  :type 'function)
+
 (defconst t-timezone-regex
   (rx string-start
       (or "local"
@@ -2887,10 +2908,13 @@ settings."
    "<details open>\n"
    " <summary>More details about this document</summary>\n"
    " <dl>\n"
-   "  <dt>Create Time:</dt> <dd>"
-   (or (t--get-info-date info 'start) "[DATE Not Specified]")
-   "</dd>\n"
-   "  <dt>Publish Time:</dt> <dd>"
+   ;; "  <dt>Create Time:</dt> <dd>"
+   ;; (or (t--get-info-date info 'start) "[DATE Not Specified]")
+   ;; "</dd>\n"
+   ;; "  <dt>Publish Time:</dt> <dd>"
+   ;; (or (t--get-info-date info 'end) "[DATE Not Specified]")
+   ;; "</dd>\n"
+   "  <dt>Time:</dt> <dd>"
    (or (t--get-info-date info 'end) "[DATE Not Specified]")
    "</dd>\n"
    "  <dt>Update Time:</dt> <dd>"
