@@ -282,7 +282,7 @@ returned as-is."
   (org-element-property :raw-value timestamp))
 
 (defcustom t-timestamp-custom-format-function
-  #'t-timestamp-default-custom-function
+  #'t-timestamp-default-custom-format-function
   "Custom function for timestamp export."
   :group 'org-export-w3ctr
   :type 'function)
@@ -2172,6 +2172,9 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;;;; Timestamp
 ;; See (info "(org)Timestamps")
 ;; Options:
+;; - :html-timestamp-format-option (`org-w3ctr-timestamp-format-option')
+;; - :html-timestamp-custom-format-function
+;;   (`org-w3ctr-timestamp-custom-format-function')
 ;; - :html-timezone (`org-w3ctr-timezone')
 ;; - :html-export-timezone (`org-w3ctr-export-timezone')
 ;; - :html-timestamp-format (`org-w3ctr-timestamp-format')
@@ -2208,22 +2211,22 @@ doesn't match `org-w3ctr-timezone-regex'."
            (important-return-value t))
   (let ((case-fold-search t)
         (zone-str (t--trim zone-str)))
-    (if (not (string-match t-timezone-regex zone-str))
-        (error "Time zone format not correct: %s" zone-str)
-      (if (string= zone-str "local")
-          (or (car (current-time-zone)) 0)
-        (let* ((time-str (or (match-string 1 zone-str)
-                             (match-string 2 zone-str)))
-               (len (length time-str))
-               (number (string-to-number time-str)))
-          (cond
-           ;; UTC/GMT[+-]xx
-           ((<= 2 len 3) (* number 3600))
-           ;; [+-]MMMM
-           ((= len 5)
-            (let ((hour (/ number 100))
-                  (minute (% number 100)))
-              (+ (* hour 3600) (* minute 60))))))))))
+    (unless (string-match t-timezone-regex zone-str)
+      (error "Time zone format not correct: %s" zone-str))
+    (if (string= zone-str "local")
+        (or (car (current-time-zone)) 0)
+      (let* ((time-str (or (match-string 1 zone-str)
+                           (match-string 2 zone-str)))
+             (len (length time-str))
+             (number (string-to-number time-str)))
+        (cond
+         ;; UTC/GMT[+-]xx
+         ((<= 2 len 3) (* number 3600))
+         ;; [+-]MMMM
+         ((= len 5)
+          (let ((hour (/ number 100))
+                (minute (% number 100)))
+            (+ (* hour 3600) (* minute 60)))))))))
 
 (defun t--get-info-timezone-offset (info)
   "Return timezone offset in seconds from INFO plist.
