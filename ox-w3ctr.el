@@ -2268,15 +2268,23 @@ when the caller already knows the default timezone offset."
           (error "Time zone format not corrent: %s" zone2))))))
 
 (defun t--get-info-timezone-delta (info)
-  "Return the offset difference between source export timezones"
+  "Return the offset difference of export timezone and timezone.
+
+The returned value is (EXPORT-OFFSET - BASE-OFFSET), in seconds.
+If either timezone is \\='local or both offsets are equal, returns 0.
+
+This value can be used to convert timestamps between timezones:
+1. Subtract the base timezone offset from a local timestamp to obtain
+   the corresponding UTC time.
+2. Then add the export timezone offset to the UTC time to get the
+   timestamp in the export timezone."
   (declare (ftype (function (list) fixnum))
            (important-return-value t))
-  (let ((offset1 (t--get-info-timezone-offset info))
-        (offset2 (t--get-info-export-timezone-offset info)))
+  (let* ((offset1 (t--get-info-timezone-offset info))
+         (offset2 (t--get-info-export-timezone-offset info offset1)))
     (cond
-     ((equal offset1 "local") 0)
-     ((equal offset2 "local") 0)
-     ((equal offset1 offset2) 0)
+     ((or (eq offset1 'local) (eq offset2 'local)) 0)
+     ((= offset1 offset2) 0)
      (t (- offset2 offset1)))))
 
 (defconst t--timestamp-datetime-options
