@@ -1241,7 +1241,7 @@ with the new INFO and the corresponding property value."
   (defconst t--oinfo-cache-props
     '( :html-checkbox-type :html-text-markup-alist
        :with-smart-quotes :with-special-strings :preserve-breaks
-       :html-timezone
+       :html-timezone :html-export-timezone
        )
     "List of property keys to be cached.")
 
@@ -2232,32 +2232,40 @@ match `org-w3ctr-timezone-regex'."
   "Return timezone offset in seconds from INFO plist."
   (declare (ftype (function (list) fixnum))
            (important-return-value t))
-  (let ((zone (t--pget info :html-timezone)))
-    (cond
-     ((fixnump zone) zone)
-     ((eq zone 'local) 'local)
-     (t (if-let* ((time (t--timezone-to-offset zone)))
-            (t--pput info :html-timezone time)
-          (error "Time zone format not correct: %s" zone))))))
+  (if-let* ((zone (t--pget info :html-timezone)))
+      (cond
+       ((fixnump zone) zone)
+       ((eq zone 'local) 'local)
+       (t (if-let* ((time (t--timezone-to-offset zone)))
+              (t--pput info :html-timezone time)
+            (error "Time zone format not correct: %s" zone))))
+    (error ":html-timezone is deliberately set to nil.")))
 
-(defun t--get-info-export-timezone-offset (info)
+(defun t--get-info-export-timezone-offset (info &optional zone1-offset)
   "Return export timezone offset in seconds from INFO plist.
 
 The export timezone is determined by:
   If `:html-export-timezone' is nil, use `:html-timezone' value
-  If `:html-timezone' is \"local\", always use \"local\"
-  Otherwise use `:html-export-timezone' value"
-  (declare (ftype (function (list) (or fixnum string)))
+  If `:html-timezone' is \\='local, always use \\='local
+  Otherwise use `:html-export-timezone' value.
+
+If optional argument ZONE1-OFFSET is non-nil, use it as the default
+timezone offset instead of querying `:html-timezone' via
+`org-w3ctr--get-info-timezone-offset'.  This avoids redundant lookups
+when the caller already knows the default timezone offset."
+  (declare (ftype (function (list &optional (or fixnum symbol))
+                            (or fixnum symbol)))
            (important-return-value t))
-  (let ((zone1 (t--get-info-timezone-offset info))
+  (let ((zone1 (or zone1-offset (t--get-info-timezone-offset info)))
         (zone2 (t--pget info :html-export-timezone)))
     (cond
      ((not zone2) zone1)
-     ((equal zone1 "local") "local")
-     ((numberp zone2) zone2)
-     (t (let ((time (t--timezone-to-offset zone2)))
-          (t--pput info :html-export-timezone time)
-          time)))))
+     ((eq zone1 'local) 'local)
+     ((eq zone2 'local) 'local)
+     ((fixnump zone2) zone2)
+     (t (if-let* ((time (t--timezone-to-offset zone2)))
+            (t--pput info :html-export-timezone time)
+          (error "Time zone format not corrent: %s" zone2))))))
 
 (defun t--get-info-timezone-delta (info)
   "Return the offset difference between source export timezones"

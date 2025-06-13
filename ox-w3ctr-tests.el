@@ -1239,6 +1239,49 @@ int a = 1;</code></p>\n</details>")
     (should (= (t--get-info-timezone-offset info8) 3600))
     (should (equal info8 '(:html-timezone 3600 :other "value")))))
 
+(ert-deftest t--get-info-export-timezone-offset ()
+  "Tests for `org-w3ctr--get-info-export-timezone-offset'."
+  ;; When :html-export-timezone is nil, use :html-timezone
+  (let ((info1 '(:html-timezone 28800)))
+    (should (= (t--get-info-export-timezone-offset info1) 28800)))
+  (let ((info2 '(:html-timezone "UTC+8" :html-export-timezone nil)))
+    (should (= (t--get-info-export-timezone-offset info2) 28800)))
+  ;; When :html-timezone is "local", always use 'local
+  (let ((info3 '(:html-timezone "local" :html-export-timezone 3600)))
+    (should (eq (t--get-info-export-timezone-offset info3) 'local)))
+  (let ((info4 '(:html-timezone "local" :html-export-timezone "UTC+5")))
+    (should (eq (t--get-info-export-timezone-offset info4) 'local)))
+  (let ((info41 '(:html-timezone local :html-export-timezone "+0100")))
+    (should (eq (t--get-info-export-timezone-offset info41) 'local)))
+  ;; :html-export-timezone is local
+  (let ((info42 '(:html-timezone 0 :html-export-timezone "local")))
+    (should (eq (t--get-info-export-timezone-offset info42) 'local)))
+  (let ((info43 '(:html-timezone 0 :html-export-timezone local)))
+    (should (eq (t--get-info-export-timezone-offset info43) 'local)))
+  ;; When :html-export-timezone is number, use directly
+  (let ((info5 '(:html-timezone 28800 :html-export-timezone -18000)))
+    (should (= (t--get-info-export-timezone-offset info5) -18000)))
+  ;; When :html-export-timezone is string, convert and cache
+  (let ((info6 '(:html-timezone 28800 :html-export-timezone "-0500")))
+    (should (= (t--get-info-export-timezone-offset info6) -18000))
+    (should (fixnump (t--pget info6 :html-export-timezone)))
+    (should (= (t--pget info6 :html-export-timezone) -18000)))
+  (let ((info7 '(:html-timezone 28800 :html-export-timezone "+0530")))
+    (should (= (t--get-info-export-timezone-offset info7) 19800))
+    (should (= (t--pget info7 :html-export-timezone) 19800)))
+  (let ((info8 '(:html-timezone 0 :html-export-timezone "UTC+0")))
+    (should (= (t--get-info-export-timezone-offset info8) 0)))
+  ;; Invalid
+  (let ((info9 '(:html-timezone 3600 :html-export-timezone "Invalid")))
+    (should-error (t--get-info-export-timezone-offset info9)))
+  (let ((info9 '(:html-timezone "WTF" :html-export-timezone "+0000")))
+    (should-error (t--get-info-export-timezone-offset info9)))
+  ;; Test optional argument
+  (let ((info10 '(:html-export-timezone "+0000")))
+    (should (eq (t--get-info-export-timezone-offset info10 'local) 'local)))
+  (let ((info11 '(:html-export-timezone "UTC+8")))
+    (should (= (t--get-info-export-timezone-offset info11 10) 28800))))
+
 (ert-deftest t--normalize-timezone-offset ()
   (let ((space-none [" " "" "+0000"])
         (space-none-zulu [" " "" "Z"])
@@ -1289,38 +1332,6 @@ int a = 1;</code></p>\n</details>")
                      "-1200"))
     (should (string= (t--normalize-timezone-offset 37800 T-colon-zulu)
                      "+10:30"))))
-
-(ert-deftest t--get-info-export-timezone-offset ()
-  ;; 1. When :html-export-timezone is nil, use :html-timezone
-  (let ((info1 '(:html-timezone 28800)))
-    (should (= (t--get-info-export-timezone-offset info1) 28800)))
-  (let ((info2 '(:html-timezone "UTC+8" :html-export-timezone nil)))
-    (should (= (t--get-info-export-timezone-offset info2) 28800)))
-  ;; 2. When :html-timezone is "local", always use "local"
-  (let ((info3 '(:html-timezone "local" :html-export-timezone 3600)))
-    (should (string= (t--get-info-export-timezone-offset info3) "local")))
-  (let ((info4 '(:html-timezone "local" :html-export-timezone "UTC+5")))
-    (should (string= (t--get-info-export-timezone-offset info4) "local")))
-  ;; 3. When :html-export-timezone is number, use directly
-  (let ((info5 '(:html-timezone 28800 :html-export-timezone -18000)))
-    (should (= (t--get-info-export-timezone-offset info5) -18000)))
-  ;; 4. When :html-export-timezone is string, convert and cache
-  (let ((info6 '(:html-timezone 28800 :html-export-timezone "-0500")))
-    (should (= (t--get-info-export-timezone-offset info6) -18000))
-    (should (numberp (plist-get info6 :html-export-timezone)))
-    (should (= (plist-get info6 :html-export-timezone) -18000)))
-  (let ((info7 '(:html-timezone 28800 :html-export-timezone "+0530")))
-    (should (= (t--get-info-export-timezone-offset info7) 19800))
-    (should (= (plist-get info7 :html-export-timezone) 19800)))
-  ;; Edge cases
-  (let ((info8 '(:html-timezone 0 :html-export-timezone "UTC+0")))
-    (should (= (t--get-info-export-timezone-offset info8) 0)))
-  (let ((info9 '(:html-timezone 3600 :html-export-timezone "Invalid")))
-    (should-error (t--get-info-export-timezone-offset info9)))
-  ;; Verify plist isn't modified unnecessarily
-  (let ((info10 '(:html-timezone 3600 :html-export-timezone -18000 :other "value")))
-    (should (= (t--get-info-export-timezone-offset info10) -18000))
-    (should (equal info10 '(:html-timezone 3600 :html-export-timezone -18000 :other "value")))))
 
 (ert-deftest t--get-info-normalized-timezone ()
   (let ((info-local '(:html-timezone "local" :html-datetime-option space-none)))
