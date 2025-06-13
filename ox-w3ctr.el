@@ -1266,7 +1266,7 @@ with the new INFO and the corresponding property value."
     (if-let* ((f (alist-get (inline-const-val prop)
                             t--oinfo-cache-alist)))
         (inline-quote
-         (let ((o (symbol-function ,f)))
+         (let ((o (symbol-function #',f)))
            (setf (t--oinfo--pid o) ,info (t--oinfo--val o) ,value)))
       (inline-letevals (value)
         (inline-quote (prog1 ,value (plist-put ,info ,prop ,value))))))
@@ -2209,12 +2209,12 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 Valid formats are UTC/GMT[+-]XX (e.g., UTC+8), [+-]HHMM (e.g., -0500) or
 \"local\", which means use zero offset.  Return nil if ZONE doesn't
 match `org-w3ctr-timezone-regex'."
-  (declare (ftype (function (string) (or fixnum null)))
+  (declare (ftype (function (string) (or fixnum symbol)))
            (pure t) (important-return-value t))
   (let ((case-fold-search t)
-        (zone (downcase (t--trim zone))))
+        (zone (t--trim zone)))
     (when (string-match t-timezone-regex zone)
-      (if (string= zone "local") 0
+      (if (string-equal-ignore-case zone "local") 'local
         (let* ((time (or (match-string 1 zone)
                          (match-string 2 zone)))
                (len (length time))
@@ -2233,10 +2233,12 @@ match `org-w3ctr-timezone-regex'."
   (declare (ftype (function (list) fixnum))
            (important-return-value t))
   (let ((zone (t--pget info :html-timezone)))
-    (if (fixnump zone) zone
-      (if-let* ((time (t--timezone-to-offset zone)))
-          (t--pput info :html-timezone time)
-        (error "Time zone format not correct: %s" zone)))))
+    (cond
+     ((fixnump zone) zone)
+     ((eq zone 'local) 'local)
+     (t (if-let* ((time (t--timezone-to-offset zone)))
+            (t--pput info :html-timezone time)
+          (error "Time zone format not correct: %s" zone))))))
 
 (defun t--get-info-export-timezone-offset (info)
   "Return export timezone offset in seconds from INFO plist.
