@@ -2267,21 +2267,27 @@ when the caller already knows the default timezone offset."
             (t--pput info :html-export-timezone time)
           (error "Time zone format not corrent: %s" zone2))))))
 
-(defun t--get-info-timezone-delta (info)
-  "Return the offset difference of export timezone and timezone.
+(defun t--get-info-timezone-delta (info &optional z1 z2)
+  "Return the offset difference of export timezone(Z2) and timezone(Z1).
 
-The returned value is (EXPORT-OFFSET - BASE-OFFSET), in seconds.
-If either timezone is \\='local or both offsets are equal, returns 0.
+The returned value is (Z2 - Z1), in seconds.  If either timezone is
+\\='local or both offsets are equal, returns 0.
+
+If optional argument Z1 or Z2 is provided, use directly; otherwise,
+their values are retrieved from INFO using
+`org-w3ctr--get-info-timezone-offset' and
+`org-w3ctr--get-info-export-timezone-offset'.
 
 This value can be used to convert timestamps between timezones:
 1. Subtract the base timezone offset from a local timestamp to obtain
    the corresponding UTC time.
 2. Then add the export timezone offset to the UTC time to get the
    timestamp in the export timezone."
-  (declare (ftype (function (list) fixnum))
+  (declare (ftype (function (list &optional t t) fixnum))
            (important-return-value t))
-  (let* ((offset1 (t--get-info-timezone-offset info))
-         (offset2 (t--get-info-export-timezone-offset info offset1)))
+  (let* ((offset1 (or z1 (t--get-info-timezone-offset info)))
+         (offset2 (or z2 (t--get-info-export-timezone-offset
+                          info offset1))))
     (cond
      ((or (eq offset1 'local) (eq offset2 'local)) 0)
      ((= offset1 offset2) 0)
@@ -2330,14 +2336,14 @@ rule, and returns a full datetime format string suitable for use in HTML
   "Format TIME into a timestamp string with normalized timezone."
   (declare (ftype (function (list list &optional boolean) string))
            (important-return-value t))
-  (if-let* ((option (t--pget info :html-datetime-option))
-            (offset (t--get-info-export-timezone-offset info))
-            (delta (t--get-info-timezone-delta info))
-            (fmt (t--get-datetime-format offset option notime)))
-      (format-time-string fmt (if notime time (time-add time delta)))
-    (let* ((opt (t--pget info :html-datetime-option)))
-      (error ":html-datetime-option is invalid: %s" opt))
-    (error "Cannot get time format string")))
+  (let* ((offset0 (t--get-info-timezone-offset info))
+         (offset1 (t--get-info-export-timezone-offset info offset0))
+         (delta (t--get-info-timezone-delta info offset0 offset1)))
+    (if-let* ((option (t--pget info :html-datetime-option))
+              (fmt (t--get-datetime-format offset1 option notime)))
+        (format-time-string fmt (if notime time (time-add time delta)))
+      (let ((opt (t--pget info :html-datetime-option)))
+        (error ":html-datetime-option is invalid: %s" opt)))))
 
 (defun t--get-timestamp-format (type has-time info)
   "Format timestamp according to Org-mode conventions.
