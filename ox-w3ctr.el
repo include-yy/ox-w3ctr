@@ -2290,11 +2290,11 @@ This value can be used to convert timestamps between timezones:
 (defconst t--timestamp-datetime-options
   '((space-none . (" " "" "+0000"))
     (space-none-zulu . (" " "" "Z"))
-    (space-colon . (" " ":" "+0000"))
+    (space-colon . (" " ":" "+00:00"))
     (space-colon-zulu . (" " ":" "Z"))
     (T-none . ("T" "" "+0000"))
     (T-none-zulu . ("T" "" "Z"))
-    (T-colon . ("T" ":" "+0000"))
+    (T-colon . ("T" ":" "+00:00"))
     (T-colon-zulu . ("T" ":" "Z")))
   "HTML <time>'s datetime format options.
 
@@ -2303,20 +2303,20 @@ This value can be used to convert timestamps between timezones:
 (defun t--get-datetime-format (offset option &optional notime)
   "Return a datetime format string for HTML <time> tags.
 
-  OFFSET is the timezone offset in seconds.  OPTION is a symbol specifying
-  the format style, as defined in `org-w3ctr--timestamp-datetime-options'.
+OFFSET is the timezone offset in seconds.  OPTION is a symbol specifying
+the format style, as defined in `org-w3ctr--timestamp-datetime-options'.
 
-  If NOTIME is non-nil, only the date format (\"%F\") will be returned;
-  If NOTIME is nil, this function looks up the formatting option and
-  builds the timezone string based on OFFSET and the selected formatting
-  rule, and returns a full datetime format string suitable for use in HTML
-  <time> tag `datetime' attributes."
+If NOTIME is non-nil, only the date format (\"%F\") will be returned;
+If NOTIME is nil, this function looks up the formatting option and
+builds the timezone string based on OFFSET and the selected formatting
+rule, and returns a full datetime format string suitable for use in HTML
+<time> tag's `datetime' attributes."
   (declare (ftype (function (fixnum t &optional boolean) (or string null)))
            (pure t) (important-return-value t))
   (if notime "%F"
     (when-let* (((symbolp option))
                 (ls (alist-get option t--timestamp-datetime-options)))
-      (if (equal offset "local")
+      (if (eq offset 'local)
           (format "%%F%s%%R" (nth 0 ls))
         (let* ((hours (/ (abs offset) 3600))
                (minutes (/ (- (abs offset) (* hours 3600)) 60))
