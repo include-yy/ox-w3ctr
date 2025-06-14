@@ -272,7 +272,7 @@ returned as-is."
   :type '(alist :key-type (symbol :tag "Markup type")
                 :value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
-
+
 ;;;; Timestamp
 (defconst t-timezone-regex
   (rx string-start
