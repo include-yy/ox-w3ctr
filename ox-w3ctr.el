@@ -293,28 +293,22 @@ returned as-is."
             (any (?0 . ?9)))))
       string-end)
   "Regular expression for matching UTC/GMT time zone designators
-and time zone offsets. Also supports \"local\" for system timezone.
-
-This expression does not allow for missing `+' or `-' signs,
-and strictly validates both UTC/GMT and ±HHMM formats.")
+and time zone offsets, including \"local\" for local timezone.")
 
 (defcustom t-timezone "local"
-  "Time zone string for W3C TR export.
+  "Time zone string for Org files.
 
-Designator should be in either:
-. ±HHMM format      (e.g., \"+0800\", \"-0500\")
-. GMT/UTC±XX format (e.g., \"UTC+8\", \"GMT-5\")
-. local
+This value is used when generating datetime metadata. It should be in
+one of the following formats: [+-]HHMM, GMT/UTC[+-]XX or local.
 
-This value is used when generating datetime metadata.
 Examples of valid values:
-  \"+0800\"    ; Beijing time
-  \"-0500\"    ; Eastern Time
-  \"UTC+8\"    ; Alternative format
-  \"GMT-5\"    ; Eastern Time alternative
-  \"local\"    ; System local time
+-  \"+0800\" for Beijing time
+-  \"-0500\" for Eastern Time
+-  \"UTC+8\" for Alternative format
+-  \"GMT-5\" for Eastern Time alternative
+-  \"local\" for Local time
 
-See ISO 8601 and RFC 2822 for timezone formatting standards."
+See ISO 8601 and RFC 2822 for more details."
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
          (let ((case-fold-search t))
@@ -324,19 +318,12 @@ See ISO 8601 and RFC 2822 for timezone formatting standards."
   :type 'string)
 
 (defcustom t-export-timezone nil
-  "Time zone for export timestamps.
+  "Time zone string for exporting.
 
-`org-w3ctr-timezone' specifies the timezone for timestamps when
-writing the file, export timezone specifies the timezone used for
-datetime attributes during export.
+This specifies the time zone used for datetime attributes during export.
+If nil, the value of `org-w3ctr-timezone' is used instead.
 
-Accepted formats:
-  nil        ; Same as specified timezone
-  \"+0800\"    ; Beijing time
-  \"-0500\"    ; Eastern Time
-  \"UTC+8\"    ; Alternative format
-  \"GMT-5\"    ; Eastern Time alternative
-  \"local\"    ; System local time"
+The value format follows the same rules as `org-w3ctr-timezone'."
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
          (when value
@@ -344,15 +331,17 @@ Accepted formats:
              (if (not (string-match-p t-timezone-regex value))
                  (error "Not a valid time zone designator: %s" value))))
          (set symbol value))
-  :type 'string)
+  :type '(choice (const nil) string))
 
 (defcustom t-datetime-format-choice 'T-none-zulu
-  "Format choice used for datetime property export. This option
-controls how timestamps are formatted, with variations in:
+  "Option for datetime attribute's format.
 
-  Separator: Space (`\s') or `T' (ISO 8601 style)
-  Timezone : Offset with (`+08:00') or without (`+0800') colon
-  Timezone : Use Zulu (`Z') or not when timezone is UTC+0"
+This option controls how timestamps are formatted when exporting
+datetime attributes, with variations in:
+
+Separator : Use `\s' or `T' between date and time.
+Timezone  : Use `:' in zone offset or not (`+08:00' and `+0800').
+UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
   :group 'org-export-w3ctr
   :type '(radio (const space-none) (const space-none-zulu)
                 (const space-colon) (const space-colon-zulu)
@@ -360,13 +349,15 @@ controls how timestamps are formatted, with variations in:
                 (const T-colon) (const T-colon-zulu)))
 
 (defcustom t-timestamp-option 'org
-  "Option for ox-w3ctr timestamp export. Possible options:
-- org: Use `org-timestamp-translate' and honor custom options:
-  `org-timestamp-custom-formats' and `org-display-custom-times'
-- int: Use `org-element-interpret-data' to get timestamp.
-  It uses `org-element-timestamp-interpreter' to generate string.
-- w3c: Like `int', but use `org-w3ctr-timestamp-format' instead of
-  `org-timestamp-formats' as time format strin.
+  "Option for ox-w3ctr timestamp export.
+
+Possible values:
+- org: Use `org-timestamp-translate', honoring custom options
+  `org-timestamp-custom-formats' and `org-display-custom-times'.
+- int: Use `org-element-interpret-data' to get the timestamp.
+  It uses `org-element-timestamp-interpreter' to produce the string.
+- w3c: Like `int', but uses `org-w3ctr-timestamp-format' instead of
+  `org-timestamp-formats' for formatting.
 - raw: Use timestamp's :raw-value property directly.
 
 Except for `raw', all other options ultimately rely on
@@ -375,32 +366,37 @@ difference lies in which formatting options they respect: `org' follows
 Org export settings, `int' uses the default timestamp format, and `w3c'
 applies the format `org-w3ctr-timestamp-format' defined in this package."
   :group 'org-export-w3ctr
-  :type '(choice (const org) (const int) (const w3c) (const raw)))
+  :type '(radio (const org) (const int) (const w3c) (const raw)))
 
 (defcustom t-timestamp-wrapper-type 'whole
-  "Timestamp wrapper (<time>...</time) type. Possible options:
-- none: no html tag wrapper, bare timestamp string.
-- whole: use <time> to wrap whole timestamp.
-- whole+dt: use <time datetime=...> to wrap timestamp, but don't add
-  datetime attribute for the end of date or time range.
-- exact: use <time> to wrap timestamp\\='s each time.
-- exact+dt: use <time datetime=...> to wrap each time in timestamp."
+  "Timestamp wrapper type for HTML <time> elements.
+
+Possible values:
+- none      : No HTML tag wrapper, export bare timestamp string.
+- whole     : Wrap the entire timestamp with a single <time> element.
+- whole+dt  : Same as `whole', but adds a `datetime' attribute,
+              excluding the end time of a date or time range.
+- exact     : Wrap each time value within the timestamp individually
+              using <time> elements.
+- exact+dt  : Same as `exact', but adds a `datetime' attribute to each
+              <time> element."
   :group 'org-export-w3ctr
-  :type '(choice (const none) (const whole) (const whole+dt)
-                 (const exact) (const exact+dt)))
+  :type '(radio (const none) (const whole) (const whole+dt)
+                (const exact) (const exact+dt)))
 
 (defcustom t-timestamp-format '("%F" . "%F %R")
-  "Format specification used for timestamps export.
+  "Format specification used for exporting timestamps.
 
-Accepts a cons (DATE DATE-TIME) where:
-  DATE: Format string for year/month/day (e.g. \"%Y-%m-%d\")
-  DATE-TIME: DATE plus hours:minutes (e.g. \"%H:%M\")
+This option accepts a cons cell (DATE . DATE-TIME), where:
+- DATE: format string for year/month/day (e.g. \"%Y-%m-%d\")
+- DATE-TIME: date plus hours:minutes (e.g. \"%F %R\")
 
-See `format-time-string' for more information on its components."
+These format strings follow the conventions of `format-time-string'.
+
+Note: This option only takes effect when `org-w3ctr-timestamp-option' is
+set to `w3c'."
   :group 'org-export-w3ctr
-  :type '(cons
-          (string :tag "DATE")
-          (string :tag "DATE and TIME")))
+  :type '(cons string string))
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export."
