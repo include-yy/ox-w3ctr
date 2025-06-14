@@ -224,9 +224,8 @@
     (:html-toc-tagname nil "toctag" t-toc-tagname)
     ;; FIXME: Reformat whole info options
     ;; timestamp new feature [2025-06-12 16:23]
-    (:html-timestamp-format-option nil "ts" t-timestamp-format-option)
-    (:html-timestamp-custom-format-function
-     nil nil t-timestamp-custom-format-function)
+    (:html-timestamp-option nil "ts" t-timestamp-option)
+    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
     ;;(:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     ))
 
@@ -1257,7 +1256,9 @@ with the new INFO and the corresponding property value."
   (defconst t--oinfo-cache-props
     '( :html-checkbox-type :html-text-markup-alist
        :with-smart-quotes :with-special-strings :preserve-breaks
-       :html-timezone :html-export-timezone
+       :html-timezone :html-export-timezone :html-datetime-option
+       :html-timestamp-option :html-timestamp-wrapper
+       :html-timestamp-format
        )
     "List of property keys to be cached.")
 
@@ -2144,9 +2145,9 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
-;; :with-smart-quotes (`org-export-with-smart-quotes')
+;; :with-smart-quotes    (`org-export-with-smart-quotes')
 ;; :with-special-strings (`org-export-with-special-strings')
-;; :preserve-breaks (`org-export-preserve-breaks')
+;; :preserve-breaks      (`org-export-preserve-breaks')
 (defconst t-special-string-regexps
   '(("\\\\-" . "&#x00ad;"); shy
     ("---\\([^-]\\)" . "&#x2014;\\1"); mdash
@@ -2190,36 +2191,12 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;;;; Timestamp
 ;; See (info "(org)Timestamps")
 ;; Options:
-;; - :html-timezone (`org-w3ctr-timezone')
-;; - :html-export-timezone (`org-w3ctr-export-timezone')
-;; - :html-timestamp-format (`org-w3ctr-timestamp-format')
-;; - :html-datetime-option (`org-w3ctr-datetime-format-choice')
-
-;; - :html-timestamp-format-option (`org-w3ctr-timestamp-format-option')
-;; - :html-timestamp-custom-format-function
-;;   (`org-w3ctr-timestamp-custom-format-function')
-
-;;
-;; `org-w3ctr-timezone' specifies the timezone of timestamps in the Org
-;; document, while `org-w3ctr-export-timezone' specifies the timezone
-;; used in the `datetime' attribute of exported <time> tags.
-;;
-;; `org-w3ctr-timestamp-format' specifies the text format for timestamps
-;; in the exported document, and `org-w3ctr-datetime-format-choice'
-;; determines the format of the `datetime' attribute in the <time> tags.
-;;
-;; For detailed usage, please refer to the docstrings of these options.
-;;
-;; For example, if `org-w3ctr-timezone' is set to "+0800", a timestamp
-;; like [2025-04-03 9:08] will correspond to "2025-04-03T01:08Z".  If
-;; `org-w3ctr-export-timezone' is set to "+0900", the `datetime'
-;; attribute of the exported <time> tag will be "2025-04-03T10:08+0900".
-;;
-;; If `org-w3ctr-timezone' is set to "local", the `datetime' attribute
-;; will use the local system time, and `org-w3ctr-export-timezone' will
-;; have no effect.  If `org-w3ctr-export-timezone' is nil, the timezone
-;; specified by `org-w3ctr-timezone' will be used for the `datetime'
-;; attribute.
+;; - :html-timezone          (`org-w3ctr-timezone')
+;; - :html-export-timezone   (`org-w3ctr-export-timezone')
+;; - :html-datetime-option   (`org-w3ctr-datetime-format-choice')
+;; - :html-timestamp-option  (`org-w3ctr-timestamp-option')
+;; - :html-timestamp-wrapper (`org-w3ctr-timestamp-wrapper-type')
+;; - :html-timestamp-format  (`org-w3ctr-timestamp-format')
 
 (defun t--timezone-to-offset (zone)
   "Convert timezone string ZONE to offset in seconds.
