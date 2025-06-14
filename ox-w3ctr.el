@@ -49,7 +49,10 @@
 (require 'ox-html)
 (require 'table)
 
-(defvar t--dir
+(defconst t-version "0.2.2"
+  "ox-w3ctr's current version number.")
+
+(defconst t--dir
   (if load-in-progress
       (file-name-directory load-file-name)
     default-directory)
@@ -383,6 +386,12 @@ controls how timestamps are formatted, with variations in:
                 (const space-colon) (const space-colon-zulu)
                 (const T-none) (const T-none-zulu)
                 (const T-colon) (const T-colon-zulu)))
+
+(defcustom t-timestamp-honor-org t
+  "Honor org\\='s timestamp export convensions or not."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export."
@@ -677,10 +686,12 @@ See `format-time-string' for more information on its components."
 
 (defcustom t-creator-string
   (format "<a href=\"https://www.gnu.org/software/emacs/\">\
-Emacs</a> %s (<a href=\"https://orgmode.org\">Org</a> mode %s)"
+Emacs</a> %s (<a href=\"https://orgmode.org\">Org</a> mode %s) \
+<a href=\"https://github.com/include-yy/ox-w3ctr\">ox-w3ctr</a> %s"
           emacs-version
           (if (fboundp 'org-version) (org-version)
-            "unknown version"))
+            "unknown version")
+          t-version)
   ;; See also `org-html-creator-string'.
   "Information about the creator of the HTML document.
 This option can also be set on with the CREATOR keyword."
@@ -2317,7 +2328,8 @@ If NOTIME is nil, this function looks up the formatting option and
 builds the timezone string based on OFFSET and the selected formatting
 rule, and returns a full datetime format string suitable for use in HTML
 <time> tag's `datetime' attributes."
-  (declare (ftype (function (fixnum t &optional boolean) (or string null)))
+  (declare (ftype (function (fixnum t &optional boolean)
+                            (or string null)))
            (pure t) (important-return-value t))
   (if notime "%F"
     (when-let* (((symbolp option))
@@ -2354,6 +2366,18 @@ customizable formatting."
     (org-time-stamp-format
      has-time (memq type '(inactive inactive-range))
      org-display-custom-times)))
+
+(defun t-html-timestamp (timestamp info)
+  "Transcode a TIMESTAMP object from Org to HTML.
+
+Copied from `org-html-timestamp', honor `org-timestamp-custom-formats'
+and `org-display-custom-times'."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (let ((ts (org-timestamp-translate timestamp))
+        (value (t-plain-text ts info)))
+    (format "<time>%s</time>"
+            (replace-regexp-in-string "--" "&#x2013;" value))))
 
 (defun t-timestamp (timestamp _contents info &optional boundary)
   "Transcode a TIMESTAMP object from Org to HTML."
@@ -2938,19 +2962,19 @@ settings."
    ;; "  <dt>Publish Time:</dt> <dd>"
    ;; (or (t--get-info-date info 'end) "[DATE Not Specified]")
    ;; "</dd>\n"
-   "  <dt>Time:</dt> <dd>"
-   (or (t--get-info-date info 'end) "[DATE Not Specified]")
+   "  <dt>Drafting to Completion / Publication:</dt> <dd>"
+   (or (t--get-info-date info 'end) "[Not Specified]")
    "</dd>\n"
-   "  <dt>Update Time:</dt> <dd>"
+   "  <dt>Date of last modification:</dt> <dd>"
    (format "<time datetime=\"%s\">%s</time>"
            (format-time-string "%F %R")
            ;;(t--format-normalized-timestamp (current-time) info)
            (format-time-string "%F %R"))
    "</dd>\n"
-   "  <dt>Creator:</dt> <dd>"
+   "  <dt>Creation Tools:</dt> <dd>"
    (plist-get info :creator)
    "</dd>\n"
-   "  <dt>License:</dt> <dd>"
+   "  <dt>Public License:</dt> <dd>"
    (t-format-public-license info)
    "</dd>\n"
    " </dl>\n"
