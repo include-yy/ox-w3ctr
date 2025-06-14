@@ -274,22 +274,7 @@ returned as-is."
                 :value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
 
-(defcustom t-timestamp-format-option 'raw
-  "Timestamp format option."
-  :group 'org-export-w3ctr
-  :type '(choice (const raw) (const time) (const time+datetime)
-                 (const custom)))
-
-(defun t-timestamp-default-custom-format-function (timestamp info)
-  "The default custom function for timestamp transcode."
-  (org-element-property :raw-value timestamp))
-
-(defcustom t-timestamp-custom-format-function
-  #'t-timestamp-default-custom-format-function
-  "Custom function for timestamp export."
-  :group 'org-export-w3ctr
-  :type 'function)
-
+;;;; Timestamp
 (defconst t-timezone-regex
   (rx string-start
       (or "local"
@@ -361,19 +346,6 @@ Accepted formats:
          (set symbol value))
   :type 'string)
 
-(defcustom t-timestamp-format '("%F" . "%F %R")
-  "Format specification used for timestamps export.
-
-Accepts A two-element list (DATE DATE-TIME) where:
-  DATE: Format string for year/month/day (e.g. \"%Y-%m-%d\")
-  DATE-TIME: DATE plus hours:minutes (e.g. \"%H:%M\")
-
-See `format-time-string' for more information on its components."
-  :group 'org-export-w3ctr
-  :type '(cons
-          (string :tag "Year, Month, Day ")
-          (string :tag "Plus Hour, Minute")))
-
 (defcustom t-datetime-format-choice 'T-none-zulu
   "Format choice used for datetime property export. This option
 controls how timestamps are formatted, with variations in:
@@ -387,11 +359,48 @@ controls how timestamps are formatted, with variations in:
                 (const T-none) (const T-none-zulu)
                 (const T-colon) (const T-colon-zulu)))
 
-(defcustom t-timestamp-honor-org t
-  "Honor org\\='s timestamp export convensions or not."
-  :group 'org-export-w3ctr
-  :type 'boolean)
+(defcustom t-timestamp-option 'org
+  "Option for ox-w3ctr timestamp export. Possible options:
+- org: Use `org-timestamp-translate' and honor custom options:
+  `org-timestamp-custom-formats' and `org-display-custom-times'
+- int: Use `org-element-interpret-data' to get timestamp.
+  It uses `org-element-timestamp-interpreter' to generate string.
+- w3c: Like `int', but use `org-w3ctr-timestamp-format' instead of
+  `org-timestamp-formats' as time format strin.
+- raw: Use timestamp's :raw-value property directly.
 
+Except for `raw', all other options ultimately rely on
+`org-element-timestamp-interpreter' to format the timestamp string.  The
+difference lies in which formatting options they respect: `org' follows
+Org export settings, `int' uses the default timestamp format, and `w3c'
+applies the format `org-w3ctr-timestamp-format' defined in this package."
+  :group 'org-export-w3ctr
+  :type '(choice (const org) (const int) (const w3c) (const raw)))
+
+(defcustom t-timestamp-wrapper-type 'whole
+  "Timestamp wrapper (<time>...</time) type. Possible options:
+- none: no html tag wrapper, bare timestamp string.
+- whole: use <time> to wrap whole timestamp.
+- whole+dt: use <time datetime=...> to wrap timestamp, but don't add
+  datetime attribute for the end of date or time range.
+- exact: use <time> to wrap timestamp\\='s each time.
+- exact+dt: use <time datetime=...> to wrap each time in timestamp."
+  :group 'org-export-w3ctr
+  :type '(choice (const none) (const whole) (const whole+dt)
+                 (const exact) (const exact+dt)))
+
+(defcustom t-timestamp-format '("%F" . "%F %R")
+  "Format specification used for timestamps export.
+
+Accepts a cons (DATE DATE-TIME) where:
+  DATE: Format string for year/month/day (e.g. \"%Y-%m-%d\")
+  DATE-TIME: DATE plus hours:minutes (e.g. \"%H:%M\")
+
+See `format-time-string' for more information on its components."
+  :group 'org-export-w3ctr
+  :type '(cons
+          (string :tag "DATE")
+          (string :tag "DATE and TIME")))
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export."
@@ -2185,13 +2194,15 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;;;; Timestamp
 ;; See (info "(org)Timestamps")
 ;; Options:
-;; - :html-timestamp-format-option (`org-w3ctr-timestamp-format-option')
-;; - :html-timestamp-custom-format-function
-;;   (`org-w3ctr-timestamp-custom-format-function')
 ;; - :html-timezone (`org-w3ctr-timezone')
 ;; - :html-export-timezone (`org-w3ctr-export-timezone')
 ;; - :html-timestamp-format (`org-w3ctr-timestamp-format')
 ;; - :html-datetime-option (`org-w3ctr-datetime-format-choice')
+
+;; - :html-timestamp-format-option (`org-w3ctr-timestamp-format-option')
+;; - :html-timestamp-custom-format-function
+;;   (`org-w3ctr-timestamp-custom-format-function')
+
 ;;
 ;; `org-w3ctr-timezone' specifies the timezone of timestamps in the Org
 ;; document, while `org-w3ctr-export-timezone' specifies the timezone
@@ -2356,6 +2367,10 @@ rule, and returns a full datetime format string suitable for use in HTML
         (format-time-string fmt (if notime time (time-add time delta)))
       (let ((opt (t--pget info :html-datetime-option)))
         (error ":html-datetime-option is invalid: %s" opt)))))
+
+(defun t-timestamp-default-custom-format-function (timestamp info)
+  "The default custom function for timestamp transcode."
+  (org-element-property :raw-value timestamp))
 
 (defun t--get-timestamp-format (type has-time info)
   "Format timestamp according to Org-mode conventions.
