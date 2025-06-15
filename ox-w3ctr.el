@@ -2341,6 +2341,131 @@ rule, and returns a full datetime format string suitable for use in HTML
       (let ((opt (t--pget info :html-datetime-option)))
         (error ":html-datetime-option is invalid: %s" opt)))))
 
+(defun t--format-ts-datetime (timestamp info &optional end)
+  "Format timestamp to its datetime string"
+  (declare (ftype (function (t list &optional t) string))
+           (pure t) (important-return-value t))
+  (format " datetime=\"%s\""
+          (t--format-datetime
+           (org-timestamp-to-time timestamp end) info
+           (not (org-timestamp-has-time-p timestamp)))))
+
+(defun t--format-timestamp-raw (timestamp raw info)
+  "Format raw type export's timestamp."
+  (declare (ftype (function (t string list) string))
+           (important-return-value t))
+  (let* ((wrapper (t--pget info :html-timestamp-wrapper))
+         (type (org-element-property :type timestamp))
+         (txt (and (memq wrapper '(none whole whole+dt))
+                   (t-plain-text raw info))))
+    (if (eq 'diary (org-element-property :type timestamp))
+        (if (eq wrapper 'none) txt
+          (concat "<time>" txt "</time>"))
+      (cond
+       ((eq wrapper 'none) txt)
+       ((eq wrapper 'whole) (concat "<time>" txt "</time>"))
+       ((eq wrapper 'whole+dt)
+        (format "<time%s>%s</time>"
+                (t--format-ts-datetime timestamp info) txt))
+       ((eq wrapper 'exact)
+        (replace-regexp-in-string
+         org-element--timestamp-regexp
+         (lambda (s) (let ((ts (substring s 1 -1)))
+                   (format (if (= (aref s 0) ?\[)
+                               "[<time>%s</time>]"
+                             "&lt;<time>%s</time>&gt;")
+                           (t-plain-text ts info))))
+         raw))
+       ((eq wrapper 'exact+dt)
+        (let* ((cnt 0))
+          (thread-last
+            (replace-regexp-in-string
+             org-element--timestamp-regexp
+             (lambda (s) (let ((ts (substring s 1 -1)))
+                       (incf cnt)
+                       (format (if (= (aref s 0) ?\[)
+                                   "[<time%%s>%s</time>]"
+                                 "&lt;<time%%s>%s</time>&gt;")
+                               (t-plain-text ts info))))
+             raw)
+            (setq txt))
+          (cond
+           ((= cnt 1)
+            (format txt (t--format-ts-datetime timestamp info)))
+           ((= cnt 2)
+            (format txt (t--format-ts-datetime timestamp info)
+                    (t--format-ts-datetime timestamp info t)))
+           (t (error "Abnormal number of timestamp: %s" cnt)))))
+       (t (error "Unknown timestamp wrapper type: %s" wrapper))))))
+
+(defun t--format-timestamp-int (timestamp info)
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (let ((raw (org-element-interpret-data timestamp)))
+    (t--format-timestamp-raw timestamp raw info)))
+
+(defun t--format-timestamp-w3c (timestamp info)
+  (declare (ftype (function (t list) string))
+           (important-return-value t)))
+
+(defun t--timestamp-translate (timestamp &optional boundary)
+  "ox-w3ctr's reimpl of `org-timestamp-translate'."
+  ...)
+
+(defun t--format-timestamp-org (timestamp info)
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (let ((type (org-element-property :type timestamp))
+        (wrap (t--pget info :html-timestamp-wrapper)))
+    (if (or (not org-display-custom-times) (eq type 'diary))
+        (t--format-timestamp-int timestamp info)
+      (let* ((res (org-timestamp-translate timestamp))
+             (txt (t-plain-text res info)))
+        (cond
+         ((eq wrap 'none) (t-plain-text res info))
+         ((memq wrap '(whole exact)) (concat "<time>" txt "</time>"))
+         ((memq wrap '(whole+dt exact+dt))
+          (format "<time%s>%s</time>"
+                  (t--format-ts-datetime timestamp info) txt))
+         (t (error "Unknown timestamp wrapper type: %s" wrapper)))))))
+
+(defun t--get-timestamp-format (fmt-cons wrapper)
+  "Return a modified timestamp format based on WRAPPER."
+  (declare (ftype (function (cons list) cons))
+           (pure t) (important-return-value t))
+    (cond
+     ((memq wrapper '(none whole whole+dt)) fmt)
+     ((eq wrapper 'exact)
+      (cons (concat "<time>" (car fmt) "</time>")
+            (concat "<time>" (cdr fmt) "</time>")))
+     ((eq wrapper 'exact-dt)
+      (cons (concat "<time%%s>" (car fmt) "</time>")
+            (concat "<time%%s>" (cdr fmt) "</time>")))
+     (t fmt)))
+
+(defun t--format-timestamp-common (timestamp fmt fn info)
+  "Format `org', `w3c' and `int' timestamp."
+  (let* ((wra (t--pget info :html-timestamp-wrapper)))
+    (let* ((org-timestamp-formats fmt)
+           (res (org-element-interpret-data timestamp)))
+      (cond
+       ((eq wra 'none) res)
+       ((eq wra 'whole) (concat "<time>" res "</time>"))
+       ((eq wra 'exact) res)
+       ((eq wra 'whole+dt)
+        (format "<time datetime=\"%s\">%s</time>"
+                (t--format-datetime
+                 (org-timestamp-to-time timestamp) info
+                 (not (org-timestamp-has-time-p timestamp)))
+                res))
+       ((eq wra 'exact+dt)
+        (let ((start (org-timestamp-to-time timestamp))
+              (end (org-timestamp-to-time timestamp t))
+              (no-time (not (org-timestamp-has-time-p timestamp))))
+          (format res (t--format-datetime start info no-time)
+                  (t--format-datetime end info no-time))))
+       (t (error "Not a valid timestamp wrapper type: %s" wra))))))
+
 (defun t-timestamp-default-custom-format-function (timestamp info)
   "The default custom function for timestamp transcode."
   (org-element-property :raw-value timestamp))
