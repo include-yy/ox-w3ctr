@@ -98,10 +98,10 @@
     (table-row . t-table-row)                   ; | |
     (verse-block . t-verse-block)               ; #+BEGIN_VERSE
     ;;@ objects [25]
-    ;; citation                                 (NOUSE)
-    ;; citation reference                       (NOUSE)
-    ;; inline babel calls                       (NOEXIST)
-    ;; macros                                   (NOEXIST)
+    ;; citation                                 NO-USE
+    ;; citation reference                       NO-USE
+    ;; inline babel calls                       NO-EXIST
+    ;; macros                                   NO-EXIST
     (entity . t-entity)                         ; \alpha, \cent
     (export-snippet . t-export-snippet)         ; @@html:something@@
     (footnote-reference . t-footnote-reference) ; [fn:]
@@ -115,8 +115,7 @@
     (superscript . t-superscript)               ; a^{b}
     (table-cell . t-table-cell)                 ; | |
     (target . t-target)                         ; <<target>>
-    ;;(timestamp . t-timestamp)                   ; [<time-spec>]
-    (timestamp . org-html-timestamp)
+    (timestamp . t-timestamp)                   ; [<time-spec>]
     ;; smallest objects
     (bold . t-bold)                             ; *a*
     (italic . t-italic)                         ; /a/
@@ -351,19 +350,20 @@ UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
   "Option for ox-w3ctr timestamp export.
 
 Possible values:
-- org: Use `org-timestamp-translate', honoring custom options
-  `org-timestamp-custom-formats' and `org-display-custom-times'.
+- raw: Use timestamp's :raw-value property directly.
 - int: Use `org-element-interpret-data' to get the timestamp.
   It uses `org-element-timestamp-interpreter' to produce the string.
+- org: Like `org-timestamp-translate', honoring custom options
+  `org-timestamp-custom-formats' and `org-display-custom-times'.
 - w3c: Like `int', but uses `org-w3ctr-timestamp-format' instead of
   `org-timestamp-formats' for formatting.
-- raw: Use timestamp's :raw-value property directly.
 
 Except for `raw', all other options ultimately rely on
-`org-element-timestamp-interpreter' to format the timestamp string.  The
-difference lies in which formatting options they respect: `org' follows
-Org export settings, `int' uses the default timestamp format, and `w3c'
-applies the format `org-w3ctr-timestamp-format' defined in this package."
+`org-element-timestamp-interpreter' to format the timestamp string.
+The difference lies in which formatting options they respect: `org'
+follows Org export settings, `int' uses the default timestamp format,
+and `w3c' applies the format `org-w3ctr-timestamp-format' defined in
+this package."
   :group 'org-export-w3ctr
   :type '(radio (const org) (const int) (const w3c) (const raw)))
 
@@ -388,12 +388,12 @@ Possible values:
 
 This option accepts a cons cell (DATE . DATE-TIME), where:
 - DATE: format string for year/month/day (e.g. \"%Y-%m-%d\")
-- DATE-TIME: date plus hours:minutes (e.g. \"%F %R\")
+- DATE-TIME: date plus hours and minutes (e.g. \"%F %H:%M\")
 
 These format strings follow the conventions of `format-time-string'.
 
-Note: This option only takes effect when `org-w3ctr-timestamp-option' is
-set to `w3c'."
+*Note*: This option only takes effect when
+`org-w3ctr-timestamp-option' is set to `w3c'."
   :group 'org-export-w3ctr
   :type '(cons string string))
 
@@ -2201,8 +2201,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 (defun t--timezone-to-offset (zone)
   "Convert timezone string ZONE to offset in seconds.
 
-Valid formats are UTC/GMT[+-]XX (e.g., UTC+8), [+-]HHMM (e.g., -0500) or
-\"local\", which means use zero offset.  Return nil if ZONE doesn't
+Valid formats are UTC/GMT[+-]XX (e.g., UTC+8), [+-]HHMM (e.g., -0500)
+or \"local\", which means use zero offset.  Return nil if ZONE doesn't
 match `org-w3ctr-timezone-regex'."
   (declare (ftype (function (string) (or fixnum symbol)))
            (pure t) (important-return-value t))
@@ -2490,7 +2490,7 @@ rule, and returns a full datetime format string suitable for use in HTML
               html))
      ((eq wrapper 'exact)
       (let* ((frags (string-split html " "))
-             (len (length frags))
+             (len (length frags)))
         (cond
          ((eq len 3)
           (concat (nth 0 frags)
@@ -2502,7 +2502,7 @@ rule, and returns a full datetime format string suitable for use in HTML
                   (nth 2 frags)
                   (format "<time>%s</time>" (nth 3 frags))
                   (nth 4 frags)))
-         (t (error "Abnormal timestamp fragments: %s" frags))))))
+         (t (error "Abnormal timestamp fragments: %s" frags)))))
      ((eq wrapper 'exact+dt)
       (let* ((frags (string-split html " "))
              (len (length frags)))
@@ -3063,7 +3063,7 @@ TYPE is either `preamble' or `postamble'"
      (t (error "pre/postamble's value is invalid: %s" section)))
     (or (and (t--nw-p it) (t--normalize-string it)) "")))
 
-(defun t--get-info-date (info &optional boundary)
+(defun t--get-info-date (info)
   "Extract date from INFO plist and format as timestamp. Returns
 formatted timestamp string or nil if no valid timestamp found.
 
@@ -3091,7 +3091,7 @@ settings."
    ;; (or (t--get-info-date info 'end) "[DATE Not Specified]")
    ;; "</dd>\n"
    "  <dt>Drafting to Completion / Publication:</dt> <dd>"
-   (or (t--get-info-date info 'end) "[Not Specified]")
+   (or (t--get-info-date info) "[Not Specified]")
    "</dd>\n"
    "  <dt>Date of last modification:</dt> <dd>"
    (format "<time datetime=\"%s\">%s</time>"

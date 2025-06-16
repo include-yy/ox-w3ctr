@@ -1425,27 +1425,6 @@ int a = 1;</code></p>\n</details>")
     (should-error (t--format-datetime
                    test-time info7))))
 
-(ert-deftest t--get-timestamp-format ()
-  (let ((info '(:html-timestamp-format
-                ("%Y-%m-%d" . "%Y-%m-%d %H:%M"))))
-    (should (string= (t--get-timestamp-format 'active t info)
-                     "<%Y-%m-%d %H:%M>"))
-    (should (string= (t--get-timestamp-format 'active nil info)
-                     "<%Y-%m-%d>"))
-    (should (string= (t--get-timestamp-format 'inactive t info)
-                     "[%Y-%m-%d %H:%M]"))
-    (should (string= (t--get-timestamp-format 'inactive-range nil info)
-                     "[%Y-%m-%d]")))
-  (let ((info '(:html-timestamp-format
-                ("%Y-%m-%d" . "%Y-%m-%d %H:%M")))
-        (org-display-custom-times t)
-        (org-timestamp-custom-formats
-         '("%m/%d/%y %a" . "%m/%d/%y %a %H:%M")))
-    (should (string= (t--get-timestamp-format 'active t info)
-                     "<%m/%d/%y %a %H:%M>"))
-    (should (string= (t--get-timestamp-format 'active nil info)
-                     "<%m/%d/%y %a>"))))
-
 (ert-deftest t-timestamp ()
   (ert-skip "skip now")
   (t-check-element-values
