@@ -2224,7 +2224,15 @@ match `org-w3ctr-timezone-regex'."
               (+ (* hour 3600) (* minute 60))))))))))
 
 (defun t--get-info-timezone-offset (info)
-  "Return timezone offset in seconds from INFO plist."
+  "Return timezone offset from INFO plist.
+
+If it is a fixnum, return it directly; if it is the symbol \\='local,
+return \\='local; if it is a string, attempt to parse it as a timezone
+offset using `org-w3ctr--timezone-to-offset'.
+
+On successful parsing, the numeric offset will be stored back into INFO
+to avoid repeated parsing.  If timezone is `nil' or timezone format is
+invalid, signal an error."
   (declare (ftype (function (list) fixnum))
            (important-return-value t))
   (if-let* ((zone (t--pget info :html-timezone)))
@@ -2233,16 +2241,16 @@ match `org-w3ctr-timezone-regex'."
        ((eq zone 'local) 'local)
        (t (if-let* ((time (t--timezone-to-offset zone)))
               (t--pput info :html-timezone time)
-            (error "Time zone format not correct: %s" zone))))
+            (error "timezone format not correct: %s" zone))))
     (error ":html-timezone is deliberately set to nil.")))
 
 (defun t--get-info-export-timezone-offset (info &optional zone1-offset)
-  "Return export timezone offset in seconds from INFO plist.
+  "Return export timezone offset from INFO plist.
 
 The export timezone is determined by:
-  If `:html-export-timezone' is nil, use `:html-timezone' value
-  If `:html-timezone' is \\='local, always use \\='local
-  Otherwise use `:html-export-timezone' value.
+- If `:html-export-timezone' is nil, use `:html-timezone' value.
+- If `:html-timezone' is \\='local, always use \\='local.
+- Otherwise use `:html-export-timezone' value.
 
 If optional argument ZONE1-OFFSET is non-nil, use it as the default
 timezone offset instead of querying `:html-timezone' via
@@ -2260,7 +2268,7 @@ when the caller already knows the default timezone offset."
      ((fixnump zone2) zone2)
      (t (if-let* ((time (t--timezone-to-offset zone2)))
             (t--pput info :html-export-timezone time)
-          (error "Time zone format not corrent: %s" zone2))))))
+          (error "export timezone format not correct: %s" zone2))))))
 
 (defun t--get-info-timezone-delta (info &optional z1 z2)
   "Return the offset difference of export timezone(Z2) and timezone(Z1).
@@ -2329,7 +2337,7 @@ rule, and returns a full datetime format string suitable for use in HTML
           (format "%%F%s%%R%s" (nth 0 ls) zone))))))
 
 (defun t--format-datetime (time info &optional notime)
-  "Format TIME into a timestamp string with normalized timezone."
+  "Format TIME into a datetime string."
   (declare (ftype (function (list list &optional boolean) string))
            (important-return-value t))
   (let* ((offset0 (t--get-info-timezone-offset info))
@@ -2342,9 +2350,9 @@ rule, and returns a full datetime format string suitable for use in HTML
         (error ":html-datetime-option is invalid: %s" opt)))))
 
 (defun t--format-ts-datetime (timestamp info &optional end)
-  "Format timestamp to its datetime string"
+  "Format Org timestamp object to its datetime string."
   (declare (ftype (function (t list &optional t) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (format " datetime=\"%s\""
           (t--format-datetime
            (org-timestamp-to-time timestamp end) info
