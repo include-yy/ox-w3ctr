@@ -4,7 +4,19 @@
 (load "ox-w3ctr")
 
 ;; Test helper functions
+(defun $y (a) "should" (should a))
+(defun $n (a) "should-not" (should-not a))
+(defun $q (a b) "should-eq" (should (eq a b)))
+(defun $l (a b) "should-equal" (should (equal a b)))
+(defun $nq (a b) "should-not-eq" (should-not (eq a b)))
+(defun $nl (a b) "should-not-equal" (should-not (equal a b)))
+(defmacro $e! (exp) "should-error" `(should-error ,exp))
+(defmacro $e!l (exp val)
+  "should-error-equal"
+  `(should (equal (should-error ,exp) ,val)))
+
 (defun t--oinfo-oget (prop)
+  "Get the oclosure object corresponeds to PROP."
   (when-let* ((f (alist-get prop t--oinfo-cache-alist)))
     (symbol-function f)))
 
@@ -1446,38 +1458,24 @@ int a = 1;</code></p>\n</details>")
   (let ((ts (t-get-parsed-elements
              "[2000-01-01] [1945-08-15] [1145-05-14]--[1919-08-10]"
              'timestamp)))
-    (should
-     (equal
-      (should-error
-       (t--call-with-invalid-time-spec-handler
-        (lambda (_ts) (error "Invalid time specification"))
-        (nth 0 ts)))
-      '(error "Timestamp [2000-01-01] encode failed")))
-    (should
-     (equal
-      (should-error
-       (t--call-with-invalid-time-spec-handler
-        #'org-timestamp-to-time (nth 1 ts)))
-      '(error "Timestamp [1945-08-15] encode failed")))
-    (should
-     (equal
-      (should-error
-       (t--call-with-invalid-time-spec-handler
-        #'org-element-timestamp-interpreter (nth 2 ts) nil))
-      '(error "Timestamp [1145-05-14]--[1919-08-10] encode failed")))))
+    ($e!l (t--call-with-invalid-time-spec-handler
+              (lambda (_ts) (error "Invalid time specification"))
+              (nth 0 ts))
+          '(error "Timestamp [2000-01-01] encode failed"))
+    ($e!l (t--call-with-invalid-time-spec-handler
+           #'org-timestamp-to-time (nth 1 ts))
+          '(error "Timestamp [1945-08-15] encode failed"))
+    ($e!l (t--call-with-invalid-time-spec-handler
+           #'org-element-timestamp-interpreter (nth 2 ts) nil)
+          '(error "Timestamp [1145-05-14]--[1919-08-10] encode failed"))))
 
 (ert-deftest t--format-ts-datetime ()
   "Tests for `org-w3ctr--format-ts-datetime'."
   (let* ((info '( :html-timezone 28800 :html-export-timezone 0
                   :html-datetime-option T-none-zulu))
-         (ts (t-get-parsed-elements
-              "[1900-01-01] [2000-01-01]"
-              'timestamp)))
-    (should (equal (t--format-ts-datetime (nth 0 ts) info)
-                   ""))
-
-    )
-  )
+         (ts0 (t-get-parsed-elements "[1900-01-01]" 'timestamp)))
+    ($e!l (t--format-ts-datetime (nth 0 ts0) info)
+          '(error "Timestamp [1900-01-01] encode failed"))))
 
 (ert-deftest t-timestamp ()
   (ert-skip "skip now")
@@ -1911,6 +1909,6 @@ int a = 1;</code></p>\n</details>")
 
 
 ;; Local Variables:
-;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
+;; read-symbol-shorthands: (("t-" . "org-w3ctr-") ("$" . "org-w3ctr:test-"))
 ;; coding: utf-8-unix
 ;; End:
