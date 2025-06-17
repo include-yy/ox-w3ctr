@@ -1209,6 +1209,10 @@ ELEMENT is either a source or an example block."
   (t--start-jstools)
   (t--rpc-request! t--jstools-proc fun args))
 
+;; ox-w3ctr errors
+(define-error 'ox-w3ctr "ox-w3ctr error")
+;; FIXME: Add some helper functions here, and replace `error' calls.
+
 ;; A lightweight caching system for property lookups within the INFO
 ;; plist used during Org export.
 
@@ -2372,7 +2376,11 @@ encountering out-of-range or malformed timestamps."
                 (org-element-property :raw-value timestamp)))))))
 
 (defun t--format-ts-datetime (timestamp info &optional end)
-  "Format Org timestamp object to its datetime string."
+  "Format Org timestamp object to its datetime string.
+
+For time ranges, whether the timestamp is considered to have a time part
+depends on whether the starting timestamp of the range includes an hour
+and minute specification, as determined by `org-timestamp-has-time-p'."
   (declare (ftype (function (t list &optional t) string))
            (important-return-value t))
   (format " datetime=\"%s\""
@@ -2380,6 +2388,21 @@ encountering out-of-range or malformed timestamps."
            (t--call-with-invalid-time-spec-handler
             #'org-timestamp-to-time timestamp end)
            info (not (org-timestamp-has-time-p timestamp)))))
+
+(defun t--interpret-timestamp (timestamp)
+  "Interpret an Org TIMESTAMP object with improved error reporting.
+
+This function calls `org-element-timestamp-interpreter' on TIMESTAMP,
+and provides a clearer error message if the timestamp is invalid or out
+of range.
+
+It is also possible to use `org-element-interpret-data' directly, but it
+inserts trailing spaces when the timestamp is followed by space."
+  (declare (ftype (function (t) string))
+           (important-return-value t))
+  (or (t--call-with-invalid-time-spec-handler
+       #'org-element-timestamp-interpreter timestamp :nothing)
+      (error "Bad start date: %s" timestamp)))
 
 (defun t--format-timestamp-diary (timestamp info)
   "Format diary."
