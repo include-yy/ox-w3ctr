@@ -1392,23 +1392,59 @@ int a = 1;</code></p>\n</details>")
              "[2000-01-01] [1945-08-15] [1145-05-14]--[1919-08-10]"
              'timestamp)))
     ($e!l (t--call-with-invalid-time-spec-handler
-              (lambda (_ts) (error "Invalid time specification"))
-              (nth 0 ts))
+           (lambda (_ts) (error "Invalid time specification"))
+           (nth 0 ts))
           '(error "Timestamp [2000-01-01] encode failed"))
     ($e!l (t--call-with-invalid-time-spec-handler
            #'org-timestamp-to-time (nth 1 ts))
           '(error "Timestamp [1945-08-15] encode failed"))
     ($e!l (t--call-with-invalid-time-spec-handler
            #'org-element-timestamp-interpreter (nth 2 ts) nil)
-          '(error "Timestamp [1145-05-14]--[1919-08-10] encode failed"))))
+          '(error "Timestamp [1145-05-14]--[1919-08-10] encode failed")))
+  (let ((ts (t-get-parsed-elements
+             "[2038-01-19 03:14:07] [2025-06-17 16:40]" 'timestamp)))
+    ($y (t--call-with-invalid-time-spec-handler
+         #'org-timestamp-to-time (nth 0 ts)))
+    ($y (t--call-with-invalid-time-spec-handler
+         #'org-element-interpret-data (nth 1 ts)))))
 
 (ert-deftest t--format-ts-datetime ()
   "Tests for `org-w3ctr--format-ts-datetime'."
   (let* ((info '( :html-timezone 28800 :html-export-timezone 0
                   :html-datetime-option T-none-zulu))
-         (ts0 (t-get-parsed-elements "[1900-01-01]" 'timestamp)))
+         (ts0 (t-get-parsed-elements "[1900-01-01]" 'timestamp))
+         (ts1 (t-get-parsed-elements "[2025-06-17 16:49]" 'timestamp))
+         (ts2 (t-get-parsed-elements "[2038-01-01]" 'timestamp))
+         (ts3 (t-get-parsed-elements
+               "[2025-06-17]--[2035-06-17]" 'timestamp))
+         (ts4 (t-get-parsed-elements
+               "[2025-01-01 18:00]--[2026-01-01 15:00]" 'timestamp))
+         (ts5 (t-get-parsed-elements
+               "<2022-06-07>--<2022-06-08 21:00>" 'timestamp))
+         (ts6 (t-get-parsed-elements
+               "[2022-06-07 09:00]--[2022-06-08]" 'timestamp)))
     ($e!l (t--format-ts-datetime (nth 0 ts0) info)
-          '(error "Timestamp [1900-01-01] encode failed"))))
+          '(error "Timestamp [1900-01-01] encode failed"))
+    ($l (t--format-ts-datetime (nth 0 ts1) info)
+        " datetime=\"2025-06-17T08:49Z\"")
+    ($l (t--format-ts-datetime (nth 0 ts2) info)
+        " datetime=\"2038-01-01\"")
+    ($l (t--format-ts-datetime (nth 0 ts3) info)
+        " datetime=\"2025-06-17\"")
+    ($l (t--format-ts-datetime (nth 0 ts3) info t)
+        " datetime=\"2035-06-17\"")
+    ($l (t--format-ts-datetime (nth 0 ts4) info)
+        " datetime=\"2025-01-01T10:00Z\"")
+    ($l (t--format-ts-datetime (nth 0 ts4) info t)
+        " datetime=\"2026-01-01T07:00Z\"")
+    ($l (t--format-ts-datetime (nth 0 ts5) info)
+        " datetime=\"2022-06-07\"")
+    ($l (t--format-ts-datetime (nth 0 ts5) info t)
+        " datetime=\"2022-06-08\"")
+    ($l (t--format-ts-datetime (nth 0 ts6) info)
+        " datetime=\"2022-06-07T01:00Z\"")
+    ($l (t--format-ts-datetime (nth 0 ts6) info t)
+        " datetime=\"2022-06-08T01:00Z\"")))
 
 (ert-deftest t-timestamp ()
   (ert-skip "skip now")
