@@ -3150,9 +3150,9 @@ settings."
    "  <dt>Date of last modification:</dt> <dd>"
    (format "<time>%s</time>"
            (format-time-string "%FT%RZ" nil t))
-           ;;(format-time-string "%F %R")
-           ;;(t--format-normalized-timestamp (current-time) info)
-           ;;(format-time-string "%F %R"))
+   ;;(format-time-string "%F %R")
+   ;;(t--format-normalized-timestamp (current-time) info)
+   ;;(format-time-string "%F %R"))
    "</dd>\n"
    "  <dt>Creation Tools:</dt> <dd>"
    (plist-get info :creator)
