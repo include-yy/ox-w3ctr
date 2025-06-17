@@ -2344,10 +2344,32 @@ rule, and returns a full datetime format string suitable for use in HTML
          (offset1 (t--get-info-export-timezone-offset info offset0))
          (delta (t--get-info-timezone-delta info offset0 offset1)))
     (if-let* ((option (t--pget info :html-datetime-option))
-              (fmt (t--get-datetime-format offset1 option notime)))
-        (format-time-string fmt (if notime time (time-add time delta)))
+              (fmt (t--get-datetime-format offset1 option notime))
+              (time (if notime time (time-add time delta))))
+        (condition-case nil
+            (format-time-string fmt time)
+          (error (error "Time may be out of range: %s" time)))
       (let ((opt (t--pget info :html-datetime-option)))
         (error ":html-datetime-option is invalid: %s" opt)))))
+
+(defun t--call-with-invalid-time-spec-handler (fn timestamp &rest args)
+  "Call FN with TIMESTAMP and ARGS, providing a clearer error message
+for invalid timestamps.
+
+If FN signals an error with the message \"Invalid time specification\",
+signal a more informative error including the raw value of TIMESTAMP.
+
+Intended for wrapping functions like `org-timestamp-to-time' or
+`org-element-timestamp-interpreter' to make error messages clearer when
+encountering out-of-range or malformed timestamps."
+  (condition-case e
+      (apply fn timestamp args)
+    (error
+     (let ((err (car e)) (data (cdr e)))
+       (when (and (eq err 'error)
+                  (equal data '("Invalid time specification")))
+         (error "Timestamp %s encode failed"
+                (org-element-property :raw-value timestamp)))))))
 
 (defun t--format-ts-datetime (timestamp info &optional end)
   "Format Org timestamp object to its datetime string."
@@ -2355,8 +2377,9 @@ rule, and returns a full datetime format string suitable for use in HTML
            (important-return-value t))
   (format " datetime=\"%s\""
           (t--format-datetime
-           (org-timestamp-to-time timestamp end) info
-           (not (org-timestamp-has-time-p timestamp)))))
+           (t--call-with-invalid-time-spec-handler
+            #'org-timestamp-to-time timestamp end)
+           info (not (org-timestamp-has-time-p timestamp)))))
 
 (defun t--format-timestamp-diary (timestamp info)
   "Format diary."
@@ -3102,10 +3125,11 @@ settings."
    (or (t--get-info-date info) "[Not Specified]")
    "</dd>\n"
    "  <dt>Date of last modification:</dt> <dd>"
-   (format "<time datetime=\"%s\">%s</time>"
-           (format-time-string "%F %R")
+   (format "<time>%s</time>"
+           (format-time-string "%FT%RZ" nil t))
+           ;;(format-time-string "%F %R")
            ;;(t--format-normalized-timestamp (current-time) info)
-           (format-time-string "%F %R"))
+           ;;(format-time-string "%F %R"))
    "</dd>\n"
    "  <dt>Creation Tools:</dt> <dd>"
    (plist-get info :creator)

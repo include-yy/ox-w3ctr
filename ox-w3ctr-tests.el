@@ -1,5 +1,6 @@
 ;;; -*- lexical-binding:t; no-byte-compile:t; -*-
 
+(require 'ert)
 (load "ox-w3ctr")
 
 ;; Test helper functions
@@ -32,6 +33,17 @@ BODY-ONLY and PLIST are optional arguments passed to
                    (car test) 'w3ctr body-only plist))
           (should (equal t-test-values (cdr test)))))
     (advice-remove fn #'t-advice-return-value)))
+
+(defun t-get-parsed-elements (str type)
+  "Parse STR as an Org buffer and return a list of elements of TYPE.
+
+STR is a string containing Org content.  TYPE is an Org element type
+symbol (such as \\='headline, \\='paragraph, etc)."
+  (thread-first
+    (with-temp-buffer
+      (save-excursion (insert str))
+      (org-element-parse-buffer))
+    (org-element-map type #'identity)))
 
 (ert-deftest t--make-cache-oclosure ()
   "Tests for `org-w3ctr--make-cache-oclosure'."
@@ -1423,7 +1435,49 @@ int a = 1;</code></p>\n</details>")
   (let ((test-time (encode-time 0 0 12 1 1 2023))
         (info7 '(:html-timezone "Invalid")))
     (should-error (t--format-datetime
-                   test-time info7))))
+                   test-time info7)))
+  ;; time out of range
+  (let ((info8 '(:html-timezone 0 :html-datetime-option space-none)))
+    (should (equal (should-error (t--format-datetime -65536 info8))
+                   '(error "Time may be out of range: -65536")))))
+
+(ert-deftest t--call-with-invalid-time-spec-handler ()
+  "Tests for `org-w3ctr--call-with-invalid-time-spec-handler'."
+  (let ((ts (t-get-parsed-elements
+             "[2000-01-01] [1945-08-15] [1145-05-14]--[1919-08-10]"
+             'timestamp)))
+    (should
+     (equal
+      (should-error
+       (t--call-with-invalid-time-spec-handler
+        (lambda (_ts) (error "Invalid time specification"))
+        (nth 0 ts)))
+      '(error "Timestamp [2000-01-01] encode failed")))
+    (should
+     (equal
+      (should-error
+       (t--call-with-invalid-time-spec-handler
+        #'org-timestamp-to-time (nth 1 ts)))
+      '(error "Timestamp [1945-08-15] encode failed")))
+    (should
+     (equal
+      (should-error
+       (t--call-with-invalid-time-spec-handler
+        #'org-element-timestamp-interpreter (nth 2 ts) nil))
+      '(error "Timestamp [1145-05-14]--[1919-08-10] encode failed")))))
+
+(ert-deftest t--format-ts-datetime ()
+  "Tests for `org-w3ctr--format-ts-datetime'."
+  (let* ((info '( :html-timezone 28800 :html-export-timezone 0
+                  :html-datetime-option T-none-zulu))
+         (ts (t-get-parsed-elements
+              "[1900-01-01] [2000-01-01]"
+              'timestamp)))
+    (should (equal (t--format-ts-datetime (nth 0 ts) info)
+                   ""))
+
+    )
+  )
 
 (ert-deftest t-timestamp ()
   (ert-skip "skip now")
