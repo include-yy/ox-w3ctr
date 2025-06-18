@@ -206,7 +206,7 @@
     ;; <yy> add back to top arrow
     (:html-back-to-top nil "back-to-top" t-back-to-top)
     ;; <yy> add timestamp format for timestamp
-    (:html-timestamp-format nil nil t-timestamp-format)
+    (:html-timestamp-formats nil nil t-timestamp-formats)
     ;; <yy> add options for fixup.js's code
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     ;; <yy> time zone suffix
@@ -225,6 +225,7 @@
     ;; timestamp new feature [2025-06-12 16:23]
     (:html-timestamp-option nil "ts" t-timestamp-option)
     (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
+    (:html-timestamp-format-function nil nil t-timestamp-format-function)
     ;;(:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     ))
 
@@ -351,21 +352,19 @@ UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
 
 Possible values:
 - raw: Use timestamp's :raw-value property directly.
-- int: Use org-element's utils to get the timestamp.
-  It uses `org-element-timestamp-interpreter' to produce the string.
+- int: Use `org-element-timestamp-interpreter' to format timestamp.
+- fmt: Like `int', but dynamically bind `org-timestamp-formats' to
+  `:html-timestamp-formats' (`org-w3ctr-timestamp-formats').
+- cus: Treat daterange and timerange timestamp equally, use
+  `:html-timestamp-formats' as custom timestamp formats.
 - org: Like `org-timestamp-translate', honoring custom options
   `org-timestamp-custom-formats' and `org-display-custom-times'.
-- w3c: Like `int', but uses `org-w3ctr-timestamp-format' instead of
-  `org-timestamp-formats' for formatting.
-
-Except for `raw', all other options ultimately rely on
-`org-element-timestamp-interpreter' to format the timestamp string.
-The difference lies in which formatting options they respect: `org'
-follows Org export settings, `int' uses the default timestamp format,
-and `w3c' applies the format `org-w3ctr-timestamp-format' defined in
-this package."
+- fun: Use `:html-timestamp-format-function' to format timestamp.
+  The entire process is fully implemented by the user. The default
+  function is `org-w3ctr-timestamp-format-function'."
   :group 'org-export-w3ctr
-  :type '(radio (const org) (const int) (const w3c) (const raw)))
+  :type '(choice (const org) (const int) (const fmt)
+                 (const cus) (const org) (const fun)))
 
 (defcustom t-timestamp-wrapper-type 'whole
   "Timestamp wrapper type for HTML <time> elements.
@@ -381,7 +380,7 @@ Possible values:
   :type '(radio (const none) (const whole)
                 (const exact) (const anno)))
 
-(defcustom t-timestamp-format '("%F" . "%F %R")
+(defcustom t-timestamp-formats '("%F" . "%F %R")
   "Format specification used for exporting timestamps.
 
 This option accepts a cons cell (DATE . DATE-TIME), where:
@@ -394,6 +393,12 @@ These format strings follow the conventions of `format-time-string'.
 `org-w3ctr-timestamp-option' is set to `w3c'."
   :group 'org-export-w3ctr
   :type '(cons string string))
+
+(defcustom t-timestamp-format-function
+  #'t-timestamp-default-format-function
+  "Custom timestamp format function."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export."
@@ -2469,7 +2474,7 @@ Mainly used for exporting timestamps of `raw', `int' and `org' types."
 
 (defun t--format-timestamp-raw (timestamp info)
   "Format TIMESTAMP without altering its string content."
-  (declare (ftype (function t list) string)
+  (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((raw (org-element-property :raw-value timestamp)))
     (t--format-timestamp-raw-1 timestamp raw info)))
@@ -2478,7 +2483,7 @@ Mainly used for exporting timestamps of `raw', `int' and `org' types."
   "Format TIMESTAMP with `org-timestamp-formats' (standard method)."
   (declare (ftype (function (t list) string))
            (important-return-value t))
-  (let ((raw (org-element-interpret-data timestamp)))
+  (let ((raw (t--interpret-timestamp timestamp)))
     (t--format-timestamp-raw-1 timestamp raw info)))
 
 (defun t--format-timestamp-org (timestamp info)
@@ -2582,6 +2587,10 @@ Otherwise, format TIMESTAMP using custom formats defined in
            (nth 4 frags)))
          (t (error "Abnormal timestamp fragments: %s" frags)))))
      (t (error "Unknown timestamp wrapper type: %s" wrapper)))))
+
+(defun t-timestamp-default-format-function (timestamp info)
+  "Default custom timestamp format function"
+  (org-element-property :raw-value timestamp))
 
 (defun t-timestamp (timestamp _contents info)
   "Transcode a TIMESTAMP object from Org to HTML."
