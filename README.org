@@ -34,7 +34,7 @@ After installation and load, use =C-c C-e w o= to export a org buffer to
 HTML file. See more information from docstrings and comments (at least
 now).
 
-** TODO list [0/3]
+** =TODO= list [0/4]
 
 1. [ ] Totally Refactor from ox-html.
 2. [ ] Fully detailed documentation.
