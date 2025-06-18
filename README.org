@@ -1,22 +1,43 @@
 * ox-w3ctr --- org export backend for W3C TR CSS style
 
-# #+HTML: <img src="lily.svg" align="right" width="15%">
+Based on Org-mode's ox-html.el and CSS of W3C Technical Report [[https://github.com/w3c/tr-design][tr-design]]'s base.css.
 
-based on Org-mode's ox-html.el and CSS of W3C Technical Report [[https://github.com/w3c/tr-design][tr-design]]'s base.css.
+** Status
 
-# the file index.org provide a demo usage of this Org export backend, see it [[https://include-yy.github.io/ox-w3ctr/][online]]。`
+| Emacs Version   | 30.1         |  31.1 |  32.1 |  33.1 |  34.1 |  35.1 |  36.1 | 37.1    | ... |
+|-----------------+--------------+-------+-------+-------+-------+-------+-------+---------+-----|
+| Package Version | 0.2~0.3      | 0.4.x | 0.5.x | 0.6.x | 0.7.x | 0.8.x | 0.9.x | 1.0 !!! |     |
+| Date            | [2025-02-23] |  2027 |  2029 |  2031 |  2033 |  2035 |  2037 | 2038?   |     |
+
+The current ox-w3ctr has not yet completed a full refactoring of the
+ox-html code, though it’s already largely usable. I plan to release
+version 0.4 when Emacs 31.1 comes out, and then increment the version by
+0.1 with each major Emacs release until reaching the official 1.0 at
+Emacs :p
+
+When version 0.4 is released, the package should no longer introduce
+breaking changes, and Emacs 31.1 will be the minimum supported
+version. In a sense, 0.4 will be the first official release. If more
+users and bug reports come in, this process from 0.4 to 1.0 might move
+faster.
 
 ** Install and Use
 
-Please use Emacs 29.2 or above. Download this repo and add it to =load-path=, or use =package-vc= like this:
+Please use Emacs 30.1.50 or above. Download this repo and add it to
+=load-path=, or use =package-vc= like this:
 
 #+begin_src text
 M-x package-vs-install https://github.com/include-yy/ox-w3ctr RET
 #+end_src
 
-After installation and load, use =C-c C-e w o= to export a org buffer to HTML file.
+After installation and load, use =C-c C-e w o= to export a org buffer to
+HTML file. See more information from docstrings and comments (at least
+now).
 
-** todolist
+** TODO list [0/3]
 
-- [ ] More details
-- [ ] complete style.css
+1. [ ] Totally Refactor from ox-html.
+2. [ ] Fully detailed documentation.
+3. [ ] A friendly introductive video.
+4. [ ] CI/CD support.
+  
