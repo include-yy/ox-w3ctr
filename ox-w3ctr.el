@@ -205,14 +205,19 @@
     (:html-inline-images nil nil t-inline-images)
     ;; <yy> add back to top arrow
     (:html-back-to-top nil "back-to-top" t-back-to-top)
-    ;; <yy> add timestamp format for timestamp
-    (:html-timestamp-formats nil nil t-timestamp-formats)
     ;; <yy> add options for fixup.js's code
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
+    ;; <yy> add timestamp format for timestamp
     ;; <yy> time zone suffix
+    ;; timestamp new feature [2025-06-12 16:23]
     (:html-timezone "HTML_TIMEZONE" nil t-timezone)
     (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
-    (:html-datetime-option nil "datetime" t-datetime-format-choice)
+    (:html-datetime-option nil "dt" t-datetime-format-choice)
+    (:html-timestamp-formats nil "tsf" t-timestamp-formats)
+    (:html-timestamp-option nil "ts" t-timestamp-option)
+    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
+    (:html-timestamp-format-function
+     nil "tsfn" t-timestamp-format-function)
     (:html-file-timestamp nil nil t-file-timestamp-function)
     ;; public license
     (:html-license nil "license" t-public-license)
@@ -222,10 +227,6 @@
     ;; toc tag name
     (:html-toc-tagname nil "toctag" t-toc-tagname)
     ;; FIXME: Reformat whole info options
-    ;; timestamp new feature [2025-06-12 16:23]
-    (:html-timestamp-option nil "ts" t-timestamp-option)
-    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
-    (:html-timestamp-format-function nil nil t-timestamp-format-function)
     ;;(:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     ))
 
@@ -363,7 +364,7 @@ Possible values:
   The entire process is fully implemented by the user. The default
   function is `org-w3ctr-timestamp-format-function'."
   :group 'org-export-w3ctr
-  :type '(choice (const org) (const int) (const fmt)
+  :type '(choice (const raw) (const int) (const fmt)
                  (const cus) (const org) (const fun)))
 
 (defcustom t-timestamp-wrapper-type 'whole
@@ -2527,7 +2528,7 @@ Otherwise, format TIMESTAMP using custom formats defined in
              (`whole (concat "<time>" s "</time>"))
              (`exact (format s "" ""))
              (`anno (format s (funcall df) (funcall df t))))))
-        (_ (error "Unknown timestamp type: %s") type)))))
+        (_ (error "Unknown timestamp type: %s" type))))))
 
 (defun t--format-timestamp-w3c (timestamp info)
   (declare (ftype (function (t list) string))
@@ -2588,7 +2589,7 @@ Otherwise, format TIMESTAMP using custom formats defined in
          (t (error "Abnormal timestamp fragments: %s" frags)))))
      (t (error "Unknown timestamp wrapper type: %s" wrapper)))))
 
-(defun t-timestamp-default-format-function (timestamp info)
+(defun t-timestamp-default-format-function (timestamp _info)
   "Default custom timestamp format function"
   (org-element-property :raw-value timestamp))
 
