@@ -351,7 +351,7 @@ UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
 
 Possible values:
 - raw: Use timestamp's :raw-value property directly.
-- int: Use `org-element-interpret-data' to get the timestamp.
+- int: Use org-element's utils to get the timestamp.
   It uses `org-element-timestamp-interpreter' to produce the string.
 - org: Like `org-timestamp-translate', honoring custom options
   `org-timestamp-custom-formats' and `org-display-custom-times'.
@@ -373,15 +373,13 @@ this package."
 Possible values:
 - none      : No HTML tag wrapper, export bare timestamp string.
 - whole     : Wrap the entire timestamp with a single <time> element.
-- whole+dt  : Same as `whole', but adds a `datetime' attribute,
-              excluding the end time of a date or time range.
 - exact     : Wrap each time value within the timestamp individually
               using <time> elements.
-- exact+dt  : Same as `exact', but adds a `datetime' attribute to each
+- anno      : Same as `exact', but adds a `datetime' attribute to each
               <time> element."
   :group 'org-export-w3ctr
-  :type '(radio (const none) (const whole) (const whole+dt)
-                (const exact) (const exact+dt)))
+  :type '(radio (const none) (const whole)
+                (const exact) (const anno)))
 
 (defcustom t-timestamp-format '("%F" . "%F %R")
   "Format specification used for exporting timestamps.
@@ -2405,18 +2403,22 @@ inserts trailing spaces when the timestamp is followed by space."
       (error "Bad start date: %s" timestamp)))
 
 (defun t--format-timestamp-diary (timestamp info)
-  "Format diary."
+  "Format a diary-like TIMESTAMP object.
+
+If `:html-timestamp-option' is `raw', use the `:raw-value' property of
+TIMESTAMP. Otherwise, use `org-w3ctr--interpret-timestamp' or signal an
+error if the option is unknown.
+
+If `:html-timestamp-wrapper' is `none', return the plain text.
+Otherwise, wrap it in a <time> tag."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let* ((wrapper (t--pget info :html-timestamp-wrapper))
          (option  (t--pget info :html-timestamp-option))
-         (text))
-    (cond
-     ((eq option 'raw)
-      (setq text (org-element-property :raw-value timestamp)))
-     ((memq option '(int org w3c))
-      (setq text (org-element-interpret-data timestamp)))
-     (t (error "Unknwon timestamp option: %s" option)))
+         (text (pcase option
+                 (`raw (org-element-property :raw-value timestamp))
+                 ((or `int `org `w3c) (t--interpret-timestamp timestamp))
+                 (_ (error "Unknown timestamp option: %s" option)))))
     (let ((html (t-plain-text text info)))
       (if (eq wrapper 'none) html
         (concat "<time>" html "</time>")))))

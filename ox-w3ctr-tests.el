@@ -1513,6 +1513,30 @@ int a = 1;</code></p>\n</details>")
     )
   )
 
+(ert-deftest t--format-timestamp-diary ()
+  "Tests for `org-w3ctr--format-timestamp-diary'."
+  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+             (g (x info) (t--format-timestamp-diary (f x) info))
+             (mk (w o) `( :html-timestamp-wrapper ,w
+                          :html-timestamp-option ,o)))
+    ($l (g "<%%(diary-float t 42)>" (mk 'none 'raw))
+        "&lt;%%(diary-float t 42)&gt;")
+    ($l (g "<%%(diary-float t 42)>" (mk 'whole 'raw))
+        "<time>&lt;%%(diary-float t 42)&gt;</time>")
+    ($l (g "<%%(diary-float t 42)>" (mk 'exact 'int))
+        "<time>&lt;%%(diary-float t 42)&gt;</time>")
+    ($l (g "<%%(diary-float t 42)>" (mk 'exact 'org))
+        "<time>&lt;%%(diary-float t 42)&gt;</time>")
+    ($l (g "<%%(diary-float t 42)>" (mk 'exact 'w3c))
+        "<time>&lt;%%(diary-float t 42)&gt;</time>")
+    ($e!l (g "<%%(diary-float t 42)>" (mk 'exact 'wtf))
+          '(error "Unknown timestamp option: wtf"))
+    ($l (g "<%%(diary-float t 4 2) 22:00-23:00>" (mk 'whole 'org))
+        "<time>&lt;%%(diary-float t 4 2) 22:00-23:00&gt;</time>")
+    ($l (g "<%%(diary-float t 4 2) 22:00>--<2222-02-22 23:00>"
+           (mk 'none 'org))
+        "&lt;%%(diary-float t 4 2) 22:00&gt;")))
+
 (ert-deftest t-timestamp ()
   (ert-skip "skip now")
   (t-check-element-values
