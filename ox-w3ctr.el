@@ -2468,62 +2468,61 @@ Mainly used for exporting timestamps of `raw', `int' and `org' types."
            (_ (error "Unknown timestamp range type: %s" rtype))))))))
 
 (defun t--format-timestamp-raw (timestamp info)
+  "Format TIMESTAMP without altering its string content."
+  (declare (ftype (function t list) string)
+           (important-return-value t))
   (let ((raw (org-element-property :raw-value timestamp)))
     (t--format-timestamp-raw-1 timestamp raw info)))
 
 (defun t--format-timestamp-int (timestamp info)
+  "Format TIMESTAMP with `org-timestamp-formats' (standard method)."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((raw (org-element-interpret-data timestamp)))
     (t--format-timestamp-raw-1 timestamp raw info)))
 
 (defun t--format-timestamp-org (timestamp info)
-  "Reimpl of `org-timestamp-translate'."
+  "Format TIMESTAMP like `org-timestamp-translate'.
+
+When `org-display-custom-times' is nil, fall back to `int' formatting.
+Otherwise, format TIMESTAMP using custom formats defined in
+`org-timestamp-custom-formats'."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (if (not org-display-custom-times)
       (t--format-timestamp-int timestamp info)
     (let* ((wrap (t--pget info :html-timestamp-wrapper))
            (type (org-element-property :type timestamp))
-           (fmt (org-time-stamp-format
-                 (org-timestamp-has-time-p timestamp)
-                 'no-brackets 'custom))
-           (fst (org-format-timestamp timestamp fmt))
-           (sec (and (memq type '(active-range inactive-range))
-                     (org-format-timestamp timestamp fmt t)))
-           (one (t-plain-text fst info))
-           (two (and sec (t-plain-text sec info))))
-      (if (null two)
-          (cond
-           ((eq wrap 'none) (format "&lt;%s&gt;" one))
-           ((eq wrap 'whole) (format "<time>&lt;%s&gt;</time>" one))
-           ((eq wrap 'whole+dt)
-            (format "<time%s>&lt;%s&gt;</time>"
-                    (t--format-ts-datetime timestamp info) one))
-           ((eq wrap 'exact) (format "&lt;<time>%s</time>&gt;" one))
-           ((eq wrap 'exact+dt)
-            (format "&lt;<time%s>%s</time>&gt;"
-                    (t--format-ts-datetime timestamp info) one))
-           (t (error "Unknown timestamp wrapper type: %s" wrap)))
-        (cond
-         ((eq wrap 'none)
-          (format "&lt;%s&gt;&#x2013;&lt;%s&gt;" one two))
-         ((eq wrap 'whole)
-          (format "<time>&lt;%s&gt;&#x2013;&lt;%s&gt;</time>"
-                  one two))
-         ((eq wrap 'whole+dt)
-          (format "<time%s>&lt;%s&gt;&#x2013;&lt;%s&gt;</time>"
-                  (t--format-ts-datetime timestamp info) one two))
-         ((eq wrap 'exact)
-          (concat (format "&lt;<time>%s</time>&gt;&#x2013;" one)
-                  (format "&lt;<time>%s</time>&gt;" two)))
-         ((eq wrap 'exact+dt)
-          (concat
-           (format "&lt;<time%s>%s</time>&gt;&#x2013;"
-                   (t--format-ts-datetime timestamp info) one)
-           (format "&lt;<time%s>%s</time>&gt;"
-                   (t--format-ts-datetime timestamp info t) two)))
-         (t (error "Unknown timestamp wrapper type: %s" wrap)))))))
+           (fmt0 (org-time-stamp-format
+                  (org-timestamp-has-time-p timestamp)
+                  'no-brackets 'custom))
+           (fmtw (pcase wrap
+                   ((or `none `whole) "&lt;%s&gt;")
+                   ((or `exact `anon) "&lt;<time%%s>%s</time>&gt;")
+                   (_ (error "Unknown timestamp wrapper: %s" wrap))))
+           (sf (lambda (&optional e)
+                 (let ((t1 (org-format-timestamp timestamp fmt0 e)))
+                   (format fmtw (t-plain-text t1 info)))))
+           (df (lambda (&optional e)
+                 (t--format-ts-datetime timestamp info e))))
+      (pcase type
+        ((or `active `inactive)
+         (let ((s1 (funcall sf)))
+           (pcase wrap
+             (`none s1)
+             (`whole (concat "<time>" s1 "</time>"))
+             (`exact (format s1 ""))
+             (`anno (format s1 (funcall df))))))
+        ((or `active-range `inactive-range)
+         (let* ((s1 (funcall sf))
+                (s2 (funcall sf t))
+                (s (concat s1 "&#x2013;" s2)))
+           (pcase wrap
+             (`none s)
+             (`whole (concat "<time>" s "</time>"))
+             (`exact (format s "" ""))
+             (`anno (format s (funcall df) (funcall df t))))))
+        (_ (error "Unknown timestamp type: %s") type)))))
 
 (defun t--format-timestamp-w3c (timestamp info)
   (declare (ftype (function (t list) string))
