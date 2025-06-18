@@ -2415,57 +2415,57 @@ Otherwise, wrap it in a <time> tag."
            (important-return-value t))
   (let* ((wrapper (t--pget info :html-timestamp-wrapper))
          (option  (t--pget info :html-timestamp-option))
-         (text (pcase option
-                 (`raw (org-element-property :raw-value timestamp))
-                 ((or `int `org `w3c) (t--interpret-timestamp timestamp))
-                 (_ (error "Unknown timestamp option: %s" option)))))
-    (let ((html (t-plain-text text info)))
+         (txt (pcase option
+                (`raw (org-element-property :raw-value timestamp))
+                ((or `int `org `w3c) (t--interpret-timestamp timestamp))
+                (_ (error "Unknown timestamp option: %s" option)))))
+    (let ((html (t-plain-text txt info)))
       (if (eq wrapper 'none) html
         (concat "<time>" html "</time>")))))
 
 (defun t--format-timestamp-raw-1 (timestamp raw info)
-  "Format raw type export's timestamp."
+  "Format a TIMESTAMP with its RAW string.
+
+RAW is a string matching `org-ts-regexp-both', which may differ from
+TIMESTAMP's `:raw-value' property.
+
+Mainly used for exporting timestamps of `raw', `int' and `org' types."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (let* ((wrapper (t--pget info :html-timestamp-wrapper))
-         (txt (and (memq wrapper '(none whole whole+dt))
-                   (t-plain-text raw info))))
-    (cond
-     ((eq wrapper 'none) txt)
-     ((eq wrapper 'whole) (concat "<time>" txt "</time>"))
-     ((eq wrapper 'whole+dt)
-      (format "<time%s>%s</time>"
-              (t--format-ts-datetime timestamp info) txt))
-     ((eq wrapper 'exact)
-      (replace-regexp-in-string
-       org-element--timestamp-regexp
-       (lambda (s) (let ((ts (substring s 1 -1)))
-                 (format (if (= (aref s 0) ?\[)
-                             "[<time>%s</time>]"
-                           "&lt;<time>%s</time>&gt;")
-                         (t-plain-text ts info))))
-       raw))
-     ((eq wrapper 'exact+dt)
-      (let* ((cnt 0))
-        (thread-last
-          (replace-regexp-in-string
-           org-element--timestamp-regexp
-           (lambda (s) (let ((ts (substring s 1 -1)))
-                     (incf cnt)
-                     (format (if (= (aref s 0) ?\[)
-                                 "[<time%%s>%s</time>]"
-                               "&lt;<time%%s>%s</time>&gt;")
-                             (t-plain-text ts info))))
-           raw)
-          (setq txt))
-        (cond
-         ((= cnt 1)
-          (format txt (t--format-ts-datetime timestamp info)))
-         ((= cnt 2)
-          (format txt (t--format-ts-datetime timestamp info)
-                  (t--format-ts-datetime timestamp info t)))
-         (t (error "Abnormal number of timestamp: %s" cnt)))))
-     (t (error "Unknown timestamp wrapper type: %s" wrapper)))))
+         (rtype (org-element-property :range-type timestamp))
+         (txt (pcase wrapper
+                ((or `none `whole) (t-plain-text raw info))
+                ((or `exact `anon) raw)
+                (_ (error "Unknown timestamp wrapper: %s" wrapper))))
+         (fmt1 (pcase wrapper
+                 (`exact "[<time>%s</time>]")
+                 (`anon "[<time%%s>%s</time>]")
+                 (_ "")))
+         (fmt2 (pcase wrapper
+                 (`exact "&lt;<time>%s</time>&gt;")
+                 (`anon "&lt;<time%%s>%s</time>&gt;")
+                 (_ "")))
+         (fn (lambda (s)
+               (let* ((c (aref s 0))
+                      (ts (substring s 1 -1))
+                      (fmt (if (= c ?\[) fmt1 fmt2)))
+                 (format fmt (t-plain-text ts info)))))
+         (frep (lambda () (replace-regexp-in-string
+                       org-ts-regexp-both fn txt t t))))
+    (pcase wrapper
+      (`none txt)
+      (`whole (concat "<time>" txt "</time>"))
+      (`exact (funcall frep))
+      (`anon
+       (let ((rep (funcall frep)))
+         (pcase rtype
+           ((or `nil `timerange)
+            (format rep (t--format-ts-datetime timestamp info)))
+           (`daterange
+            (format rep (t--format-ts-datetime timestamp info)
+                    (t--format-ts-datetime timestamp info t)))
+           (_ (error "Unknown timestamp range type: %s" rtype))))))))
 
 (defun t--format-timestamp-raw (timestamp info)
   (let ((raw (org-element-property :raw-value timestamp)))
