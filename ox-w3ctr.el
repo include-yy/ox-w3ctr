@@ -348,7 +348,7 @@ UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
                 (const T-none) (const T-none-zulu)
                 (const T-colon) (const T-colon-zulu)))
 
-(defcustom t-timestamp-option 'org
+(defcustom t-timestamp-option 'int
   "Option for ox-w3ctr timestamp export.
 
 Possible values:
@@ -391,7 +391,7 @@ This option accepts a cons cell (DATE . DATE-TIME), where:
 These format strings follow the conventions of `format-time-string'.
 
 *Note*: This option only takes effect when
-`org-w3ctr-timestamp-option' is set to `w3c'."
+`org-w3ctr-timestamp-option' is set to `fmt' or `cus'."
   :group 'org-export-w3ctr
   :type '(cons string string))
 
@@ -2488,16 +2488,22 @@ RAW is a string matching `org-ts-regexp-both'."
   "Format TIMESTAMP with `org-w3ctr-timestamp-formats'."
   (declare (ftype (function (t list) string))
            (important-return-value t))
+  ;;FIXME: Check just once
   (if-let* ((fmt (t--pget info :html-timestamp-formats))
-            ((stringp fmt))
+            ((and (consp fmt) (stringp (car fmt)) (stringp (cdr fmt))))
+            ;; (rx (or "[" "]" "<" ">" "&"))
+            ((and (not (string-match-p "[]&<>[]" (car fmt)))
+                  (not (string-match-p "[]&<>[]" (cdr fmt)))))
             (org-timestamp-formats fmt)
             (raw (t--interpret-timestamp timestamp)))
       (t--format-timestamp-raw-1 timestamp raw info)
-    (error ":html-timestamp-formats not a string: %s"
+    (error ":html-timestamp-formats not valid: %s"
            (t--pget info :html-timestamp-formats))))
 
 (defun t--format-timestamp-fix (timestamp fmt info)
-  "WIP"
+  "Internal function used for formatting `org' and `cus' option.
+
+fix means not influenced by timestamp's range type."
   (let* ((wrap (t--pget info :html-timestamp-wrapper))
          (type (org-element-property :type timestamp))
          (fmt0 (substring fmt 1 -1))
@@ -2550,20 +2556,19 @@ Otherwise, format TIMESTAMP using custom formats defined in
                 nil 'custom)))
       (t--format-timestamp-fix timestamp fmt info))))
 
-(defalias 't--format-timestamp-cus
-  (let ((re (rx string-start
-                (or (seq "[" (*? anything) "]")
-                    (seq "{" (*? anything) "}")
-                    (seq "<" (*? anything) ">"))
-                string-end)))
-    (lambda (timestamp info)
-      "WIP"
-      (let* ((fmt (t--pget info :html-timestamp-formats))
-             (fmt0 (if (org-timestamp-has-time-p timestamp)
-                       (cdr fmt) (car fmt))))
-        (if (not (string-match-p re fmt0))
-            (error "FMT not fit in `cus': %s" fmt0)
-          (t--format-timestamp-fix timestamp fmt0 info))))))
+(defun t--format-timestamp-cus (timestamp info)
+  "WIP"
+  (let* ((re (rx string-start
+                 (or (seq "[" (*? anything) "]")
+                     (seq "{" (*? anything) "}")
+                     (seq "<" (*? anything) ">"))
+                 string-end))
+         (fmt (t--pget info :html-timestamp-formats))
+         (fmt0 (if (org-timestamp-has-time-p timestamp)
+                   (cdr fmt) (car fmt))))
+    (if (not (string-match-p re fmt0))
+        (error "FMT not fit in `cus': %s" fmt0)
+      (t--format-timestamp-fix timestamp fmt0 info))))
 
 (defun t-timestamp-default-format-function (timestamp _info)
   "Default custom timestamp format function"
