@@ -2204,7 +2204,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 ;; - :html-datetime-option   (`org-w3ctr-datetime-format-choice')
 ;; - :html-timestamp-option  (`org-w3ctr-timestamp-option')
 ;; - :html-timestamp-wrapper (`org-w3ctr-timestamp-wrapper-type')
-;; - :html-timestamp-format  (`org-w3ctr-timestamp-format')
+;; - :html-timestamp-formats (`org-w3ctr-timestamp-formats')
 
 (defun t--timezone-to-offset (zone)
   "Convert timezone string ZONE to offset in seconds.
@@ -2487,6 +2487,57 @@ Mainly used for exporting timestamps of `raw', `int' and `org' types."
   (let ((raw (t--interpret-timestamp timestamp)))
     (t--format-timestamp-raw-1 timestamp raw info)))
 
+(defun t--format-timestamp-fmt (timestamp info)
+  "Format TIMESTAMP with `org-w3ctr-timestamp-formats'."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (if-let* ((fmt (t--pget info :html-timestamp-formats))
+            ((stringp fmt))
+            (org-timestamp-formats fmt)
+            (raw (t--interpret-timestamp timestamp)))
+      (t--format-timestamp-raw-1 timestamp raw info)
+    (error ":html-timestamp-formats not a string: %s"
+           (t--pget info :html-timestamp-formats))))
+
+(defun t--format-timestamp-fix (timestamp fmt info)
+  "WIP"
+  (let* ((wrap (t--pget info :html-timestamp-wrapper))
+         (type (org-element-property :type timestamp))
+         (fmt0 (substring fmt 1 -1))
+         (pair (pcase (aref fmt 0)
+                 (?\[ '("[" . "]"))
+                 (?\< '("&lt;" . "&gt;"))
+                 (_ '("" . ""))))
+         (fmtw (pcase wrap
+                 ((or `none `whole)
+                  (concat (car pair) "%s" (cdr pair)))
+                 ((or `exact `anon)
+                  (concat (car pair) "<time%%s>%s</time>" (cdr pair)))
+                 (_ (error "Unknown timestamp wrapper: %s" wrap))))
+         (sf (lambda (&optional e)
+               (let ((t1 (org-format-timestamp timestamp fmt0 e)))
+                 (format fmtw (t-plain-text t1 info)))))
+         (df (lambda (&optional e)
+               (t--format-ts-datetime timestamp info e))))
+    (pcase type
+      ((or `active `inactive)
+       (let ((s1 (funcall sf)))
+         (pcase wrap
+           (`none s1)
+           (`whole (concat "<time>" s1 "</time>"))
+           (`exact (format s1 ""))
+           (`anno (format s1 (funcall df))))))
+      ((or `active-range `inactive-range)
+       (let* ((s1 (funcall sf))
+              (s2 (funcall sf t))
+              (s (concat s1 "&#x2013;" s2)))
+         (pcase wrap
+           (`none s)
+           (`whole (concat "<time>" s "</time>"))
+           (`exact (format s "" ""))
+           (`anno (format s (funcall df) (funcall df t))))))
+      (_ (error "Unknown timestamp type: %s" type)))))
+
 (defun t--format-timestamp-org (timestamp info)
   "Format TIMESTAMP like `org-timestamp-translate'.
 
@@ -2497,101 +2548,35 @@ Otherwise, format TIMESTAMP using custom formats defined in
            (important-return-value t))
   (if (not org-display-custom-times)
       (t--format-timestamp-int timestamp info)
-    (let* ((wrap (t--pget info :html-timestamp-wrapper))
-           (type (org-element-property :type timestamp))
-           (fmt0 (org-time-stamp-format
-                  (org-timestamp-has-time-p timestamp)
-                  'no-brackets 'custom))
-           (fmtw (pcase wrap
-                   ((or `none `whole) "&lt;%s&gt;")
-                   ((or `exact `anon) "&lt;<time%%s>%s</time>&gt;")
-                   (_ (error "Unknown timestamp wrapper: %s" wrap))))
-           (sf (lambda (&optional e)
-                 (let ((t1 (org-format-timestamp timestamp fmt0 e)))
-                   (format fmtw (t-plain-text t1 info)))))
-           (df (lambda (&optional e)
-                 (t--format-ts-datetime timestamp info e))))
-      (pcase type
-        ((or `active `inactive)
-         (let ((s1 (funcall sf)))
-           (pcase wrap
-             (`none s1)
-             (`whole (concat "<time>" s1 "</time>"))
-             (`exact (format s1 ""))
-             (`anno (format s1 (funcall df))))))
-        ((or `active-range `inactive-range)
-         (let* ((s1 (funcall sf))
-                (s2 (funcall sf t))
-                (s (concat s1 "&#x2013;" s2)))
-           (pcase wrap
-             (`none s)
-             (`whole (concat "<time>" s "</time>"))
-             (`exact (format s "" ""))
-             (`anno (format s (funcall df) (funcall df t))))))
-        (_ (error "Unknown timestamp type: %s" type))))))
+    (let ((fmt (org-time-stamp-format
+                (org-timestamp-has-time-p timestamp)
+                nil 'custom)))
+      (t--format-timestamp-fix timestamp fmt info))))
 
-(defun t--format-timestamp-w3c (timestamp info)
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (let* ((wrapper (t--pget info :html-timestamp-wrapper))
-         (w3c-fmt (t--pget info :html-timestamp-format))
-         (fmt (if (memq wrapper '(none whole whole+dt)) w3c-fmt
-                (cons (concat " " (car w3c-fmt) " ")
-                      (concat " " (cdr w3c-fmt) " "))))
-         (org-timestamp-formats fmt)
-         (text (org-element-interpret-data timestamp))
-         (html (t-plain-text text info)))
-    (cond
-     ((eq wrapper 'none) html)
-     ((eq wrapper 'whole)
-      (concat "<time>" html "</time>"))
-     ((eq wrapper 'whole+dt)
-      (format "<time%s>%s</time>"
-              (t--format-ts-datetime timestamp info)
-              html))
-     ((eq wrapper 'exact)
-      (let* ((frags (string-split html " "))
-             (len (length frags)))
-        (cond
-         ((eq len 3)
-          (concat (nth 0 frags)
-                  (format "<time>%s</time>" (nth 1 frags))
-                  (nth 2 frags)))
-         ((eq len 5)
-          (concat (nth 0 frags)
-                  (format "<time>%s</time>" (nth 1 frags))
-                  (nth 2 frags)
-                  (format "<time>%s</time>" (nth 3 frags))
-                  (nth 4 frags)))
-         (t (error "Abnormal timestamp fragments: %s" frags)))))
-     ((eq wrapper 'exact+dt)
-      (let* ((frags (string-split html " "))
-             (len (length frags)))
-        (cond
-         ((eq len 3)
-          (concat
-           (nth 0 frags)
-           (format "<time%s>%s</time>"
-                   (t--format-ts-datetime timestamp info)
-                   (nth 1 frags))
-           (nth 2 frags)))
-         ((eq len 5)
-          (concat
-           (nth 0 frags)
-           (format "<time%s>%s</time>"
-                   (t--format-ts-datetime timestamp info)
-                   (nth 1 frags))
-           (nth 2 frags)
-           (format "<time%s>%s</time>"
-                   (t--format-ts-datetime timestamp info)
-                   (nth 3 frags))
-           (nth 4 frags)))
-         (t (error "Abnormal timestamp fragments: %s" frags)))))
-     (t (error "Unknown timestamp wrapper type: %s" wrapper)))))
+(defalias 't--format-timestamp-cus
+  (let ((re (rx string-start
+                (or (seq "[" (*? anything) "]")
+                    (seq "{" (*? anything) "}")
+                    (seq "<" (*? anything) ">"))
+                string-end)))
+    (lambda (timestamp info)
+      "WIP"
+      (let* ((fmt (t--pget info :html-timestamp-formats))
+             (fmt0 (if (org-timestamp-has-time-p timestamp)
+                       (cdr fmt) (car fmt))))
+        (if (not (string-match-p re fmt0))
+            (error "FMT not fit in `cus': %s" fmt0)
+          (t--format-timestamp-fix timestamp fmt0 info))))))
 
 (defun t-timestamp-default-format-function (timestamp _info)
   "Default custom timestamp format function"
   (org-element-property :raw-value timestamp))
+
+(defun t--format-timestamp-fun (timestamp info)
+  "WIP"
+  (if-let* ((fun (t--pget info :html-timestamp-format-function)))
+      (funcall fun timestamp info)
+    (error ":html-timestamp-format-function is nil")))
 
 (defun t-timestamp (timestamp _contents info)
   "Transcode a TIMESTAMP object from Org to HTML."
@@ -2602,9 +2587,11 @@ Otherwise, format TIMESTAMP using custom formats defined in
         (pcase option
           (`raw (t--format-timestamp-raw timestamp info))
           (`int (t--format-timestamp-int timestamp info))
+          (`fmt (t--format-timestamp-fmt timestamp info))
+          (`cus (t--format-timestamp-cus timestamp info))
           (`org (t--format-timestamp-org timestamp info))
-          (`w3c (t--format-timestamp-w3c timestamp info))
-          (other (error "Unknown timestamp option: %s" other)))))))
+          (`fun (t--format-timestamp-fun timestamp info))
+          (a (error "Unknown timestamp option: %s" a)))))))
 
 ;;; Template and Inner Template
 
