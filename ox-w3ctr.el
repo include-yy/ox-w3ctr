@@ -1266,7 +1266,7 @@ with the new INFO and the corresponding property value."
        :with-smart-quotes :with-special-strings :preserve-breaks
        :html-timezone :html-export-timezone :html-datetime-option
        :html-timestamp-option :html-timestamp-wrapper
-       :html-timestamp-format
+       :html-timestamp-formats :html-timestamp-format-function
        )
     "List of property keys to be cached.")
 
@@ -2423,19 +2423,14 @@ Otherwise, wrap it in a <time> tag."
          (option  (t--pget info :html-timestamp-option))
          (txt (pcase option
                 (`raw (org-element-property :raw-value timestamp))
-                ((or `int `org `w3c) (t--interpret-timestamp timestamp))
-                (_ (error "Unknown timestamp option: %s" option)))))
-    (let ((html (t-plain-text txt info)))
-      (if (eq wrapper 'none) html
-        (concat "<time>" html "</time>")))))
+                (_ (t--interpret-timestamp timestamp))))
+         (html (t-plain-text txt info)))
+    (if (eq wrapper 'none) html (concat "<time>" html "</time>"))))
 
 (defun t--format-timestamp-raw-1 (timestamp raw info)
   "Format a TIMESTAMP with its RAW string.
 
-RAW is a string matching `org-ts-regexp-both', which may differ from
-TIMESTAMP's `:raw-value' property.
-
-Mainly used for exporting timestamps of `raw', `int' and `org' types."
+RAW is a string matching `org-ts-regexp-both'."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (let* ((wrapper (t--pget info :html-timestamp-wrapper))
@@ -2466,6 +2461,8 @@ Mainly used for exporting timestamps of `raw', `int' and `org' types."
       (`anon
        (let ((rep (funcall frep)))
          (pcase rtype
+           ;; `format' can accept more arguments than formatters,
+           ;; here we just make it more strict.
            ((or `nil `timerange)
             (format rep (t--format-ts-datetime timestamp info)))
            (`daterange
