@@ -2472,7 +2472,7 @@ RAW is a string matching `org-ts-regexp-both'."
     (t--format-timestamp-raw-1 timestamp raw info)))
 
 (defun t--format-timestamp-int (timestamp info)
-  "Format TIMESTAMP with `org-timestamp-formats' (standard method)."
+  "Format TIMESTAMP with `org-timestamp-formats'."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((raw (t--interpret-timestamp timestamp)))

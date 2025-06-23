@@ -1958,7 +1958,6 @@ int a = 1;</code></p>\n</details>")
    nil '( :html-timestamp-option fmt :html-timestamp-wrapper time
           :html-timestamp-formats ("%F" . "%F %R")
           :html-timezone "UTC+8" :html-datetime-option s-none)))
-
 
 (ert-deftest t--get-charset ()
   "Tests for `org-w3ctr--get-charset'."
