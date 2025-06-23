@@ -1528,8 +1528,7 @@ int a = 1;</code></p>\n</details>")
     ($l (g "[1999-01-01]--[1999-01-02 12:00]")
         "[1999-01-01 Fri]--[1999-01-02 Sat 12:00]")
     ($l (g "[1999-01-01 12:00-13:00]--[2000-01-01 13:00-14:00]")
-        "[1999-01-01 Fri 12:00]--[2000-01-01 Sat 13:00]")
-    )
+        "[1999-01-01 Fri 12:00]--[2000-01-01 Sat 13:00]"))
   (cl-flet ((f (s) (car (t-get-parsed-elements s 'timestamp)))
             (g (x) (t--interpret-timestamp x)))
     ($e!l (g (f "[1949-10-01]"))
@@ -1543,9 +1542,7 @@ int a = 1;</code></p>\n</details>")
     ($l (g "<2007-05-16 12:30 +1d>") "<2007-05-16 Wed 12:30 +1d>")
     ($l (g "<2007-05-16 12:30 +1w>") "<2007-05-16 Wed 12:30 +1w>")
     ($l (g "<2007-05-16 12:30 +1m>") "<2007-05-16 Wed 12:30 +1m>")
-    ($l (g "<2007-05-16 12:30 +1y>") "<2007-05-16 Wed 12:30 +1y>")
-    )
-  )
+    ($l (g "<2007-05-16 12:30 +1y>") "<2007-05-16 Wed 12:30 +1y>")))
 
 (ert-deftest t--format-timestamp-diary ()
   "Tests for `org-w3ctr--format-timestamp-diary'."
@@ -1555,22 +1552,22 @@ int a = 1;</code></p>\n</details>")
                           :html-timestamp-option ,o)))
     ($l (g "<%%(diary-float t 42)>" (mk 'none 'raw))
         "&lt;%%(diary-float t 42)&gt;")
-    ($l (g "<%%(diary-float t 42)>" (mk 'whole 'raw))
-        "<time>&lt;%%(diary-float t 42)&gt;</time>")
-    ($l (g "<%%(diary-float t 42)>" (mk 'exact 'int))
-        "<time>&lt;%%(diary-float t 42)&gt;</time>")
-    ($l (g "<%%(diary-float t 42)>" (mk 'exact 'org))
-        "<time>&lt;%%(diary-float t 42)&gt;</time>")
-    ($l (g "<%%(diary-float t 42)>" (mk 'exact 'fmt))
-        "<time>&lt;%%(diary-float t 42)&gt;</time>")
-    ($l (g "<%%(diary-float t 42)>" (mk 'exact 'cus))
-        "<time>&lt;%%(diary-float t 42)&gt;</time>")
-    ($l (g "<%%(diary-float t 42)>" (mk 'exact 'fun))
-        "<time>&lt;%%(diary-float t 42)&gt;</time>")
-    ($l (g "<%%(diary-float t 42)>" (mk 'exact 'wtf))
-        "<time>&lt;%%(diary-float t 42)&gt;</time>")
-    ($l (g "<%%(diary-float t 4 2) 22:00-23:00>" (mk 'whole 'org))
-        "<time>&lt;%%(diary-float t 4 2) 22:00-23:00&gt;</time>")
+    ($l (g "<%%(diary-float t 42)>" (mk 'span 'raw))
+        "&lt;%%(diary-float t 42)&gt;")
+    ($l (g "<%%(diary-float t 42)>" (mk 'time 'raw))
+        "&lt;%%(diary-float t 42)&gt;")
+    ($l (g "<%%(diary-float t 42)>" (mk 'none 'org))
+        "&lt;%%(diary-float t 42)&gt;")
+    ($l (g "<%%(diary-float t 42)>" (mk 'none 'fmt))
+        "&lt;%%(diary-float t 42)&gt;")
+    ($l (g "<%%(diary-float t 42)>" (mk 'none 'cus))
+        "&lt;%%(diary-float t 42)&gt;")
+    ($l (g "<%%(diary-float t 42)>" (mk 'none 'fun))
+        "&lt;%%(diary-float t 42)&gt;")
+    ($l (g "<%%(diary-float t 42)>" (mk 'none 'wtf))
+        "&lt;%%(diary-float t 42)&gt;")
+    ($l (g "<%%(diary-float t 4 2) 22:00-23:00>" (mk 'none 'org))
+        "&lt;%%(diary-float t 4 2) 22:00-23:00&gt;")
     ($l (g "<%%(diary-float t 4 2) 22:00>--<2222-02-22 23:00>"
            (mk 'none 'org))
         "&lt;%%(diary-float t 4 2) 22:00&gt;")))
@@ -1581,6 +1578,8 @@ int a = 1;</code></p>\n</details>")
              (g (x y info) (t--format-timestamp-raw-1 (f x) y info))
              (p (w) `( :html-timestamp-wrapper ,w))
              (c (&rest args) (apply #'concat args)))
+    ($e!l (g "[2000-01-01]" "[0000-00-00]"(p 'wtf))
+          '(error "Unknown timestamp wrapper: wtf"))
     ;; test none
     (let ((ts "[2000-01-01]"))
       ($l (g ts "[2000-01-01 test]" (p 'none)) "[2000-01-01 test]")
@@ -1588,95 +1587,56 @@ int a = 1;</code></p>\n</details>")
       ($l (g ts "<time>123</time>" (p 'none))
           "&lt;time&gt;123&lt;/time&gt;")
       ($l (g ts "&&&&&" (p 'none)) "&amp;&amp;&amp;&amp;&amp;"))
-    ;; test whole
+    ;; test span
     (let ((ts "[2000-01-01]"))
-      ($l (g ts "[2000-01-01 test]" (p 'whole))
-          "<time>[2000-01-01 test]</time>")
-      ($l (g ts "test" (p 'whole)) "<time>test</time>")
-      ($l (g ts "<time>123</time>" (p 'whole))
-          "<time>&lt;time&gt;123&lt;/time&gt;</time>")
-      ($l (g ts "&&&&&" (p 'whole))
-          "<time>&amp;&amp;&amp;&amp;&amp;</time>"))
-    ;; test exact
-    (let ((ts "[2000-01-01]") (i (p 'exact)))
-      ($l (g ts "test" i) "test")
-      ($l (g ts "[0000-00-00]" i) "[<time>0000-00-00</time>]")
-      ($l (g ts "<0000-00-00]" i) "&lt;<time>0000-00-00</time>&gt;")
-      ($l (g ts "[0000-00-00>" i) "[<time>0000-00-00</time>]")
-      ($l (g ts "<0000-00-00>" i) "&lt;<time>0000-00-00</time>&gt;")
-      ($l (g ts "[0000-00-00]-[0000-00-00]" i)
-          "[<time>0000-00-00</time>]-[<time>0000-00-00</time>]")
-      ($l (g ts "<0000-00-00>-<0000-00-00>" i)
-          "&lt;<time>0000-00-00</time>&gt;-&lt;<time>0000-00-00</time>&gt;")
-      ($l (g ts "[0000-00-00 AB:CD]" i) "[<time>0000-00-00 AB:CD</time>]")
-      ($l (g ts "[0000-00-00 00:00]" i) "[<time>0000-00-00 00:00</time>]")
-      ($l (g ts "[0000-00-00 WTF 00:00-00:01]" i)
-          "[<time>0000-00-00 WTF 00:00-00:01</time>]")
-      ($l (g ts "[2000-01-01 12:34][2000-01-01 12:34]" i)
-          "[<time>2000-01-01 12:34</time>][<time>2000-01-01 12:34</time>]"))
-    ;; test anon 1
-    (let ((info '( :html-timestamp-wrapper anon
+      ($l (g ts "[2000-01-01 test]" (p 'span))
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "[2000-01-01 test]" "</span></span>"))
+      ($l (g ts "test" (p 'span))
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "test" "</span></span>"))
+      ($l (g ts "<time>123</time>" (p 'span))
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "&lt;time&gt;123&lt;/time&gt;"
+              "</span></span>"))
+      ($l (g ts "&" (p 'span))
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "&amp;" "</span></span>")))
+    ;; test time
+    (let ((info '( :html-timestamp-wrapper time
                    :html-datetime-option T-none
                    :html-timezone 28800))
-          (ts "[1970-01-02 08:00]"))
-      ($l (g ts "[0000-00-00]" info)
-          "[<time datetime=\"1970-01-02T08:00+0800\">0000-00-00</time>]")
-      ($l (g ts "[0000-00-00 12:00]" info)
-          "[<time datetime=\"1970-01-02T08:00+0800\">0000-00-00 12:00</time>]")
-      ($l (g ts "[0000-00-00 12:00-13:00]" info)
-          "[<time datetime=\"1970-01-02T08:00+0800\">0000-00-00 12:00-13:00</time>]")
-      ($e! (g ts "[0000-00-00]--[0000-00-00]" info)))
-    ;; test anon 2
-    (let ((info '( :html-timestamp-wrapper anon
-                   :html-datetime-option T-none
-                   :html-timezone 28800))
-          (ts "[1970-01-02]"))
-      ($l (g ts "[0000-00-00]" info)
-          "[<time datetime=\"1970-01-02\">0000-00-00</time>]")
-      ($l (g ts "[0000-00-00 12:00]" info)
-          "[<time datetime=\"1970-01-02\">0000-00-00 12:00</time>]"))
-    ;; test anon 3
-    (let ((info '( :html-timestamp-wrapper anon
-                   :html-datetime-option T-none
-                   :html-timezone -14400))
-          (ts "[2000-01-01 01:00-19:00]"))
-      ($l (g ts "[0000-00-00]" info)
-          "[<time datetime=\"2000-01-01T01:00-0400\">0000-00-00</time>]")
-      ($l (g ts "[0000-00-00 00:00]" info)
-          "[<time datetime=\"2000-01-01T01:00-0400\">0000-00-00 00:00</time>]")
-      ($l (g ts "[0000-00-00 00:00-00:00]" info)
-          "[<time datetime=\"2000-01-01T01:00-0400\">0000-00-00 00:00-00:00</time>]")
-      ($e! (g ts "[0000-00-00]--[9999-99-99 99:99]" info)))
-    ;; test anon 4
-    (let ((info '( :html-timestamp-wrapper anon
-                   :html-datetime-option T-none
-                   :html-timezone 0))
-          (ts "[2000-01-01]--[2020-01-01]"))
-      ($l (g ts "[0000-00-00]" info)
-          "[<time datetime=\"2000-01-01\">0000-00-00</time>]")
-      ($l (g ts "[0000-00-00]--[0000-00-00]" info)
-          (c "[<time datetime=\"2000-01-01\">0000-00-00</time>]--"
-             "[<time datetime=\"2020-01-01\">0000-00-00</time>]")))
-    ;; test anon 5
-    (let ((info '( :html-timestamp-wrapper anon
-                   :html-datetime-option T-none
-                   :html-timezone 0))
-          (ts "[2000-01-01]--[2020-01-01 13:00]"))
-      ($l (g ts "[0000-00-00]" info)
-          "[<time datetime=\"2000-01-01\">0000-00-00</time>]")
-      ($l (g ts "[0000-00-00]--[0000-00-00]" info)
-          (c "[<time datetime=\"2000-01-01\">0000-00-00</time>]--"
-             "[<time datetime=\"2020-01-01\">0000-00-00</time>]")))
-    ;; test anon 6
-    (let ((info '( :html-timestamp-wrapper anon
-                   :html-datetime-option T-none-zulu
-                   :html-timezone 0))
-          (ts "[2000-01-01 12:00]--[2020-01-01 13:00]"))
-      ($l (g ts "[0000-00-00]" info)
-          "[<time datetime=\"2000-01-01T12:00Z\">0000-00-00</time>]")
-      ($l (g ts "[0000-00-00]--[0000-00-00]" info)
-          (c "[<time datetime=\"2000-01-01T12:00Z\">0000-00-00</time>]"
-             "--[<time datetime=\"2020-01-01T13:00Z\">0000-00-00</time>]")))))
+          (t1 "[1970-01-02]")
+          (t2 "[1970-01-02 08:00]")
+          (t3 "[1970-01-02 08:00-13:00]")
+          (t4 "[1970-01-02 08:00]--[2000-01-02 09:00]")
+          (b1 "[0000-00-00]")
+          (b2 "[0000-00-00]--[0000-00-00]"))
+      ($l (g t1 b1 info)
+          "<time datetime=\"1970-01-02\">[0000-00-00]</time>")
+      ($l (g t1 b2 info)
+          ($c "<time datetime=\"1970-01-02\">[0000-00-00]</time>--"
+              "<time>[0000-00-00]</time>"))
+      ($l (g t2 b1 info)
+          "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]</time>")
+      ($l (g t2 b2 info)
+          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
+              "</time>--<time>[0000-00-00]</time>"))
+      ($l (g t3 b1 info)
+          "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]</time>")
+      ($l (g t3 b2 info)
+          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
+              "</time>--<time>[0000-00-00]</time>"))
+      ($l (g t4 b1 info)
+          "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]</time>")
+      ($l (g t4 b2 info)
+          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
+              "</time>--<time datetime=\"2000-01-02T09:00+0800\">"
+              "[0000-00-00]</time>")))))
 
 (ert-deftest t--format-timestamp-raw ()
   "Tests for `org-w3ctr--format-timestamp-raw'."

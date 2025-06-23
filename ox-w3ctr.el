@@ -2412,7 +2412,7 @@ error if the option is unknown."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let* ((option  (t--pget info :html-timestamp-option))
-         (txt (pcase option
+         (text (pcase option
                 (`raw (org-element-property :raw-value timestamp))
                 (_ (t--interpret-timestamp timestamp)))))
     (t-plain-text text info)))
@@ -2438,13 +2438,14 @@ RAW is a string matching `org-ts-regexp-both'."
         (type (org-element-property :range-type timestamp)))
     (pcase wrap
       (`none (t-plain-text raw info))
-      (`span (t--format-ts-span-time text info))
+      (`span (t--format-ts-span-time raw info))
       (`time
        (thread-first
          (replace-regexp-in-string
-          org-ts-regexp-both #'t--format-ts-span-time text t t)
+          org-ts-regexp-both
+          (lambda (s) (t--format-ts-span-time s info t)) raw t t)
          (format (t--format-ts-datetime timestamp info)
-                 (when (eq type 'daterange)
+                 (if (not (eq type 'daterange)) ""
                    (t--format-ts-datetime timestamp info t)))))
       (_ (error "Unknown timestamp wrapper: %s" wrap)))))
 
@@ -2538,7 +2539,7 @@ indicates that no enclosing brackets should be applied."
                    (cdr fmt) (car fmt))))
     (if (not (string-match-p re fmt0))
         (error "FMT not fit in `cus': %s" fmt0)
-      (let ((fmt1 (if (/= (aref fmt0 ?\{)) fmt0
+      (let ((fmt1 (if (/= (aref fmt0 0) ?\{) fmt0
                     (substring fmt0 1 -1))))
         (t--format-timestamp-fix timestamp fmt1 info)))))
 
