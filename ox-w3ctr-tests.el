@@ -1634,22 +1634,40 @@ int a = 1;</code></p>\n</details>")
           "<time datetime=\"1970-01-02\">[0000-00-00]</time>")
       ($l (g t1 b2 info)
           ($c "<time datetime=\"1970-01-02\">[0000-00-00]</time>--"
-              "<time>[0000-00-00]</time>"))
+              "<time datetime=\"1970-01-02\">[0000-00-00]</time>"))
       ($l (g t2 b1 info)
           "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]</time>")
       ($l (g t2 b2 info)
           ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
-              "</time>--<time>[0000-00-00]</time>"))
+              "</time>--<time datetime=\"1970-01-02T08:00+0800\">"
+              "[0000-00-00]</time>"))
       ($l (g t3 b1 info)
           "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]</time>")
       ($l (g t3 b2 info)
           ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
-              "</time>--<time>[0000-00-00]</time>"))
+              "</time>--<time datetime=\"1970-01-02T13:00+0800\">"
+              "[0000-00-00]</time>"))
       ($l (g t4 b1 info)
           "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]</time>")
       ($l (g t4 b2 info)
           ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
               "</time>--<time datetime=\"2000-01-02T09:00+0800\">"
+              "[0000-00-00]</time>"))
+      (t--pput info :with-special-strings t)
+      ($l (g t1 b2 info)
+          ($c "<time datetime=\"1970-01-02\">[0000-00-00]</time>&#x2013;"
+              "<time datetime=\"1970-01-02\">[0000-00-00]</time>"))
+      ($l (g t2 b2 info)
+          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
+              "</time>&#x2013;<time datetime=\"1970-01-02T08:00+0800\">"
+              "[0000-00-00]</time>"))
+      ($l (g t3 b2 info)
+          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
+              "</time>&#x2013;<time datetime=\"1970-01-02T13:00+0800\">"
+              "[0000-00-00]</time>"))
+      ($l (g t4 b2 info)
+          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
+              "</time>&#x2013;<time datetime=\"2000-01-02T09:00+0800\">"
               "[0000-00-00]</time>")))))
 
 (ert-deftest t--format-timestamp-raw ()
