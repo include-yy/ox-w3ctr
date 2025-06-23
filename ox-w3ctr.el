@@ -308,7 +308,9 @@ Examples of valid values:
 -  \"GMT-5\" for Eastern Time alternative
 -  \"local\" for Local time
 
-See ISO 8601 and RFC 2822 for more details."
+See ISO 8601 and RFC 2822 or 3339 for more details.
+- https://datatracker.ietf.org/doc/html/rfc2822
+- https://datatracker.ietf.org/doc/html/rfc3339"
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
          (let ((case-fold-search t))
@@ -2373,11 +2375,9 @@ encountering out-of-range or malformed timestamps."
   (condition-case e
       (apply fn timestamp args)
     (error
-     (let ((err (car e)) (data (cdr e)))
-       (when (and (eq err 'error)
-                  (equal data '("Invalid time specification")))
-         (error "Timestamp %s encode failed"
-                (org-element-property :raw-value timestamp)))))))
+     (when (equal e '(error "Invalid time specification"))
+       (error "Timestamp %s encode failed"
+              (org-element-property :raw-value timestamp))))))
 
 (defun t--format-ts-datetime (timestamp info &optional end)
   "Format Org timestamp object to its datetime string.
@@ -3268,7 +3268,7 @@ of contents as a string, or nil if it is empty."
   (let ((toc-entries
          (mapcar
           (lambda (h) (cons (t--format-toc-headline h info)
-                            (org-export-get-relative-level h info)))
+                        (org-export-get-relative-level h info)))
           (org-export-collect-headlines info depth scope))))
     (when toc-entries
       (let* ((toc (t--toc-text toc-entries info)))
