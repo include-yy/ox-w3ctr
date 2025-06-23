@@ -473,6 +473,20 @@ symbol (such as \\='headline, \\='paragraph, etc)."
   "Tests for `org-w3ctr--insert-file'."
   ($e! (t--insert-file default-directory))
   ($e! (t--insert-file "no-exist")))
+
+(ert-deftest t--find-all ()
+  "Tests for `org-w3ctr--find-all."
+  ($l (t--find-all "[0-9]" "114514") '("1" "1" "4" "5" "1" "4"))
+  ($l (t--find-all "[0-9]\\{2\\}" "191981") '("19" "19" "81"))
+  ($l (t--find-all "" "123") nil)
+  ($l (t--find-all "1" "") nil)
+  ($l (t--find-all org-ts-regexp-both "[2000-01-02]") '("[2000-01-02]"))
+  ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-02]")
+      '("[2000-01-02]" "[2000-01-02]"))
+  ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-03]" 1)
+      '("[2000-01-03]"))
+  ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-03]" -1)
+      '("[2000-01-02]" "[2000-01-03]")))
 
 (ert-deftest t-center-block ()
   "Tests for `org-w3ctr-center-block'."

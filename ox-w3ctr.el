@@ -1591,6 +1591,18 @@ newline character at its end."
     (error "(ox-w3ctr) Bad File: %s" file))
   (insert-file-contents-literally file))
 
+(defun t--find-all (regexp str &optional start)
+  "Get all substrings in STR that match REGEXP starting from START."
+  (declare (ftype (function (string string &optional (or null fixnum))
+                            list))
+           (pure t) (important-return-value t))
+  (if (string= regexp "") nil
+    (let ((pos (max (or start 0) 0))
+          (matches))
+      (while (string-match regexp str pos)
+        (push (match-string 0 str) matches)
+        (setq pos (match-end 0)))
+      (nreverse matches))))
 ;;; Greater elements (11 - 3 - 2 = 6).
 ;;; special-block and table are not here.
 
