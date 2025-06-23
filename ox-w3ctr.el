@@ -345,8 +345,8 @@ Separator : Use `\s' or `T' between date and time.
 Timezone  : Use `:' in zone offset or not (`+08:00' and `+0800').
 UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
   :group 'org-export-w3ctr
-  :type '(radio (const space-none) (const space-none-zulu)
-                (const space-colon) (const space-colon-zulu)
+  :type '(radio (const s-none) (const s-none-zulu)
+                (const s-colon) (const s-colon-zulu)
                 (const T-none) (const T-none-zulu)
                 (const T-colon) (const T-colon-zulu)))
 
@@ -2307,10 +2307,10 @@ This value can be used to convert timestamps between timezones:
      (t (- offset2 offset1)))))
 
 (defconst t--timestamp-datetime-options
-  '((space-none . (" " "" "+0000"))
-    (space-none-zulu . (" " "" "Z"))
-    (space-colon . (" " ":" "+00:00"))
-    (space-colon-zulu . (" " ":" "Z"))
+  '((s-none . (" " "" "+0000"))
+    (s-none-zulu . (" " "" "Z"))
+    (s-colon . (" " ":" "+00:00"))
+    (s-colon-zulu . (" " ":" "Z"))
     (T-none . ("T" "" "+0000"))
     (T-none-zulu . ("T" "" "Z"))
     (T-colon . ("T" ":" "+00:00"))
