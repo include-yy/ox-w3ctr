@@ -2477,7 +2477,7 @@ RAW is a string matching `org-ts-regexp-both'."
 (defun t--format-timestamp-fix (timestamp fmt info)
   "Internal function used for formatting `org' and `cus' option.
 
-fix means not influenced by timestamp's range type."
+Fix means not influenced by timestamp's range type."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (let* ((wrap (t--pget info :html-timestamp-wrapper))
@@ -2534,14 +2534,13 @@ indicates that no enclosing brackets should be applied."
                      (seq "{" (*? anything) "}")
                      (seq "<" (*? anything) ">"))
                  string-end))
-         (fmt (t--pget info :html-timestamp-formats))
-         (fmt0 (if (org-timestamp-has-time-p timestamp)
-                   (cdr fmt) (car fmt))))
-    (if (not (string-match-p re fmt0))
-        (error "FMT not fit in `cus': %s" fmt0)
-      (let ((fmt1 (if (/= (aref fmt0 0) ?\{) fmt0
-                    (substring fmt0 1 -1))))
-        (t--format-timestamp-fix timestamp fmt1 info)))))
+         (fmts (t--pget info :html-timestamp-formats))
+         (fmt (if (org-timestamp-has-time-p timestamp)
+                  (cdr fmts) (car fmts))))
+    (unless (and (stringp fmt) (string-match-p re fmt))
+      (error "FMT not fit in `cus': %s" fmts))
+    (let ((fmt (if (/= (aref fmt 0) ?\{) fmt (substring fmt 1 -1))))
+      (t--format-timestamp-fix timestamp fmt info))))
 
 (defun t-ts-default-format-function (timestamp _info)
   "The default custom timestamp format function."

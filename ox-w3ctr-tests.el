@@ -1754,6 +1754,144 @@ int a = 1;</code></p>\n</details>")
     ($e!l (t--format-timestamp-fmt (f "[2000-01-01]") nil)
           '(error ":html-timestamp-formats not valid: nil"))))
 
+(ert-deftest t--format-timestamp-fix ()
+  "Tests for `org-w3ctr--format-timestamp-fix'."
+  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+             (p (w) `( :html-timestamp-wrapper ,w
+                       :html-datetime-option T-none-zulu
+                       :html-timezone 0))
+             (g (x y opt) (t--format-timestamp-fix (f x) y (p opt))))
+    (let ((t1 "[2011-11-18]")
+          (t2 "<2011-11-18 14:54>")
+          (t3 "[2011-11-18 06:54-14:54]")
+          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
+      ($l (g t1 "%F%R" 'none) "2011-11-1800:00")
+      ($l (g t1 "<%F%R>" 'none) "&lt;2011-11-1800:00&gt;")
+      ($l (g t2 "%F" 'span)
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "2011-11-18</span></span>"))
+      ($l (g t2 "%F %a" 'time)
+          ($c "<time datetime=\"2011-11-18T14:54Z\">"
+              "2011-11-18 Fri</time>"))
+      ($e!l (g t2 "%F" 'wtf)
+            '(error "Unknown timestamp wrap: wtf"))
+      ($l (g t3 "{%F%a%R}" 'none)
+          "{2011-11-18Fri06:54}--{2011-11-18Fri14:54}")
+      ($e!l (g t3 "%a" 'abc)
+            '(error "Unknown timestamp wrap: abc"))
+      ($l (g t3 "[%F%R]" 'span)
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "[2011-11-1806:54]--[2011-11-1814:54]</span></span>"))
+      ($l (g t3 "<%F %R>" 'time)
+          ($c "<time datetime=\"2011-11-18T06:54Z\">"
+              "&lt;2011-11-18 06:54&gt;</time>--"
+              "<time datetime=\"2011-11-18T14:54Z\">"
+              "&lt;2011-11-18 14:54&gt;</time>"))
+      ($l (g t3 "%F %R" 'none) (g t4 "%F %R" 'none))
+      ($l (g t3 "<%F %R" 'span) (g t4 "<%F %R" 'span))
+      ($l (g t3 "[%F%a%R]" 'time) (g t4 "[%F%a%R]" 'time)))))
+
+(ert-deftest t--format-timestamp-org ()
+  "Tests for `org-w3ctr--format-timestamp-org'."
+  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+             (p (w) `( :html-timestamp-wrapper ,w
+                       :html-datetime-option T-none-zulu
+                       :html-timezone 0))
+             (g (x opt) (t--format-timestamp-org (f x) (p opt))))
+    (let ((t1 "[2011-11-18]")
+          (t2 "<2011-11-18 14:54>")
+          (t3 "[2011-11-18 06:54-14:54]")
+          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
+      (dlet ((org-display-custom-times nil))
+        ($l (g t1 'none) "[2011-11-18 Fri]")
+        ($l (g t2 'span)
+            ($c "<span class=\"timestamp-wrapper\">"
+                "<span class=\"timestamp\">"
+                "&lt;2011-11-18 Fri 14:54&gt;</span></span>"))
+        ($l (g t3 'time)
+            ($c "<time datetime=\"2011-11-18T06:54Z\">"
+                "[2011-11-18 Fri 06:54-14:54]</time>"))
+        ($l (g t4 'none)
+            ($c "&lt;2011-11-18 Fri 06:54&gt;"
+                "--&lt;2011-11-18 Fri 14:54&gt;"))
+        ($l (g t4 'time)
+            ($c "<time datetime=\"2011-11-18T06:54Z\">"
+                "&lt;2011-11-18 Fri 06:54&gt;</time>--"
+                "<time datetime=\"2011-11-18T14:54Z\">"
+                "&lt;2011-11-18 Fri 14:54&gt;</time>")))
+      (dlet ((org-display-custom-times t)
+             (org-timestamp-custom-formats
+              '("%m/%d/%y" . "%m/%d/%y %H:%M")))
+        ($l (g t1 'none) "&lt;11/18/11&gt;")
+        ($l (g t2 'span)
+            ($c "<span class=\"timestamp-wrapper\">"
+                "<span class=\"timestamp\">&lt;11/18/11 14:54&gt;"
+                "</span></span>"))
+        ($l (g t3 'time)
+            ($c "<time datetime=\"2011-11-18T06:54Z\">"
+                "&lt;11/18/11 06:54&gt;</time>--"
+                "<time datetime=\"2011-11-18T14:54Z\">"
+                "&lt;11/18/11 14:54&gt;</time>"))
+        ($l (g t3 'time) (g t4 'time))
+        ($l (g t4 'none)
+            "&lt;11/18/11 06:54&gt;--&lt;11/18/11 14:54&gt;")))))
+
+(ert-deftest t--format-timestamp-cus ()
+  "Tests for `org-w3ctr--format-timestamp-cus'."
+  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+             (p (w f) `( :html-timestamp-wrapper ,w
+                         :html-datetime-option T-none-zulu
+                         :html-timestamp-formats ,f
+                         :html-timezone 0))
+             (g (x info) (t--format-timestamp-cus (f x) info)))
+    (let ((t1 "[2011-11-18]")
+          (t2 "<2011-11-18 14:54>")
+          (t3 "[2011-11-18 06:54-14:54]")
+          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
+      ($l (g t1 (p 'none '("[%F%a]"))) "[2011-11-18Fri]")
+      ($l (g t1 (p 'none '("<%F%a>"))) "&lt;2011-11-18Fri&gt;")
+      ($l (g t1 (p 'none '("{%F%a}"))) "2011-11-18Fri")
+      ($e! (g t1 (p 'none '("%F%a"))))
+      ($l (g t2 (p 'time '(nil . "{[%F %R]}")))
+          ($c "<time datetime=\"2011-11-18T14:54Z\">"
+              "[2011-11-18 14:54]</time>"))
+      ($l (g t2 (p 'none '(nil . "[[[[%R]]]]"))) "[[[[14:54]]]]")
+      ($l (g t3 (p 'none '(nil . "<<<%F%R>")))
+          ($c "&lt;&lt;&lt;2011-11-1806:54&gt;"
+              "--&lt;&lt;&lt;2011-11-1814:54&gt;"))
+      ($l (g t3 (p 'none '(nil . "<%F%R>")))
+          (g t4 (p 'none '(nil . "<%F%R>")))))))
+
+(ert-deftest t-ts-default-format-function ()
+  "Tests for `org-w3ctr-ts-default-format-function'."
+  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp))))
+    (let ((t1 "[2011-11-18]")
+          (t2 "<2011-11-18 14:54>")
+          (t3 "[2011-11-18 06:54-14:54]")
+          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
+      ($it t-ts-default-format-function
+        ($l (it (f t1) nil) t1)
+        ($l (it (f t2) nil) t2)
+        ($l (it (f t3) nil) t3)
+        ($l (it (f t4) nil) t4)))))
+
+(ert-deftest t--format-timestamp-fun ()
+  "Tests for `org-w3ctr--format-timestamp-fun'."
+  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp))))
+    (let ((t1 "[2011-11-18]")
+          (t2 "<2011-11-18 14:54>")
+          (t3 "[2011-11-18 06:54-14:54]")
+          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]")
+          (info '(:html-timestamp-format-function (lambda (_a _b) "hello"))))
+      ($it t--format-timestamp-fun
+        ($l (it (f t1) info) "hello")
+        ($l (it (f t2) info) "hello")
+        ($l (it (f t3) info) "hello")
+        ($l (it (f t4) info) "hello")
+        ($e! (it (f t1) nil))))))
+
 (ert-deftest t-timestamp ()
   (ert-skip "skip now")
   (t-check-element-values
