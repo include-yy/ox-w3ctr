@@ -3122,7 +3122,8 @@ When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
               ((and date (proper-list-p date) (null (cdr date))))
               ((org-element-type-p (car date) 'timestamp)))
     ;;(t-timestamp (car date) nil info boundary)))
-    (org-html-timestamp (car date) nil info)))
+    ;;(org-html-timestamp (car date) nil info)))
+    (t-timestamp (car date) nil info)))
 
 (defun t-preamble-default-function (info)
   "Generate HTML preamble with document metadata in a <details> section.
