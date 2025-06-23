@@ -350,38 +350,34 @@ UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
                 (const T-none) (const T-none-zulu)
                 (const T-colon) (const T-colon-zulu)))
 
-(defcustom t-timestamp-option 'int
+(defcustom t-timestamp-option 'org
   "Option for ox-w3ctr timestamp export.
 
 Possible values:
-- raw: Use timestamp's :raw-value property directly.
-- int: Use `org-element-timestamp-interpreter' to format timestamp.
+
+- raw: Use the timestamp's `:raw-value' property directly.
+- int: Use `org-element-timestamp-interpreter' to format the timestamp.
 - fmt: Like `int', but dynamically bind `org-timestamp-formats' to
-  `:html-timestamp-formats' (`org-w3ctr-timestamp-formats').
-- cus: Treat daterange and timerange timestamp equally, use
-  `:html-timestamp-formats' as custom timestamp formats.
-- org: Like `org-timestamp-translate', honoring custom options
-  `org-timestamp-custom-formats' and `org-display-custom-times'.
-- fun: Use `:html-timestamp-format-function' to format timestamp.
-  The entire process is fully implemented by the user. The default
-  function is `org-w3ctr-timestamp-format-function'."
+       `org-w3ctr-timestamp-formats'.
+- org: Behave like `org-html-timestamp', respecting both
+       `org-display-custom-times' and `org-timestamp-custom-formats'.
+- cus: Like `org', but behave as if `org-display-custom-times' is always
+       non-nil and use `org-w3ctr-timestamp-formats' instead of
+       `org-timestamp-custom-formats' for custom string output.
+- fun: Use a user-supplied function to handle timestamp formatting."
   :group 'org-export-w3ctr
   :type '(choice (const raw) (const int) (const fmt)
-                 (const cus) (const org) (const fun)))
+                 (const org) (const cus) (const fun)))
 
-(defcustom t-timestamp-wrapper-type 'whole
-  "Timestamp wrapper type for HTML <time> elements.
+(defcustom t-timestamp-wrapper-type 'span
+  "The way to wrap timestamps with HTML tags during export.
 
 Possible values:
-- none      : No HTML tag wrapper, export bare timestamp string.
-- whole     : Wrap the entire timestamp with a single <time> element.
-- exact     : Wrap each time value within the timestamp individually
-              using <time> elements.
-- anno      : Same as `exact', but adds a `datetime' attribute to each
-              <time> element."
+- none: Export the plain timestamp string.
+- span: Wrap the timestamp like `org-html-timestamp'.
+- time: Wrap the timestamp inside a <time> element."
   :group 'org-export-w3ctr
-  :type '(radio (const none) (const whole)
-                (const exact) (const anno)))
+  :type '(choice (const none) (const span) (const time)))
 
 (defcustom t-timestamp-formats '("%F" . "%F %R")
   "Format specification used for exporting timestamps.
