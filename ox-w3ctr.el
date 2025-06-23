@@ -393,8 +393,7 @@ These format strings follow the conventions of `format-time-string'.
   :group 'org-export-w3ctr
   :type '(cons string string))
 
-(defcustom t-timestamp-format-function
-  #'t-timestamp-default-format-function
+(defcustom t-timestamp-format-function #'t-ts-default-format-function
   "Custom timestamp format function."
   :group 'org-export-w3ctr
   :type 'function)
@@ -2409,19 +2408,25 @@ inserts trailing spaces when the timestamp is followed by space."
 
 If `:html-timestamp-option' is `raw', use the `:raw-value' property of
 TIMESTAMP. Otherwise, use `org-w3ctr--interpret-timestamp' or signal an
-error if the option is unknown.
-
-If `:html-timestamp-wrapper' is `none', return the plain text.
-Otherwise, wrap it in a <time> tag."
+error if the option is unknown."
   (declare (ftype (function (t list) string))
            (important-return-value t))
-  (let* ((wrapper (t--pget info :html-timestamp-wrapper))
-         (option  (t--pget info :html-timestamp-option))
+  (let* ((option  (t--pget info :html-timestamp-option))
          (txt (pcase option
                 (`raw (org-element-property :raw-value timestamp))
-                (_ (t--interpret-timestamp timestamp))))
-         (html (t-plain-text txt info)))
-    (if (eq wrapper 'none) html (concat "<time>" html "</time>"))))
+                (_ (t--interpret-timestamp timestamp)))))
+    (t-plain-text text info)))
+
+(defun t--format-ts-span-time (str info &optional time)
+  "Format timestamp string STR using <span> or <time>."
+  (declare (ftype (function (string list &optional boolean) string))
+           (pure t) (important-return-value t))
+  (if (not time)
+      ;; taken from `org-html-timestamp'.
+      (concat "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              (t-plain-text str info) "</span></span>")
+    (concat "<time%s>" (t-plain-text str info) "</time>")))
 
 (defun t--format-timestamp-raw-1 (timestamp raw info)
   "Format a TIMESTAMP with its RAW string.
@@ -2429,42 +2434,19 @@ Otherwise, wrap it in a <time> tag."
 RAW is a string matching `org-ts-regexp-both'."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
-  (let* ((wrapper (t--pget info :html-timestamp-wrapper))
-         (rtype (org-element-property :range-type timestamp))
-         (txt (pcase wrapper
-                ((or `none `whole) (t-plain-text raw info))
-                ((or `exact `anon) raw)
-                (_ (error "Unknown timestamp wrapper: %s" wrapper))))
-         (fmt1 (pcase wrapper
-                 (`exact "[<time>%s</time>]")
-                 (`anon "[<time%%s>%s</time>]")
-                 (_ "")))
-         (fmt2 (pcase wrapper
-                 (`exact "&lt;<time>%s</time>&gt;")
-                 (`anon "&lt;<time%%s>%s</time>&gt;")
-                 (_ "")))
-         (fn (lambda (s)
-               (let* ((c (aref s 0))
-                      (ts (substring s 1 -1))
-                      (fmt (if (= c ?\[) fmt1 fmt2)))
-                 (format fmt (t-plain-text ts info)))))
-         (frep (lambda () (replace-regexp-in-string
-                       org-ts-regexp-both fn txt t t))))
-    (pcase wrapper
-      (`none txt)
-      (`whole (concat "<time>" txt "</time>"))
-      (`exact (funcall frep))
-      (`anon
-       (let ((rep (funcall frep)))
-         (pcase rtype
-           ;; `format' can accept more arguments than formatters,
-           ;; here we just make it more strict.
-           ((or `nil `timerange)
-            (format rep (t--format-ts-datetime timestamp info)))
-           (`daterange
-            (format rep (t--format-ts-datetime timestamp info)
-                    (t--format-ts-datetime timestamp info t)))
-           (_ (error "Unknown timestamp range type: %s" rtype))))))))
+  (let ((wrap (t--pget info :html-timestamp-wrapper))
+        (type (org-element-property :range-type timestamp)))
+    (pcase wrap
+      (`none (t-plain-text raw info))
+      (`span (t--format-ts-span-time text info))
+      (`time
+       (thread-first
+         (replace-regexp-in-string
+          org-ts-regexp-both #'t--format-ts-span-time text t t)
+         (format (t--format-ts-datetime timestamp info)
+                 (when (eq type 'daterange)
+                   (t--format-ts-datetime timestamp info t)))))
+      (_ (error "Unknown timestamp wrapper: %s" wrap)))))
 
 (defun t--format-timestamp-raw (timestamp info)
   "Format TIMESTAMP without altering its string content."
@@ -2484,12 +2466,7 @@ RAW is a string matching `org-ts-regexp-both'."
   "Format TIMESTAMP with `org-w3ctr-timestamp-formats'."
   (declare (ftype (function (t list) string))
            (important-return-value t))
-  ;;FIXME: Check just once
   (if-let* ((fmt (t--pget info :html-timestamp-formats))
-            ((and (consp fmt) (stringp (car fmt)) (stringp (cdr fmt))))
-            ;; (rx (or "[" "]" "<" ">" "&"))
-            ((and (not (string-match-p "[]&<>[]" (car fmt)))
-                  (not (string-match-p "[]&<>[]" (cdr fmt)))))
             (org-timestamp-formats fmt)
             (raw (t--interpret-timestamp timestamp)))
       (t--format-timestamp-raw-1 timestamp raw info)
@@ -2500,41 +2477,32 @@ RAW is a string matching `org-ts-regexp-both'."
   "Internal function used for formatting `org' and `cus' option.
 
 fix means not influenced by timestamp's range type."
+  (declare (ftype (function (t string list) string))
+           (important-return-value t))
   (let* ((wrap (t--pget info :html-timestamp-wrapper))
-         (type (org-element-property :type timestamp))
-         (fmt0 (substring fmt 1 -1))
-         (pair (pcase (aref fmt 0)
-                 (?\[ '("[" . "]"))
-                 (?\< '("&lt;" . "&gt;"))
-                 (_ '("" . ""))))
-         (fmtw (pcase wrap
-                 ((or `none `whole)
-                  (concat (car pair) "%s" (cdr pair)))
-                 ((or `exact `anon)
-                  (concat (car pair) "<time%%s>%s</time>" (cdr pair)))
-                 (_ (error "Unknown timestamp wrapper: %s" wrap))))
-         (sf (lambda (&optional e)
-               (let ((t1 (org-format-timestamp timestamp fmt0 e)))
-                 (format fmtw (t-plain-text t1 info)))))
-         (df (lambda (&optional e)
-               (t--format-ts-datetime timestamp info e))))
+         (type (org-element-property :type timestamp)))
     (pcase type
       ((or `active `inactive)
-       (let ((s1 (funcall sf)))
+       (let ((time (org-format-timestamp timestamp fmt)))
          (pcase wrap
-           (`none s1)
-           (`whole (concat "<time>" s1 "</time>"))
-           (`exact (format s1 ""))
-           (`anno (format s1 (funcall df))))))
+           (`none (t-plain-text time info))
+           (`span (t--format-ts-span-time time info))
+           (`time
+            (format (t--format-ts-span-time time info t)
+                    (t--format-ts-datetime timestamp info)))
+           (_ (error "Unknown timestamp wrap: %s" wrap)))))
       ((or `active-range `inactive-range)
-       (let* ((s1 (funcall sf))
-              (s2 (funcall sf t))
-              (s (concat s1 "&#x2013;" s2)))
+       (let* ((t1 (org-format-timestamp timestamp fmt))
+              (t2 (org-format-timestamp timestamp fmt t)))
          (pcase wrap
-           (`none s)
-           (`whole (concat "<time>" s "</time>"))
-           (`exact (format s "" ""))
-           (`anno (format s (funcall df) (funcall df t))))))
+           (`none (t-plain-text (concat t1 "--" t2) info))
+           (`span (t--format-ts-span-time (concat t1 "--" t2) info))
+           (`time
+            (let ((tt (concat (t--format-ts-span-time t1 info t) "--"
+                              (t--format-ts-span-time t2 info t))))
+              (format tt (t--format-ts-datetime timestamp info)
+                      (t--format-ts-datetime timestamp info t))))
+           (_ (error "Unknown timestamp wrap: %s" wrap)))))
       (_ (error "Unknown timestamp type: %s" type)))))
 
 (defun t--format-timestamp-org (timestamp info)
@@ -2553,7 +2521,13 @@ Otherwise, format TIMESTAMP using custom formats defined in
       (t--format-timestamp-fix timestamp fmt info))))
 
 (defun t--format-timestamp-cus (timestamp info)
-  "WIP"
+  "Format TIMESTAMP according to custom formats.
+
+The format string accepted by this function must be enclosed in one of
+three types of brackets: [], <>, or {}. When using curly braces ({}), it
+indicates that no enclosing brackets should be applied."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
   (let* ((re (rx string-start
                  (or (seq "[" (*? anything) "]")
                      (seq "{" (*? anything) "}")
@@ -2564,14 +2538,20 @@ Otherwise, format TIMESTAMP using custom formats defined in
                    (cdr fmt) (car fmt))))
     (if (not (string-match-p re fmt0))
         (error "FMT not fit in `cus': %s" fmt0)
-      (t--format-timestamp-fix timestamp fmt0 info))))
+      (let ((fmt1 (if (/= (aref fmt0 ?\{)) fmt0
+                    (substring fmt0 1 -1))))
+        (t--format-timestamp-fix timestamp fmt1 info)))))
 
-(defun t-timestamp-default-format-function (timestamp _info)
-  "Default custom timestamp format function"
+(defun t-ts-default-format-function (timestamp _info)
+  "The default custom timestamp format function."
+  (declare (ftype (function (t list) string))
+           (pure t) (important-return-value t))
   (org-element-property :raw-value timestamp))
 
 (defun t--format-timestamp-fun (timestamp info)
-  "WIP"
+  "Format TIMESTAMP using a user-specified function from INFO."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
   (if-let* ((fun (t--pget info :html-timestamp-format-function)))
       (funcall fun timestamp info)
     (error ":html-timestamp-format-function is nil")))
