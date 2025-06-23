@@ -1644,86 +1644,115 @@ int a = 1;</code></p>\n</details>")
              (g (x info) (t--format-timestamp-raw (f x) info))
              (p (w) `( :html-timestamp-wrapper ,w
                        :html-datetime-option T-none-zulu
-                       :html-timezone 3600))
-             (c (&rest args) (apply #'concat args)))
-    ($l (g "[2000-01-01]" (p 'none)) "[2000-01-01]")
-    ($l (g "[2000-01-01 T 12:12]" (p 'none)) "[2000-01-01 T 12:12]")
-    ($l (g "[2000-01-01 T]" (p 'whole)) "<time>[2000-01-01 T]</time>")
-    ($l (g "[2000-01-01 ? 15:39]" (p 'exact))
-        "[<time>2000-01-01 ? 15:39</time>]")
-    ($l (g "[2000-01-01 ? 15:39-16:40]" (p 'exact))
-        "[<time>2000-01-01 ? 15:39-16:40</time>]")
-    ($l (g "[2000-01-01 15:39-16:40]" (p 'anon))
-        (c "[<time datetime=\"2000-01-01T15:39+0100\">2000-01-01 15:39"
-           "-16:40</time>]"))
-    ($l (g "<2000-01-01>--<2000-02-02>" (p 'exact))
-        "&lt;<time>2000-01-01</time>&gt;--&lt;<time>2000-02-02</time>&gt;")
-    ($l (g "<2000-01-01>--<2000-02-02>" (p 'anon))
-        (c "&lt;<time datetime=\"2000-01-01\">2000-01-01</time>&gt;--"
-           "&lt;<time datetime=\"2000-02-02\">2000-02-02</time>&gt;"))
-    ($l (g "<2000-01-01 00:00>--[2005-05-05 25:25]" (p 'anon))
-        (c "&lt;<time datetime=\"2000-01-01T00:00+0100\">2000-01-01 00:00"
-           "</time>&gt;--[<time datetime=\"2005-05-06T01:25+0100\">"
-           "2005-05-05 25:25</time>]"))))
+                       :html-timezone local)))
+    (let ((t1 "[2011-11-18]")
+          (t2 "<2011-11-18 14:54>")
+          (t3 "[2011-11-18 06:54-14:54]")
+          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
+      ($l (g t1 (p 'none)) "[2011-11-18]")
+      ($l (g t1 (p 'span))
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "[2011-11-18]" "</span></span>"))
+      ($l (g t1 (p 'time))
+          "<time datetime=\"2011-11-18\">[2011-11-18]</time>")
+      ($l (g t2 (p 'none)) "&lt;2011-11-18 14:54&gt;")
+      ($l (g t2 (p 'span))
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "&lt;2011-11-18 14:54&gt;" "</span></span>"))
+      ($l (g t2 (p 'time))
+          ($c "<time datetime=\"2011-11-18T14:54\">"
+              "&lt;2011-11-18 14:54&gt;</time>"))
+      ($l (g t3 (p 'none)) "[2011-11-18 06:54-14:54]")
+      ($l (g t3 (p 'span))
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "[2011-11-18 06:54-14:54]" "</span></span>"))
+      ($l (g t3 (p 'time))
+          ($c "<time datetime=\"2011-11-18T06:54\">"
+              "[2011-11-18 06:54-14:54]</time>"))
+      ($l (g t4 (p 'none))
+          "&lt;2011-11-18 06:54&gt;--[2011-11-18 14:54]")
+      ($l (g t4 (p 'span))
+          ($c "<span class=\"timestamp-wrapper\">"
+              "<span class=\"timestamp\">"
+              "&lt;2011-11-18 06:54&gt;--[2011-11-18 14:54]"
+              "</span></span>"))
+      ($l (g t4 (p 'time))
+          ($c "<time datetime=\"2011-11-18T06:54\">&lt;"
+              "2011-11-18 06:54&gt;</time>--"
+              "<time datetime=\"2011-11-18T14:54\">"
+              "[2011-11-18 14:54]</time>"))
+      ($l (g "[2000-01-01 <> 13:13]" (p 'time))
+          ($c "<time datetime=\"2000-01-01\">"
+              "[2000-01-01 &lt;&gt;</time>")))))
 
 (ert-deftest t--format-timestamp-int ()
   "Tests for `org-w3ctr--format-timestamp-int'."
   (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
-             (g (x info) (t--format-timestamp-int (f x) info))
              (p (w) `( :html-timestamp-wrapper ,w
                        :html-datetime-option T-none-zulu
-                       :html-timezone 3600))
-             (c (&rest args) (apply #'concat args)))
-    ($l (g "[2000-01-01]" (p 'none)) "[2000-01-01 Sat]")
-    ($l (g "[2000-01-01 T 12:12]" (p 'none)) "[2000-01-01 Sat 12:12]")
-    ($l (g "[2000-01-01 T]" (p 'whole)) "<time>[2000-01-01 Sat]</time>")
-    ($l (g "[2000-01-01 ? 15:39]" (p 'exact))
-        "[<time>2000-01-01 Sat 15:39</time>]")
-    ($l (g "[2000-01-01 ? 15:39-16:40]" (p 'exact))
-        "[<time>2000-01-01 Sat 15:39-16:40</time>]")
-    ($l (g "[2000-01-01 15:39-16:40]" (p 'anon))
-        (c "[<time datetime=\"2000-01-01T15:39+0100\">2000-01-01 "
-           "Sat 15:39-16:40</time>]"))
-    ($l (g "<2000-01-01>--<2000-02-02>" (p 'exact))
-        (c "&lt;<time>2000-01-01 Sat</time>&gt;--"
-           "&lt;<time>2000-02-02 Wed</time>&gt;"))
-    ($l (g "<2000-01-01>--<2000-02-02>" (p 'anon))
-        (c "&lt;<time datetime=\"2000-01-01\">2000-01-01 Sat</time>&gt;--"
-           "&lt;<time datetime=\"2000-02-02\">2000-02-02 Wed</time>&gt;"))
-    ($l (g "<2000-01-01 00:00>--[2005-05-05 25:25]" (p 'anon))
-        (c "&lt;<time datetime=\"2000-01-01T00:00+0100\">2000-01-01 Sat "
-           "00:00</time>&gt;--&lt;<time datetime=\"2005-05-06T01:25+0100\">"
-           "2005-05-06 Fri 01:25</time>&gt;"))))
+                       :html-timezone 0))
+             (g (x opt) (t--format-timestamp-int (f x) (p opt))))
+    (let ((t1 "[2011-11-18]")
+          (t2 "<2011-11-18 14:54>")
+          (t3 "[2011-11-18 06:54-14:54]")
+          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
+      ($l (g t1 'none) "[2011-11-18 Fri]")
+      ($l (g t1 'time)
+          "<time datetime=\"2011-11-18\">[2011-11-18 Fri]</time>")
+      ($l (g t2 'none) "&lt;2011-11-18 Fri 14:54&gt;")
+      ($l (g t2 'time)
+          ($c "<time datetime=\"2011-11-18T14:54Z\">"
+              "&lt;2011-11-18 Fri 14:54&gt;</time>"))
+      ($l (g t3 'none) "[2011-11-18 Fri 06:54-14:54]")
+      ($l (g t3 'time)
+          ($c "<time datetime=\"2011-11-18T06:54Z\">"
+              "[2011-11-18 Fri 06:54-14:54]</time>"))
+      ($l (g t4 'none)
+          "&lt;2011-11-18 Fri 06:54&gt;--&lt;2011-11-18 Fri 14:54&gt;")
+      ($l (g t4 'time)
+          ($c "<time datetime=\"2011-11-18T06:54Z\">&lt;"
+              "2011-11-18 Fri 06:54&gt;</time>--"
+              "<time datetime=\"2011-11-18T14:54Z\">&lt;"
+              "2011-11-18 Fri 14:54&gt;</time>"))
+      ($l (g "[2000-01-01]--[2000-02-02 13:00]" 'time)
+          ($c "<time datetime=\"2000-01-01\">[2000-01-01 Sat]"
+              "</time>--<time datetime=\"2000-02-02\">"
+              "[2000-02-02 Wed 13:00]</time>"))
+      ($l (g "[2000-01-01 11:00]--[2000-01-02]" 'time)
+          ($c "<time datetime=\"2000-01-01T11:00Z\">"
+              "[2000-01-01 Sat 11:00]</time>--"
+              "<time datetime=\"2000-01-02T11:00Z\">"
+              "[2000-01-02 Sun 11:00]</time>")))))
 
 (ert-deftest t--format-timestamp-fmt ()
   "Tests for `org-w3ctr--format-timestamp-fmt'"
   (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
-             (g (x info) (t--format-timestamp-fmt (f x) info))
-             (p (w) `( :html-timestamp-wrapper ,w
+             (p (m) `( :html-timestamp-wrapper none
                        :html-datetime-option T-none-zulu
-                       :html-timezone 3600
-                       :html-timestamp-formats ("%F" . "%F %R")))
-             (c (&rest args) (apply #'concat args)))
-    ($l (g "[2000-01-01]" (p 'none)) "[2000-01-01]")
-    ($l (g "[2000-01-01 T 12:12]" (p 'none)) "[2000-01-01 12:12]")
-    ($l (g "[2000-01-01 T]" (p 'whole)) "<time>[2000-01-01]</time>")
-    ($l (g "[2000-01-01 ? 15:39]" (p 'exact))
-        "[<time>2000-01-01 15:39</time>]")
-    ($l (g "[2000-01-01 ? 15:39-16:40]" (p 'exact))
-        "[<time>2000-01-01 15:39-16:40</time>]")
-    ($l (g "[2000-01-01 15:39-16:40]" (p 'anon))
-        (c "[<time datetime=\"2000-01-01T15:39+0100\">2000-01-01 "
-           "15:39-16:40</time>]"))
-    ($l (g "<2000-01-01>--<2000-02-02>" (p 'exact))
-        (c "&lt;<time>2000-01-01</time>&gt;--"
-           "&lt;<time>2000-02-02</time>&gt;"))
-    ($l (g "<2000-01-01>--<2000-02-02>" (p 'anon))
-        (c "&lt;<time datetime=\"2000-01-01\">2000-01-01</time>&gt;--"
-           "&lt;<time datetime=\"2000-02-02\">2000-02-02</time>&gt;"))
-    ($l (g "<2000-01-01 00:00>--[2005-05-05 25:25]" (p 'anon))
-        (c "&lt;<time datetime=\"2000-01-01T00:00+0100\">2000-01-01 "
-           "00:00</time>&gt;--&lt;<time datetime=\"2005-05-06T01:25+0100\">"
-           "2005-05-06 01:25</time>&gt;"))))
+                       :html-timezone 0
+                       :html-timestamp-formats ,m))
+             (g (x opt) (t--format-timestamp-fmt (f x) (p opt))))
+    (let ((t1 "[2011-11-18]")
+          (t2 "<2011-11-18 14:54>")
+          (t3 "[2011-11-18 06:54-14:54]")
+          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
+      ($l (g t1 '("%y" . "%y %m")) "[11]")
+      ($l (g t1 '("%C" . "")) "[20]")
+      ($l (g t1 '("%F %m" ' "%F %R")) "[2011-11-18 11]")
+      ($l (g t1 '("[%F]")) "[2011-11-18]")
+      ($l (g t1 '("<%F>")) "[2011-11-18]")
+      ($l (g t2 '(nil . "%F %R")) "&lt;2011-11-18 14:54&gt;")
+      ($l (g t2 '(nil . "%j")) "&lt;322&gt;")
+      ($l (g t3 '(nil . "%F %R")) "[2011-11-18 06:54-14:54]")
+      ($l (g t3 '(nil . "%D %U %W %V")) "[11/18/11 46 46 46-14:54]")
+      ($l (g t4 '(nil . "%F %R"))
+          "&lt;2011-11-18 06:54&gt;--&lt;2011-11-18 14:54&gt;")
+      ($l (g t4 '(nil . "%M")) "&lt;54&gt;--&lt;54&gt;"))
+    ($e!l (t--format-timestamp-fmt (f "[2000-01-01]") nil)
+          '(error ":html-timestamp-formats not valid: nil"))))
 
 (ert-deftest t-timestamp ()
   (ert-skip "skip now")
