@@ -1876,6 +1876,7 @@ int a = 1;</code></p>\n</details>")
              (p (w f) `( :html-timestamp-wrapper ,w
                          :html-datetime-option T-none-zulu
                          :html-timestamp-formats ,f
+                         :with-special-strings t
                          :html-timezone 0))
              (g (x info) (t--format-timestamp-cus (f x) info)))
     (let ((t1 "[2011-11-18]")
@@ -1892,7 +1893,7 @@ int a = 1;</code></p>\n</details>")
       ($l (g t2 (p 'none '(nil . "[[[[%R]]]]"))) "[[[[14:54]]]]")
       ($l (g t3 (p 'none '(nil . "<<<%F%R>")))
           ($c "&lt;&lt;&lt;2011-11-1806:54&gt;"
-              "--&lt;&lt;&lt;2011-11-1814:54&gt;"))
+              "&#x2013;&lt;&lt;&lt;2011-11-1814:54&gt;"))
       ($l (g t3 (p 'none '(nil . "<%F%R>")))
           (g t4 (p 'none '(nil . "<%F%R>")))))))
 
@@ -1924,35 +1925,40 @@ int a = 1;</code></p>\n</details>")
         ($l (it (f t4) info) "hello")
         ($e! (it (f t1) nil))))))
 
+;; FIXME: make it more useful.
 (ert-deftest t-timestamp ()
-  (ert-skip "skip now")
+  "Tests for `org-w3ctr-timestamp'."
   (t-check-element-values
    #'t-timestamp
    '(("[2020-02-02]" "<time datetime=\"2020-02-02\">[2020-02-02]</time>")
-     ("<2006-01-02>" "<time datetime=\"2006-01-02\"><2006-01-02></time>")
+     ("<2006-01-02>" "<time datetime=\"2006-01-02\">&lt;2006-01-02&gt;</time>")
      ("[2006-01-02 15:04:05]"
       "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>")
      ("<2006-01-02 15:04:05>"
-      "<time datetime=\"2006-01-02 15:04+0800\"><2006-01-02 15:04></time>")
+      "<time datetime=\"2006-01-02 15:04+0800\">&lt;2006-01-02 15:04&gt;</time>")
      ("[2025-03-30]--[2025-03-31]"
       "<time datetime=\"2025-03-30\">[2025-03-30]</time>&#x2013;\
 <time datetime=\"2025-03-31\">[2025-03-31]</time>")
      ("<2025-03-30>--<2025-03-31>"
-      "<time datetime=\"2025-03-30\"><2025-03-30></time>&#x2013;\
-<time datetime=\"2025-03-31\"><2025-03-31></time>")
+      "<time datetime=\"2025-03-30\">&lt;2025-03-30&gt;</time>&#x2013;\
+<time datetime=\"2025-03-31\">&lt;2025-03-31&gt;</time>")
      ("[2006-01-02 15:04:05]--[2006-01-03 04:05:06]"
       "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>\
 &#x2013;<time datetime=\"2006-01-03 04:05+0800\">[2006-01-03 04:05]</time>")
      ("<2006-01-02 15:04:05>--<2006-01-03 04:05:06>"
-      "<time datetime=\"2006-01-02 15:04+0800\"><2006-01-02 15:04></time>\
-&#x2013;<time datetime=\"2006-01-03 04:05+0800\"><2006-01-03 04:05></time>")
+      "<time datetime=\"2006-01-02 15:04+0800\">&lt;2006-01-02 15:04&gt;</time>\
+&#x2013;<time datetime=\"2006-01-03 04:05+0800\">&lt;2006-01-03 04:05&gt;</time>")
      ("[2024-02-02]--<2025-02-02>"
       "<time datetime=\"2024-02-02\">[2024-02-02]</time>&#x2013;\
 <time datetime=\"2025-02-02\">[2025-02-02]</time>")
      ("<2024-02-02>--[2025-02-02]"
-      "<time datetime=\"2024-02-02\"><2024-02-02></time>&#x2013;\
-<time datetime=\"2025-02-02\"><2025-02-02></time>")
-     ("[2000-01-01]" "<time datetime=\"2000-01-01\">[2000-01-01]</time>"))))
+      "<time datetime=\"2024-02-02\">&lt;2024-02-02&gt;</time>&#x2013;\
+<time datetime=\"2025-02-02\">&lt;2025-02-02&gt;</time>")
+     ("[2000-01-01]" "<time datetime=\"2000-01-01\">[2000-01-01]</time>"))
+   nil '( :html-timestamp-option fmt :html-timestamp-wrapper time
+          :html-timestamp-formats ("%F" . "%F %R")
+          :html-timezone "UTC+8" :html-datetime-option s-none)))
+
 
 (ert-deftest t--get-charset ()
   "Tests for `org-w3ctr--get-charset'."

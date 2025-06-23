@@ -2575,18 +2575,21 @@ indicates that no enclosing brackets should be applied."
 
 (defun t-timestamp (timestamp _contents info)
   "Transcode a TIMESTAMP object from Org to HTML."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
   (let ((type (org-element-property :type timestamp)))
     (if (eq type 'diary)
         (t--format-timestamp-diary timestamp info)
-      (let ((option (t--pget info :html-timestamp-option)))
-        (pcase option
-          (`raw (t--format-timestamp-raw timestamp info))
-          (`int (t--format-timestamp-int timestamp info))
-          (`fmt (t--format-timestamp-fmt timestamp info))
-          (`cus (t--format-timestamp-cus timestamp info))
-          (`org (t--format-timestamp-org timestamp info))
-          (`fun (t--format-timestamp-fun timestamp info))
-          (a (error "Unknown timestamp option: %s" a)))))))
+      (let* ((option (t--pget info :html-timestamp-option))
+             (fun (pcase option
+                    (`raw #'t--format-timestamp-raw)
+                    (`int #'t--format-timestamp-int)
+                    (`fmt #'t--format-timestamp-fmt)
+                    (`cus #'t--format-timestamp-cus)
+                    (`org #'t--format-timestamp-org)
+                    (`fun #'t--format-timestamp-fun)
+                    (o (error "Unknown timestamp option: %s" o)))))
+        (funcall fun timestamp info)))))
 
 ;;; Template and Inner Template
 
