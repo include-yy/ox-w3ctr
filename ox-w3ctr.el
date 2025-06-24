@@ -145,10 +145,8 @@
     (:html-head "HTML_HEAD" nil t-head newline)
     (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
     (:subtitle "SUBTITLE" nil nil parse)
-    (:html-head-include-default-style
-     nil "html-style" t-head-include-default-style)
-    (:html-pre/post-timestamp-format
-     nil nil t-pre/post-timestamp-format)
+    (:html-head-include-default-style nil "html-style" t-head-include-default-style)
+    (:html-pre/post-timestamp-format nil nil t-pre/post-timestamp-format)
     ;; HTML TOP place naviagtion elements -------------------------
     (:html-link-home/up "HTML_LINK_HOMEUP" nil t-link-homeup parse)
     (:html-format-home/up-function nil nil t-format-home/up-function)
@@ -159,8 +157,7 @@
     (:with-latex nil "tex" t-with-latex)
     (:html-mathjax-config nil nil t-mathjax-config)
     (:html-mathml-config nil nil t-mathml-config)
-    (:html-math-custom-config-function
-     nil nil t-math-custom-config-function)
+    (:html-math-custom-config-function nil nil t-math-custom-config-function)
     ;; postamble and preamble ------------------------
     (:html-postamble nil "html-postamble" t-postamble)
     (:html-preamble nil "html-preamble" t-preamble)
@@ -170,15 +167,13 @@
     (:html-footnote-separator nil nil t-footnote-separator)
     (:html-footnotes-section nil nil t-footnotes-section)
     ;; headline options -------------------------------------
-    (:html-format-headline-function
-     nil nil t-format-headline-function)
+    (:html-format-headline-function nil nil t-format-headline-function)
     (:html-self-link-headlines nil nil t-self-link-headlines)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     ;; <yy> aux counter for unnumbered headline
     (:html-headline-cnt nil nil 0)
     ;; <yy> zeroth section's toc title name
-    (:html-zeroth-section-tocname
-     nil "zeroth-name" t-zeroth-section-tocname)
+    (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
     ;; <yy> control max headline level
     (:headline-levels nil "H" t-headline-level)
     ;; <yy> control todo, priority and tags export
@@ -191,8 +186,7 @@
     (:html-table-caption-above nil nil t-table-caption-above)
     (:html-table-data-tags nil nil t-table-data-tags)
     (:html-table-header-tags nil nil t-table-header-tags)
-    (:html-table-use-header-tags-for-first-column
-     nil nil t-table-use-header-tags-for-first-column)
+    (:html-table-use-header-tags-for-first-column nil nil t-table-use-header-tags-for-first-column)
     (:html-table-row-open-tag nil nil t-table-row-open-tag)
     (:html-table-row-close-tag nil nil t-table-row-close-tag)
     ;; misc options -----------------------------
@@ -216,14 +210,12 @@
     (:html-timestamp-formats nil "tsf" t-timestamp-formats)
     (:html-timestamp-option nil "ts" t-timestamp-option)
     (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
-    (:html-timestamp-format-function
-     nil "tsfn" t-timestamp-format-function)
+    (:html-timestamp-format-function nil "tsfn" t-timestamp-format-function)
     (:html-file-timestamp nil nil t-file-timestamp-function)
     ;; public license
     (:html-license nil "license" t-public-license)
     (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
-    (:html-format-license-function
-     nil nil t-format-public-license-function)
+    (:html-format-license-function nil nil t-format-public-license-function)
     ;; toc tag name
     (:html-toc-tagname nil "toctag" t-toc-tagname)
     ;; FIXME: Reformat whole info options
