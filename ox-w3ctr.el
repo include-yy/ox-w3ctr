@@ -2647,10 +2647,12 @@ If the function exists and is valid, call it with INFO as argument.
 Otherwise, signal an error."
   (declare (ftype (function (plist) string))
            (important-return-value t))
-  (if-let* ((fun (t--pget info :html-file-timestamp-function))
-            ((functionp fun)))
-      (funcall fun info)
-    (error ":html-file-timestamp-function is not a valid function!")))
+  (when (t--pget info :time-stamp-file)
+    (if-let* ((fun (t--pget info :html-file-timestamp-function))
+              ((functionp fun)))
+        (funcall fun info)
+      (error ":html-file-timestamp-function not valid: %s"
+             (t--pget info :html-file-timestamp-function)))))
 
 (defun t--build-meta-entry ( label identity
                              &optional content-format
@@ -2670,11 +2672,10 @@ to the CONTENT-FORMAT and encoding the result as plain text."
   (concat
    "<meta " (format "%s=\"%s\"" label identity)
    (when content-format
-     (format
-      " content=\"%s\""
-      (t--encode-plain-text*
-       (if (not content-formatters) content-format
-         (apply #'format content-format content-formatters)))))
+     (format " content=\"%s\""
+             (t--encode-plain-text*
+              (if (not content-formatters) content-format
+                (apply #'format content-format content-formatters)))))
    ">\n"))
 
 (defun t-meta-tags-default (info)
@@ -2724,8 +2725,8 @@ Use document's INFO to derive relevant information for the tags."
   (declare (ftype (function (plist) string))
            (important-return-value t))
   (concat
-   (when (plist-get info :time-stamp-file)
-     (format "<!-- %s -->\n" (t--get-info-file-timestamp info)))
+   (when-let* ((ts (t--get-info-file-timestamp info)))
+     (format "<!-- %s -->\n" ts))
    (t--build-meta-entry "charset" (t--get-charset))
    (t--build-viewport-options info)
    (format "<title>%s</title>\n" (t--get-info-title-raw info))

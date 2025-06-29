@@ -2001,6 +2001,7 @@ int a = 1;</code></p>\n</details>")
      ("#+title:​" "​")
      ("#+TITLE: hello\sworld" "hello world"))))
 
+;; FIXME: add condition that :time-stamp-file is nil
 (ert-deftest t--get-info-file-timestamp ()
   "Tests for `org-w3ctr--get-info-file-timestamp'."
   (t-check-element-values
