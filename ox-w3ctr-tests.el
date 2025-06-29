@@ -2001,6 +2001,17 @@ int a = 1;</code></p>\n</details>")
      ("#+title:​" "​")
      ("#+TITLE: hello\sworld" "hello world"))))
 
+(ert-deftest t--get-info-file-timestamp ()
+  "Tests for `org-w3ctr--get-info-file-timestamp'."
+  (t-check-element-values
+   #'t--get-info-file-timestamp
+   `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
+     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
+     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))
+   nil
+   '( :html-file-timestamp-function t-file-timestamp-default-function
+      :time-stamp-file t)))
+
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
   ($l (t--build-meta-entry "name" "author")
@@ -2015,17 +2026,6 @@ int a = 1;</code></p>\n</details>")
       "<meta name=\"version\" content=\"v1.2\">\n")
   ($l (t--build-meta-entry "name" "version" "'%s'" "v1.2")
       "<meta name=\"version\" content=\"&apos;v1.2&apos;\">\n"))
-
-(ert-deftest t--get-info-file-timestamp ()
-  "Tests for `org-w3ctr--get-info-file-timestamp'."
-  (t-check-element-values
-   #'t--get-info-file-timestamp
-   `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
-     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
-     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))
-   nil
-   '( :html-file-timestamp t-file-timestamp-default
-      :time-stamp-file t)))
 
 (ert-deftest t-meta-tags-default ()
   "Tests for `org-w3ctr-meta-tags-default'."

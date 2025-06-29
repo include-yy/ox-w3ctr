@@ -211,7 +211,7 @@
     (:html-timestamp-option nil "ts" t-timestamp-option)
     (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
     (:html-timestamp-format-function nil "tsfn" t-timestamp-format-function)
-    (:html-file-timestamp nil nil t-file-timestamp-function)
+    (:html-file-timestamp-function nil nil t-file-timestamp-function)
     ;; public license
     (:html-license nil "license" t-public-license)
     (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
@@ -395,7 +395,7 @@ These format strings follow the conventions of `format-time-string'.
   :group 'org-export-w3ctr
   :type 'coding-system)
 
-(defcustom t-file-timestamp-function #'t-file-timestamp-default
+(defcustom t-file-timestamp-function #'t-file-timestamp-default-function
   "Function to generate timestamp for exported files at top place.
 This function should take INFO as the only argument and return a
 string representing the timestamp.
@@ -1256,6 +1256,8 @@ with the new INFO and the corresponding property value."
        :html-timezone :html-export-timezone :html-datetime-option
        :html-timestamp-option :html-timestamp-wrapper
        :html-timestamp-formats :html-timestamp-format-function
+       :with-author :author :with-title :title
+       :time-stamp-file :html-file-timestamp-function
        )
     "List of property keys to be cached.")
 
@@ -2588,12 +2590,12 @@ indicates that no enclosing brackets should be applied."
 ;;;; <head> and <meta> tags export.
 ;; Options:
 ;; - `org-w3ctr-coding-system'
-;; - AUTHOR :author (`user-full-name')
+;; - :author #+AUTHOR: (`user-full-name')
 ;; - :with-author (`org-export-with-author')
-;; - TITLE :title
+;; - :title #+TITLE:
 ;; - :with-title (`org-export-with-title')
 ;; - :time-stamp-file (`org-export-timestamp-file')
-;; - :html-file-timestamp (`org-w3ctr-file-timestamp-function')
+;; - :html-file-timestamp-function (`org-w3ctr-file-timestamp-function')
 ;; - `org-w3ctr-meta-tags'
 ;; - :html-viewport (`org-w3ctr-viewport')
 
@@ -2610,7 +2612,7 @@ indicates that no enclosing brackets should be applied."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* (((t--pget info :with-author))
-              (a (plist-get info :author)))
+              (a (t--pget info :author)))
     ;; Return raw Org syntax.
     ;; #+author is parsed as Org object.
     (t--nw-trim (org-element-interpret-data a))))
@@ -2623,18 +2625,32 @@ return the text.  Otherwise return a left-to-right mark (invisible)."
   (declare (ftype (function (plist) string))
            (important-return-value t))
   (if-let* ((title (t--pget info :title))
-            (str (org-element-interpret-data title))
-            ((t--nw-p str))
+            (str0 (org-element-interpret-data title))
+            (str (t--nw-trim str0))
             (text (t-plain-text str info)))
       ;; Set title to an invisible character instead of
       ;; leaving it empty, which is invalid.
       text "&lrm;"))
 
-(defun t-file-timestamp-default (_info)
+(defun t-file-timestamp-default-function (_info)
   "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   (declare (ftype (function (t) string))
            (side-effect-free t) (important-return-value t))
   (format-time-string "%FT%RZ" nil t))
+
+(defun t--get-info-file-timestamp (info)
+  "Get file timestamp from INFO plist.
+
+It uses :html-file-timestamp-function to get timestamp string.
+
+If the function exists and is valid, call it with INFO as argument.
+Otherwise, signal an error."
+  (declare (ftype (function (plist) string))
+           (important-return-value t))
+  (if-let* ((fun (t--pget info :html-file-timestamp-function))
+            ((functionp fun)))
+      (funcall fun info)
+    (error ":html-file-timestamp-function is not a valid function!")))
 
 (defun t--build-meta-entry ( label identity
                              &optional content-format
@@ -2660,18 +2676,6 @@ to the CONTENT-FORMAT and encoding the result as plain text."
        (if (not content-formatters) content-format
          (apply #'format content-format content-formatters)))))
    ">\n"))
-
-(defun t--get-info-file-timestamp (info)
-  "Get file timestamp from INFO plist using :html-file-timestamp.
-
-If the function exists and is valid, call it with INFO as argument.
-Otherwise, signal an error."
-  (declare (ftype (function (plist) string))
-           (important-return-value t))
-  (if-let* ((fun (plist-get info :html-file-timestamp))
-            ((functionp fun)))
-      (funcall fun info)
-    (error ":html-file-timestamp's value is not a valid function!")))
 
 (defun t-meta-tags-default (info)
   "A default value for `org-w3ctr-meta-tags'.
