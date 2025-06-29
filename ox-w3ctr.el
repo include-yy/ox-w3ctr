@@ -2585,18 +2585,19 @@ indicates that no enclosing brackets should be applied."
 
 ;;; Template and Inner Template
 
-;;;; <meta> tags export.
+;;;; <head> and <meta> tags export.
 ;; Options:
-;; - `org-w3ctr-coding-system' specifies export file's encoding.
+;; - `org-w3ctr-coding-system'
+;; - AUTHOR :author (`user-full-name')
 ;; - :with-author (`org-export-with-author')
-;; - :author specifies <meta name="author" ...>
-;; - :title (`org-export-with-title')
+;; - TITLE :title
+;; - :with-title (`org-export-with-title')
 ;; - :time-stamp-file (`org-export-timestamp-file')
 ;; - :html-file-timestamp (`org-w3ctr-file-timestamp-function')
 ;; - `org-w3ctr-meta-tags'
 ;; - :html-viewport (`org-w3ctr-viewport')
 
-(defsubst t--get-charset ()
+(defun t--get-charset ()
   "Determine charset by `org-w3ctr-coding-system'."
   (declare (ftype (function () string))
            (side-effect-free t) (important-return-value t))
@@ -2604,24 +2605,24 @@ indicates that no enclosing brackets should be applied."
             (name (coding-system-get coding 'mime-charset)))
       (symbol-name name) "utf-8"))
 
-(defsubst t--get-info-author-raw (info)
+(defun t--get-info-author-raw (info)
   "Get author from INFO if :with-author is non-nil."
-  (declare (ftype (function (plist) (or null string)))
-           (pure t) (important-return-value t))
-  (when-let* (((plist-get info :with-author))
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
+  (when-let* (((t--pget info :with-author))
               (a (plist-get info :author)))
     ;; Return raw Org syntax.
     ;; #+author is parsed as Org object.
     (t--nw-trim (org-element-interpret-data a))))
 
-(defun t--get-info-title (info)
+(defun t--get-info-title-raw (info)
   "Extract title from INFO plist and return as plain text.
 
 If title exists, is non-whitespace, and can be converted to plain text,
-return the text. Otherwise return a left-to-right mark (invisible)."
+return the text.  Otherwise return a left-to-right mark (invisible)."
   (declare (ftype (function (plist) string))
-           (pure t) (important-return-value t))
-  (if-let* ((title (plist-get info :title))
+           (important-return-value t))
+  (if-let* ((title (t--pget info :title))
             (str (org-element-interpret-data title))
             ((t--nw-p str))
             (text (t-plain-text str info)))
@@ -2723,7 +2724,7 @@ Use document's INFO to derive relevant information for the tags."
      (format "<!-- %s -->\n" (t--get-info-file-timestamp info)))
    (t--build-meta-entry "charset" (t--get-charset))
    (t--build-viewport-options info)
-   (format "<title>%s</title>\n" (t--get-info-title info))
+   (format "<title>%s</title>\n" (t--get-info-title-raw info))
    (t--build-meta-tags info)))
 
 ;;;; CSS export.

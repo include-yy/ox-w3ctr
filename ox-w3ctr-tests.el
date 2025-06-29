@@ -1988,10 +1988,10 @@ int a = 1;</code></p>\n</details>")
   (let ((info '(:with-author t :author "test")))
     ($l (t--get-info-author-raw info) "test")))
 
-(ert-deftest t--get-info-title ()
+(ert-deftest t--get-info-title-raw ()
   "Tests for `org-w3ctr--get-info-title'."
   (t-check-element-values
-   #'t--get-info-title
+   #'t--get-info-title-raw
    '(("#+title: he" "he")
      ("#+title:he" "he")
      ("#+title: \t" "&lrm;")
