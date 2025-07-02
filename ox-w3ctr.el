@@ -2683,21 +2683,17 @@ to the CONTENT-FORMAT and encoding the result as plain text."
 
 Generate a list items, each of which is a list of arguments
 that can be passed to `org-w3ctr--build-meta-entry', to generate meta
-tags to be included in the HTML head.
-
-Use document's INFO to derive relevant information for the tags."
+tags to be included in the HTML head."
   (declare (ftype (function (plist) list))
            (pure t) (important-return-value t))
-  (thread-last
-    (list
-     (when-let* ((author (t--get-info-author-raw info)))
-       (list "name" "author" author))
-     (when-let* ((desc (t--nw-trim (plist-get info :description))))
-       (list "name" "description" desc))
-     (when-let* ((keyw (t--nw-trim (plist-get info :keywords))))
-       (list "name" "keywords" keyw))
-     '("name" "generator" "Org Mode"))
-    (remove nil)))
+  (list
+   (when-let* ((author (t--get-info-author-raw info)))
+     (list "name" "author" author))
+   (when-let* ((desc (t--nw-trim (plist-get info :description))))
+     (list "name" "description" desc))
+   (when-let* ((keyw (t--nw-trim (plist-get info :keywords))))
+     (list "name" "keywords" keyw))
+   '("name" "generator" "Org Mode")))
 
 (defun t--build-meta-tags (info)
   "Build HTML <meta> tags get from `org-w3ctr-meta-tags'."
@@ -2705,8 +2701,8 @@ Use document's INFO to derive relevant information for the tags."
            (important-return-value t))
   (mapconcat
    (lambda (args) (apply #'t--build-meta-entry args))
-   (delq nil (if (functionp t-meta-tags) (funcall t-meta-tags info)
-               t-meta-tags))))
+   (delq nil (if (not (functionp t-meta-tags)) t-meta-tags
+               (funcall t-meta-tags info)))))
 
 (defun t--build-viewport-options (info)
   "Build <meta> viewport tags."
