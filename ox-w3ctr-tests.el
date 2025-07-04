@@ -1976,7 +1976,10 @@ int a = 1;</code></p>\n</details>")
     ($l (test 'japanese-shift-jis) "shift_jis")
     ($l (test 'japanese-iso-8bit) "euc-jp")
     ($l (test 'cp936) "gbk")
-    ($l (test 'cp65001) "utf-8")))
+    ($l (test 'cp65001) "utf-8")
+    ($e!l (test 'wtf) '(t-error "Invalid coding system: wtf"))
+    ($e!l (test "UTF-8") '(t-error "Invalid coding system: UTF-8"))
+    ($e!l (test [1]) '(t-error "Invalid coding system: [1]"))))
 
 (ert-deftest t--get-info-author-raw ()
   "Tests for `org-w3ctr--get-author-raw'."

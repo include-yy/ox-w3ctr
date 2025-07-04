@@ -1202,8 +1202,14 @@ ELEMENT is either a source or an example block."
   (t--start-jstools)
   (t--rpc-request! t--jstools-proc fun args))
 
-;; ox-w3ctr errors
-(define-error 'ox-w3ctr "ox-w3ctr error")
+(define-error 't-error "ox-w3ctr-error")
+
+;; Copied from `error'.
+(defun t-error (string &rest args)
+  "Signal an org-w3ctr-error, like `error'."
+  (declare (ftype (function (string &rest t) nil)))
+  (signal 't-error (list (apply #'format-message string args))))
+
 ;; FIXME: Add some helper functions here, and replace `error' calls.
 
 ;; A lightweight caching system for property lookups within the INFO
@@ -2587,7 +2593,7 @@ indicates that no enclosing brackets should be applied."
 
 ;;; Template and Inner Template
 
-;;;; <head> and <meta> tags export.
+;;;; <title>, <meta> tags export.
 ;; Options:
 ;; - `org-w3ctr-coding-system'
 ;; - :author #+AUTHOR: (`user-full-name')
@@ -2602,10 +2608,13 @@ indicates that no enclosing brackets should be applied."
 (defun t--get-charset ()
   "Determine charset by `org-w3ctr-coding-system'."
   (declare (ftype (function () string))
-           (side-effect-free t) (important-return-value t))
-  (if-let* ((coding t-coding-system)
-            (name (coding-system-get coding 'mime-charset)))
-      (symbol-name name) "utf-8"))
+           (important-return-value t))
+  (let* ((c t-coding-system)
+         (h (lambda (_) (t-error "Invalid coding system: %s" c))))
+    (unless (symbolp c) (funcall h nil))
+    (if (null c) "utf-8"
+      (handler-bind ((coding-system-error h))
+        (symbol-name (coding-system-get c :mime-charset))))))
 
 (defun t--get-info-author-raw (info)
   "Get author from INFO if :with-author is non-nil."
@@ -2685,13 +2694,13 @@ Generate a list items, each of which is a list of arguments
 that can be passed to `org-w3ctr--build-meta-entry', to generate meta
 tags to be included in the HTML head."
   (declare (ftype (function (plist) list))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (list
    (when-let* ((author (t--get-info-author-raw info)))
      (list "name" "author" author))
-   (when-let* ((desc (t--nw-trim (plist-get info :description))))
+   (when-let* ((desc (t--nw-trim (t--pget info :description))))
      (list "name" "description" desc))
-   (when-let* ((keyw (t--nw-trim (plist-get info :keywords))))
+   (when-let* ((keyw (t--nw-trim (t--pget info :keywords))))
      (list "name" "keywords" keyw))
    '("name" "generator" "Org Mode")))
 
@@ -2727,7 +2736,7 @@ tags to be included in the HTML head."
    (t--build-viewport-options info)
    (format "<title>%s</title>\n" (t--get-info-title-raw info))
    (t--build-meta-tags info)))
-
+
 ;;;; CSS export.
 ;; Options:
 ;; - `org-w3ctr-default-style'
