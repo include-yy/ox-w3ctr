@@ -389,18 +389,23 @@ These format strings follow the conventions of `format-time-string'.
   "Custom timestamp format function."
   :group 'org-export-w3ctr
   :type 'function)
-
+
 (defcustom t-coding-system 'utf-8-unix
-  "Coding system for HTML export."
+  "Coding system for HTML export.
+
+UTF-8 is the de facto standard for modern web content. The default
+value `utf-8-unix' is strongly recommended and should not be changed
+unless you have specific legacy system requirements."
   :group 'org-export-w3ctr
   :type 'coding-system)
 
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
   "Function to generate timestamp for exported files at top place.
+
 This function should take INFO as the only argument and return a
 string representing the timestamp.
 
-Default value is `org-w3ctr-file-timestamp-default', which generates
+The default value is `org-w3ctr-file-timestamp-default', which generates
 timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :group 'org-export-w3ctr
   :type 'function)
@@ -409,17 +414,15 @@ timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   "Form that is used to produce <meta> tags in the HTML head.
 
 This can be either:
-. A list where each item is a list with the form of (NAME VALUE CONTENT)
-  to be passed as arguments to `org-w3ctr--build-meta-entry'.  Any nil
-  items are ignored.
+. A list where each item is a list with the form of (NAME VALUE CONTENT).
+  Any nil items are ignored.
 . A function that takes the INFO plist as single argument and returns
   such a list of items."
   :group 'org-export-w3ctr
   :type '(choice
-          (repeat
-           (list (string :tag "Meta label")
-                 (string :tag "label value")
-                 (string :tag "Content value")))
+          (repeat (list (string :tag "Meta label")
+                        (string :tag "label value")
+                        (string :tag "Content value")))
           function))
 
 (defcustom t-viewport '((width "device-width")
@@ -467,7 +470,7 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
                 (choice (const :tag "unset" "")
                         (const "true")
                         (const "false"))))))
-
+
 (defcustom t-head-include-default-style t
   "Non-nil means include the default style in exported HTML files."
   :group 'org-export-w3ctr
@@ -2593,7 +2596,7 @@ indicates that no enclosing brackets should be applied."
 
 ;;; Template and Inner Template
 
-;;;; <title>, <meta> tags export.
+;;;; <title> and <meta> tags export.
 ;; Options:
 ;; - `org-w3ctr-coding-system'
 ;; - :author #+AUTHOR: (`user-full-name')
@@ -2612,7 +2615,7 @@ indicates that no enclosing brackets should be applied."
   (let* ((c t-coding-system)
          (h (lambda (_) (t-error "Invalid coding system: %s" c))))
     (unless (symbolp c) (funcall h nil))
-    (if (null c) "utf-8"
+    (if (null c) "utf-8" ; default choice.
       (handler-bind ((coding-system-error h))
         (symbol-name (coding-system-get c :mime-charset))))))
 
@@ -2631,7 +2634,7 @@ indicates that no enclosing brackets should be applied."
 
 If title exists, is non-whitespace, and can be converted to plain text,
 return the text.  Otherwise return a left-to-right mark (invisible)."
-  (declare (ftype (function (plist) string))
+  (declare (ftype (function (list) string))
            (important-return-value t))
   (if-let* ((title (t--pget info :title))
             (str0 (org-element-interpret-data title))
@@ -2648,20 +2651,15 @@ return the text.  Otherwise return a left-to-right mark (invisible)."
   (format-time-string "%FT%RZ" nil t))
 
 (defun t--get-info-file-timestamp (info)
-  "Get file timestamp from INFO plist.
-
-It uses :html-file-timestamp-function to get timestamp string.
-
-If the function exists and is valid, call it with INFO as argument.
-Otherwise, signal an error."
-  (declare (ftype (function (plist) string))
+  "Get file timestamp from INFO plist."
+  (declare (ftype (function (list) string))
            (important-return-value t))
   (when (t--pget info :time-stamp-file)
     (if-let* ((fun (t--pget info :html-file-timestamp-function))
               ((functionp fun)))
         (funcall fun info)
-      (error ":html-file-timestamp-function not valid: %s"
-             (t--pget info :html-file-timestamp-function)))))
+      (t-error ":html-file-timestamp-function is not valid: %s"
+               (t--pget info :html-file-timestamp-function)))))
 
 (defun t--build-meta-entry ( label identity
                              &optional content-format
@@ -2693,7 +2691,7 @@ to the CONTENT-FORMAT and encoding the result as plain text."
 Generate a list items, each of which is a list of arguments
 that can be passed to `org-w3ctr--build-meta-entry', to generate meta
 tags to be included in the HTML head."
-  (declare (ftype (function (plist) list))
+  (declare (ftype (function (list) list))
            (important-return-value t))
   (list
    (when-let* ((author (t--get-info-author-raw info)))
@@ -2706,7 +2704,7 @@ tags to be included in the HTML head."
 
 (defun t--build-meta-tags (info)
   "Build HTML <meta> tags get from `org-w3ctr-meta-tags'."
-  (declare (ftype (function (plist) string))
+  (declare (ftype (function (list) string))
            (important-return-value t))
   (mapconcat
    (lambda (args) (apply #'t--build-meta-entry args))
@@ -2715,10 +2713,10 @@ tags to be included in the HTML head."
 
 (defun t--build-viewport-options (info)
   "Build <meta> viewport tags."
-  (declare (ftype (function (plist) (or null string)))
-           (pure t) (important-return-value t))
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
   (when-let* ((opts (cl-remove-if-not
-                     #'t--nw-p (plist-get info :html-viewport)
+                     #'t--nw-p (t--pget info :html-viewport)
                      :key #'cadr)))
     (t--build-meta-entry
      "name" "viewport"
@@ -2727,14 +2725,19 @@ tags to be included in the HTML head."
 
 (defun t--build-meta-info (info)
   "Return meta tags for exported document."
-  (declare (ftype (function (plist) string))
+  (declare (ftype (function (list) string))
            (important-return-value t))
   (concat
+   ;; timestamp
    (when-let* ((ts (t--get-info-file-timestamp info)))
      (format "<!-- %s -->\n" ts))
+   ;; <meta> charset
    (t--build-meta-entry "charset" (t--get-charset))
+   ;; <meta> viewport
    (t--build-viewport-options info)
+   ;; <title>
    (format "<title>%s</title>\n" (t--get-info-title-raw info))
+   ;; Rest <meta> tags
    (t--build-meta-tags info)))
 
 ;;;; CSS export.
