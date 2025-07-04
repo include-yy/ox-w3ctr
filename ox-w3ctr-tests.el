@@ -2120,7 +2120,7 @@ int a = 1;</code></p>\n</details>")
     ($l (t--build-math-config info) "test\n"))
   (let ((info '( :with-latex custom
                  :html-math-custom-function
-                 t-math-custom-config-function-default)))
+                 t-math-custom-default-function)))
     ($l (t--build-math-config info) "")))
 
 (ert-deftest t--has-math-p ()

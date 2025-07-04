@@ -2776,7 +2776,7 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
   "Set `org-w3ctr-default-style' to empty string \"\"."
   (interactive)
   (setq t-default-style ""))
-
+
 ;;;; Mathjax config
 ;; Options:
 ;; - :with-latex (`org-w3ctr-with-latex')
@@ -2806,16 +2806,16 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
      ((null key) "")
      ((eq type 'custom) (t--normalize-string (funcall value info)))
      (t (if (t--nw-p value) (t--normalize-string value) "")))))
-
+
 ;;;; Rest of <head>
 ;; No options
 
 (defun t--has-math-p (info)
   "Test if org doc has latex fragment or latex environment."
   (declare (ftype (function (plist) boolean))
-           (pure t) (important-return-value t))
-  (and (plist-get info :with-latex)
-       (org-element-map (plist-get info :parse-tree)
+           (important-return-value t))
+  (and (t--pget info :with-latex)
+       (org-element-map (t--pget info :parse-tree)
            '(latex-fragment latex-environment)
          #'identity info t nil t)
        t))
@@ -2823,8 +2823,8 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
 (defun t--use-default-style-p (info)
   "Test if org export use default CSS style."
   (declare (ftype (function (plist) boolean))
-           (pure t) (important-return-value t))
-  (and (plist-get info :html-head-include-default-style) t))
+           (important-return-value t))
+  (and (t--pget info :html-head-include-default-style) t))
 
 ;; FIXME: Consider add code hightlight (such as highlight.js) codes.
 (defun t--build-head (info)
@@ -2840,8 +2840,8 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
    ;; Mathjax or MathML config.
    (when (t--has-math-p info) (t--build-math-config info))
    ;; User defined <head> contents
-   (t--normalize-string (plist-get info :html-head))
-   (t--normalize-string (plist-get info :html-head-extra))
+   (t--normalize-string (t--pget info :html-head))
+   (t--normalize-string (t--pget info :html-head-extra))
    "</head>\n"))
 
 ;;;; Legacy home and up
