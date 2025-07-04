@@ -1266,7 +1266,7 @@ with the new INFO and the corresponding property value."
        :html-timestamp-option :html-timestamp-wrapper
        :html-timestamp-formats :html-timestamp-format-function
        :with-author :author :with-title :title
-       :time-stamp-file :html-file-timestamp-function
+       :time-stamp-file :html-file-timestamp-function :html-viewport
        )
     "List of property keys to be cached.")
 
@@ -2593,7 +2593,7 @@ indicates that no enclosing brackets should be applied."
                     (`fun #'t--format-timestamp-fun)
                     (o (error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
-
+
 ;;; Template and Inner Template
 
 ;;;; <title> and <meta> tags export.
