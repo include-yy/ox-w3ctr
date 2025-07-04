@@ -2005,9 +2005,13 @@ int a = 1;</code></p>\n</details>")
      ("#+title:​" "​")
      ("#+TITLE: hello\sworld" "hello world"))))
 
-;; FIXME: add condition that :time-stamp-file is nil
 (ert-deftest t--get-info-file-timestamp ()
   "Tests for `org-w3ctr--get-info-file-timestamp'."
+  ($n (t--get-info-file-timestamp nil))
+  ($e!l
+   (t--get-info-file-timestamp '( :time-stamp-file t
+                                  :html-file-timestamp-function nil))
+   '(org-w3ctr-error ":html-file-timestamp-function is not valid: nil"))
   (t-check-element-values
    #'t--get-info-file-timestamp
    `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
