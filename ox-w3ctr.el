@@ -157,7 +157,7 @@
     (:with-latex nil "tex" t-with-latex)
     (:html-mathjax-config nil nil t-mathjax-config)
     (:html-mathml-config nil nil t-mathml-config)
-    (:html-math-custom-config-function nil nil t-math-custom-config-function)
+    (:html-math-custom-function nil nil t-math-custom-function)
     ;; postamble and preamble ------------------------
     (:html-postamble nil "html-postamble" t-postamble)
     (:html-preamble nil "html-preamble" t-preamble)
@@ -577,13 +577,12 @@ See https://developer.mozilla.org/en-US/docs/Web/MathML for details."
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-math-custom-config-function
-  #'t-math-custom-config-function-default
+(defcustom t-math-custom-function #'t-math-custom-default-function
   "Configuration for custom Math rendering in HTML export.
 Used when :with-latex is set to `custom'."
   :group 'org-export-w3ctr
   :type 'function)
-
+
 (defcustom t-head ""
   "Raw HTML content to insert into the <head> section.
 
@@ -1267,6 +1266,8 @@ with the new INFO and the corresponding property value."
        :html-timestamp-formats :html-timestamp-format-function
        :with-author :author :with-title :title
        :time-stamp-file :html-file-timestamp-function :html-viewport
+       :with-latex :html-mathjax-config :html-mathml-config
+       :html-math-custom-function
        )
     "List of property keys to be cached.")
 
@@ -2781,32 +2782,32 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
 ;; - :with-latex (`org-w3ctr-with-latex')
 ;; - :html-mathjax-config (`org-w3ctr-mathjax-config')
 ;; - :html-mathml-config (`org-w3ctr-mathml-config')
-;; - :html-math-custom-config (`org-w3ctr-math-custom-config-function')
+;; - :html-math-custom-function (`org-w3ctr-math-custom-function')
 
-(defun t-math-custom-config-function-default (_info)
-  "Default function for `org-w3ctr-math-custom-config-function'."
+(defun t-math-custom-default-function (_info)
+  "Default function for `org-w3ctr-math-custom-function'."
   (declare (ftype (function (t) string))
-           (important-return-value t))
+           (pure t) (important-return-value t))
   "")
 
 (defun t--build-math-config (info)
   "Insert the user setup into the mathjax template."
   (declare (ftype (function (plist) string))
            (important-return-value t))
-  (let* ((type (plist-get info :with-latex))
+  (let* ((type (t--pget info :with-latex))
          (key (pcase type
                 (`nil nil)
                 (`mathjax :html-mathjax-config)
                 (`mathml :html-mathml-config)
-                (`custom :html-math-custom-config-function)
-                (other (error "Unrecognized math option: %s" other))))
-         (value (and key (plist-get info key))))
+                (`custom :html-math-custom-function)
+                (o (t-error "Unrecognized math option: %s" o))))
+         (value (and key (t--pget info key))))
     (cond
      ((null key) "")
      ((eq type 'custom) (t--normalize-string (funcall value info)))
      (t (if (t--nw-p value) (t--normalize-string value) "")))))
-
-;;;; <head>
+
+;;;; Rest of <head>
 ;; No options
 
 (defun t--has-math-p (info)

@@ -2115,11 +2115,11 @@ int a = 1;</code></p>\n</details>")
   (let ((info '(:with-latex invalid)))
     ($e! (t--build-math-config info)))
   (let ((info '( :with-latex custom
-                 :html-math-custom-config-function
+                 :html-math-custom-function
                  (lambda (_i) "test"))))
     ($l (t--build-math-config info) "test\n"))
   (let ((info '( :with-latex custom
-                 :html-math-custom-config-function
+                 :html-math-custom-function
                  t-math-custom-config-function-default)))
     ($l (t--build-math-config info) "")))
 
