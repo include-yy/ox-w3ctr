@@ -2739,20 +2739,20 @@ tags to be included in the HTML head."
    (format "<title>%s</title>\n" (t--get-info-title-raw info))
    ;; Rest <meta> tags
    (t--build-meta-tags info)))
-
+
 ;;;; CSS export.
 ;; Options:
 ;; - `org-w3ctr-default-style'
 ;; - `org-w3ctr-default-style-file'
-;; - :html-style (`org-w3ctr-head-include-default-style')
+;; - :html-style (`org-w3ctr-head-include-default-style') (not here)
 
 (defun t--load-css (_info)
-  "Load CSS content for HTML export from configured sources.
+  "Load CSS for HTML export from configured sources.
 
 This function handles CSS loading in the following priority:
-. If `org-w3ctr-default-style' is non-empty string, use it directly
-. If `org-w3ctr-default-style-file' is non-nil, load CSS from that file
-. If both are empty/nil, return empty string (no styles)
+  If `org-w3ctr-default-style' is non-empty string, use it directly.
+  If `org-w3ctr-default-style-file' is non-nil, load CSS from that file.
+  If both are empty/nil, return empty string (no styles).
 
 The loaded CSS will be wrapped in HTML <style> tags when non-empty."
   (declare (ftype (function (t) string))
@@ -2763,13 +2763,19 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
     (unless (stringp style)
       (error "Default CSS is not string"))
     (cond
-     ((not (string= "" style)) (setq it style))
+     ((t--nw-p style) (setq it style))
      ((null file) (setq it nil))
      (t (setq it (t--load-file file)
               t-default-style it)))
     (if (null it) ""
       (format "<style>\n%s\n</style>\n" it))))
 
+;; Maybe we don't need it.
+(defun t-clear-css-cache ()
+  "Set `org-w3ctr-default-style' to empty string \"\"."
+  (interactive)
+  (setq t-default-style ""))
+
 ;;;; Mathjax config
 ;; Options:
 ;; - :with-latex (`org-w3ctr-with-latex')
