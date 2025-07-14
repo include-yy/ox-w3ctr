@@ -2609,7 +2609,7 @@ indicates that no enclosing brackets should be applied."
 ;; - `org-w3ctr-meta-tags'
 ;; - :html-viewport (`org-w3ctr-viewport')
 
-(defun t--get-charset ()
+(defun t--ensure-charset-utf8 ()
   "Validate `org-w3ctr-coding-system' and ensure its MIME is UTF-8.
 Signals an error if `org-w3ctr-coding-system' is invalid or not UTF-8."
   (declare (ftype (function () string))
@@ -2734,7 +2734,7 @@ tags to be included in the HTML head."
    (when-let* ((ts (t--get-info-file-timestamp info)))
      (format "<!-- %s -->\n" ts))
    ;; <meta> charset
-   (t--build-meta-entry "charset" (t--get-charset))
+   (t--build-meta-entry "charset" (t--ensure-charset-utf8))
    ;; <meta> viewport
    (t--build-viewport-options info)
    ;; <title>
