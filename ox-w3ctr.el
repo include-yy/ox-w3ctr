@@ -397,7 +397,9 @@ UTF-8 is the de facto standard for modern web content. The default
 value `utf-8-unix' is strongly recommended and should not be changed
 unless you have specific legacy system requirements."
   :group 'org-export-w3ctr
-  :type 'coding-system)
+  :type '(radio (const utf-8-unix)
+                (const utf-8-dos)
+                (const utf-8-mac)))
 
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
   "Function to generate timestamp for exported files at top place.
