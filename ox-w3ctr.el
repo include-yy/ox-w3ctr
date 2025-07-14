@@ -2594,7 +2594,7 @@ indicates that no enclosing brackets should be applied."
                     (`fun #'t--format-timestamp-fun)
                     (o (error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
-
+
 ;;; Template and Inner Template
 
 ;;;; <title> and <meta> tags export.
@@ -2610,15 +2610,16 @@ indicates that no enclosing brackets should be applied."
 ;; - :html-viewport (`org-w3ctr-viewport')
 
 (defun t--get-charset ()
-  "Determine charset by `org-w3ctr-coding-system'."
+  "Validate `org-w3ctr-coding-system' and ensure its MIME is UTF-8.
+Signals an error if `org-w3ctr-coding-system' is invalid or not UTF-8."
   (declare (ftype (function () string))
            (important-return-value t))
   (let* ((c t-coding-system)
          (h (lambda (_) (t-error "Invalid coding system: %s" c))))
-    (unless (symbolp c) (funcall h nil))
-    (if (null c) "utf-8" ; default choice.
-      (handler-bind ((coding-system-error h))
-        (symbol-name (coding-system-get c :mime-charset))))))
+    (unless (symbolp c) (funcall h c))
+    (handler-bind ((coding-system-error h))
+      (let* ((uc (coding-system-get c :mime-charset)))
+        (if (eq uc 'utf-8) "utf-8" (funcall h c))))))
 
 (defun t--get-info-author-raw (info)
   "Get author from INFO if :with-author is non-nil."
