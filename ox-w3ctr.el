@@ -2660,6 +2660,7 @@ If title exists, is non-whitespace, and can be converted to plain text,
 return the text.  Otherwise return a left-to-right mark (invisible)."
   (declare (ftype (function (list) string))
            (important-return-value t))
+  ;; HTML always need <title>, so just ignore :with-title.
   (if-let* ((title (t--pget info :title))
             (str0 (org-element-interpret-data title))
             (str (t--nw-trim str0))
