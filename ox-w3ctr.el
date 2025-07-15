@@ -2601,15 +2601,66 @@ indicates that no enclosing brackets should be applied."
 
 ;;;; <title> and <meta> tags export.
 ;; Options:
-;; - `org-w3ctr-coding-system'
 ;; - :author #+AUTHOR: (`user-full-name')
 ;; - :with-author (`org-export-with-author')
+;; - `org-w3ctr-meta-tags'
+;; - `org-w3ctr-coding-system'
 ;; - :title #+TITLE:
 ;; - :with-title (`org-export-with-title')
 ;; - :time-stamp-file (`org-export-timestamp-file')
 ;; - :html-file-timestamp-function (`org-w3ctr-file-timestamp-function')
-;; - `org-w3ctr-meta-tags'
 ;; - :html-viewport (`org-w3ctr-viewport')
+
+(defun t--build-meta-entry ( label identity
+                             &optional content-format
+                             &rest content-formatters)
+  "Build a meta tag using the provided information.
+
+Construct <meta> tag of form <meta LABEL=\"IDENTITY\">,
+or when CONTENT-FORMAT is present:
+<meta LABEL=\"IDENTITY\" content=\"{content}\">
+
+Here {content} is determined by applying any CONTENT-FORMATTERS
+to the CONTENT-FORMAT and encoding the result as plain text."
+  (declare (ftype (function ( string string
+                              &optional string &rest t)
+                            string))
+           (pure t) (important-return-value t))
+  (concat
+   "<meta " (format "%s=\"%s\"" label identity)
+   (when content-format
+     (format " content=\"%s\""
+             (t--encode-plain-text*
+              (if (not content-formatters) content-format
+                (apply #'format content-format content-formatters)))))
+   ">\n"))
+
+(defun t--get-info-author-raw (info)
+  "Get author from INFO if :with-author is non-nil."
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
+  (when-let* (((t--pget info :with-author))
+              (a (t--pget info :author)))
+    ;; Return raw Org syntax.
+    ;; #+author is parsed as Org object.
+    (t--nw-trim (org-element-interpret-data a))))
+
+(defun t-meta-tags-default (info)
+  "A default value for `org-w3ctr-meta-tags'.
+
+Generate a list items, each of which is a list of arguments
+that can be passed to `org-w3ctr--build-meta-entry', to generate meta
+tags to be included in the HTML head."
+  (declare (ftype (function (list) list))
+           (important-return-value t))
+  (list
+   (when-let* ((author (t--get-info-author-raw info)))
+     (list "name" "author" author))
+   (when-let* ((desc (t--nw-trim (t--pget info :description))))
+     (list "name" "description" desc))
+   (when-let* ((keyw (t--nw-trim (t--pget info :keywords))))
+     (list "name" "keywords" keyw))
+   '("name" "generator" "Org Mode")))
 
 (defun t--ensure-charset-utf8 ()
   "Validate `org-w3ctr-coding-system' and ensure its MIME is UTF-8.
@@ -2622,16 +2673,6 @@ Signals an error if `org-w3ctr-coding-system' is invalid or not UTF-8."
     (handler-bind ((coding-system-error h))
       (let* ((uc (coding-system-get c :mime-charset)))
         (if (eq uc 'utf-8) "utf-8" (funcall h c))))))
-
-(defun t--get-info-author-raw (info)
-  "Get author from INFO if :with-author is non-nil."
-  (declare (ftype (function (list) (or null string)))
-           (important-return-value t))
-  (when-let* (((t--pget info :with-author))
-              (a (t--pget info :author)))
-    ;; Return raw Org syntax.
-    ;; #+author is parsed as Org object.
-    (t--nw-trim (org-element-interpret-data a))))
 
 (defun t--get-info-title-raw (info)
   "Extract title from INFO plist and return as plain text.
@@ -2664,47 +2705,6 @@ return the text.  Otherwise return a left-to-right mark (invisible)."
         (funcall fun info)
       (t-error ":html-file-timestamp-function is not valid: %s"
                (t--pget info :html-file-timestamp-function)))))
-
-(defun t--build-meta-entry ( label identity
-                             &optional content-format
-                             &rest content-formatters)
-  "Build a meta tag using the provided information.
-
-Construct <meta> tag of form <meta LABEL=\"IDENTITY\">,
-or when CONTENT-FORMAT is present:
-<meta LABEL=\"IDENTITY\" content=\"{content}\">
-
-Here {content} is determined by applying any CONTENT-FORMATTERS
-to the CONTENT-FORMAT and encoding the result as plain text."
-  (declare (ftype (function ( string string
-                              &optional string &rest t)
-                            string))
-           (pure t) (important-return-value t))
-  (concat
-   "<meta " (format "%s=\"%s\"" label identity)
-   (when content-format
-     (format " content=\"%s\""
-             (t--encode-plain-text*
-              (if (not content-formatters) content-format
-                (apply #'format content-format content-formatters)))))
-   ">\n"))
-
-(defun t-meta-tags-default (info)
-  "A default value for `org-w3ctr-meta-tags'.
-
-Generate a list items, each of which is a list of arguments
-that can be passed to `org-w3ctr--build-meta-entry', to generate meta
-tags to be included in the HTML head."
-  (declare (ftype (function (list) list))
-           (important-return-value t))
-  (list
-   (when-let* ((author (t--get-info-author-raw info)))
-     (list "name" "author" author))
-   (when-let* ((desc (t--nw-trim (t--pget info :description))))
-     (list "name" "description" desc))
-   (when-let* ((keyw (t--nw-trim (t--pget info :keywords))))
-     (list "name" "keywords" keyw))
-   '("name" "generator" "Org Mode")))
 
 (defun t--build-meta-tags (info)
   "Build HTML <meta> tags get from `org-w3ctr-meta-tags'."
