@@ -390,6 +390,22 @@ These format strings follow the conventions of `format-time-string'.
   :group 'org-export-w3ctr
   :type 'function)
 
+(defcustom t-meta-tags #'t-meta-tags-default
+  "Form that is used to produce <meta> tags in the HTML head.
+
+This can be either:
+- A list where each item is a list with the form of (NAME VALUE CONTENT)
+  to be passed to `org-w3ctr--build-meta-entry'.  Any nil items are
+  ignored.
+- A function that takes the INFO plist as single argument and returns
+  such a list of items."
+  :group 'org-export-w3ctr
+  :type '(choice
+          (repeat (list (string :tag "Meta label")
+                        (string :tag "label value")
+                        (string :tag "Content value")))
+          function))
+
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export.
 
@@ -411,21 +427,6 @@ The default value is `org-w3ctr-file-timestamp-default', which generates
 timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :group 'org-export-w3ctr
   :type 'function)
-
-(defcustom t-meta-tags #'t-meta-tags-default
-  "Form that is used to produce <meta> tags in the HTML head.
-
-This can be either:
-. A list where each item is a list with the form of (NAME VALUE CONTENT).
-  Any nil items are ignored.
-. A function that takes the INFO plist as single argument and returns
-  such a list of items."
-  :group 'org-export-w3ctr
-  :type '(choice
-          (repeat (list (string :tag "Meta label")
-                        (string :tag "label value")
-                        (string :tag "Content value")))
-          function))
 
 (defcustom t-viewport '((width "device-width")
                         (initial-scale "1")
@@ -2601,15 +2602,71 @@ indicates that no enclosing brackets should be applied."
 
 ;;;; <title> and <meta> tags export.
 ;; Options:
-;; - :author #+AUTHOR: (`user-full-name')
-;; - :with-author (`org-export-with-author')
-;; - `org-w3ctr-meta-tags'
-;; - `org-w3ctr-coding-system'
-;; - :title #+TITLE:
-;; - :with-title (`org-export-with-title')
 ;; - :time-stamp-file (`org-export-timestamp-file')
 ;; - :html-file-timestamp-function (`org-w3ctr-file-timestamp-function')
+;; - `org-w3ctr-coding-system'
 ;; - :html-viewport (`org-w3ctr-viewport')
+;; - :author #+AUTHOR: (`user-full-name')
+;; - :with-author (`org-export-with-author')
+;; - :title #+TITLE:
+;; - :with-title (`org-export-with-title')
+;; - `org-w3ctr-meta-tags'
+
+(defun t-file-timestamp-default-function (_info)
+  "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+  (declare (ftype (function (t) string))
+           (side-effect-free t) (important-return-value t))
+  (format-time-string "%FT%RZ" nil t))
+
+(defun t--get-info-file-timestamp (info)
+  "Get file timestamp from INFO plist."
+  (declare (ftype (function (list) string))
+           (important-return-value t))
+  (when (t--pget info :time-stamp-file)
+    (if-let* ((fun (t--pget info :html-file-timestamp-function))
+              ((functionp fun)))
+        (funcall fun info)
+      (t-error ":html-file-timestamp-function is not valid: %s"
+               (t--pget info :html-file-timestamp-function)))))
+
+(defun t--ensure-charset-utf8 ()
+  "Validate `org-w3ctr-coding-system' and ensure its MIME is UTF-8.
+Signals an error if `org-w3ctr-coding-system' is invalid or not UTF-8."
+  (declare (ftype (function () string))
+           (important-return-value t))
+  (let* ((c t-coding-system)
+         (h (lambda (_) (t-error "Invalid coding system: %s" c))))
+    (unless (symbolp c) (funcall h c))
+    (handler-bind ((coding-system-error h))
+      (let* ((uc (coding-system-get c :mime-charset)))
+        (if (eq uc 'utf-8) "utf-8" (funcall h c))))))
+
+(defun t--build-viewport-options (info)
+  "Build <meta> viewport tags."
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
+  (when-let* ((opts (cl-remove-if-not
+                     #'t--nw-p (t--pget info :html-viewport)
+                     :key #'cadr)))
+    (t--build-meta-entry
+     "name" "viewport"
+     (mapconcat (pcase-lambda (`(,k ,v)) (format "%s=%s" k v))
+                opts ", "))))
+
+(defun t--get-info-title-raw (info)
+  "Extract title from INFO plist and return as plain text.
+
+If title exists, is non-whitespace, and can be converted to plain text,
+return the text.  Otherwise return a left-to-right mark (invisible)."
+  (declare (ftype (function (list) string))
+           (important-return-value t))
+  (if-let* ((title (t--pget info :title))
+            (str0 (org-element-interpret-data title))
+            (str (t--nw-trim str0))
+            (text (t-plain-text str info)))
+      ;; Set title to an invisible character instead of
+      ;; leaving it empty, which is invalid.
+      text "&lrm;"))
 
 (defun t--build-meta-entry ( label identity
                              &optional content-format
@@ -2662,50 +2719,6 @@ tags to be included in the HTML head."
      (list "name" "keywords" keyw))
    '("name" "generator" "Org Mode")))
 
-(defun t--ensure-charset-utf8 ()
-  "Validate `org-w3ctr-coding-system' and ensure its MIME is UTF-8.
-Signals an error if `org-w3ctr-coding-system' is invalid or not UTF-8."
-  (declare (ftype (function () string))
-           (important-return-value t))
-  (let* ((c t-coding-system)
-         (h (lambda (_) (t-error "Invalid coding system: %s" c))))
-    (unless (symbolp c) (funcall h c))
-    (handler-bind ((coding-system-error h))
-      (let* ((uc (coding-system-get c :mime-charset)))
-        (if (eq uc 'utf-8) "utf-8" (funcall h c))))))
-
-(defun t--get-info-title-raw (info)
-  "Extract title from INFO plist and return as plain text.
-
-If title exists, is non-whitespace, and can be converted to plain text,
-return the text.  Otherwise return a left-to-right mark (invisible)."
-  (declare (ftype (function (list) string))
-           (important-return-value t))
-  (if-let* ((title (t--pget info :title))
-            (str0 (org-element-interpret-data title))
-            (str (t--nw-trim str0))
-            (text (t-plain-text str info)))
-      ;; Set title to an invisible character instead of
-      ;; leaving it empty, which is invalid.
-      text "&lrm;"))
-
-(defun t-file-timestamp-default-function (_info)
-  "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
-  (declare (ftype (function (t) string))
-           (side-effect-free t) (important-return-value t))
-  (format-time-string "%FT%RZ" nil t))
-
-(defun t--get-info-file-timestamp (info)
-  "Get file timestamp from INFO plist."
-  (declare (ftype (function (list) string))
-           (important-return-value t))
-  (when (t--pget info :time-stamp-file)
-    (if-let* ((fun (t--pget info :html-file-timestamp-function))
-              ((functionp fun)))
-        (funcall fun info)
-      (t-error ":html-file-timestamp-function is not valid: %s"
-               (t--pget info :html-file-timestamp-function)))))
-
 (defun t--build-meta-tags (info)
   "Build HTML <meta> tags get from `org-w3ctr-meta-tags'."
   (declare (ftype (function (list) string))
@@ -2715,18 +2728,6 @@ return the text.  Otherwise return a left-to-right mark (invisible)."
    (delq nil (if (not (functionp t-meta-tags)) t-meta-tags
                (funcall t-meta-tags info)))))
 
-(defun t--build-viewport-options (info)
-  "Build <meta> viewport tags."
-  (declare (ftype (function (list) (or null string)))
-           (important-return-value t))
-  (when-let* ((opts (cl-remove-if-not
-                     #'t--nw-p (t--pget info :html-viewport)
-                     :key #'cadr)))
-    (t--build-meta-entry
-     "name" "viewport"
-     (mapconcat (pcase-lambda (`(,k ,v)) (format "%s=%s" k v))
-                opts ", "))))
-
 (defun t--build-meta-info (info)
   "Return meta tags for exported document."
   (declare (ftype (function (list) string))
@@ -2735,15 +2736,15 @@ return the text.  Otherwise return a left-to-right mark (invisible)."
    ;; timestamp
    (when-let* ((ts (t--get-info-file-timestamp info)))
      (format "<!-- %s -->\n" ts))
-   ;; <meta> charset
+   ;; charset
    (t--build-meta-entry "charset" (t--ensure-charset-utf8))
-   ;; <meta> viewport
+   ;; viewport
    (t--build-viewport-options info)
-   ;; <title>
+   ;; title
    (format "<title>%s</title>\n" (t--get-info-title-raw info))
-   ;; Rest <meta> tags
+   ;; meta tags
    (t--build-meta-tags info)))
-
+
 ;;;; CSS export.
 ;; Options:
 ;; - `org-w3ctr-default-style'
