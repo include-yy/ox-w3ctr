@@ -389,22 +389,17 @@ These format strings follow the conventions of `format-time-string'.
   "Custom timestamp format function."
   :group 'org-export-w3ctr
   :type 'function)
+
+(defcustom t-file-timestamp-function #'t-file-timestamp-default-function
+  "Function to generate timestamp for exported files at top place.
 
-(defcustom t-meta-tags #'t-meta-tags-default
-  "Form that is used to produce <meta> tags in the HTML head.
+This function should take INFO as the only argument and return a
+string representing the timestamp.
 
-This can be either:
-- A list where each item is a list with the form of (NAME VALUE CONTENT)
-  to be passed to `org-w3ctr--build-meta-entry'.  Any nil items are
-  ignored.
-- A function that takes the INFO plist as single argument and returns
-  such a list of items."
+The default value is `org-w3ctr-file-timestamp-default', which generates
+timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :group 'org-export-w3ctr
-  :type '(choice
-          (repeat (list (string :tag "Meta label")
-                        (string :tag "label value")
-                        (string :tag "Content value")))
-          function))
+  :type 'function)
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export.
@@ -416,17 +411,6 @@ unless you have specific legacy system requirements."
   :type '(radio (const utf-8-unix)
                 (const utf-8-dos)
                 (const utf-8-mac)))
-
-(defcustom t-file-timestamp-function #'t-file-timestamp-default-function
-  "Function to generate timestamp for exported files at top place.
-
-This function should take INFO as the only argument and return a
-string representing the timestamp.
-
-The default value is `org-w3ctr-file-timestamp-default', which generates
-timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
-  :group 'org-export-w3ctr
-  :type 'function)
 
 (defcustom t-viewport '((width "device-width")
                         (initial-scale "1")
@@ -473,6 +457,22 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
                 (choice (const :tag "unset" "")
                         (const "true")
                         (const "false"))))))
+
+(defcustom t-meta-tags #'t-meta-tags-default
+  "Form that is used to produce <meta> tags in the HTML head.
+
+This can be either:
+- A list where each item is a list with the form of (NAME VALUE CONTENT)
+  to be passed to `org-w3ctr--build-meta-entry'.  Any nil items are
+  ignored.
+- A function that takes the INFO plist as single argument and returns
+  such a list of items."
+  :group 'org-export-w3ctr
+  :type '(choice
+          (repeat (list (string :tag "Meta label")
+                        (string :tag "label value")
+                        (string :tag "Content value")))
+          function))
 
 (defcustom t-head-include-default-style t
   "Non-nil means include the default style in exported HTML files."
@@ -2612,6 +2612,30 @@ indicates that no enclosing brackets should be applied."
 ;; - :with-title (`org-export-with-title')
 ;; - `org-w3ctr-meta-tags'
 
+(defun t--build-meta-entry ( label identity
+                             &optional content-format
+                             &rest content-formatters)
+  "Build a meta tag using the provided information.
+
+Construct <meta> tag of form <meta LABEL=\"IDENTITY\">,
+or when CONTENT-FORMAT is present:
+<meta LABEL=\"IDENTITY\" content=\"{content}\">
+
+Here {content} is determined by applying any CONTENT-FORMATTERS
+to the CONTENT-FORMAT and encoding the result as plain text."
+  (declare (ftype (function ( string string
+                              &optional string &rest t)
+                            string))
+           (pure t) (important-return-value t))
+  (concat
+   "<meta " (format "%s=\"%s\"" label identity)
+   (when content-format
+     (format " content=\"%s\""
+             (t--encode-plain-text*
+              (if (not content-formatters) content-format
+                (apply #'format content-format content-formatters)))))
+   ">\n"))
+
 (defun t-file-timestamp-default-function (_info)
   "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   (declare (ftype (function (t) string))
@@ -2668,30 +2692,6 @@ return the text.  Otherwise return a left-to-right mark (invisible)."
       ;; Set title to an invisible character instead of
       ;; leaving it empty, which is invalid.
       text "&lrm;"))
-
-(defun t--build-meta-entry ( label identity
-                             &optional content-format
-                             &rest content-formatters)
-  "Build a meta tag using the provided information.
-
-Construct <meta> tag of form <meta LABEL=\"IDENTITY\">,
-or when CONTENT-FORMAT is present:
-<meta LABEL=\"IDENTITY\" content=\"{content}\">
-
-Here {content} is determined by applying any CONTENT-FORMATTERS
-to the CONTENT-FORMAT and encoding the result as plain text."
-  (declare (ftype (function ( string string
-                              &optional string &rest t)
-                            string))
-           (pure t) (important-return-value t))
-  (concat
-   "<meta " (format "%s=\"%s\"" label identity)
-   (when content-format
-     (format " content=\"%s\""
-             (t--encode-plain-text*
-              (if (not content-formatters) content-format
-                (apply #'format content-format content-formatters)))))
-   ">\n"))
 
 (defun t--get-info-author-raw (info)
   "Get author from INFO if :with-author is non-nil."
