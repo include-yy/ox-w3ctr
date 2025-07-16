@@ -2600,7 +2600,7 @@ indicates that no enclosing brackets should be applied."
                     (`fun #'t--format-timestamp-fun)
                     (o (error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
-
+
 ;;; Template and Inner Template
 
 ;;;; <title> and <meta> tags export.

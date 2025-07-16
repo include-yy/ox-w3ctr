@@ -2086,7 +2086,7 @@ int a = 1;</code></p>\n</details>")
     ($l (t--build-meta-tags nil) "<meta a=\"b\" content=\"test\">\n"))
   (let ((t-meta-tags '(("a" "b" nil))))
     ($l (t--build-meta-tags nil) "<meta a=\"b\">\n")))
-
+
 (ert-deftest t--load-css ()
   "Tests for `org-w3ctr--load-css'."
   (let ((t-style nil) (t-style-file nil))
@@ -2127,6 +2127,11 @@ int a = 1;</code></p>\n</details>")
                  t-math-custom-default-function)))
     ($l (t--build-math-config info) "")))
 
+(ert-deftest t--use-default-style-p ()
+  "Tests for `org-w3ctr--use-default-styple-p'."
+  ($n (t--use-default-style-p nil))
+  ($s (t--use-default-style-p '(:html-head-include-style t))))
+
 (ert-deftest t--has-math-p ()
   "Tests for `org-w3ctr--has-math-p'."
   (cl-flet ((mkinfo (str) `( :with-latex t
@@ -2140,12 +2145,7 @@ int a = 1;</code></p>\n</details>")
     ($s (t--has-math-p (mkinfo "\\(1+2\\)")))
     ($s (t--has-math-p (mkinfo "\\[1+2\\]")))
     ($s (t--has-math-p (mkinfo "\\begin_equation\n123\n\\end_equation")))))
-
-(ert-deftest t--use-default-style-p ()
-  "Tests for `org-w3ctr--use-default-styple-p'."
-  ($n (t--use-default-style-p nil))
-  ($s (t--use-default-style-p '(:html-head-include-style t))))
-
+
 (ert-deftest t-legacy-format-home/up ()
   "Tests for `org-w3ctr-legacy-format-home/up'."
   (let ((info '(:html-link-up "" :html-link-home "")))
