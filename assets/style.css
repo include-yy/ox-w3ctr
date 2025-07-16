@@ -1792,6 +1792,20 @@ aside.example .marker>a.self-link{color:inherit}
     border: none;
 }
 
+#navbar {
+    position: fixed;
+    z-index: 3;
+    top: 0; right: 0.5em;
+    margin: 0;
+    min-height: 1.5em;
+    font-size: 1.5em;
+}
+#navbar > a {
+    padding: .1em 0.25em;
+    margin: 0;
+    border: none;
+}
+
 pre > code.src {
     display: block;
     padding: 1em;

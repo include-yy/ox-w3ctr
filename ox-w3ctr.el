@@ -631,8 +631,8 @@ specified in document.  Should be a URL pointing to the parent page."
   :type 'string)
 
 (defcustom t-home/up-format
-  "<div id=\"home-and-up\">\n <a href=\"%s\"> UP </a>
- <a href=\"%s\"> HOME </a>\n</div>"
+  "<nav id=\"navbar\">\n <a href=\"%s\"> UP </a>
+ <a href=\"%s\"> HOME </a>\n</nav>"
   "Formatting string for legacy home/up navigation links.
 
 Used when :html-link-home/up is not specified. The first %s is
@@ -651,8 +651,7 @@ Example: [(\"../index.html\" . \"UP\")
   :group 'org-export-w3ctr
   :type 'sexp)
 
-(defcustom t-format-home/up-function
-  #'t-format-home/up-default-function
+(defcustom t-format-home/up-function #'t-format-home/up-default-function
   "Function used to generate home/up navigation links."
   :group 'org-export-w3ctr
   :type 'symbol)
@@ -3008,12 +3007,12 @@ the file."
 Generates HTML navigation links using either :html-link-up or
 :html-link-home from the INFO plist, falling back to each other when
 empty. Returns nil if both links are empty strings."
-  (declare (ftype (function (plist) (or null string)))
-           (pure t) (important-return-value t))
-  (let ((link-up (t--nw-trim (plist-get info :html-link-up)))
-        (link-home (t--nw-trim (plist-get info :html-link-home))))
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
+  (let ((link-up (t--nw-trim (t--pget info :html-link-up)))
+        (link-home (t--nw-trim (t--pget info :html-link-home))))
     (unless (and (null link-up) (null link-home))
-      (format (plist-get info :html-home/up-format)
+      (format (t--pget info :html-home/up-format)
               (or link-up link-home) (or link-home link-up)))))
 
 ;;;; New home and up
