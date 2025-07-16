@@ -389,7 +389,7 @@ These format strings follow the conventions of `format-time-string'.
   "Custom timestamp format function."
   :group 'org-export-w3ctr
   :type 'function)
-
+
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
   "Function to generate timestamp for exported files at top place.
 
@@ -518,15 +518,15 @@ The default value points to a `style.css' file inside the package's
          ;; Refresh cached CSS string.
          (setq t-style ""))
   :type '(choice (const nil) file))
-
+
 (defcustom t-with-latex 'mathjax
   "Control how LaTeX math expressions are processed in HTML export.
 
 When non-nil, enables processing of LaTeX math snippets.  The value
 specifies the rendering method:
-. `mathjax': Render math using MathJax (client-side)
-. `mathml' : Convert to MathML markup using MathJax  (server-side)
-. `custom' : Use custom option and function to do what you want."
+- `mathjax': Render math using MathJax (client-side)
+- `mathml' : Convert to MathML markup using MathJax (server-side)
+- `custom' : Use custom option and function to do what you want."
   :group 'org-export-w3ctr
   :type '(choice
           (const :tag "Disable math processing" nil)
@@ -588,7 +588,7 @@ See https://developer.mozilla.org/en-US/docs/Web/MathML for details."
 Used when :with-latex is set to `custom'."
   :group 'org-export-w3ctr
   :type 'function)
-
+
 (defcustom t-head ""
   "Raw HTML content to insert into the <head> section.
 
@@ -613,7 +613,7 @@ or for publication projects using the :html-head-extra property."
   :type 'string)
 ;;;###autoload
 (put 't-head-extra 'safe-local-variable 'stringp)
-
+
 (defcustom t-link-home ""
   "Default value for :html-link-home in org export.
 
@@ -2748,7 +2748,7 @@ tags to be included in the HTML head."
    (format "<title>%s</title>\n" (t--get-info-title-raw info))
    ;; meta tags
    (t--build-meta-tags info)))
-
+
 ;;;; Default CSS export.
 ;; Options:
 ;; - :html-head-include-style (`org-w3ctr-head-include-style')
@@ -2799,7 +2799,7 @@ the file."
 
 (defun t--build-math-config (info)
   "Insert the user setup into the mathjax template."
-  (declare (ftype (function (plist) string))
+  (declare (ftype (function (list) string))
            (important-return-value t))
   (let* ((type (t--pget info :with-latex))
          (key (pcase type
@@ -2817,9 +2817,15 @@ the file."
 ;;;; Rest of <head>
 ;; No options
 
+(defun t--use-default-style-p (info)
+  "Test if org export use default CSS style."
+  (declare (ftype (function (list) boolean))
+           (important-return-value t))
+  (and (t--pget info :html-head-include-style) t))
+
 (defun t--has-math-p (info)
   "Test if org doc has latex fragment or latex environment."
-  (declare (ftype (function (plist) boolean))
+  (declare (ftype (function (list) boolean))
            (important-return-value t))
   (and (t--pget info :with-latex)
        (org-element-map (t--pget info :parse-tree)
@@ -2827,16 +2833,10 @@ the file."
          #'identity info t nil t)
        t))
 
-(defun t--use-default-style-p (info)
-  "Test if org export use default CSS style."
-  (declare (ftype (function (plist) boolean))
-           (important-return-value t))
-  (and (t--pget info :html-head-include-style) t))
-
 ;; FIXME: Consider add code hightlight (such as highlight.js) codes.
 (defun t--build-head (info)
   "Return information for the <head>...</head> of the HTML output."
-  (declare (ftype (function (plist) string))
+  (declare (ftype (function (list) string))
            (important-return-value t))
   (concat
    "<head>\n"
