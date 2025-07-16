@@ -473,37 +473,40 @@ This can be either:
                         (string :tag "label value")
                         (string :tag "Content value")))
           function))
-
+
 (defcustom t-head-include-style t
-  "Non-nil means include the default style in exported HTML files."
+  "Control whether to include CSS styles in the exported HTML.
+
+When non-nil, the styles defined by `t-style' or loaded from
+`t-style-file' will be embedded within a <style> tag in the HTML <head>."
   :group 'org-export-w3ctr
   :type 'boolean)
-;;;###autoload
-(put 't-head-include-style 'safe-local-variable 'booleanp)
 
 (defcustom t-style ""
-  "Default CSS style content for exported HTML documents.
+  "CSS rules to be embedded directly into the exported HTML.
 
-When non-empty, this setting takes precedence over and will override
-`org-w3ctr-default-style-file' behavior (external CSS file loading).
+When this string is not empty, it *takes precedence* over
+`org-w3ctr-style-file'.
 
-This string contains raw CSS rules that will be embedded in a <style>
-tag in the exported HTML's <head> section. Example:
-  \"body { font-family: sans-serif; margin: 2em; }\""
+This variable is also used as a *cache* for styles loaded from
+`org-w3ctr-style-file'. If you modify the source file, you must clear
+this cache (e.g., via the `org-w3ctr-clear-css' command) to see your
+changes."
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-style-file (file-name-concat
-                         t--dir "assets" "style.css")
-  "Default CSS stylesheet file for HTML export.
+(defcustom t-style-file (file-name-concat t--dir "assets" "style.css")
+   "Path to a CSS file to load styles from.
 
-This should be either nil (no default stylesheet) or an absolute
-path to a CSS file.  When set to a path, if `:html-style' is non-nil
-and `org-w3ctr-default-style' is an empty string, the CSS code will be
-loaded from the specified file and set as the value of this option.
+This path must be *absolute*. This option is used as a fallback when
+`org-w3ctr-style' is empty.
 
-The default value points to \"assets/style.css\" relative to the
-package's installation directory `org-w3ctr--dir'."
+When you set a new file path here, the `org-w3ctr-style' cache is
+automatically cleared to ensure the new file is loaded on the next
+export.
+
+The default value points to a `style.css' file inside the package's
+`assets' directory."
   :group 'org-export-w3ctr
   :initialize #'custom-initialize-default
   :set (lambda (symbol value)
@@ -515,7 +518,7 @@ package's installation directory `org-w3ctr--dir'."
          ;; Refresh cached CSS string.
          (setq t-style ""))
   :type '(choice (const nil) file))
-
+
 (defcustom t-with-latex 'mathjax
   "Control how LaTeX math expressions are processed in HTML export.
 
@@ -2773,11 +2776,11 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
 (defun t-clear-css ()
   "Set `org-w3ctr-style' to empty string \"\".
 
-When CSS is loaded from `org-w3ctr-style-file', its content is
-cached in the `org-w3ctr-style' variable to improve performance.
-If you modify the external CSS file and want the changes to take
-effect on the next export, run this command to clear the cache.
-This forces the exporter to re-read the file."
+When CSS is loaded from `org-w3ctr-style-file', its content is cached in
+`org-w3ctr-style' to improve performance.  If you modify the external
+CSS file and want the changes to take effect on the next export, run
+this command to clear the cache.  This forces the exporter to re-read
+the file."
   (interactive)
   (setq t-style ""))
 
