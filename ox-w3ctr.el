@@ -2726,7 +2726,7 @@ tags to be included in the HTML head."
            (important-return-value t))
   (mapconcat
    (lambda (args) (apply #'t--build-meta-entry args))
-   (delq nil (if (not (functionp t-meta-tags)) t-meta-tags
+   (remq nil (if (not (functionp t-meta-tags)) t-meta-tags
                (funcall t-meta-tags info)))))
 
 (defun t--build-meta-info (info)
