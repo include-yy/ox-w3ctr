@@ -3026,7 +3026,7 @@ empty. Returns nil if both links are empty strings."
            (pure t) (important-return-value t))
   (format "<nav id=\"navbar\">\n%s\n</nav>\n" s))
 
-(defun t--format-nav-vector (v)
+(defun t--format-navbar-vector (v)
   "Submodule of `t-format-navbar-default-function'."
   (declare (ftype (function (vector) string))
            (pure t) (important-return-value t))

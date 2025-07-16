@@ -2153,101 +2153,115 @@ int a = 1;</code></p>\n</details>")
   (let ((info `( :html-link-up "1" :html-link-home "2"
                  :html-home/up-format ,t-home/up-format)))
     ($l (t-legacy-format-home/up info) "\
-<div id=\"home-and-up\">\n <a href=\"1\"> UP </a>
- <a href=\"2\"> HOME </a>\n</div>")
+<nav id=\"navbar\">\n <a href=\"1\"> UP </a>
+ <a href=\"2\"> HOME </a>\n</nav>")
     (setq info (plist-put info :html-link-home ""))
     ($l (t-legacy-format-home/up info) "\
-<div id=\"home-and-up\">\n <a href=\"1\"> UP </a>
- <a href=\"1\"> HOME </a>\n</div>")
+<nav id=\"navbar\">\n <a href=\"1\"> UP </a>
+ <a href=\"1\"> HOME </a>\n</nav>")
     (setq info (plist-put info :html-link-up ""))
     (setf (plist-get info :html-link-home) "2")
     ($l (t-legacy-format-home/up info) "\
-<div id=\"home-and-up\">\n <a href=\"2\"> UP </a>
- <a href=\"2\"> HOME </a>\n</div>"))
+<nav id=\"navbar\">\n <a href=\"2\"> UP </a>
+ <a href=\"2\"> HOME </a>\n</nav>"))
   (t-check-element-values
    #'t-legacy-format-home/up
-   '(("#+html_link_up: https://example.com"
-      "<div id=\"home-and-up\">\n <a href=\"https://example.com\"> UP </a>\n <a href=\"https://example.com\"> HOME </a>\n</div>")
+   `(("#+html_link_up: https://example.com"
+      ,($c "<nav id=\"navbar\">\n <a href=\"https://example.com\"> UP "
+           "</a>\n <a href=\"https://example.com\"> HOME </a>\n</nav>"))
      ("#+html_link_home: https://a.com"
-      "<div id=\"home-and-up\">\n <a href=\"https://a.com\"> UP </a>\n <a href=\"https://a.com\"> HOME </a>\n</div>")
+      ,($c "<nav id=\"navbar\">\n <a href=\"https://a.com\"> UP "
+           "</a>\n <a href=\"https://a.com\"> HOME </a>\n</nav>"))
      ("#+html_link_home: a\n#+html_link_up:b"
-      "<div id=\"home-and-up\">\n <a href=\"b\"> UP </a>\n <a href=\"a\"> HOME </a>\n</div>"))
+      ,($c "<nav id=\"navbar\">\n <a href=\"b\"> UP "
+           "</a>\n <a href=\"a\"> HOME </a>\n</nav>")))
    nil `( :html-link-up "" :html-link-home ""
-          :html-link-home/up nil
+          :html-link-navbar nil
           :html-home/up-format ,t-home/up-format)))
 
-(ert-deftest t--format-home/up-nav ()
-  "Tests for `org-w3ctr--format-home/up-nav'."
-  ($l (t--format-home/up-nav "") "<nav id=\"home-and-up\">\n\n</nav>\n")
-  ($l (t--format-home/up-nav "1") "<nav id=\"home-and-up\">\n1\n</nav>\n"))
+(ert-deftest t--format-navbar-nav ()
+  "Tests for `org-w3ctr--format-navbar-nav'."
+  ($l (t--format-navbar-nav "") "<nav id=\"navbar\">\n\n</nav>\n")
+  ($l (t--format-navbar-nav "1") "<nav id=\"navbar\">\n1\n</nav>\n"))
 
-(ert-deftest t--format-home/up-vector ()
-  "Tests for `org-w3ctr--format-home/up-vector'."
-  ($l "" (t--format-home/up-vector []))
-  ($l (t--format-home/up-vector [("a" . "b")]) "\
-<nav id=\"home-and-up\">
+(ert-deftest t--format-navbar-vector ()
+  "Tests for `org-w3ctr--format-navbar-vector'."
+  ($l "" (t--format-navbar-vector []))
+  ($l (t--format-navbar-vector [("a" . "b")]) "\
+<nav id=\"navbar\">
 <a href=\"a\">b</a>
 </nav>\n")
-  ($l (t--format-home/up-vector [("a" . "b") ("c" . "d")]) "\
-<nav id=\"home-and-up\">
+  ($l (t--format-navbar-vector [("a" . "b") ("c" . "d")]) "\
+<nav id=\"navbar\">
 <a href=\"a\">b</a>
 <a href=\"c\">d</a>
 </nav>\n"))
 
-(ert-deftest t--format-home/up-list ()
-  "Tests for `org-w3ctr--format-home/up-list'."
-  ($s (t--format-home/up-list nil nil))
+(ert-deftest t--format-navbar-list ()
+  "Tests for `org-w3ctr--format-navbar-list'."
+  ($s (t--format-navbar-list nil nil))
   (cl-letf (((symbol-function 'org-export-data)
              (lambda (x _info) x))
-            ((symbol-function 't--format-home/up-nav)
+            ((symbol-function 't--format-navbar-nav)
              (lambda (x) x)))
-    ($l (t--format-home/up-list '("a") nil) "a")
-    ($l (t--format-home/up-list '("a" "b" "c") nil) "a\nb\nc")
-    ($l (t--format-home/up-list '("a" " " "\t" "\n" "e") nil) "a\ne")))
+    ($l (t--format-navbar-list '("a") nil) "a")
+    ($l (t--format-navbar-list '("a" "b" "c") nil) "a\nb\nc")
+    ($l (t--format-navbar-list '("a" " " "\t" "\n" "e") nil) "a\ne")))
 
-(ert-deftest t-format-home/up-default-function ()
-  "Tests for `org-w3ctr-format-home/up-default-function'."
-  (let ((info '(:html-link-home/up [("a" . "b")])))
-    ($l (t-format-home/up-default-function info)
-        "<nav id=\"home-and-up\">\n<a href=\"a\">b</a>\n</nav>\n"))
-  (let ((info '(:html-link-home/up [("a" . "b") ("c" . "d")])))
-    ($l (t-format-home/up-default-function info)
-        "<nav id=\"home-and-up\">\n<a href=\"a\">b</a>\n<a href=\"c\">d</a>\n</nav>\n"))
-  (let ((info '(:html-link-home/up [(a . "b")])))
-    ($e! (t-format-home/up-default-function info)))
-  (let ((info '(:html-link-home/up [("a" . b)])))
-    ($e! (t-format-home/up-default-function info)))
-  (let ((info '(:html-link-home/up [(a . b)])))
-    ($e! (t-format-home/up-default-function info)))
+(ert-deftest t-format-navbar-default-function ()
+  "Tests for `org-w3ctr-format-navbar-default-function'."
+  ($it t-format-navbar-default-function
+    (let ((info '(:html-link-navbar [("a" . "b")])))
+      ($l (it info) "<nav id=\"navbar\">\n<a href=\"a\">b</a>\n</nav>\n"))
+    (let ((info '(:html-link-navbar [("a" . "b") ("c" . "d")])))
+      ($l (it info)
+          ($c "<nav id=\"navbar\">\n<a href=\"a\">b</a>\n"
+              "<a href=\"c\">d</a>\n</nav>\n")))
+    (let ((info '(:html-link-navbar [(a . "b")])))
+      ($e! (it info)))
+    (let ((info '(:html-link-navbar [("a" . b)])))
+      ($e! (it info)))
+    (let ((info '(:html-link-navbar [(a . b)])))
+      ($e! (it info))))
   (t-check-element-values
-   #'t-format-home/up-default-function
-   '(("" "<nav id=\"home-and-up\">\n<a href=\"https://example.com\">example</a>\n</nav>\n"))
-   nil '( :html-link-home/up [("https://example.com" . "example")]
-          :html-format-home/up-function
-          t-format-home/up-default-function))
+   #'t-format-navbar-default-function
+   `(("" ,($c "<nav id=\"navbar\">\n<a href=\"https://example.com\">"
+              "example</a>\n</nav>\n")))
+   nil '( :html-link-navbar [("https://example.com" . "example")]
+          :html-format-navbar-function
+          t-format-navbar-default-function))
   (t-check-element-values
-   #'t-format-home/up-default-function
-   '(("#+html_link_homeup: [[https://a.com][b]]"
-      "<nav id=\"home-and-up\">\n<a href=\"https://a.com\">b</a>\n</nav>\n")
-     ("#+html_link_homeup: [[https://a.com]]"
-      "<nav id=\"home-and-up\">\n<a href=\"https://a.com\">https://a.com</a>\n</nav>\n")
-     ("#+html_link_homeup: [[https://a.com]]\n#+html_link_homeup: [[https://b.com]]"
-      "<nav id=\"home-and-up\">\n<a href=\"https://a.com\">https://a.com</a>\n<a href=\"https://b.com\">https://b.com</a>\n</nav>\n")
-     ("#+html_link_homeup: [[https://a.com]] [[https://b.com]]"
-      "<nav id=\"home-and-up\">\n<a href=\"https://a.com\">https://a.com</a>\n<a href=\"https://b.com\">https://b.com</a>\n</nav>\n")
-     ("#+html_link_homeup: 1 2 3"
-      "<nav id=\"home-and-up\">\n1 2 3\n</nav>\n")
-     ("#+html_link_homeup: \n#+html_link_home: 123"
-      "<div id=\"home-and-up\">\n <a href=\"123\"> UP </a>\n <a href=\"123\"> HOME </a>\n</div>")
+   #'t-format-navbar-default-function
+   `(("#+html_link_navbar: [[https://a.com][b]]"
+      "<nav id=\"navbar\">\n<a href=\"https://a.com\">b</a>\n</nav>\n")
+     ("#+html_link_navbar: [[https://a.com]]"
+      ,($c "<nav id=\"navbar\">\n<a href=\"https://a.com\">"
+           "https://a.com</a>\n</nav>\n"))
+     (,($c "#+html_link_navbar: [[https://a.com]]\n"
+           "#+html_link_navbar: [[https://b.com]]")
+      ,($c "<nav id=\"navbar\">\n<a href=\"https://a.com\">"
+           "https://a.com</a>\n<a href=\"https://b.com\">"
+           "https://b.com</a>\n</nav>\n"))
+     ("#+html_link_navbar: [[https://a.com]] [[https://b.com]]"
+      ,($c "<nav id=\"navbar\">\n<a href=\"https://a.com\">"
+           "https://a.com</a>\n<a href=\"https://b.com\">"
+           "https://b.com</a>\n</nav>\n"))
+     ("#+html_link_navbar: 1 2 3"
+      "<nav id=\"navbar\">\n1 2 3\n</nav>\n")
+     ("#+html_link_navbar: \n#+html_link_home: 123"
+      ,($c "<nav id=\"navbar\">\n <a href=\"123\"> UP </a>\n"
+           " <a href=\"123\"> HOME </a>\n</nav>"))
      ("#+html_link_up: 456"
-      "<div id=\"home-and-up\">\n <a href=\"456\"> UP </a>\n <a href=\"456\"> HOME </a>\n</div>")
+      ,($c "<nav id=\"navbar\">\n <a href=\"456\"> UP </a>\n"
+           " <a href=\"456\"> HOME </a>\n</nav>"))
      ("#+html_link_home: 123\n#+html_link_up: 456"
-      "<div id=\"home-and-up\">\n <a href=\"456\"> UP </a>\n <a href=\"123\"> HOME </a>\n</div>"))
-   nil `(:html-format-home/up-function
-         t-format-home/up-default-function
+      ,($c "<nav id=\"navbar\">\n <a href=\"456\"> UP </a>\n"
+           " <a href=\"123\"> HOME </a>\n</nav>")))
+   nil `(:html-format-navbar-function
+         t-format-navbar-default-function
          :html-link-up "" :html-link-home ""
          :html-home/up-format ,t-home/up-format)))
-
+
 (ert-deftest t--load-cc-svg ()
   "Tests for `org-w3ctr--load-cc-svg'."
   (cl-letf (((symbol-function 't--insert-file)
