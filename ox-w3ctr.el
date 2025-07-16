@@ -2770,9 +2770,14 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
     (if (string-empty-p css) ""
       (format "<style>\n%s\n</style>\n" css))))
 
-;; Maybe we don't need it.
-(defun t-clear-css-cache ()
-  "Set `org-w3ctr-style' to empty string \"\"."
+(defun t-clear-css ()
+  "Set `org-w3ctr-style' to empty string \"\".
+
+When CSS is loaded from `org-w3ctr-style-file', its content is
+cached in the `org-w3ctr-style' variable to improve performance.
+If you modify the external CSS file and want the changes to take
+effect on the next export, run this command to clear the cache.
+This forces the exporter to re-read the file."
   (interactive)
   (setq t-style ""))
 
