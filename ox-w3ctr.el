@@ -2600,7 +2600,153 @@ indicates that no enclosing brackets should be applied."
                     (`fun #'t--format-timestamp-fun)
                     (o (error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
+
+;;; Headline and Section
 
+;;;; Todo
+
+(defun t--fix-class-name (kwd)
+  ;; audit callers of this function
+  "Turn todo keyword KWD into a valid class name.
+Replaces invalid characters with \"_\"."
+  (replace-regexp-in-string "[^a-zA-Z0-9_]" "_" kwd nil t))
+
+(defun t--todo (todo info)
+  "Format TODO keywords into HTML."
+  (when todo
+    (format
+     "<span class=\"%s %s%s\">%s</span>"
+     (if (member todo org-done-keywords) "done" "todo")
+     (or (plist-get info :html-todo-kwd-class-prefix) "")
+     (t--fix-class-name todo)
+     todo)))
+
+;;;; Priority
+
+(defun t--priority (priority _info)
+  "Format a priority into HTML.
+PRIORITY is the character code of the priority or nil."
+  (and priority
+       (format
+        "<span class=\"priority\">[%c]</span>"
+        priority)))
+
+;;;; Tags
+
+(defun t--tags (tags info)
+  "Format TAGS into HTML.
+INFO is a plist containing export options."
+  (when tags
+    (format "<span class=\"tag\">%s</span>"
+            (mapconcat
+             (lambda (tag)
+               (format "<span class=\"%s\">%s</span>"
+                       (concat
+                        (plist-get info :html-tag-class-prefix)
+                        (org-html-fix-class-name tag))
+                       tag))
+             tags "&#xa0;"))))
+
+;;;; Headline
+(defun t-headline (headline contents info)
+  "Transcode a HEADLINE element from Org to HTML.
+CONTENTS holds the contents of the headline.  INFO is a plist
+holding contextual information."
+  (unless (org-element-property :footnote-section-p headline)
+    (let* ((numberedp (org-export-numbered-headline-p headline info))
+           (numbers (org-export-get-headline-number headline info))
+           (level (+ (org-export-get-relative-level headline info)
+                     (1- (plist-get info :html-toplevel-hlevel))))
+           (todo (and (plist-get info :with-todo-keywords)
+                      (let ((todo (org-element-property :todo-keyword headline)))
+                        (and todo (org-export-data todo info)))))
+           (todo-type (and todo (org-element-property :todo-type headline)))
+           (priority (and (plist-get info :with-priority)
+                          (org-element-property :priority headline)))
+           (text (org-export-data (org-element-property :title headline) info))
+           (tags (and (plist-get info :with-tags)
+                      (org-export-get-tags headline info)))
+           (full-text (t--format-headline
+                       todo todo-type priority text tags info))
+           (contents (or contents ""))
+           (id (t--reference headline info)))
+      (if (org-export-low-level-p headline info)
+          ;; This is a deep sub-tree: export it as a list item.
+          (let* ((html-type (if numberedp "ol" "ul")))
+            (concat
+             (and (org-export-first-sibling-p headline info)
+                  (apply #'format "<%s class=\"org-%s\">\n"
+                         (make-list 2 html-type)))
+             (t-format-list-item
+              contents (if numberedp 'ordered 'unordered)
+              nil info nil
+              (concat (t--anchor id nil nil info) full-text))
+             "\n"
+             (and (org-export-last-sibling-p headline info)
+                  (format "</%s>\n" html-type))))
+        ;; Standard headline.  Export it as a section.
+        (let* ((extra-class
+                (org-element-property :HTML_CONTAINER_CLASS headline))
+               (headline-class
+                (org-element-property :HTML_HEADLINE_CLASS headline))
+               (secno (if (not numberedp) ""
+                        (mapconcat #'number-to-string numbers ".")))
+               (hd (concat (if (equal "" secno) ""
+                             (format "<span class=\"secno\">%s. </span>" secno))
+                           full-text)))
+          (format "<%s id=\"%s\"%s>%s%s</%s>\n"
+                  (t--container headline info)
+                  id
+                  (if (not extra-class) ""
+                    (format " class=\"%s\"" extra-class))
+                  (t--format-head-wrapper
+                   (format "h%s" level)
+                   id
+                   (if (not headline-class) ""
+                     (format " class=\"%s\"" headline-class))
+                   secno hd info)
+                  contents
+                  (t--container headline info)))))))
+
+(defun t--container (headline info)
+  (or (org-element-property :HTML_CONTAINER headline)
+      (if (<= (org-export-get-relative-level headline info) 5)
+          "section" "div")))
+
+(defun t--format-headline (todo _todo-type priority text tags info)
+  (let ((todo (t--todo todo info))
+        (priority (t--priority priority info))
+        (tags (t--tags tags info)))
+    (concat todo (and todo " ")
+            priority (and priority " ")
+            text
+            (and tags "&#xa0;&#xa0;&#xa0;") tags)))
+
+(defun t--format-head-wrapper (tag id cls secno headline info)
+  (format
+   (concat "<div class=\"header-wrapper\">\n"
+           "<%s id=\"x-%s\"%s>%s</%s>\n"
+           (when (plist-get info :html-self-link-headlines)
+             "<a class=\"self-link\" href=\"#%s\" aria-label=\"Permalink for Section %s\"></a>\n")
+           "</div>\n")
+   tag id cls headline tag id secno))
+
+;;;; Section
+
+(defun t-section (section contents _info)
+  "Transcode a SECTION element from Org to HTML.
+CONTENTS holds the contents of the section.  INFO is a plist
+holding contextual information."
+  (let ((parent (org-export-get-parent-headline section)))
+    ;; Before first headline: no container, just return CONTENTS.
+    (if (not parent)
+        ;; the zeroth section
+        (prog1 ""
+          (setq t--zeroth-section-output
+                (format "<div id=\"abstract\">\n%s</div>\n"
+                        (or (t--nw-trim contents) ""))))
+      (or (t--nw-trim contents) ""))))
+
 ;;; Template and Inner Template
 
 ;;;; <title> and <meta> tags export.
@@ -3361,150 +3507,6 @@ CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
   (prog1 (t-template-1 contents info)
     (t--oinfo-cleanup)))
-
-
-;;; Headline
-
-;;;; Todo
-(defun t--fix-class-name (kwd)
-  ;; audit callers of this function
-  "Turn todo keyword KWD into a valid class name.
-Replaces invalid characters with \"_\"."
-  (replace-regexp-in-string "[^a-zA-Z0-9_]" "_" kwd nil t))
-
-(defun t--todo (todo info)
-  "Format TODO keywords into HTML."
-  (when todo
-    (format
-     "<span class=\"%s %s%s\">%s</span>"
-     (if (member todo org-done-keywords) "done" "todo")
-     (or (plist-get info :html-todo-kwd-class-prefix) "")
-     (t--fix-class-name todo)
-     todo)))
-
-;;;; Priority
-(defun t--priority (priority _info)
-  "Format a priority into HTML.
-PRIORITY is the character code of the priority or nil."
-  (and priority
-       (format
-        "<span class=\"priority\">[%c]</span>"
-        priority)))
-
-;;;; Tags
-(defun t--tags (tags info)
-  "Format TAGS into HTML.
-INFO is a plist containing export options."
-  (when tags
-    (format "<span class=\"tag\">%s</span>"
-            (mapconcat
-             (lambda (tag)
-               (format "<span class=\"%s\">%s</span>"
-                       (concat
-                        (plist-get info :html-tag-class-prefix)
-                        (org-html-fix-class-name tag))
-                       tag))
-             tags "&#xa0;"))))
-
-;;;; Headline
-(defun t-headline (headline contents info)
-  "Transcode a HEADLINE element from Org to HTML.
-CONTENTS holds the contents of the headline.  INFO is a plist
-holding contextual information."
-  (unless (org-element-property :footnote-section-p headline)
-    (let* ((numberedp (org-export-numbered-headline-p headline info))
-           (numbers (org-export-get-headline-number headline info))
-           (level (+ (org-export-get-relative-level headline info)
-                     (1- (plist-get info :html-toplevel-hlevel))))
-           (todo (and (plist-get info :with-todo-keywords)
-                      (let ((todo (org-element-property :todo-keyword headline)))
-                        (and todo (org-export-data todo info)))))
-           (todo-type (and todo (org-element-property :todo-type headline)))
-           (priority (and (plist-get info :with-priority)
-                          (org-element-property :priority headline)))
-           (text (org-export-data (org-element-property :title headline) info))
-           (tags (and (plist-get info :with-tags)
-                      (org-export-get-tags headline info)))
-           (full-text (t--format-headline
-                       todo todo-type priority text tags info))
-           (contents (or contents ""))
-           (id (t--reference headline info)))
-      (if (org-export-low-level-p headline info)
-          ;; This is a deep sub-tree: export it as a list item.
-          (let* ((html-type (if numberedp "ol" "ul")))
-            (concat
-             (and (org-export-first-sibling-p headline info)
-                  (apply #'format "<%s class=\"org-%s\">\n"
-                         (make-list 2 html-type)))
-             (t-format-list-item
-              contents (if numberedp 'ordered 'unordered)
-              nil info nil
-              (concat (t--anchor id nil nil info) full-text))
-             "\n"
-             (and (org-export-last-sibling-p headline info)
-                  (format "</%s>\n" html-type))))
-        ;; Standard headline.  Export it as a section.
-        (let* ((extra-class
-                (org-element-property :HTML_CONTAINER_CLASS headline))
-               (headline-class
-                (org-element-property :HTML_HEADLINE_CLASS headline))
-               (secno (if (not numberedp) ""
-                        (mapconcat #'number-to-string numbers ".")))
-               (hd (concat (if (equal "" secno) ""
-                             (format "<span class=\"secno\">%s. </span>" secno))
-                           full-text)))
-          (format "<%s id=\"%s\"%s>%s%s</%s>\n"
-                  (t--container headline info)
-                  id
-                  (if (not extra-class) ""
-                    (format " class=\"%s\"" extra-class))
-                  (t--format-head-wrapper
-                   (format "h%s" level)
-                   id
-                   (if (not headline-class) ""
-                     (format " class=\"%s\"" headline-class))
-                   secno hd info)
-                  contents
-                  (t--container headline info)))))))
-
-(defun t--container (headline info)
-  (or (org-element-property :HTML_CONTAINER headline)
-      (if (<= (org-export-get-relative-level headline info) 5)
-          "section" "div")))
-
-(defun t--format-headline (todo _todo-type priority text tags info)
-  (let ((todo (t--todo todo info))
-        (priority (t--priority priority info))
-        (tags (t--tags tags info)))
-    (concat todo (and todo " ")
-            priority (and priority " ")
-            text
-            (and tags "&#xa0;&#xa0;&#xa0;") tags)))
-
-(defun t--format-head-wrapper (tag id cls secno headline info)
-  (format
-   (concat "<div class=\"header-wrapper\">\n"
-           "<%s id=\"x-%s\"%s>%s</%s>\n"
-           (when (plist-get info :html-self-link-headlines)
-             "<a class=\"self-link\" href=\"#%s\" aria-label=\"Permalink for Section %s\"></a>\n")
-           "</div>\n")
-   tag id cls headline tag id secno))
-
-;;;; Section
-
-(defun t-section (section contents _info)
-  "Transcode a SECTION element from Org to HTML.
-CONTENTS holds the contents of the section.  INFO is a plist
-holding contextual information."
-  (let ((parent (org-export-get-parent-headline section)))
-    ;; Before first headline: no container, just return CONTENTS.
-    (if (not parent)
-        ;; the zeroth section
-        (prog1 ""
-          (setq t--zeroth-section-output
-                (format "<div id=\"abstract\">\n%s</div>\n"
-                        (or (t--nw-trim contents) ""))))
-      (or (t--nw-trim contents) ""))))
 
 ;;;; Special Block
 ;; FIXME
