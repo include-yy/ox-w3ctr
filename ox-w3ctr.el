@@ -148,8 +148,8 @@
     (:html-head-include-style nil "html-style" t-head-include-style)
     (:html-pre/post-timestamp-format nil nil t-pre/post-timestamp-format)
     ;; HTML TOP place naviagtion elements -------------------------
-    (:html-link-home/up "HTML_LINK_HOMEUP" nil t-link-homeup parse)
-    (:html-format-home/up-function nil nil t-format-home/up-function)
+    (:html-link-navbar "HTML_LINK_NAVBAR" nil t-link-navbar parse)
+    (:html-format-navbar-function nil nil t-format-navbar-function)
     (:html-home/up-format nil nil t-home/up-format)
     (:html-link-up "HTML_LINK_UP" nil t-link-up)
     (:html-link-home "HTML_LINK_HOME" nil t-link-home)
@@ -617,7 +617,7 @@ or for publication projects using the :html-head-extra property."
 (defcustom t-link-home ""
   "Default value for :html-link-home in org export.
 
-Used as fallback navigation link when :html-link-home/up is not
+Used as fallback navigation link when :html-link-navbar is not
 specified in document.  Should be a URL pointing to the home page."
   :group 'org-export-w3ctr
   :type 'string)
@@ -625,7 +625,7 @@ specified in document.  Should be a URL pointing to the home page."
 (defcustom t-link-up ""
   "Default value for :html-link-up in org export.
 
-Used as fallback navigation link when :html-link-home/up is not
+Used as fallback navigation link when :html-link-navbar is not
 specified in document.  Should be a URL pointing to the parent page."
   :group 'org-export-w3ctr
   :type 'string)
@@ -635,27 +635,27 @@ specified in document.  Should be a URL pointing to the parent page."
  <a href=\"%s\"> HOME </a>\n</nav>"
   "Formatting string for legacy home/up navigation links.
 
-Used when :html-link-home/up is not specified. The first %s is
+Used when :html-link-navbar is not specified. The first %s is
 replaced with the up link, the second with home link."
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-link-homeup nil
-  "Default value for :html-link-home/up navigation links. Can be:
-. A vector of (LINK . NAME) cons pairs for multiple links
-. A list of Org elements (when set through #+HTML_LINK_HOMEUP)
-. nil to fall back to legacy home/up behavior
+(defcustom t-link-navbar nil
+  "Default value for :html-link-navbar navigation links. Can be:
+- A vector of (LINK . NAME) cons pairs for multiple links
+- A list of Org elements (when set through #+HTML_LINK_NAVBAR)
+- nil to fall back to legacy home/up behavior
 
 Example: [(\"../index.html\" . \"UP\")
           (\"../../index.html\" . \"HOME\")]"
   :group 'org-export-w3ctr
   :type 'sexp)
 
-(defcustom t-format-home/up-function #'t-format-home/up-default-function
-  "Function used to generate home/up navigation links."
+(defcustom t-format-navbar-function #'t-format-navbar-default-function
+  "Function used to generate navbar navigation links."
   :group 'org-export-w3ctr
   :type 'symbol)
-
+
 (defcustom t-use-cc-budget t
   "Use CC budget or not."
   :group 'org-export-w3ctr
@@ -3015,70 +3015,68 @@ empty. Returns nil if both links are empty strings."
       (format (t--pget info :html-home/up-format)
               (or link-up link-home) (or link-home link-up)))))
 
-;;;; New home and up
+;;;; Navbar
 ;; Options
-;; - :html-link-home/up (`org-w3ctr-link-homeup')
-;; - :html-format-home/up-function (`org-w3ctr-format-home/up-function')
+;; - :html-link-navbar (`org-w3ctr-link-navbar')
+;; - :html-format-navbar-function (`org-w3ctr-format-navbar-function')
 
-(defun t--format-home/up-nav (s)
-  "Format home/up <nav> element."
+(defun t--format-navbar-nav (s)
+  "Format navbar <nav> element."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
-  (format "<nav id=\"home-and-up\">\n%s\n</nav>\n" s))
+  (format "<nav id=\"navbar\">\n%s\n</nav>\n" s))
 
-(defun t--format-home/up-vector (v)
-  "Submodule of `t-format-home/up-default-function'."
+(defun t--format-nav-vector (v)
+  "Submodule of `t-format-navbar-default-function'."
   (declare (ftype (function (vector) string))
            (pure t) (important-return-value t))
   (if (equal v []) ""
-    (t--format-home/up-nav
+    (t--format-navbar-nav
      (mapconcat
       (pcase-lambda (`(,link . ,name))
         (format "<a href=\"%s\">%s</a>" link name))
       v "\n"))))
 
-(defun t--format-home/up-list (ll info)
-  "Submodule of `t-format-home/up-default-function'."
-  (declare (ftype (function (list plist) string))
+(defun t--format-navbar-list (ll info)
+  "Submodule of `t-format-navbar-default-function'."
+  (declare (ftype (function (list list) string))
            (important-return-value t))
   (if (null ll) ""
     (let* ((elems (mapcar (lambda (x) (org-export-data x info)) ll))
            (links (cl-remove-if-not #'t--nw-p elems))
            (as (mapcar #'t--trim links)))
-      (t--format-home/up-nav (string-join as "\n")))))
+      (t--format-navbar-nav (string-join as "\n")))))
 
-(defun t-format-home/up-default-function (info)
+(defun t-format-navbar-default-function (info)
   "Generate HTML navigation links from the export INFO plist. This
-function processes the :html-link-home/up property to create a
+function processes the :html-link-navbar property to create a
 navigation section in the exported document.
 
-When :html-link-home/up is a vector, it should contain cons cells in
+When :html-link-navbar is a vector, it should contain cons cells in
 the form (URL . LABEL) where URL is the target location and LABEL is
 the display text.
 
-When :html-link-home/up is a list, it is treated as containing Org
+When :html-link-navbar is a list, it is treated as containing Org
 link elements. These links will be processed through `org-export-data'
 to generate the final HTML output.
 
 The output is always wrapped in a <nav> HTML element with
-id=\"home-and-up\" for consistent styling and semantic markup.
+id=\"navbar\" for consistent styling and semantic markup.
 Each link is separated by newlines for readability in the output HTML."
-  (declare (ftype (function (plist) string))
+  (declare (ftype (function (list) string))
            (important-return-value t))
-  (let* ((links (plist-get info :html-link-home/up)))
+  (let* ((links (t--pget info :html-link-navbar))
+         (p (lambda (x) (and (stringp (car-safe x))
+                             (stringp (cdr-safe x))))))
     (pcase links
       ((pred vectorp)
-       (mapc (lambda (x)
-               (or (and (consp x) (stringp (car x))
-                        (stringp (cdr x)))
-                   (error "home/up vector element not valid: %s" x)))
-             links)
-       (t--format-home/up-vector links))
+       (or (and (cl-every p links) (t--format-navbar-vector links))
+           (t-error "Invalid navbar vector: %s" links)))
       ((pred listp)
-       (let ((res (t--format-home/up-list links info)))
-         (if (not (string= res "")) res
+       (let ((res (t--format-navbar-list links info)))
+         (if (not (string-empty-p res)) res
            (or (t-legacy-format-home/up info) ""))))
-      (other (error "Seems not a valid home/up type: %s" other)))))
+      (other (t-error "Invalid navbar type: %s" other)))))
 
 ;;;; Preamble CC license budget
 ;; Options
@@ -3483,7 +3481,7 @@ CONTENTS is the transcoded contents string."
    (t--build-head info)
    "<body>\n"
    ;; home and up links
-   (when-let* ((fun (plist-get info :html-format-home/up-function)))
+   (when-let* ((fun (plist-get info :html-format-navbar-function)))
      (funcall fun info))
    ;; title and preamble
    (format "<div class=\"head\">\n%s%s</div>\n"
