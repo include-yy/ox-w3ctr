@@ -1959,6 +1959,38 @@ int a = 1;</code></p>\n</details>")
           :html-timestamp-formats ("%F" . "%F %R")
           :html-timezone "UTC+8" :html-datetime-option s-none)))
 
+(ert-deftest t--build-meta-entry ()
+  "Tests for `org-w3ctr--build-meta-entry'."
+  ($it t--build-meta-entry
+    ($l (it "name" "author")
+        "<meta name=\"author\">\n")
+    ($l (it "property" "og:title" "My Title")
+        "<meta property=\"og:title\" content=\"My Title\">\n")
+    ($l (it "name" "description" "Version %s" "1.0")
+        "<meta name=\"description\" content=\"Version 1.0\">\n")
+    ($l (it "name" "quote" "He said \"Hello\"")
+        "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n")
+    ($l (it "name" "version" "v%s.%s" "1" "2")
+        "<meta name=\"version\" content=\"v1.2\">\n")
+    ($l (it "name" "version" "'%s'" "v1.2")
+        "<meta name=\"version\" content=\"&apos;v1.2&apos;\">\n")))
+
+(ert-deftest t--get-info-file-timestamp ()
+  "Tests for `org-w3ctr--get-info-file-timestamp'."
+  ($n (t--get-info-file-timestamp nil))
+  ($e!l
+   (t--get-info-file-timestamp '( :time-stamp-file t
+                                  :html-file-timestamp-function nil))
+   '(org-w3ctr-error ":html-file-timestamp-function is not valid: nil"))
+  (t-check-element-values
+   #'t--get-info-file-timestamp
+   `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
+     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
+     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))
+   nil
+   '( :html-file-timestamp-function t-file-timestamp-default-function
+      :time-stamp-file t)))
+
 (ert-deftest t--ensure-charset-utf8 ()
   "Tests for `org-w3ctr--get-charset'."
   (cl-labels ((test (x) (let ((org-w3ctr-coding-system x))
@@ -1984,16 +2016,26 @@ int a = 1;</code></p>\n</details>")
     ($e!l (test "UTF-8") '(t-error "Invalid coding system: UTF-8"))
     ($e!l (test [1]) '(t-error "Invalid coding system: [1]"))))
 
-(ert-deftest t--get-info-author-raw ()
-  "Tests for `org-w3ctr--get-author-raw'."
-  ($it t--get-info-author-raw
-    ($n (it nil))
-    (let ((info '(:with-author nil)))
-      ($n (it info)))
-    (let ((info '(:with-author nil :author "test")))
-      ($n (it info)))
-    (let ((info '(:with-author t :author "test")))
-      ($l (it info) "test"))))
+(ert-deftest t--build-viewport-options ()
+  "Tests for `org-w3ctr--build-viewport-options'."
+  ($n (t--build-viewport-options nil))
+  (cl-flet ((f (ls) (let ((info `(:html-viewport ,ls)))
+                      (t--build-viewport-options info))))
+    ($l (f '(("a" ""))) nil)
+    ($l (f '(("a" "b")))
+        "<meta name=\"viewport\" content=\"a=b\">\n")
+    ($l (f '(("a" "b") ("b" "") ("c" "d")))
+        "<meta name=\"viewport\" content=\"a=b, c=d\">\n")
+    ($n (f '(("a" nil) ("b" nil) ("c" "  ")))))
+  (t-check-element-values
+   #'t--build-viewport-options
+   `(("" ,($c "<meta name=\"viewport\" content=\"width=device-width,"
+              " initial-scale=1\">\n")))
+   nil '(:html-viewport ((width "device-width")
+                         (initial-scale "1")
+                         (minimum-scale "")
+                         (maximum-scale "")
+                         (user-scalable "")))))
 
 (ert-deftest t--get-info-title-raw ()
   "Tests for `org-w3ctr--get-info-title'."
@@ -2008,37 +2050,16 @@ int a = 1;</code></p>\n</details>")
      ("#+title:​" "​")
      ("#+TITLE: hello\sworld" "hello world"))))
 
-(ert-deftest t--get-info-file-timestamp ()
-  "Tests for `org-w3ctr--get-info-file-timestamp'."
-  ($n (t--get-info-file-timestamp nil))
-  ($e!l
-   (t--get-info-file-timestamp '( :time-stamp-file t
-                                  :html-file-timestamp-function nil))
-   '(org-w3ctr-error ":html-file-timestamp-function is not valid: nil"))
-  (t-check-element-values
-   #'t--get-info-file-timestamp
-   `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
-     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
-     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))
-   nil
-   '( :html-file-timestamp-function t-file-timestamp-default-function
-      :time-stamp-file t)))
-
-(ert-deftest t--build-meta-entry ()
-  "Tests for `org-w3ctr--build-meta-entry'."
-  ($it t--build-meta-entry
-    ($l (it "name" "author")
-        "<meta name=\"author\">\n")
-    ($l (it "property" "og:title" "My Title")
-        "<meta property=\"og:title\" content=\"My Title\">\n")
-    ($l (it "name" "description" "Version %s" "1.0")
-        "<meta name=\"description\" content=\"Version 1.0\">\n")
-    ($l (it "name" "quote" "He said \"Hello\"")
-        "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n")
-    ($l (it "name" "version" "v%s.%s" "1" "2")
-        "<meta name=\"version\" content=\"v1.2\">\n")
-    ($l (it "name" "version" "'%s'" "v1.2")
-        "<meta name=\"version\" content=\"&apos;v1.2&apos;\">\n")))
+(ert-deftest t--get-info-author-raw ()
+  "Tests for `org-w3ctr--get-author-raw'."
+  ($it t--get-info-author-raw
+    ($n (it nil))
+    (let ((info '(:with-author nil)))
+      ($n (it info)))
+    (let ((info '(:with-author nil :author "test")))
+      ($n (it info)))
+    (let ((info '(:with-author t :author "test")))
+      ($l (it info) "test"))))
 
 (ert-deftest t-meta-tags-default ()
   "Tests for `org-w3ctr-meta-tags-default'."
@@ -2065,27 +2086,7 @@ int a = 1;</code></p>\n</details>")
     ($l (t--build-meta-tags nil) "<meta a=\"b\" content=\"test\">\n"))
   (let ((t-meta-tags '(("a" "b" nil))))
     ($l (t--build-meta-tags nil) "<meta a=\"b\">\n")))
-
-(ert-deftest t--build-viewport-options ()
-  "Tests for `org-w3ctr--build-viewport-options'."
-  ($n (t--build-viewport-options nil))
-  (cl-flet ((f (ls) (let ((info `(:html-viewport ,ls)))
-                      (t--build-viewport-options info))))
-    ($l (f '(("a" ""))) nil)
-    ($l (f '(("a" "b")))
-        "<meta name=\"viewport\" content=\"a=b\">\n")
-    ($l (f '(("a" "b") ("b" "") ("c" "d")))
-        "<meta name=\"viewport\" content=\"a=b, c=d\">\n")
-    ($n (f '(("a" nil) ("b" nil) ("c" "  ")))))
-  (t-check-element-values
-   #'t--build-viewport-options
-   '(("" "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n"))
-   nil '(:html-viewport ((width "device-width")
-                         (initial-scale "1")
-                         (minimum-scale "")
-                         (maximum-scale "")
-                         (user-scalable "")))))
-
+
 (ert-deftest t--load-css ()
   "Tests for `org-w3ctr--load-css'."
   (let ((t-style nil))
