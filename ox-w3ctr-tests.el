@@ -2089,8 +2089,8 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--load-css ()
   "Tests for `org-w3ctr--load-css'."
-  (let ((t-style nil))
-    ($e! (t--load-css nil)))
+  (let ((t-style nil) (t-style-file nil))
+    ($q (t--load-css nil) ""))
   (let ((t-style "123"))
     ($l (t--load-css nil) "<style>\n123\n</style>\n"))
   (let ((t-style "")

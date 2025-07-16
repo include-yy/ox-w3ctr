@@ -2746,7 +2746,7 @@ tags to be included in the HTML head."
    ;; meta tags
    (t--build-meta-tags info)))
 
-;;;; CSS export.
+;;;; Default CSS export.
 ;; Options:
 ;; - :html-head-include-style (`org-w3ctr-head-include-style')
 ;; - `org-w3ctr-style'
@@ -2756,25 +2756,19 @@ tags to be included in the HTML head."
   "Load CSS for HTML export from configured sources.
 
 This function handles CSS loading in the following priority:
-  If `org-w3ctr-default-style' is non-empty string, use it directly.
-  If `org-w3ctr-default-style-file' is non-nil, load CSS from that file.
+  If `org-w3ctr-style' is non-empty string, use it directly.
+  If `org-w3ctr-style-file' is non-nil, load CSS from that file.
   If both are empty/nil, return empty string (no styles).
 
 The loaded CSS will be wrapped in HTML <style> tags when non-empty."
   (declare (ftype (function (t) string))
            (important-return-value t))
-  (let ((style t-style)
-        (file t-style-file)
-        it)
-    (unless (stringp style)
-      (error "Default CSS is not string"))
-    (cond
-     ((t--nw-p style) (setq it style))
-     ((null file) (setq it nil))
-     (t (setq it (t--load-file file)
-              t-style it)))
-    (if (null it) ""
-      (format "<style>\n%s\n</style>\n" it))))
+  (let ((css (or (when (t--nw-p t-style) t-style)
+                 (when t-style-file
+                   (setq t-style (t--load-file t-style-file)))
+                 "")))
+    (if (string-empty-p css) ""
+      (format "<style>\n%s\n</style>\n" css))))
 
 ;; Maybe we don't need it.
 (defun t-clear-css-cache ()
