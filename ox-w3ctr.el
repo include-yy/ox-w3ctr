@@ -145,7 +145,7 @@
     (:html-head "HTML_HEAD" nil t-head newline)
     (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
     (:subtitle "SUBTITLE" nil nil parse)
-    (:html-head-include-default-style nil "html-style" t-head-include-default-style)
+    (:html-head-include-style nil "html-style" t-head-include-style)
     (:html-pre/post-timestamp-format nil nil t-pre/post-timestamp-format)
     ;; HTML TOP place naviagtion elements -------------------------
     (:html-link-home/up "HTML_LINK_HOMEUP" nil t-link-homeup parse)
@@ -474,14 +474,14 @@ This can be either:
                         (string :tag "Content value")))
           function))
 
-(defcustom t-head-include-default-style t
+(defcustom t-head-include-style t
   "Non-nil means include the default style in exported HTML files."
   :group 'org-export-w3ctr
   :type 'boolean)
 ;;;###autoload
-(put 't-head-include-default-style 'safe-local-variable 'booleanp)
+(put 't-head-include-style 'safe-local-variable 'booleanp)
 
-(defcustom t-default-style ""
+(defcustom t-style ""
   "Default CSS style content for exported HTML documents.
 
 When non-empty, this setting takes precedence over and will override
@@ -493,8 +493,8 @@ tag in the exported HTML's <head> section. Example:
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-default-style-file (file-name-concat
-                                 t--dir "assets" "style.css")
+(defcustom t-style-file (file-name-concat
+                         t--dir "assets" "style.css")
   "Default CSS stylesheet file for HTML export.
 
 This should be either nil (no default stylesheet) or an absolute
@@ -513,7 +513,7 @@ package's installation directory `org-w3ctr--dir'."
            (error "Not a valid default CSS file: %s" value))
          (set symbol value)
          ;; Refresh cached CSS string.
-         (setq t-default-style ""))
+         (setq t-style ""))
   :type '(choice (const nil) file))
 
 (defcustom t-with-latex 'mathjax
@@ -989,7 +989,7 @@ This affects IDs that are determined from the ID property.")
 
 ;; load default CSS from style.css
 (defun t-update-css-js ()
-  "update `t-default-style' and t-fixup-js"
+  "update ??? and t-fixup-js"
   (interactive)
   (setq t-fixup-js
         (let ((fname (file-name-concat t--dir "assets/fixup.js")))
@@ -2748,9 +2748,9 @@ tags to be included in the HTML head."
 
 ;;;; CSS export.
 ;; Options:
-;; - `org-w3ctr-default-style'
-;; - `org-w3ctr-default-style-file'
-;; - :html-style (`org-w3ctr-head-include-default-style') (not here)
+;; - :html-head-include-style (`org-w3ctr-head-include-style')
+;; - `org-w3ctr-style'
+;; - `org-w3ctr-style-file'
 
 (defun t--load-css (_info)
   "Load CSS for HTML export from configured sources.
@@ -2763,8 +2763,8 @@ This function handles CSS loading in the following priority:
 The loaded CSS will be wrapped in HTML <style> tags when non-empty."
   (declare (ftype (function (t) string))
            (important-return-value t))
-  (let ((style t-default-style)
-        (file t-default-style-file)
+  (let ((style t-style)
+        (file t-style-file)
         it)
     (unless (stringp style)
       (error "Default CSS is not string"))
@@ -2772,15 +2772,15 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
      ((t--nw-p style) (setq it style))
      ((null file) (setq it nil))
      (t (setq it (t--load-file file)
-              t-default-style it)))
+              t-style it)))
     (if (null it) ""
       (format "<style>\n%s\n</style>\n" it))))
 
 ;; Maybe we don't need it.
 (defun t-clear-css-cache ()
-  "Set `org-w3ctr-default-style' to empty string \"\"."
+  "Set `org-w3ctr-style' to empty string \"\"."
   (interactive)
-  (setq t-default-style ""))
+  (setq t-style ""))
 
 ;;;; Mathjax config
 ;; Options:
@@ -2829,7 +2829,7 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
   "Test if org export use default CSS style."
   (declare (ftype (function (plist) boolean))
            (important-return-value t))
-  (and (t--pget info :html-head-include-default-style) t))
+  (and (t--pget info :html-head-include-style) t))
 
 ;; FIXME: Consider add code hightlight (such as highlight.js) codes.
 (defun t--build-head (info)
