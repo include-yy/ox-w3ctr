@@ -2821,7 +2821,7 @@ the file."
   "Test if org export use default CSS style."
   (declare (ftype (function (list) boolean))
            (important-return-value t))
-  (and (t--pget info :html-head-include-style) t))
+  (t--pget info :html-head-include-style))
 
 (defun t--has-math-p (info)
   "Test if org doc has latex fragment or latex environment."
@@ -2830,8 +2830,7 @@ the file."
   (and (t--pget info :with-latex)
        (org-element-map (t--pget info :parse-tree)
            '(latex-fragment latex-environment)
-         #'identity info t nil t)
-       t))
+         #'identity info t nil t)))
 
 ;; FIXME: Consider add code hightlight (such as highlight.js) codes.
 (defun t--build-head (info)
