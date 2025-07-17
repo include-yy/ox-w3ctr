@@ -2681,6 +2681,30 @@ description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
      (and (org-export-last-sibling-p headline info)
           (format "</%s>\n" tag)))))
 
+(defun t--container (headline info)
+  (or (org-element-property :HTML_CONTAINER headline)
+      (if (<= (org-export-get-relative-level headline info) 5)
+          "section" "div")))
+
+(defun t--format-head-wrapper (tag id cls secno headline info)
+  (format
+   (concat "<div class=\"header-wrapper\">\n"
+           "<%s id=\"x-%s\"%s>%s</%s>\n"
+           (when (plist-get info :html-self-link-headlines)
+             "<a class=\"self-link\" href=\"#%s\" aria-label=\"Permalink for Section %s\"></a>\n")
+           "</div>\n")
+   tag id cls headline tag id secno))
+
+(defun t--build-standard-headline (headline contents info)
+  "WIP"
+  (let* ((numberedp (org-export-numbered-headline-p headline info))
+         (numbers (org-export-get-headline-number headline info))
+         (level (+ (org-export-get-relative-level headline info)
+                   (1- (t--pget info :html-toplevel-hlevel))))
+         (text (t--build-base-headline headline info))
+         (id (t--reference headline info)))
+    ...))
+
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
 CONTENTS holds the contents of the headline.  INFO is a plist
@@ -2719,21 +2743,13 @@ holding contextual information."
                   contents
                   (t--container headline info)))))))
 
-(defun t--container (headline info)
-  (or (org-element-property :HTML_CONTAINER headline)
-      (if (<= (org-export-get-relative-level headline info) 5)
-          "section" "div")))
-
-(defun t--format-head-wrapper (tag id cls secno headline info)
-  (format
-   (concat "<div class=\"header-wrapper\">\n"
-           "<%s id=\"x-%s\"%s>%s</%s>\n"
-           (when (plist-get info :html-self-link-headlines)
-             "<a class=\"self-link\" href=\"#%s\" aria-label=\"Permalink for Section %s\"></a>\n")
-           "</div>\n")
-   tag id cls headline tag id secno))
-
 ;;;; Section
+(defvar t--zeroth-section-output nil
+  "Internal variable storing zeroth section's HTML output.
+
+This is used to override the default ox-html behavior where TOC comes
+first, allowing zeroth section's content to appear before the TOC while
+the TOC remains near the beginning of the document.")
 
 (defun t-section (section contents _info)
   "Transcode a SECTION element from Org to HTML.
@@ -3432,13 +3448,6 @@ of contents as a string, or nil if it is empty."
            toc
            "</nav>\n"))))))
 
-(defvar t--zeroth-section-output nil
-  "Internal variable storing zeroth section's HTML output.
-
-This is used to override the default ox-html behavior where TOC comes
-first, allowing zeroth section's content to appear before the TOC while
-the TOC remains near the beginning of the document.")
-
 (defun t-inner-template (contents info)
   "Return body of document string after HTML conversion.
 CONTENTS is the transcoded contents string."
