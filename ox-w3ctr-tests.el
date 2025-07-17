@@ -1959,6 +1959,19 @@ int a = 1;</code></p>\n</details>")
           :html-timestamp-formats ("%F" . "%F %R")
           :html-timezone "UTC+8" :html-datetime-option s-none)))
 
+(ert-deftest t--todo ()
+  "Tests for `org-w3ctr--todo'."
+  ($l (t--todo "TODO" '( :html-todo-kwd-class-prefix "org1-"
+                         :html-todo-class "one two"))
+      "<span class=\"org1-todo one two\">TODO</span>")
+  ($l (t--todo "DONE" '( :html-todo-kwd-class-prefix "status-"
+                         :html-todo-class "a b "))
+      "<span class=\"status-done a b\">DONE</span>")
+  (let ((org-done-keywords '("WTF")))
+    ($l (t--todo "WTF" '( :html-todo-kwd-class-prefix "status-"
+                          :html-todo-class "a b "))
+        "<span class=\"status-done a b\">WTF</span>")))
+
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
   ($it t--build-meta-entry

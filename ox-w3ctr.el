@@ -2622,10 +2622,11 @@ indicates that no enclosing brackets should be applied."
     (let* ((prefix (t--pget info :html-todo-kwd-class-prefix))
            (common (t--pget info :html-todo-class))
            (status (if (member todo (cons "DONE" org-done-keywords))
-                       "done" "todo"))
-           (class (concat prefix status)))
+                       "done" "todo")))
       (format "<span class=\"%s%s\">%s</span>"
-              class (if common (concat " " common) "") todo))))
+              (concat prefix status)
+              (if-let* ((c (t--nw-trim common))) (concat " " c) "")
+              todo))))
 
 ;;;; Priority
 
