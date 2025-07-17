@@ -615,46 +615,46 @@ or for publication projects using the :html-head-extra property."
 (put 't-head-extra 'safe-local-variable 'stringp)
 
 (defcustom t-link-home ""
-  "Default value for :html-link-home in org export.
+  "URL for the `HOME' link in the legacy navigation bar.
 
-Used as fallback navigation link when :html-link-navbar is not
-specified in document.  Should be a URL pointing to the home page."
+Used as a fallback when `org-w3ctr-link-navbar' is not set."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-link-up ""
-  "Default value for :html-link-up in org export.
+  "URL for the `UP' link in the legacy navigation bar.
 
-Used as fallback navigation link when :html-link-navbar is not
-specified in document.  Should be a URL pointing to the parent page."
+Used as a fallback when `org-w3ctr-link-navbar' is not set."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-home/up-format
   "<nav id=\"navbar\">\n <a href=\"%s\"> UP </a>
  <a href=\"%s\"> HOME </a>\n</nav>"
-  "Formatting string for legacy home/up navigation links.
+  "Formatting string for the legacy home/up navigation bar.
 
-Used when :html-link-navbar is not specified. The first %s is
-replaced with the up link, the second with home link."
+The first %s is for the `UP' link, and the second for `HOME'."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-link-navbar nil
-  "Default value for :html-link-navbar navigation links. Can be:
-- A vector of (LINK . NAME) cons pairs for multiple links
-- A list of Org elements (when set through #+HTML_LINK_NAVBAR)
-- nil to fall back to legacy home/up behavior
-
-Example: [(\"../index.html\" . \"UP\")
-          (\"../../index.html\" . \"HOME\")]"
+  "Navigation bar links. Can be:
+- A vector of (URL . NAME) pairs, e.g [(\"../index.html\" . \"Up\")]
+- A list of Org elements (from HTML_LINK_NAVBAR)
+- nil to use the legacy home/up behavior"
   :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-format-navbar-function #'t-format-navbar-default-function
-  "Function used to generate navbar navigation links."
+  "The function used to generate the HTML for the navbar.
+
+This function is called with one argument: INFO plist.  It should
+return a string containing the complete HTML for the navigation bar
+(e.g., inside `<nav>` tags).
+
+See `org-w3ctr-format-navbar-default-function' for an example."
   :group 'org-export-w3ctr
-  :type 'symbol)
+  :type 'function)
 
 (defcustom t-use-cc-budget t
   "Use CC budget or not."
@@ -3001,10 +3001,10 @@ the file."
 ;; - :html-link-home (`org-w3ctr-link-home')
 ;; - :html-home/up-format (`org-w3ctr-home/up-format')
 
-(defun t-legacy-format-home/up (info)
-  "Format legacy-style home/up navigation links from export INFO.
+(defun t--format-legacy-navbar (info)
+  "Format the legacy Home/Up navigation bar.
 
-Generates HTML navigation links using either :html-link-up or
+Generates HTML navigation bar using either :html-link-up or
 :html-link-home from the INFO plist, falling back to each other when
 empty. Returns nil if both links are empty strings."
   (declare (ftype (function (list) (or null string)))
@@ -3075,7 +3075,7 @@ Each link is separated by newlines for readability in the output HTML."
       ((pred listp)
        (let ((res (t--format-navbar-list links info)))
          (if (not (string-empty-p res)) res
-           (or (t-legacy-format-home/up info) ""))))
+           (or (t--format-legacy-navbar info) ""))))
       (other (t-error "Invalid navbar type: %s" other)))))
 
 ;;;; Preamble CC license budget

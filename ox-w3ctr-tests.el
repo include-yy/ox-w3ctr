@@ -2146,26 +2146,26 @@ int a = 1;</code></p>\n</details>")
     ($s (t--has-math-p (mkinfo "\\[1+2\\]")))
     ($s (t--has-math-p (mkinfo "\\begin_equation\n123\n\\end_equation")))))
 
-(ert-deftest t-legacy-format-home/up ()
-  "Tests for `org-w3ctr-legacy-format-home/up'."
+(ert-deftest t--format-legacy-navbar ()
+  "Tests for `org-w3ctr--format-legacy-navbar'."
   (let ((info '(:html-link-up "" :html-link-home "")))
-    ($n (t-legacy-format-home/up info)))
+    ($n (t--format-legacy-navbar info)))
   (let ((info `( :html-link-up "1" :html-link-home "2"
                  :html-home/up-format ,t-home/up-format)))
-    ($l (t-legacy-format-home/up info) "\
+    ($l (t--format-legacy-navbar info) "\
 <nav id=\"navbar\">\n <a href=\"1\"> UP </a>
  <a href=\"2\"> HOME </a>\n</nav>")
     (setq info (plist-put info :html-link-home ""))
-    ($l (t-legacy-format-home/up info) "\
+    ($l (t--format-legacy-navbar info) "\
 <nav id=\"navbar\">\n <a href=\"1\"> UP </a>
  <a href=\"1\"> HOME </a>\n</nav>")
     (setq info (plist-put info :html-link-up ""))
     (setf (plist-get info :html-link-home) "2")
-    ($l (t-legacy-format-home/up info) "\
+    ($l (t--format-legacy-navbar info) "\
 <nav id=\"navbar\">\n <a href=\"2\"> UP </a>
  <a href=\"2\"> HOME </a>\n</nav>"))
   (t-check-element-values
-   #'t-legacy-format-home/up
+   #'t--format-legacy-navbar
    `(("#+html_link_up: https://example.com"
       ,($c "<nav id=\"navbar\">\n <a href=\"https://example.com\"> UP "
            "</a>\n <a href=\"https://example.com\"> HOME </a>\n</nav>"))
