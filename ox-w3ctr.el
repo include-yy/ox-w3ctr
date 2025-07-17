@@ -2665,7 +2665,7 @@ indicates that no enclosing brackets should be applied."
   "Format TAGS into HTML."
   (when-let* ((f (lambda (tag) (format "<span>%s</span>" tag)))
               (spans (mapconcat f tags "&#xa0;")))
-    (if-let* ((class (t--pget info :html-tag-class)))
+    (if-let* ((class (t--nw-trim (t--pget info :html-tag-class))))
         (format "<span class=\"%s\">%s</span>"
                 class spans)
       (format "<span>%s</span>" spans))))

@@ -1985,6 +1985,17 @@ int a = 1;</code></p>\n</details>")
       "<span class=\"org-priority\">[A]</span>")
   ($l (t--priority 67 '(:html-priority-class "priority"))
       "<span class=\"priority\">[C]</span>"))
+
+(ert-deftest t--tags ()
+  "Tests for `org-w3ctr--tags'."
+  ($l (t--tags '("a" "b") '(:html-tag-class "org-tag"))
+      "<span class=\"org-tag\"><span>a</span>&#xa0;<span>b</span></span>")
+  ($l (t--tags '("a" "b") '(:html-tag-class nil))
+      "<span><span>a</span>&#xa0;<span>b</span></span>")
+  ($l (t--tags '("a" "b") '(:html-tag-class ""))
+      "<span><span>a</span>&#xa0;<span>b</span></span>")
+  ($l (t--tags '("a" "b") '(:html-tag-class "   \t"))
+      "<span><span>a</span>&#xa0;<span>b</span></span>"))
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
