@@ -2622,6 +2622,7 @@ indicates that no enclosing brackets should be applied."
 ;;;; Todo
 ;; Options:
 ;; - `org-done-keywords'
+;; - :with-todo-keywords (`org-export-with-todo-keywords')
 ;; - :html-todo-class (`org-w3ctr-todo-class')
 ;; - :html-todo-kwd-class-prefix (`org-w3ctr-todo-kwd-class-prefix')
 
@@ -2641,6 +2642,7 @@ indicates that no enclosing brackets should be applied."
 
 ;;;; Priority
 ;; Options:
+;; - :with-priority (`org-export-with-priority')
 ;; - :html-priority-class (`org-w3ctr-priority-class')
 
 (defun t--priority (priority info)
@@ -2656,6 +2658,7 @@ indicates that no enclosing brackets should be applied."
 
 ;;;; Tags
 ;; Options:
+;; - :with-tags (`org-export-with-tags')
 ;; - :html-tag-class (`org-w3ctr-tag-class')
 
 (defun t--tags (tags info)
@@ -2669,20 +2672,36 @@ indicates that no enclosing brackets should be applied."
 
 ;;;; Headline
 ;; Options
+;; - :headline-levels (`org-export-headline-levels')
 ;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
 
-(defun t-format-headline-default-function
-    (todo priority text tags info)
+(defun t-format-headline-default-function (todo priority text tags info)
   "Default format function for a headline.
 See `org-w3ctr-format-headline-function' for details and the
 description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
+  (declare (ftype (function ((or null string) (or null string)
+                             (or null string) list list)
+                            string)))
   (let ((todo (t--todo todo info))
         (priority (t--priority priority info))
         (tags (t--tags tags info)))
     (concat todo (and todo " ")
             priority (and priority " ")
-            text
-            (and tags "&#xa0;&#xa0;&#xa0;") tags)))
+            text (and tags "&#xa0;&#xa0;&#xa0;") tags)))
+
+(defun t--build-base-headline (headline info)
+  "WIP"
+  (let* ((fn (lambda (prop) (org-element-property prop headline)))
+         (todo (and-let* (((t--pget info :with-todo-keywords))
+                          (todo (funcall fn :todo-keyword)))
+                 (org-export-data todo info)))
+         (priority (and (t--pget info :with-priority)
+                        (funcall fn :priority)))
+         (text (org-export-data (funcall fn :title) info))
+         (tags (and (t--pget info :with-tags)
+                    (org-export-get-tags headline info)))
+         (f (t--pget info :html-format-headline-function)))
+    (funcall f todo priority text tags info)))
 
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
@@ -2692,34 +2711,26 @@ holding contextual information."
     (let* ((numberedp (org-export-numbered-headline-p headline info))
            (numbers (org-export-get-headline-number headline info))
            (level (+ (org-export-get-relative-level headline info)
-                     (1- (plist-get info :html-toplevel-hlevel))))
-           (todo (and (plist-get info :with-todo-keywords)
-                      (let ((todo (org-element-property :todo-keyword headline)))
-                        (and todo (org-export-data todo info)))))
-           (todo-type (and todo (org-element-property :todo-type headline)))
-           (priority (and (plist-get info :with-priority)
-                          (org-element-property :priority headline)))
-           (text (org-export-data (org-element-property :title headline) info))
-           (tags (and (plist-get info :with-tags)
-                      (org-export-get-tags headline info)))
-           (full-text (t--format-headline
-                       todo todo-type priority text tags info))
-           (contents (or contents ""))
+                     (1- (t--pget info :html-toplevel-hlevel))))
+           (text (t--build-base-headline headline info))
            (id (t--reference headline info)))
       (if (org-export-low-level-p headline info)
           ;; This is a deep sub-tree: export it as a list item.
-          (let* ((html-type (if numberedp "ol" "ul")))
+          (let* ((tag (if numberedp "ol" "ul")))
             (concat
              (and (org-export-first-sibling-p headline info)
-                  (apply #'format "<%s class=\"org-%s\">\n"
-                         (make-list 2 html-type)))
-             (t-format-list-item
-              contents (if numberedp 'ordered 'unordered)
-              nil info nil
-              (concat (t--anchor id nil nil info) full-text))
-             "\n"
+                  (format "<%s>\n" tag))
+             "<li>" (format "<span %s></span>" id) text "<br>"
+             (when-let* ((c (t--nw-trim contents)))
+               (concat "<br>\n" c "\n"))
+             "</li>\n"
+             ;; (t-format-list-item
+             ;;  contents (if numberedp 'ordered 'unordered)
+             ;;  nil info nil
+             ;;  (concat (t--anchor id nil nil info) text))
+             ;; "\n"
              (and (org-export-last-sibling-p headline info)
-                  (format "</%s>\n" html-type))))
+                  (format "</%s>\n" tag))))
         ;; Standard headline.  Export it as a section.
         (let* ((extra-class
                 (org-element-property :HTML_CONTAINER_CLASS headline))
@@ -2729,7 +2740,7 @@ holding contextual information."
                         (mapconcat #'number-to-string numbers ".")))
                (hd (concat (if (equal "" secno) ""
                              (format "<span class=\"secno\">%s. </span>" secno))
-                           full-text)))
+                           text)))
           (format "<%s id=\"%s\"%s>%s%s</%s>\n"
                   (t--container headline info)
                   id
@@ -2748,15 +2759,6 @@ holding contextual information."
   (or (org-element-property :HTML_CONTAINER headline)
       (if (<= (org-export-get-relative-level headline info) 5)
           "section" "div")))
-
-(defun t--format-headline (todo _todo-type priority text tags info)
-  (let ((todo (t--todo todo info))
-        (priority (t--priority priority info))
-        (tags (t--tags tags info)))
-    (concat todo (and todo " ")
-            priority (and priority " ")
-            text
-            (and tags "&#xa0;&#xa0;&#xa0;") tags)))
 
 (defun t--format-head-wrapper (tag id cls secno headline info)
   (format
@@ -3388,8 +3390,8 @@ INFO is a plist used as a communication channel."
                            (todo (org-element-property
                                   :todo-keyword headline)))
                  (org-export-data todo info)))
-         (todo-type (and todo (org-element-property
-                               :todo-type headline)))
+         ;; (todo-type (and todo (org-element-property
+         ;;                       :todo-type headline)))
          (priority (and (plist-get info :with-priority)
                         (org-element-property :priority headline)))
          (text (org-export-data-with-backend
