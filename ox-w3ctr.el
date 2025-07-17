@@ -221,6 +221,7 @@
     ;; FIXME: Reformat whole info options
     (:html-todo-class nil nil t-todo-class)
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
+    (:html-priority-class nil nil t-priority-class)
     ))
 
 ;;; User Configuration Variables.
@@ -405,6 +406,11 @@ keyword as a class name.
 
 But if you get into conflicts with other, existing CSS classes,
 then this prefix can be very useful."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-priority-class "org-priority"
+  "PRIORITY class."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -2629,14 +2635,19 @@ indicates that no enclosing brackets should be applied."
               todo))))
 
 ;;;; Priority
+;; Options:
+;; - :html-priority-class (`org-w3ctr-priority-class')
 
-(defun t--priority (priority _info)
-  "Format a priority into HTML.
-PRIORITY is the character code of the priority or nil."
-  (and priority
-       (format
-        "<span class=\"priority\">[%c]</span>"
-        priority)))
+(defun t--priority (priority info)
+  "Format a priority into HTML."
+  (declare (ftype (function ((or null string) list) (or null string)))
+           (important-return-value t))
+  (when priority
+    (let ((class (t--pget info :html-priority-class)))
+      (format "<span%s>[%c]</span>"
+              (if-let* ((c (t--nw-trim class)))
+                  (format " class=\"%s\"" c) "")
+              priority))))
 
 ;;;; Tags
 

@@ -1961,6 +1961,10 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--todo ()
   "Tests for `org-w3ctr--todo'."
+  ($l (t--todo nil nil) nil)
+  ($l (t--todo "TODO" '( :html-todo-kwd-class-prefix nil
+                         :html-todo-class nil))
+      "<span class=\"todo\">TODO</span>")
   ($l (t--todo "TODO" '( :html-todo-kwd-class-prefix "org1-"
                          :html-todo-class "one two"))
       "<span class=\"org1-todo one two\">TODO</span>")
@@ -1971,6 +1975,16 @@ int a = 1;</code></p>\n</details>")
     ($l (t--todo "WTF" '( :html-todo-kwd-class-prefix "status-"
                           :html-todo-class "a b "))
         "<span class=\"status-done a b\">WTF</span>")))
+
+(ert-deftest t--priority ()
+  "Tests for `org-w3ctr--priority'."
+  ($l (t--priority nil nil) nil)
+  ($l (t--priority 66 '(:html-priority-class "wtf"))
+      "<span class=\"wtf\">[B]</span>")
+  ($l (t--priority 65 '(:html-priority-class "org-priority"))
+      "<span class=\"org-priority\">[A]</span>")
+  ($l (t--priority 67 '(:html-priority-class "priority"))
+      "<span class=\"priority\">[C]</span>"))
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
