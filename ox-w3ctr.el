@@ -1704,44 +1704,6 @@ See `org-w3ctr-checkbox-types' for customization options."
              (cdr (assq (t--pget info :html-checkbox-type)
                         t-checkbox-types)))))
 
-;; FIXME: Remove it one day after improve headline export.
-(defun t-format-list-item ( contents type checkbox info
-                            &optional term-counter-id
-                            headline)
-  "Format a list item into HTML."
-  (let ((checkbox (concat (t--checkbox checkbox info)
-                          (and checkbox " ")))
-        (br "<br>")
-        (extra-newline (if (and (t--nw-p contents) headline)
-                           "\n" "")))
-    (concat
-     (pcase type
-       (`ordered
-        (let* ((counter term-counter-id)
-               (extra (if (not counter) ""
-                        (format " value=\"%s\"" counter))))
-          (concat
-           (format "<li%s>" extra)
-           (when headline (concat headline br)))))
-       (`unordered
-        ;; Ignore term-counter-id
-        ;; To prevent it from being parsed, try add <wbr> after '['
-        (concat "<li>" (when headline (concat headline br))))
-       (`descriptive
-        (let* ((term term-counter-id))
-          (setq term (or term "(no term)"))
-          ;; Check-boxes in descriptive lists are associated to tag.
-          (concat (format "<dt>%s</dt>"
-                          (concat checkbox term))
-                  "<dd>"))))
-     (unless (eq type 'descriptive) checkbox)
-     extra-newline
-     (and (t--nw-p contents) (t--trim contents))
-     extra-newline
-     (pcase type
-       (`ordered "</li>") (`unordered "</li>")
-       (`descriptive "</dd>")))))
-
 (defsubst t--format-checkbox (checkbox info)
   "Format a CHECKBOX option to string.
 
@@ -2703,6 +2665,22 @@ description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
          (f (t--pget info :html-format-headline-function)))
     (funcall f todo priority text tags info)))
 
+(defun t--build-low-level-headline (headline contents info)
+  "WIP"
+  (let* ((numberedp (org-export-numbered-headline-p headline info))
+         (text (t--build-base-headline headline info))
+         (id (t--reference headline info))
+         (tag (if numberedp "ol" "ul")))
+    (concat
+     (and (org-export-first-sibling-p headline info)
+          (format "<%s>\n" tag))
+     "<li>" (format "<span %s></span>" id) text "<br>"
+     (when-let* ((c (t--nw-trim contents)))
+       (concat "<br>\n" c "\n"))
+     "</li>\n"
+     (and (org-export-last-sibling-p headline info)
+          (format "</%s>\n" tag)))))
+
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
 CONTENTS holds the contents of the headline.  INFO is a plist
@@ -2716,21 +2694,7 @@ holding contextual information."
            (id (t--reference headline info)))
       (if (org-export-low-level-p headline info)
           ;; This is a deep sub-tree: export it as a list item.
-          (let* ((tag (if numberedp "ol" "ul")))
-            (concat
-             (and (org-export-first-sibling-p headline info)
-                  (format "<%s>\n" tag))
-             "<li>" (format "<span %s></span>" id) text "<br>"
-             (when-let* ((c (t--nw-trim contents)))
-               (concat "<br>\n" c "\n"))
-             "</li>\n"
-             ;; (t-format-list-item
-             ;;  contents (if numberedp 'ordered 'unordered)
-             ;;  nil info nil
-             ;;  (concat (t--anchor id nil nil info) text))
-             ;; "\n"
-             (and (org-export-last-sibling-p headline info)
-                  (format "</%s>\n" tag))))
+          (t--build-low-level-headline headline contents info)
         ;; Standard headline.  Export it as a section.
         (let* ((extra-class
                 (org-element-property :HTML_CONTAINER_CLASS headline))
