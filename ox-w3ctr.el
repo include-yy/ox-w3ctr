@@ -219,7 +219,8 @@
     ;; toc tag name
     (:html-toc-tagname nil "toctag" t-toc-tagname)
     ;; FIXME: Reformat whole info options
-    ;;(:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
+    (:html-todo-class nil nil t-todo-class)
+    (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     ))
 
 ;;; User Configuration Variables.
@@ -389,7 +390,24 @@ These format strings follow the conventions of `format-time-string'.
   "Custom timestamp format function."
   :group 'org-export-w3ctr
   :type 'function)
+
+(defcustom t-todo-class "org-todo"
+  "TODO keywords class."
+  :group 'org-export-w3ctr
+  :type 'string)
 
+(defcustom t-todo-kwd-class-prefix "org-status-"
+  "Prefix to class names for TODO keywords.
+
+Each TODO keyword gets a class given by the keyword itself, with this
+prefix. The default prefix is empty because it is nice to just use the
+keyword as a class name.
+
+But if you get into conflicts with other, existing CSS classes,
+then this prefix can be very useful."
+  :group 'org-export-w3ctr
+  :type 'string)
+
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
   "Function to generate timestamp for exported files at top place.
 
@@ -613,7 +631,7 @@ or for publication projects using the :html-head-extra property."
   :type 'string)
 ;;;###autoload
 (put 't-head-extra 'safe-local-variable 'stringp)
-
+
 (defcustom t-link-home ""
   "URL for the `HOME' link in the legacy navigation bar.
 
@@ -780,18 +798,6 @@ The function result will be used in the section format string."
 
 (defvar t-fixup-js ""
   "js code that control toc's hide and show")
-
-(defcustom t-todo-kwd-class-prefix ""
-  "Prefix to class names for TODO keywords.
-
-Each TODO keyword gets a class given by the keyword itself, with this
-prefix. The default prefix is empty because it is nice to just use the
-keyword as a class name.
-
-But if you get into conflicts with other, existing CSS classes,
-then this prefix can be very useful."
-  :group 'org-export-w3ctr
-  :type 'string)
 
 (defcustom t-toc-tagname nil
   "comment."
@@ -2603,22 +2609,23 @@ indicates that no enclosing brackets should be applied."
 ;;; Headline and Section
 
 ;;;; Todo
-
-(defun t--fix-class-name (kwd)
-  ;; audit callers of this function
-  "Turn todo keyword KWD into a valid class name.
-Replaces invalid characters with \"_\"."
-  (replace-regexp-in-string "[^a-zA-Z0-9_]" "_" kwd nil t))
+;; Options:
+;; - `org-done-keywords'
+;; - :html-todo-class (`org-w3ctr-todo-class')
+;; - :html-todo-kwd-class-prefix (`org-w3ctr-todo-kwd-class-prefix')
 
 (defun t--todo (todo info)
   "Format TODO keywords into HTML."
+  (declare (ftype (function ((or null string) list) (or null string)))
+           (important-return-value t))
   (when todo
-    (format
-     "<span class=\"%s %s%s\">%s</span>"
-     (if (member todo org-done-keywords) "done" "todo")
-     (or (plist-get info :html-todo-kwd-class-prefix) "")
-     (t--fix-class-name todo)
-     todo)))
+    (let* ((prefix (t--pget info :html-todo-kwd-class-prefix))
+           (common (t--pget info :html-todo-class))
+           (status (if (member todo (cons "DONE" org-done-keywords))
+                       "done" "todo"))
+           (class (concat prefix status)))
+      (format "<span class=\"%s%s\">%s</span>"
+              class (if common (concat " " common) "") todo))))
 
 ;;;; Priority
 
@@ -2994,7 +3001,7 @@ the file."
    (t--normalize-string (t--pget info :html-head))
    (t--normalize-string (t--pget info :html-head-extra))
    "</head>\n"))
-
+
 ;;;; Legacy home and up
 ;; Options
 ;; - :html-link-up (`org-w3ctr-link-up')
