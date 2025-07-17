@@ -420,7 +420,20 @@ then this prefix can be very useful."
   :group 'org-export-w3ctr
   :type 'string)
 
+(defcustom t-format-headline-function
+  #'t-format-headline-default-function
+  "Function to format headline text.
 
+This function will be called with six arguments:
+TODO      the todo keyword (string or nil).
+PRIORITY  the priority of the headline (integer or nil)
+TEXT      the main headline text (string).
+TAGS      the tags (string or nil).
+INFO      the export options (plist).
+
+The function result will be used in the section format string."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
   "Function to generate timestamp for exported files at top place.
@@ -764,22 +777,6 @@ precedence over this variable."
 See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
-
-(defcustom t-format-headline-function
-  #'t-format-headline-default-function
-  "Function to format headline text.
-
-This function will be called with six arguments:
-TODO      the todo keyword (string or nil).
-TODO-TYPE the type of todo (symbol: `todo', `done', nil)
-PRIORITY  the priority of the headline (integer or nil)
-TEXT      the main headline text (string).
-TAGS      the tags (string or nil).
-INFO      the export options (plist).
-
-The function result will be used in the section format string."
-  :group 'org-export-w3ctr
-  :type 'function)
 
 (defcustom t-toc-list-tag 'ul
   "Ordered list or unordered list."
@@ -2671,6 +2668,22 @@ indicates that no enclosing brackets should be applied."
       (format "<span>%s</span>" spans))))
 
 ;;;; Headline
+;; Options
+;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
+
+(defun t-format-headline-default-function
+    (todo priority text tags info)
+  "Default format function for a headline.
+See `org-w3ctr-format-headline-function' for details and the
+description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
+  (let ((todo (t--todo todo info))
+        (priority (t--priority priority info))
+        (tags (t--tags tags info)))
+    (concat todo (and todo " ")
+            priority (and priority " ")
+            text
+            (and tags "&#xa0;&#xa0;&#xa0;") tags)))
+
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
 CONTENTS holds the contents of the headline.  INFO is a plist
@@ -3365,18 +3378,6 @@ Note: This variable is provided as an example only and may need
 adaptation for actual project use.")
 
 ;;; Tables of Contents
-(defun t-format-headline-default-function
-    (todo _todo-type priority text tags info)
-  "Default format function for a headline.
-See `org-w3ctr-format-headline-function' for details and the
-description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
-  (let ((todo (t--todo todo info))
-        (priority (t--priority priority info))
-        (tags (t--tags tags info)))
-    (concat todo (and todo " ")
-            priority (and priority " ")
-            text
-            (and tags "&#xa0;&#xa0;&#xa0;") tags)))
 
 (defun t--format-toc-headline (headline info)
   "Return an appropriate table of contents entry for HEADLINE.
@@ -3412,7 +3413,7 @@ INFO is a plist used as a communication channel."
              (format
               "<span class=\"content\">%s</span>"
               (funcall (plist-get info :html-format-headline-function)
-                       todo todo-type priority text tags info))))))
+                       todo priority text tags info))))))
 
 (defun t--toc-text (toc-entries info)
   "Return innards of a table of contents, as a string.
