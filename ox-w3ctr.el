@@ -222,6 +222,7 @@
     (:html-todo-class nil nil t-todo-class)
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     (:html-priority-class nil nil t-priority-class)
+    (:html-tag-class nil nil t-tag-class)
     ))
 
 ;;; User Configuration Variables.
@@ -413,6 +414,13 @@ then this prefix can be very useful."
   "PRIORITY class."
   :group 'org-export-w3ctr
   :type 'string)
+
+(defcustom t-tag-class "org-tag"
+  "Tag Wrapper class."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+
 
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
   "Function to generate timestamp for exported files at top place.
@@ -2650,20 +2658,17 @@ indicates that no enclosing brackets should be applied."
               priority))))
 
 ;;;; Tags
+;; Options:
+;; - :html-tag-class (`org-w3ctr-tag-class')
 
 (defun t--tags (tags info)
-  "Format TAGS into HTML.
-INFO is a plist containing export options."
-  (when tags
-    (format "<span class=\"tag\">%s</span>"
-            (mapconcat
-             (lambda (tag)
-               (format "<span class=\"%s\">%s</span>"
-                       (concat
-                        (plist-get info :html-tag-class-prefix)
-                        (org-html-fix-class-name tag))
-                       tag))
-             tags "&#xa0;"))))
+  "Format TAGS into HTML."
+  (when-let* ((f (lambda (tag) (format "<span>%s</span>" tag)))
+              (spans (mapconcat f tags "&#xa0;")))
+    (if-let* ((class (t--pget info :html-tag-class)))
+        (format "<span class=\"%s\">%s</span>"
+                class spans)
+      (format "<span>%s</span>" spans))))
 
 ;;;; Headline
 (defun t-headline (headline contents info)
