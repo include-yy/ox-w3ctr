@@ -2591,6 +2591,30 @@ indicates that no enclosing brackets should be applied."
 
 ;;; Headline and Section
 
+;;;; Section
+;; Fixed export. Not customizable.
+
+(defvar t--zeroth-section-output nil
+  "Internal variable storing zeroth section's HTML output.
+
+This is used to override the default ox-html behavior where TOC comes
+first, allowing zeroth section's content to appear before the TOC while
+the TOC remains near the beginning of the document.")
+
+(defun t-section (section contents _info)
+  "Transcode a SECTION element from Org to HTML.
+CONTENTS holds the contents of the section.  INFO is a plist
+holding contextual information."
+  (declare (ftype (function (t t t) string))
+           (important-return-value t))
+  (let ((parent (org-export-get-parent-headline section))
+        (text (or (t--nw-p contents) "")))
+    ;; normal section
+    (if parent text
+      ;; the zeroth section
+      (prog1 "" (setq t--zeroth-section-output
+                      (string-trim-left text "\n"))))))
+
 ;;;; Todo
 ;; Options:
 ;; - `org-done-keywords'
@@ -2750,7 +2774,7 @@ description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
          (c-cls (org-element-property :HTML_CONTAINER_CLASS headline))
          (h-cls (org-element-property :HTML_HEADLINE_CLASS headline)))
     ;; <C>, id, class, header, contents, </C>
-    (format "<%s id=\"%s\"%s>%s%s</%s>\n"
+    (format "<%s id=\"%s\"%s>\n%s%s\n</%s>\n"
             wrap id (or (and c-cls (format " class=\"%s\"" c-cls)) "")
             (format
              ;; <H>, id, class, headline, </H>
@@ -2772,28 +2796,6 @@ holding contextual information."
         (t--build-low-level-headline headline contents info)
       ;; Standard headline.  Export it as a section.
       (t--build-standard-headline headline contents info))))
-
-;;;; Section
-(defvar t--zeroth-section-output nil
-  "Internal variable storing zeroth section's HTML output.
-
-This is used to override the default ox-html behavior where TOC comes
-first, allowing zeroth section's content to appear before the TOC while
-the TOC remains near the beginning of the document.")
-
-(defun t-section (section contents _info)
-  "Transcode a SECTION element from Org to HTML.
-CONTENTS holds the contents of the section.  INFO is a plist
-holding contextual information."
-  (let ((parent (org-export-get-parent-headline section)))
-    ;; Before first headline: no container, just return CONTENTS.
-    (if (not parent)
-        ;; the zeroth section
-        (prog1 ""
-          (setq t--zeroth-section-output
-                (format "<div id=\"abstract\">\n%s</div>\n"
-                        (or (t--nw-trim contents) ""))))
-      (or (t--nw-trim contents) ""))))
 
 ;;; Template and Inner Template
 
