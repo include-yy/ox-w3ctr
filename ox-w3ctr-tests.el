@@ -1971,6 +1971,9 @@ int a = 1;</code></p>\n</details>")
   ($l (t--todo "DONE" '( :html-todo-kwd-class-prefix "status-"
                          :html-todo-class "a b "))
       "<span class=\"status-done a b\">DONE</span>")
+  ($l (t--todo "TODO" '( :html-todo-kwd-class-prefix "org-status-"
+                         :html-todo-class "\t foo \t"))
+      "<span class=\"org-status-todo foo\">TODO</span>")
   (let ((org-done-keywords '("WTF")))
     ($l (t--todo "WTF" '( :html-todo-kwd-class-prefix "status-"
                           :html-todo-class "a b "))
@@ -1984,12 +1987,18 @@ int a = 1;</code></p>\n</details>")
   ($l (t--priority 65 '(:html-priority-class "org-priority"))
       "<span class=\"org-priority\">[A]</span>")
   ($l (t--priority 67 '(:html-priority-class "priority"))
-      "<span class=\"priority\">[C]</span>"))
+      "<span class=\"priority\">[C]</span>")
+  ($e!l (t--priority -1 nil) '(wrong-type-argument characterp -1)))
 
 (ert-deftest t--tags ()
   "Tests for `org-w3ctr--tags'."
+  ($l (t--tags nil nil) nil)
+  ($l (t--tags '("a") nil) "<span><span>a</span></span>")
+  ($l (t--tags '("a") '(:html-tag-class "tags"))
+      "<span class=\"tags\"><span>a</span></span>")
   ($l (t--tags '("a" "b") '(:html-tag-class "org-tag"))
-      "<span class=\"org-tag\"><span>a</span>&#xa0;<span>b</span></span>")
+      ($c "<span class=\"org-tag\"><span>a</span>&#xa0;"
+          "<span>b</span></span>"))
   ($l (t--tags '("a" "b") '(:html-tag-class nil))
       "<span><span>a</span>&#xa0;<span>b</span></span>")
   ($l (t--tags '("a" "b") '(:html-tag-class ""))

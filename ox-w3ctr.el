@@ -1235,13 +1235,12 @@ ELEMENT is either a source or an example block."
 
 (define-error 't-error "ox-w3ctr-error")
 
+;; FIXME: Replace `error' calls with `org-w3ctr-error'.
 ;; Copied from `error'.
 (defun t-error (string &rest args)
   "Signal an org-w3ctr-error, like `error'."
   (declare (ftype (function (string &rest t) nil)))
   (signal 't-error (list (apply #'format-message string args))))
-
-;; FIXME: Add some helper functions here, and replace `error' calls.
 
 ;; A lightweight caching system for property lookups within the INFO
 ;; plist used during Org export.
@@ -1293,6 +1292,10 @@ with the new INFO and the corresponding property value."
        :html-timezone :html-export-timezone :html-datetime-option
        :html-timestamp-option :html-timestamp-wrapper
        :html-timestamp-formats :html-timestamp-format-function
+       ;; headline and section
+       :html-todo-kwd-class-prefix :html-todo-class :with-todo-keywords
+       :html-priority-class :with-priority
+
        :with-author :author :with-title :title
        :time-stamp-file :html-file-timestamp-function :html-viewport
        :with-latex :html-mathjax-config :html-mathml-config
@@ -2613,13 +2616,17 @@ indicates that no enclosing brackets should be applied."
 ;; Options:
 ;; - :with-priority (`org-export-with-priority')
 ;; - :html-priority-class (`org-w3ctr-priority-class')
+;; - `org-priority-highest'(65)
+;; - `org-priority-default'(66)
+;; - `org-priority-lowest' (67)
 
 (defun t--priority (priority info)
   "Format a priority into HTML."
-  (declare (ftype (function ((or null string) list) (or null string)))
+  (declare (ftype (function ((or null fixnum) list) (or null string)))
            (important-return-value t))
   (when priority
     (let ((class (t--pget info :html-priority-class)))
+      ;; %c means produce a number as a single character.
       (format "<span%s>[%c]</span>"
               (if-let* ((c (t--nw-trim class)))
                   (format " class=\"%s\"" c) "")
