@@ -176,10 +176,6 @@
     (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
     ;; <yy> control max headline level
     (:headline-levels nil "H" org-export-headline-levels)
-    ;; <yy> control todo, priority and tags export
-    (:with-todo-keywords nil "todo" t-with-todo-keywords)
-    (:with-priority nil "pri" t-with-priority)
-    (:with-tags nil "tags" t-with-tags)
     ;; table options ------------------------
     (:html-table-align-individual-fields
      nil nil t-table-align-individual-fields)
@@ -970,19 +966,6 @@ Otherwise, place it near the end."
   "use babel or not when exporting.
 
 This option will override `org-export-use-babel'"
-  :group 'org-export-w3ctr
-  :type '(boolean))
-
-(defcustom t-with-todo-keywords nil
-  "Export headline with TODO keywords"
-  :group 'org-export-w3ctr
-  :type '(boolean))
-(defcustom t-with-priority nil
-  "Export headline with [#A] priority"
-  :group 'org-export-w3ctr
-  :type '(boolean))
-(defcustom t-with-tags nil
-  "Export headline with :a: tags"
   :group 'org-export-w3ctr
   :type '(boolean))
 
