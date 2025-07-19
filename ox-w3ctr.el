@@ -2658,6 +2658,7 @@ holding contextual information."
 ;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
 ;; - :html-honor-ox-headline-levels (`org-w3ctr-honor-ox-headline-levels')
 ;; - :headline-levels (`org-export-headline-levels')
+;; - :headline-offset (internal)
 ;; - :section-numbers (`org-export-with-section-numbers')
 
 (defun t-format-headline-default-function (todo priority text tags info)
@@ -2716,7 +2717,7 @@ between 2 and 6, signaling an error if it is not."
       (t-error "Invalid HTML top level: %s" top-level))
     (+ level top-level -1)))
 
-(defun t--low-level-p (headline info)
+(defun t--low-level-headline-p (headline info)
   "Check if HEADLINE should be rendered as a low-level list item.
 
 This predicate determines if a headline's level exceeds the
@@ -2812,7 +2813,7 @@ to ensure the headline is linkable."
 CONTENTS holds the contents of the headline.  INFO is a plist
 holding contextual information."
   (unless (org-element-property :footnote-section-p headline)
-    (if (t--low-level-p headline info)
+    (if (t--low-level-headline-p headline info)
         ;; This is a deep sub-tree: export it as a list item.
         (t--build-low-level-headline headline contents info)
       ;; Standard headline.  Export it as a section.

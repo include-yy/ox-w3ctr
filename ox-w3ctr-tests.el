@@ -2089,6 +2089,36 @@ int a = 1;</code></p>\n</details>")
          ("* a\n** b\n*** c\n" 2 2 3 3 4 4)
          ("* a\n* b\n**** c\n" 2 2 5 5 2 2))
        t '(:html-toplevel-hlevel 2)))))
+
+(ert-deftest t--low-level-headline-p ()
+  "Tests for `org-w3ctr--low-level-headline-p'."
+  ($it t--low-level-headline-p
+    (let ((i1 '( :html-toplevel-hlevel 2
+                 :html-honor-ox-headline-levels nil))
+          (i2 '( :html-honor-ox-headline-levels t
+                 :headline-levels 4)))
+      (cl-flet ((f (str) (car (t-get-parsed-elements str 'headline))))
+        ;; i1
+        ($l (it (f "* a") i1) nil)
+        ($l (it (f "** a") i1) nil)
+        ($l (it (f "*** a") i1) nil)
+        ($l (it (f "**** a") i1) nil)
+        ($l (it (f "***** a") i1) nil)
+        ($l (it (f "****** a") i1) t)
+        ;; i2
+        ($l (it (f "* a") i2) nil)
+        ($l (it (f "** a") i2) nil)
+        ($l (it (f "*** a") i2) nil)
+        ($l (it (f "**** a") i2) nil)
+        ($l (it (f "***** a") i2) 1)
+        ($l (it (f "****** a") i2) 2))))
+  (t-check-element-values
+   #'t--low-level-headline-p
+   '(("* a\n** b\n*** c\n**** d\n***** e\n" nil nil nil 1 2)
+     ("** a\n*** b\n**** c\n***** d\n****** e\n" nil nil nil 1 2))
+   t '( :html-honor-ox-headline-levels t
+        :headline-levels 3)))
+
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
