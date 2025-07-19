@@ -1909,7 +1909,7 @@ CONTENTS is nil."
       ("D" (t--sexp2html (read (or (t--nw-p value) "\"\""))))
       ("L" (mapconcat #'t--sexp2html
                       (read (format "(%s)" value))))
-      (_ ""))))
+      (_ nil))))
 
 (defsubst t--wrap-image (contents _info caption attrs)
   "Wrap CONTENTS string within <figure> tag for images.
@@ -2608,8 +2608,7 @@ holding contextual information."
   (declare (ftype (function (t t t) string))
            (important-return-value t))
   (let ((parent (org-export-get-parent-headline section))
-        (text (if-let* ((c (t--nw-p contents)))
-                  (string-trim-left c "\n+") "")))
+        (text (or (t--nw-p contents) "")))
     ;; normal section
     (if parent text
       ;; the zeroth section

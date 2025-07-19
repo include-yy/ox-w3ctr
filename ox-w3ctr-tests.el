@@ -872,7 +872,7 @@ int a = 1;</code></p>\n</details>")
      ("#+l: (br) \" \" (br)" "<br> <br>")
      ("#+l: (p() 123) (p() 234)" "<p>123</p><p>234</p>")
      ;; Otherwise
-     ("#+hello: world" ""))
+     ("#+hello: world" nil))
    t))
 
 (ert-deftest t--wrap-image ()
@@ -1967,8 +1967,7 @@ int a = 1;</code></p>\n</details>")
      #'t-section
      '(("123" "<p>123</p>\n")
        ("\n\n123" "<p>123</p>\n")
-       ;; keywords will affect section's preamble blanks.
-       ("#+a:b\n\n123 234\n\n" "\n<p>123 234</p>\n")
+       ("#+a:b\n\n123 234\n\n" "<p>123 234</p>\n")
        ("123\n* test\n\n456" "<p>456</p>\n" "<p>123</p>\n"))))
   (t-check-element-values
    #'t-section
