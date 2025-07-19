@@ -2654,10 +2654,10 @@ holding contextual information."
 
 ;;;; Headline
 ;; Options
+;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
 ;; - :headline-levels (`org-export-headline-levels')
 ;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
 ;; - :section-numbers (`org-export-with-section-numbers')
-;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
 
 (defun t-format-headline-default-function (todo priority text tags info)
   "Default format function for a headline.
@@ -2674,7 +2674,15 @@ description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
             text (and tags "&#xa0;&#xa0;&#xa0;") tags)))
 
 (defun t--build-base-headline (headline info)
-  "WIP"
+  "Build the inner HTML content of a headline.
+
+This function extracts all components of a HEADLINE element (like
+TODO keyword, priority, title, and tags) from the parse tree. It
+respects export options like `:with-todo-keywords' and `:with-tags'.
+
+Then, it passes these extracted components as arguments to the
+user-defined formatting function (from `:html-format-headline-function')
+to construct the final string."
   (let* ((fn (lambda (prop) (org-element-property prop headline)))
          (todo (and-let* (((t--pget info :with-todo-keywords))
                           (todo (funcall fn :todo-keyword)))
