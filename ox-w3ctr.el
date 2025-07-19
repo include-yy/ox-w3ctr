@@ -2645,6 +2645,8 @@ holding contextual information."
 
 (defun t--tags (tags info)
   "Format TAGS into HTML."
+  (declare (ftype (function (list list) (or null string)))
+           (important-return-value t))
   (when-let* ((f (lambda (tag) (format "<span>%s</span>" tag)))
               (spans (t--nw-p (mapconcat f tags "&#xa0;"))))
     (if-let* ((class (t--nw-trim (t--pget info :html-tag-class))))
@@ -2735,25 +2737,25 @@ Its behavior depends on `:html-honor-ox-headline-levels':
       (> level 6))))
 
 (defun t--build-low-level-headline (headline contents info)
-  "Transcode a low-level headline into an HTML list item (`<li>`).
+  "Transcode a low-level headline into an HTML list item (`<li>').
 
 This function renders headlines that are too deep to become standard
 <hN> tags. It creates a list structure where a group of sibling
-low-level headlines becomes a single `<ol>` or `<ul>`.
+low-level headlines becomes a single `<ol>' or `<ul>'.
 
-The list type (`<ol>` vs. `<ul>`) is determined by whether section
-numbering is active. An anchor `id` is added to the `<li>` element
-to ensure the headline is linkable."
+The list type (`<ol>' vs. `<ul>') is determined by whether section
+numbering is active."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
   (let* ((numberedp (org-export-numbered-headline-p headline info))
+         (tag (if numberedp "ol" "ul"))
          (text (t--build-base-headline headline info))
-         (id (t--reference headline info))
-         (tag (if numberedp "ol" "ul")))
+         (id (t--reference headline info)))
     (concat
      (and (org-export-first-sibling-p headline info)
           (format "<%s>\n" tag))
-     "<li>" (format "<span id=\"%s\"></span>" id) text "<br>"
-     (when-let* ((c (t--nw-trim contents)))
-       (concat "<br>\n" c "\n"))
+     "<li>" (format "<span id=\"%s\"></span>" id) text
+     (when-let* ((c (t--nw-p contents))) (concat "<br>\n" c))
      "</li>\n"
      (and (org-export-last-sibling-p headline info)
           (format "</%s>\n" tag)))))
@@ -2763,6 +2765,7 @@ to ensure the headline is linkable."
   (declare (ftype (function (t list) (or null string)))
            (important-return-value t))
   (or (org-element-property :HTML_CONTAINER headline)
+      ;; FIXME: Simpilfy logic.
       (if (<= (org-export-get-relative-level headline info) 5)
           (t--pget info :html-container) "div")))
 

@@ -2119,6 +2119,42 @@ int a = 1;</code></p>\n</details>")
    t '( :html-honor-ox-headline-levels t
         :headline-levels 3)))
 
+;; FIXME: Consider improve it
+(ert-deftest t--build-low-level-headline ()
+  "Tests for `org-w3ctr--build-low-level-headline'."
+  ($it t--build-low-level-headline
+    (cl-letf* (((symbol-function 'org-export-numbered-headline-p)
+                (lambda (_h _i) t))
+               ((symbol-function 't--build-base-headline)
+                (lambda (_h _i) "test"))
+               ((symbol-function 't--reference)
+                (lambda (_h _i) "0"))
+               ((symbol-function 'org-export-first-sibling-p)
+                (lambda (_h _i) t))
+               ((symbol-function 'org-export-last-sibling-p)
+                (lambda (_h _i) t)))
+      ($l (it nil nil nil)
+          "<ol>\n<li><span id=\"0\"></span>test</li>\n</ol>\n")
+      ($l (it nil "a" nil)
+          ($c "<ol>\n<li><span id=\"0\"></span>test<br>"
+              "\na</li>\n</ol>\n"))))
+  (let ((counter 0))
+    (cl-letf (((symbol-function 't--reference)
+               (lambda (n i &optional b)
+                 (when (org-element-type-p n 'headline)
+                   (number-to-string (incf counter))))))
+      (t-check-element-values
+       #'t--build-low-level-headline
+       `((,($c "* a\n** b\n*** c\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n"
+              "*** d\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\nabc\n"
+              "*** e\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n")
+          "<li><span id=\"3\"></span>e</li>\n</ul>\n"
+          "<li><span id=\"2\"></span>d<br>\n<p>abc</p>\n</li>\n"
+          "<ul>\n<li><span id=\"1\"></span>c</li>\n"))
+       t '( :html-honor-ox-headline-levels t
+            :headline-levels 2
+            :html-format-headline-function
+            t-format-headline-default-function)))))
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
