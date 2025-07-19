@@ -2037,6 +2037,58 @@ int a = 1;</code></p>\n</details>")
       "<span><span>a</span>&#xa0;<span>b</span></span>")
   ($l (t--tags '("a" "b") '(:html-tag-class "   \t"))
       "<span><span>a</span>&#xa0;<span>b</span></span>"))
+
+(ert-deftest t--build-base-headline ()
+  "Tests for `org-w3ctr--build-base-headline'."
+  (t-check-element-values
+   #'t--build-base-headline
+   `(("* test" "test")
+     ("* TODO test1" ,($c "<span class=\"org-status-todo org-todo\">"
+                          "TODO</span> test1"))
+     ("* DONE test2" ,($c "<span class=\"org-status-done org-todo\">"
+                          "DONE</span> test2"))
+     ("* [#1] test3" "<span class=\"org-priority\">[1]</span> test3")
+     ("* [#a] test4" "<span class=\"org-priority\">[a]</span> test4")
+     ("* test5 :a:" ,($c "test5&#xa0;&#xa0;&#xa0;<span class="
+                         "\"org-tag\"><span>a</span></span>"))
+     ("* test6 :a:b" "test6 :a:b")
+     ("* test6 :a:b:" ,($c "test6&#xa0;&#xa0;&#xa0;<span class="
+                           "\"org-tag\"><span>a</span>&#xa0;"
+                           "<span>b</span></span>"))
+     ("* TODO [#F] test7 :tag1:tag2:"
+      ,($c "<span class=\"org-status-todo org-todo\">TODO</span> "
+           "<span class=\"org-priority\">[F]</span> "
+           "test7&#xa0;&#xa0;&#xa0;<span class=\"org-tag\">"
+           "<span>tag1</span>&#xa0;<span>tag2</span></span>")))
+   t '(:html-format-headline-function
+       t-format-headline-default-function
+       :with-todo-keywords t :with-priority t :with-tags t
+       :html-todo-kwd-class-prefix "org-status-"
+       :html-todo-class "org-todo"
+       :html-priority-class "org-priority"
+       :html-tag-class "org-tag")))
+
+(ert-deftest t--get-headline-hlevel ()
+  "Tests for `org-w3ctr--get-headline-hlevel'."
+  ($it t--get-headline-hlevel
+    (cl-flet ((f (str) (t-get-parsed-elements str 'headline)))
+      (let* ((i '(:html-toplevel-hlevel 2))
+             (g (lambda (h) (it h i))))
+        ($l (mapcar g (f "* 123")) '(2))
+        ($l (mapcar g (f "* a\n* b\n**** c\n***** d\n* e\n**** f"))
+            (mapcar #'1+ '(1 1 4 5 1 4)))
+        ($l (mapcar g (f "** a\n** b\n")) '(3 3))
+        ($l (mapcar g (f "****** a")) '(7)))
+      ($e!l (it (car (f "* a")) '(:html-toplevel-hlevel 1))
+            '(org-w3ctr-error "Invalid HTML top level: 1"))
+      ($e!l (it (car (f "* a")) '(:html-toplevel-hlevel 7))
+            '(org-w3ctr-error "Invalid HTML top level: 7"))
+      (t-check-element-values
+       't--get-headline-hlevel
+       '(("** a\n** b\n" 2 2 2 2)
+         ("* a\n** b\n*** c\n" 2 2 3 3 4 4)
+         ("* a\n* b\n**** c\n" 2 2 5 5 2 2))
+       t '(:html-toplevel-hlevel 2)))))
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
