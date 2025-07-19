@@ -1959,6 +1959,39 @@ int a = 1;</code></p>\n</details>")
           :html-timestamp-formats ("%F" . "%F %R")
           :html-timezone "UTC+8" :html-datetime-option s-none)))
 
+(ert-deftest t-section ()
+  "Tests for `org-w3ctr-section'."
+  (cl-letf (((symbol-function 't-section)
+             (lambda (_s c _info) c)))
+    (t-check-element-values
+     #'t-section
+     '(("123" "<p>123</p>\n")
+       ("\n\n123" "<p>123</p>\n")
+       ;; keywords will affect section's preamble blanks.
+       ("#+a:b\n\n123 234\n\n" "\n<p>123 234</p>\n")
+       ("123\n* test\n\n456" "<p>456</p>\n" "<p>123</p>\n"))))
+  (t-check-element-values
+   #'t-section
+   '(("* test1\n\n123 234\n\n" "<p>123 234</p>\n")
+     ("* test2\n\n#+a:b\n\n456\n" "<p>456</p>\n")
+     ("* test3\n\n\n\n" . nil)))
+  ;; zeroth section
+  (let* ((ls nil)
+         (f (lambda (s n o w)
+              (when (stringp n) (push n ls))
+              (set s n))))
+    (unwind-protect
+        (progn
+          (add-variable-watcher 't--zeroth-section-output f)
+          (t-check-element-values #'t-section '(("567" "")))
+          ($l (car ls) "<p>567</p>\n")
+          (t-check-element-values #'t-section '(("\n\n\n678" "")))
+          ($l (car ls) "<p>678</p>\n")
+          (t-check-element-values #'t-section '(("#+a:b\n\n\n666\n" "")))
+          ($l (car ls) "<p>666</p>\n"))
+      (dolist (a (get-variable-watchers 't--zeroth-section-output))
+        (remove-variable-watcher 't--zeroth-section-output a)))))
+
 (ert-deftest t--todo ()
   "Tests for `org-w3ctr--todo'."
   ($l (t--todo nil nil) nil)

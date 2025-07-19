@@ -2608,12 +2608,12 @@ holding contextual information."
   (declare (ftype (function (t t t) string))
            (important-return-value t))
   (let ((parent (org-export-get-parent-headline section))
-        (text (or (t--nw-p contents) "")))
+        (text (if-let* ((c (t--nw-p contents)))
+                  (string-trim-left c "\n+") "")))
     ;; normal section
     (if parent text
       ;; the zeroth section
-      (prog1 "" (setq t--zeroth-section-output
-                      (string-trim-left text "\n"))))))
+      (prog1 "" (setq t--zeroth-section-output text)))))
 
 ;;;; Todo
 ;; Options:
@@ -3485,7 +3485,8 @@ of contents as a string, or nil if it is empty."
 CONTENTS is the transcoded contents string."
   ;; See also `org-html-inner-template'
   (concat
-   (prog1 t--zeroth-section-output
+   (prog1 (format "<div>%s</div>\n"
+                  (t--maybe-contents t--zeroth-section-output))
      (setq t--zeroth-section-output nil))
    (when-let* ((depth (plist-get info :with-toc)))
      (t-toc depth info))
