@@ -2655,8 +2655,9 @@ holding contextual information."
 ;;;; Headline
 ;; Options
 ;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
-;; - :headline-levels (`org-export-headline-levels')
 ;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
+;; - :html-honor-ox-headline-levels (`org-w3ctr-honor-ox-headline-levels')
+;; - :headline-levels (`org-export-headline-levels')
 ;; - :section-numbers (`org-export-with-section-numbers')
 
 (defun t-format-headline-default-function (todo priority text tags info)
@@ -2683,6 +2684,8 @@ respects export options like `:with-todo-keywords' and `:with-tags'.
 Then, it passes these extracted components as arguments to the
 user-defined formatting function (from `:html-format-headline-function')
 to construct the final string."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
   (let* ((fn (lambda (prop) (org-element-property prop headline)))
          (todo (and-let* (((t--pget info :with-todo-keywords))
                           (todo (funcall fn :todo-keyword)))
@@ -2695,8 +2698,51 @@ to construct the final string."
          (f (t--pget info :html-format-headline-function)))
     (funcall f todo priority text tags info)))
 
+(defun t--get-headline-hlevel (headline info)
+  "Calculate the absolute HTML heading level for a headline.
+
+This function computes the final HTML heading level based on the
+headline's relative level within the Org document and the value
+of `:html-toplevel-hlevel'. The formula used is:
+  (relative-level + top-level - 1).
+
+It also validates that `:html-toplevel-hlevel' is an integer
+between 2 and 6, signaling an error if it is not."
+  (declare (ftype (function (t list) fixnum))
+           (important-return-value t))
+  (let ((top-level (t--pget info :html-toplevel-hlevel))
+        (level (org-export-get-relative-level headline info)))
+    (unless (and (fixnump top-level) (<= 2 top-level 6))
+      (t-error "Invalid HTML top level: %s" top-level))
+    (+ level top-level -1)))
+
+(defun t--low-level-p (headline info)
+  "Check if HEADLINE should be rendered as a low-level list item.
+
+This predicate determines if a headline's level exceeds the
+standard HTML heading range (i.e., <h6>).
+
+Its behavior depends on `:html-honor-ox-headline-levels':
+- If non-nil, it uses the default `org-export-low-level-p'.
+- If nil, it uses a custom check based on the calculated h-level
+  from `org-w3ctr--get-headline-hlevel'."
+  (declare (ftype (function (t list) boolean))
+           (important-return-value t))
+  (if-let* ((honor (t--pget info :html-honor-ox-headline-levels)))
+      (org-export-low-level-p headline info)
+    (let ((level (t--get-headline-hlevel headline info)))
+      (> level 6))))
+
 (defun t--build-low-level-headline (headline contents info)
-  "WIP"
+  "Transcode a low-level headline into an HTML list item (`<li>`).
+
+This function renders headlines that are too deep to become standard
+<hN> tags. It creates a list structure where a group of sibling
+low-level headlines becomes a single `<ol>` or `<ul>`.
+
+The list type (`<ol>` vs. `<ul>`) is determined by whether section
+numbering is active. An anchor `id` is added to the `<li>` element
+to ensure the headline is linkable."
   (let* ((numberedp (org-export-numbered-headline-p headline info))
          (text (t--build-base-headline headline info))
          (id (t--reference headline info))
@@ -2710,21 +2756,6 @@ to construct the final string."
      "</li>\n"
      (and (org-export-last-sibling-p headline info)
           (format "</%s>\n" tag)))))
-
-(defun t--get-headline-hlevel (headline info)
-  "WIP"
-  (let ((top-level (t--pget info :html-toplevel-hlevel))
-        (level (org-export-get-relative-level headline info)))
-    (unless (and (fixnump top-level) (<= 2 top-level 6))
-      (t-error "Invalid HTML top level: %s" top-level))
-    (+ level top-level -1)))
-
-(defun t--low-level-p (headline info)
-  "WIP"
-  (if-let* ((honor (t--pget info :html-honor-ox-headline-levels)))
-      (org-export-low-level-p headline info)
-    (let ((level (t--get-headline-hlevel headline info)))
-      (> level 6))))
 
 (defun t--container (headline info)
   "Return HTML container name for HEADLINE as a string."
