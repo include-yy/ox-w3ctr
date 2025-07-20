@@ -434,9 +434,9 @@ The function result will be used in the section format string."
   :type 'function)
 
 (defcustom t-container-element "section"
-  "Container element"
+  "Container element."
   :group 'org-export-w3ctr
-  :type '(choice (const "section") (const "div")))
+  :type '(choice string (const nil)))
 
 (defcustom t-honor-ox-headline-levels nil
   "Honor `org-export-headline-levels' or not"
@@ -2760,14 +2760,14 @@ numbering is active."
      (and (org-export-last-sibling-p headline info)
           (format "</%s>\n" tag)))))
 
+;; FIXME: Add container checker here.
 (defun t--container (headline info)
   "Return HTML container name for HEADLINE as a string."
-  (declare (ftype (function (t list) (or null string)))
+  (declare (ftype (function (t list) string))
            (important-return-value t))
   (or (org-element-property :HTML_CONTAINER headline)
-      ;; FIXME: Simpilfy logic.
-      (if (<= (org-export-get-relative-level headline info) 5)
-          (t--pget info :html-container) "div")))
+      (t--pget info :html-container)
+      "div"))
 
 (defun t--build-self-link (id info)
   "WIP"

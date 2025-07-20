@@ -2155,6 +2155,11 @@ int a = 1;</code></p>\n</details>")
             :headline-levels 2
             :html-format-headline-function
             t-format-headline-default-function)))))
+
+(ert-deftest t--container ()
+  "Tests for `org-w3ctr--container'."
+  nil)
+
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
