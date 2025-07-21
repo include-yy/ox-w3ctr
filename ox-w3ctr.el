@@ -390,31 +390,28 @@ These format strings follow the conventions of `format-time-string'.
   "Custom timestamp format function."
   :group 'org-export-w3ctr
   :type 'function)
-
+
 (defcustom t-todo-class "org-todo"
-  "TODO keywords class."
+  "The CSS class for the `<span>' element wrapping a TODO keyword."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-todo-kwd-class-prefix "org-status-"
-  "Prefix to class names for TODO keywords.
+  "Prefix for CSS classes applied to TODO keywords.
 
-Each TODO keyword gets a class given by the keyword itself, with this
-prefix. The default prefix is empty because it is nice to just use the
-keyword as a class name.
-
-But if you get into conflicts with other, existing CSS classes,
-then this prefix can be very useful."
+The final class will be this prefix followed by the status
+(e.g., \"todo\" or \"done\"). For example, if a headline is a
+TODO item, its class will be \"org-status-todo\" by default."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-priority-class "org-priority"
-  "PRIORITY class."
+  "The CSS class for the `<span>' element wrapping a priority marker."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-tag-class "org-tag"
-  "Tag Wrapper class."
+  "The CSS class for the `<span>' element wrapping all tags."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -423,26 +420,40 @@ then this prefix can be very useful."
   "Function to format headline text.
 
 This function will be called with six arguments:
-TODO      the todo keyword (string or nil).
-PRIORITY  the priority of the headline (integer or nil)
-TEXT      the main headline text (string).
-TAGS      the tags (string or nil).
-INFO      the export options (plist).
+- TODO      the todo keyword (string or nil).
+- PRIORITY  the priority of the headline (integer or nil)
+- TEXT      the main headline text (string).
+- TAGS      the tags (list of string).
+- INFO      the export options (plist).
 
-The function result will be used in the section format string."
+The function should return the formatted HTML string for the headline."
   :group 'org-export-w3ctr
   :type 'function)
 
+;; See `org-html-toplevel-hlevel' for more information.
+(defcustom t-toplevel-hlevel 2
+  "The <H> level for level 1 headings in HTML export."
+  :group 'org-export-w3ctr
+  :type 'integer)
+
+(defcustom t-honor-ox-headline-levels nil
+  "Honor `org-export-headline-levels' or not."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
 (defcustom t-container-element "section"
-  "Container element."
+  "The HTML tag name for the element that contains a headline.
+
+Common values are \"section\" or \"div\". If nil, \"div\" is used."
   :group 'org-export-w3ctr
   :type '(choice string (const nil)))
 
-(defcustom t-honor-ox-headline-levels nil
-  "Honor `org-export-headline-levels' or not"
+(defcustom t-self-link-headlines t
+  "When non-nil, the headlines contain a hyperlink to themselves."
   :group 'org-export-w3ctr
-  :type 'boolean)
-
+  :type 'boolean
+  :safe #'booleanp)
+
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
   "Function to generate timestamp for exported files at top place.
 
@@ -791,12 +802,6 @@ See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice (const ol) (const ul)))
 
-(defcustom t-toplevel-hlevel 2
-  "The <H> level for level 1 headings in HTML export."
-  ;; See `org-html-toplevel-hlevel' for more information.
-  :group 'org-export-w3ctr
-  :type 'integer)
-
 (defcustom t-language-string "zh-CN"
   "default HTML lang attribtue"
   :group 'org-export-w3ctr
@@ -851,14 +856,6 @@ by the footnotes themselves."
   "Text used to separate footnotes."
   :group 'org-export-w3ctr
   :type 'string)
-
-;;;; Headline
-
-(defcustom t-self-link-headlines t
-  "When non-nil, the headlines contain a hyperlink to themselves."
-  :group 'org-export-w3ctr
-  :type 'boolean
-  :safe #'booleanp)
 
 ;;;; Links :: Generic
 
@@ -2662,6 +2659,7 @@ holding contextual information."
 ;; - :headline-levels (`org-export-headline-levels')
 ;; - :headline-offset (internal)
 ;; - :section-numbers (`org-export-with-section-numbers')
+;; - :footnote-section-p (`org-footnote-section')
 
 (defun t-format-headline-default-function (todo priority text tags info)
   "Default format function for a headline.
@@ -2815,6 +2813,7 @@ or a low-level headline treated as a list item."
             c id (or (and c-cls (format " class=\"%s\"" c-cls)) "")
             (format
              ;; <H>, id, class, headline, </H>
+             ;; FIXME: is x-id necessary?
              (concat "<div class=\"header-wrapper\">\n"
                      "<%s id=\"x-%s\"%s>%s</%s>\n"
                      (t--headline-self-link id info)
