@@ -1275,7 +1275,10 @@ with the new INFO and the corresponding property value."
        ;; headline and section
        :html-todo-kwd-class-prefix :html-todo-class :with-todo-keywords
        :html-priority-class :with-priority
-
+       :with-tags :html-tag-class
+       :html-format-headline-function :html-toplevel-hlevel
+       :html-honor-ox-headline-levels :headline-levels
+       ;; inner-template and template
        :with-author :author :with-title :title
        :time-stamp-file :html-file-timestamp-function :html-viewport
        :with-latex :html-mathjax-config :html-mathml-config
@@ -2568,7 +2571,7 @@ indicates that no enclosing brackets should be applied."
                     (`fun #'t--format-timestamp-fun)
                     (o (error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
-
+
 ;;; Headline and Section
 
 ;;;; Section
@@ -2657,7 +2660,7 @@ holding contextual information."
 ;; - :headline-levels (`org-export-headline-levels')
 ;; - :headline-offset (internal)
 ;; - :section-numbers (`org-export-with-section-numbers')
-;; - :footnote-section-p (`org-footnote-section')
+;; - `org-footnote-section'
 
 (defun t-format-headline-default-function (todo priority text tags info)
   "Default format function for a headline.
