@@ -2769,7 +2769,7 @@ numbering is active."
       (t--pget info :html-container)
       "div"))
 
-(defun t--build-self-link (id info)
+(defun t--headline-self-link (id info)
   "Build a self-link for a headline."
   (when (t--pget info :html-self-link-headlines)
     (format (concat "<a class=\"self-link\" href=\"#%s\""
@@ -2805,7 +2805,7 @@ numbering is active."
              ;; <H>, id, class, headline, </H>
              (concat "<div class=\"header-wrapper\">\n"
                      "<%s id=\"x-%s\"%s>%s</%s>\n</div>\n"
-                     (t--build-self-link id info))
+                     (t--headline-self-link id info) "\n")
              tag id (or (and h-cls (format " class=\"%s\"" h-cls)) "")
              full-text tag)
             (or (t--nw-trim contents) "")

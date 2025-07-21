@@ -2172,6 +2172,15 @@ int a = 1;</code></p>\n</details>")
    '(("* abc\n:PROPERTIES:\n:HTML_CONTAINER: aside\n:END:\n" "aside"))
    t '(:html-container nil)))
 
+(ert-deftest t--headline-self-link ()
+  "Tests for org-w3ctr--headline-self-link."
+  ($it t--headline-self-link
+    (let ((i1 '(:html-self-link-headlines t))
+          (i2 '(:html-self-link-headlines nil)))
+      ($l (it 0 i1) ($c "<a class=\"self-link\" href=\"#0\" "
+                        "aria-label=\"Link to this section\"></a>\n"))
+      ($l (it 0 i2) nil))))
+
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
