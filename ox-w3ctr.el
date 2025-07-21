@@ -2771,17 +2771,21 @@ numbering is active."
 
 (defun t--headline-self-link (id info)
   "Build a self-link for a headline."
+  (declare (ftype (function (string list) (or null string)))
+           (important-return-value t))
   (when (t--pget info :html-self-link-headlines)
     (format (concat "<a class=\"self-link\" href=\"#%s\""
                     " aria-label=\"Link to this section\"></a>\n")
             id)))
 
-(defun t--build-secno (headline info)
-  "WIP"
-  (let* ((numbers (org-export-get-headline-number headline info))
-         (secno (mapconcat #'number-to-string numbers ".")))
-    (if (string-empty-p secno) ""
-      (format "<span class=\"secno\">%s. </span>" secno))))
+(defun t--headline-secno (headline info)
+  "Return section number for HEADLINE as an HTML span."
+  (declare (ftype (function (t list) (or null string)))
+           (important-return-value t))
+  (when-let* ((numbers (and (org-export-numbered-headline-p headline info)
+                            (org-export-get-headline-number headline info))))
+    (format "<span class=\"secno\">%s. </span>"
+            (mapconcat #'number-to-string numbers "."))))
 
 (defun t--build-headline-tag (headline info)
   "WIP"
@@ -2790,7 +2794,7 @@ numbering is active."
 
 (defun t--build-standard-headline (headline contents info)
   "WIP"
-  (let* ((secno (t--build-secno headline info))
+  (let* ((secno (t--headline-secno headline info))
          (tag (t--build-headline-tag headline info))
          (text (t--build-base-headline headline info))
          (full-text (concat secno text))

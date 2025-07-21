@@ -2173,7 +2173,7 @@ int a = 1;</code></p>\n</details>")
    t '(:html-container nil)))
 
 (ert-deftest t--headline-self-link ()
-  "Tests for org-w3ctr--headline-self-link."
+  "Tests for `org-w3ctr--headline-self-link'."
   ($it t--headline-self-link
     (let ((i1 '(:html-self-link-headlines t))
           (i2 '(:html-self-link-headlines nil)))
@@ -2181,6 +2181,28 @@ int a = 1;</code></p>\n</details>")
                         "aria-label=\"Link to this section\"></a>\n"))
       ($l (it 0 i2) nil))))
 
+(ert-deftest t--headline-secno ()
+  "Tests for `org-w3ctr--headline-secno'."
+  ($it t--headline-secno
+    (cl-letf (((symbol-function 'org-export-numbered-headline-p)
+               (lambda (_h _i) t))
+              ((symbol-function 'org-export-get-headline-number)
+               (lambda (_h _i) '(1 1 4 5 1 4))))
+      ($l (it nil nil) "<span class=\"secno\">1.1.4.5.1.4. </span>"))
+    ;; :PROPERTIES:\n:UNNUMBERED: t\n:END:
+    (t-check-element-values
+     #'t--headline-secno
+     '(("* a\n** b\n*** c\n"
+        "<span class=\"secno\">1. </span>"
+        "<span class=\"secno\">1.1. </span>"
+        "<span class=\"secno\">1.1.1. </span>")
+       ("* a\n** b\n\n*** c\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n"
+        "<span class=\"secno\">1. </span>"
+        "<span class=\"secno\">1.1. </span>" nil)
+       ("* a\n** b\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n*** c\n"
+        "<span class=\"secno\">1. </span>" nil nil)
+       ("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n** b\n*** c\n"
+        nil nil nil)))))
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
