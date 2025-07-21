@@ -2761,7 +2761,7 @@ numbering is active."
           (format "</%s>\n" tag)))))
 
 ;; FIXME: Add container checker here.
-(defun t--container (headline info)
+(defun t--headline-container (headline info)
   "Return HTML container name for HEADLINE as a string."
   (declare (ftype (function (t list) string))
            (important-return-value t))
@@ -2770,10 +2770,10 @@ numbering is active."
       "div"))
 
 (defun t--build-self-link (id info)
-  "WIP"
+  "Build a self-link for a headline."
   (when (t--pget info :html-self-link-headlines)
     (format (concat "<a class=\"self-link\" href=\"#%s\""
-                    " aria-label=\"Permlink for Section\"></a>\n")
+                    " aria-label=\"Link to this section\"></a>\n")
             id)))
 
 (defun t--build-secno (headline info)
@@ -2795,7 +2795,7 @@ numbering is active."
          (text (t--build-base-headline headline info))
          (full-text (concat secno text))
          (id (t--reference headline info))
-         (wrap (t--container headline info))
+         (wrap (t--headline-container headline info))
          (c-cls (org-element-property :HTML_CONTAINER_CLASS headline))
          (h-cls (org-element-property :HTML_HEADLINE_CLASS headline)))
     ;; <C>, id, class, header, contents, </C>

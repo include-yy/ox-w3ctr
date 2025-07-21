@@ -2156,9 +2156,21 @@ int a = 1;</code></p>\n</details>")
             :html-format-headline-function
             t-format-headline-default-function)))))
 
-(ert-deftest t--container ()
-  "Tests for `org-w3ctr--container'."
-  nil)
+(ert-deftest t--headline-container ()
+  "Tests for `org-w3ctr--headline-container'."
+  (t-check-element-values
+   #'t--headline-container
+   '(("* abc" "section")) t '(:html-container "section"))
+  (t-check-element-values
+   #'t--headline-container
+   '(("* abc" "article")) t '(:html-container "article"))
+  (t-check-element-values
+   #'t--headline-container
+   '(("* abc" "div")) t '(:html-container nil))
+  (t-check-element-values
+   #'t--headline-container
+   '(("* abc\n:PROPERTIES:\n:HTML_CONTAINER: aside\n:END:\n" "aside"))
+   t '(:html-container nil)))
 
 
 (ert-deftest t--build-meta-entry ()
