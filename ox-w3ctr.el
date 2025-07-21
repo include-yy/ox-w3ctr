@@ -2798,27 +2798,30 @@ string from \"h1\" to \"h6\"."
     (format "h%s" level)))
 
 (defun t--build-normal-headline (headline contents info)
-  "WIP"
+  "Build HTML for a standard headline and its section.
+
+This function formats a regular headline, which is not a footnote
+or a low-level headline treated as a list item."
   (let* ((secno (t--headline-secno headline info))
-         (tag (t--headline-hN headline info))
+         (h (t--headline-hN headline info))
          (text (t--build-base-headline headline info))
          (full-text (concat secno text))
          (id (t--reference headline info))
-         (wrap (t--headline-container headline info))
+         (c (t--headline-container headline info))
          (c-cls (org-element-property :HTML_CONTAINER_CLASS headline))
          (h-cls (org-element-property :HTML_HEADLINE_CLASS headline)))
     ;; <C>, id, class, header, contents, </C>
-    (format "<%s id=\"%s\"%s>\n%s%s\n</%s>\n"
-            wrap id (or (and c-cls (format " class=\"%s\"" c-cls)) "")
+    (format "<%s id=\"%s\"%s>\n%s%s</%s>\n"
+            c id (or (and c-cls (format " class=\"%s\"" c-cls)) "")
             (format
              ;; <H>, id, class, headline, </H>
              (concat "<div class=\"header-wrapper\">\n"
-                     "<%s id=\"x-%s\"%s>%s</%s>\n</div>\n"
-                     (t--headline-self-link id info) "\n")
-             tag id (or (and h-cls (format " class=\"%s\"" h-cls)) "")
-             full-text tag)
-            (or (t--nw-trim contents) "")
-            wrap)))
+                     "<%s id=\"x-%s\"%s>%s</%s>\n"
+                     (t--headline-self-link id info)
+                     "</div>\n")
+             h id (or (and h-cls (format " class=\"%s\"" h-cls)) "")
+             full-text h)
+            (or contents "") c)))
 
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
@@ -2828,7 +2831,7 @@ holding contextual information."
     (if (t--low-level-headline-p headline info)
         ;; This is a deep sub-tree: export it as a list item.
         (t--build-low-level-headline headline contents info)
-      ;; Standard headline.  Export it as a section.
+      ;; Normal headline.  Export it as a section.
       (t--build-normal-headline headline contents info))))
 
 ;;; Template and Inner Template

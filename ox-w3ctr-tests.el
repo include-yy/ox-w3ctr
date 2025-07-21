@@ -2220,6 +2220,50 @@ int a = 1;</code></p>\n</details>")
      t '( :html-honor-ox-headline-levels nil
           :html-toplevel-hlevel 2)))
 
+(ert-deftest t--build-normal-headline ()
+  "Tests for `org-w3ctr--build-normal-headline'."
+  (cl-letf (((symbol-function 't--headline-secno)
+             (lambda (_h _i) "1. "))
+            ((symbol-function 't--headline-hN)
+             (lambda (_h _i) "h2"))
+            ((symbol-function 't--build-base-headline)
+             (lambda (_h _i) "text"))
+            ((symbol-function 't--reference)
+             (lambda (_h _i &optional n) "pid"))
+            ((symbol-function 't--headline-container)
+             (lambda (_h _i) "section"))
+            ((symbol-function 'org-element-property)
+             (lambda (p _h)
+               (pcase p
+                 (`:HTML_CONTAINER_CLASS "c1")
+                 (`:HTML_HEADLINE_CLASS "c2")
+                 (_ "xx"))))
+            ((symbol-function 't--headline-self-link)
+             (lambda (_id _info) "<a href=\"#x\"></a>\n")))
+    ($l (t--build-normal-headline nil nil nil)
+        ($c "<section id=\"pid\">\n<div class=\"header-wrapper\">\n"
+            "<h2 id=\"x-pid\">1. text</h2>\n<a href=\"#x\"></a>\n"
+            "</div>\n</section>\n"))
+    ($l (t--build-normal-headline nil "<p>hello world</p>\n" nil)
+        ($c "<section id=\"pid\">\n<div class=\"header-wrapper\">\n"
+            "<h2 id=\"x-pid\">1. text</h2>\n<a href=\"#x\"></a>\n"
+            "</div>\n<p>hello world</p>\n</section>\n")))
+  ;; :PROPERTIES:\n:UNNUMBERED:t\n:CUSTOM_ID:1\n:END:\n
+  (t-check-element-values
+   #'t--build-normal-headline
+   `(("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:CUSTOM_ID: 1\n:END:\n"
+      ,($c "<section id=\"1\">\n<div class=\"header-wrapper\">\n"
+           "<h2 id=\"x-1\">a</h2>\n<a class=\"self-link\" href=\"#1\" "
+           "aria-label=\"Link to this section\"></a>\n</div>\n</section>\n"))
+     ("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:CUSTOM_ID: 1\n:END:\n123456"
+      ,($c "<section id=\"1\">\n<div class=\"header-wrapper\">\n"
+           "<h2 id=\"x-1\">a</h2>\n<a class=\"self-link\" href=\"#1\" "
+           "aria-label=\"Link to this section\"></a>\n</div>\n"
+           "<p>123456</p>\n</section>\n")))))
+
+(ert-deftest t-headline ()
+  "Tests for `org-w3ctr-headline'."
+  (ert-skip "Skip now"))
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
