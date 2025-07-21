@@ -2581,18 +2581,16 @@ This is used to override the default ox-html behavior where TOC comes
 first, allowing zeroth section's content to appear before the TOC while
 the TOC remains near the beginning of the document.")
 
+;; FIXME: consider consider malformed headline(e.g., ** before first *)
 (defun t-section (section contents _info)
   "Transcode a SECTION element from Org to HTML.
 CONTENTS holds the contents of the section.  INFO is a plist
 holding contextual information."
   (declare (ftype (function (t t t) string))
            (important-return-value t))
-  (let ((parent (org-export-get-parent-headline section))
-        (text (or (t--nw-p contents) "")))
-    ;; normal section
-    (if parent text
-      ;; the zeroth section
-      (prog1 "" (setq t--zeroth-section-output text)))))
+  ;; normal section
+  (if (org-element-lineage section 'headline) contents
+    (prog1 nil (setq t--zeroth-section-output contents))))
 
 ;;;; Todo
 ;; Options:
