@@ -2797,7 +2797,7 @@ string from \"h1\" to \"h6\"."
   (let* ((level (min 6 (t--get-headline-hlevel headline info))))
     (format "h%s" level)))
 
-(defun t--build-standard-headline (headline contents info)
+(defun t--build-normal-headline (headline contents info)
   "WIP"
   (let* ((secno (t--headline-secno headline info))
          (tag (t--headline-hN headline info))
@@ -2829,7 +2829,7 @@ holding contextual information."
         ;; This is a deep sub-tree: export it as a list item.
         (t--build-low-level-headline headline contents info)
       ;; Standard headline.  Export it as a section.
-      (t--build-standard-headline headline contents info))))
+      (t--build-normal-headline headline contents info))))
 
 ;;; Template and Inner Template
 
