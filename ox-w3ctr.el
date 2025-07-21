@@ -376,8 +376,8 @@ Possible values:
   "Format specification used for exporting timestamps.
 
 This option accepts a cons cell (DATE . DATE-TIME), where:
-- DATE: format string for year/month/day (e.g. \"%Y-%m-%d\")
-- DATE-TIME: date plus hours and minutes (e.g. \"%F %H:%M\")
+- DATE: format string for year/month/day (e.g., \"%Y-%m-%d\")
+- DATE-TIME: date plus hours and minutes (e.g., \"%F %H:%M\")
 
 These format strings follow the conventions of `format-time-string'.
 
@@ -2787,15 +2787,20 @@ numbering is active."
     (format "<span class=\"secno\">%s. </span>"
             (mapconcat #'number-to-string numbers "."))))
 
-(defun t--build-headline-tag (headline info)
-  "WIP"
+(defun t--headline-hN (headline info)
+  "Return the HTML heading tag name (e.g., \"h2\") for HEADLINE.
+
+The level is capped at 6, so this function always returns a
+string from \"h1\" to \"h6\"."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
   (let* ((level (min 6 (t--get-headline-hlevel headline info))))
     (format "h%s" level)))
 
 (defun t--build-standard-headline (headline contents info)
   "WIP"
   (let* ((secno (t--headline-secno headline info))
-         (tag (t--build-headline-tag headline info))
+         (tag (t--headline-hN headline info))
          (text (t--build-base-headline headline info))
          (full-text (concat secno text))
          (id (t--reference headline info))

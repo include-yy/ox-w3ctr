@@ -2203,6 +2203,23 @@ int a = 1;</code></p>\n</details>")
         "<span class=\"secno\">1. </span>" nil nil)
        ("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n** b\n*** c\n"
         nil nil nil)))))
+
+(ert-deftest t--headline-hN ()
+  "Tests for `org-w3ctr--headline-hN'."
+  ($it t--headline-hN
+    (cl-letf (((symbol-function 't--get-headline-hlevel)
+               (lambda (_h _i) 3)))
+      ($l (it nil nil) "h3"))
+    (cl-letf (((symbol-function 't--get-headline-hlevel)
+               (lambda (_h _i) 7)))
+      ($l (it nil nil) "h6")))
+  (t-check-element-values
+   #'t--headline-hN
+   '(("* a\n** b\n*** c\n**** d\n***** e\n****** f\n"
+      "h2" "h3" "h4" "h5" "h6"))
+     t '( :html-honor-ox-headline-levels nil
+          :html-toplevel-hlevel 2)))
+
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
