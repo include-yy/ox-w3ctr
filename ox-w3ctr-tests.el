@@ -2451,7 +2451,7 @@ int a = 1;</code></p>\n</details>")
     ($s (t--has-math-p (mkinfo "\\(1+2\\)")))
     ($s (t--has-math-p (mkinfo "\\[1+2\\]")))
     ($s (t--has-math-p (mkinfo "\\begin_equation\n123\n\\end_equation")))))
-
+
 (ert-deftest t--format-legacy-navbar ()
   "Tests for `org-w3ctr--format-legacy-navbar'."
   (let ((info '(:html-link-up "" :html-link-home "")))
