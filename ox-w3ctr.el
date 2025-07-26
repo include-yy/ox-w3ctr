@@ -3169,7 +3169,7 @@ Each link is separated by newlines for readability in the output HTML."
 ;; Options
 ;; - :html-use-cc-budget (`org-w3ctr-use-cc-budget')
 ;; - :html-license (`org-w3ctr-public-license')
-;; - :html-format-license-function (`t-format-license-function')
+;; - :html-format-license-function (`org-w3ctr-format-license-function')
 
 (defconst t-public-license-alist
   '((nil "Not Specified")
@@ -3217,7 +3217,7 @@ base64 encoded string. If the file does not exist, raise an error."
            (important-return-value t))
   (let ((file (file-name-concat t--dir "assets" (concat name ".svg"))))
     (if (not (file-exists-p file))
-        (error "svg file %s not exists" file)
+        (t-error "Svg budget not exists: %s" file)
       (with-temp-buffer
         (t--insert-file file)
         (base64-encode-region (point-min) (point-max) t)
