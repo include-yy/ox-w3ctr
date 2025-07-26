@@ -2585,6 +2585,39 @@ int a = 1;</code></p>\n</details>")
     (dolist (a '("by" "cc" "nc" "nd" "sa" "zero"))
       ($l (gethash a t--cc-svg-hashtable) (t--load-cc-svg a)))))
 
+(ert-deftest t--build-cc-img ()
+  "Tests for `org-w3ctr--build-cc-img'."
+  ($l (t--build-cc-img "")
+      ($c "<img style=\"height:1.4em!important;margin-left:0.2em;"
+          "vertical-align:text-bottom;\" "
+          "src=\"data:image/svg+xml;base64,\" alt=\"\">"))
+  ($l (t--build-cc-img "test")
+      ($c "<img style=\"height:1.4em!important;margin-left:0.2em;"
+          "vertical-align:text-bottom;\" "
+          "src=\"data:image/svg+xml;base64,test\" alt=\"\">")))
+
+(ert-deftest t--get-cc-svgs ()
+  "Tests for `org-w3ctr--get-cc-svgs'."
+  (cl-letf (((symbol-function 't--load-cc-svg-once)
+             #'identity)
+            ((symbol-function 't--build-cc-img)
+             #'identity))
+    ($it t--get-cc-svgs
+      ($l (it 'cc0) "cczero")
+      ($l (it 'cc-by-4.0) "ccby")
+      ($l (it 'cc-by-sa-4.0) "ccbysa")
+      ($l (it 'cc-by-nc-sa-4.0) "ccbyncsa")
+      ($l (it 'cc-by-nc-nd-4.0) "ccbyncnd"))))
+
+(ert-deftest t--get-info-author ()
+  "Tests for `org-w3ctr--get-info-author'."
+  (t-check-element-values
+   #'t--get-info-author
+   '(("#+AUTHOR: /hello/" "<em>hello</em>")
+     ("#+AUTHOR: " nil))
+   nil '( :with-author t :html-format-license-function
+          t-format-license-default-function)))
+
 (ert-deftest t-format-public-license-default-function ()
   "Tests for `org-w3ctr-format-public-license-default-function'."
   (cl-letf (((symbol-function 't--get-info-author)

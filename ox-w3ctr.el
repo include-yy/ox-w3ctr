@@ -3234,12 +3234,10 @@ If the SVG is already cached, return the cached base64 string."
 (defun t--build-cc-img (base64)
   "Create HTML img tag with embedded BASE64 encoded SVG.
 
-The image has fixed height (22px) and vertical alignment for text
-integration, which is the default style given by
-https://chooser-beta.creativecommons.org/"
+See https://chooser-beta.creativecommons.org/"
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
-  (format "<img style=\"height:22px!important;margin-left:3px;\
+  (format "<img style=\"height:1.4em!important;margin-left:0.2em;\
 vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" \
 alt=\"\">" base64))
 
@@ -3251,17 +3249,16 @@ splits the license name to get individual component icons."
   (declare (ftype (function (symbol) string))
            (important-return-value t))
   (let ((names (if (eq license 'cc0) '("cc" "zero")
-                 (split-string (symbol-name license) "[0-9.-]" t))))
-    (mapconcat
-     (lambda (name) (t--build-cc-img (t--load-cc-svg-once name)))
-     names)))
+                 (split-string (symbol-name license) "[0-9.-]" t)))
+        (f (lambda (x) (t--build-cc-img (t--load-cc-svg-once x)))))
+    (mapconcat f names)))
 
 (defun t--get-info-author (info)
   "Get exported author string from INFO if :with-author is non-nil."
-  (declare (ftype (function (plist) (or null string)))
-           (pure t) (important-return-value t))
-  (when-let* (((plist-get info :with-author))
-              (a (plist-get info :author)))
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
+  (when-let* (((t--pget info :with-author))
+              (a (t--pget info :author)))
     (t--nw-trim (org-export-data a info))))
 
 (defun t-format-license-default-function (info)
