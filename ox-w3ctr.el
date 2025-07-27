@@ -1282,6 +1282,8 @@ with the new INFO and the corresponding property value."
        :time-stamp-file :html-file-timestamp-function :html-viewport
        :with-latex :html-mathjax-config :html-mathml-config
        :html-math-custom-function
+       :html-use-cc-budget :html-license
+       :html-format-license-function
        )
     "List of property keys to be cached.")
 
