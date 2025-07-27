@@ -3304,6 +3304,8 @@ attribution and appropriate Creative Commons icons when applicable."
 ;; - :with-email (`org-export-with-email')
 ;; - `org-export-date-timestamp-format'
 ;; - :html-validation-link (`org-w3ctr-validation-link')
+;; - :html-preamble (`org-w3ctr-preamble')
+;; - :html-postamble (`org-w3ctr-postamble')
 
 ;; Compared with `org-html-format-spec', rename to make the name more
 ;; specific, and add some helpful docstring.
@@ -3338,15 +3340,16 @@ Possible entires:
       (?v . ,(or (t--pget info :html-validation-link) "")))))
 
 ;; Modified preamble/postamble handling compared to ox-html:
-;; . Removed org-html-pre/postamble-format mechanism; values are now
-;;   set directly through org-html-pre/postamble
-;; . Dropped the 'auto option for postamble; when value is a symbol:
-;;   * Calls the symbol if it's a function
-;;   * Otherwise formats the symbol's string value if present
+;; - Remove `org-html-preamble-format' / `org-html-postamble-format'
+;;   mechanism; values are now set directly through `org-w3ctr-preamble'
+;;   and `org-w3ctr-postamble'.
+;; - Drop the 'auto option for postamble; when value is a symbol:
+;;   - Calls the symbol if it's a function.
+;;   - Otherwise formats the symbol's string value if present.
 (defun t--build-pre/postamble (type info)
   "Return document preamble or postamble as a string, or empty string.
-TYPE is either `preamble' or `postamble'"
-  (let ((section (plist-get info (intern (format ":html-%s" type))))
+TYPE is either `preamble' or `postamble'."
+  (let ((section (t--pget info (intern (format ":html-%s" type))))
         (spec (t--pre/postamble-format-spec info))
         it)
     (cond
@@ -3362,9 +3365,10 @@ TYPE is either `preamble' or `postamble'"
           (setq it (format-spec value spec))
         ;; When pre/postamble's value type is symbol and symbol's
         ;; function cell is nil, its value cell must be string type.
-        (error "pre/postamble symbol's value must be string")))
+        (t-error "Invalid %s symbol value: %s"
+                 type (symbol-value section))))
      ;; not nil, string or symbol
-     (t (error "pre/postamble's value is invalid: %s" section)))
+     (t (t-error "Invalid %s: %s" type section)))
     (or (and (t--nw-p it) (t--normalize-string it)) "")))
 
 (defun t--get-info-date (info)

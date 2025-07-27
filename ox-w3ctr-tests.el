@@ -2711,6 +2711,40 @@ int a = 1;</code></p>\n</details>")
     (test "" (i "%c" '(:creator "foo")) "foo\n")
     (test "" (i "%v" '(:html-validation-link "foo.com")) "foo.com\n")))
 
+(ert-deftest t--build-pre/postamble ()
+  "Tests for `org-w3ctr--build-pre/postamble'."
+  (t-check-element-values
+   #'t--build-pre/postamble
+   '(("" "" "")) nil '(:html-preamble nil :html-postamble nil))
+  (t-check-element-values
+   #'t--build-pre/postamble
+   '(("" "" "hello world\n"))
+   nil '(:html-preamble "hello world" :html-postamble nil))
+  (t-check-element-values
+   #'t--build-pre/postamble
+   '(("" "" "132\n")) nil
+   '(:html-preamble (lambda (info) "132") :html-postamble nil))
+  (cl-letf (((symbol-function 'foo) (lambda (_i) "foo")))
+    (t-check-element-values
+     #'t--build-pre/postamble
+     '(("" "" "foo\n")) nil '(:html-preamble foo :html-postamble nil)))
+  (dlet ((bar "foo bar baz"))
+    (t-check-element-values
+     #'t--build-pre/postamble
+     '(("" "" "foo bar baz\n")) nil
+     '(:html-preamble bar :html-postamble nil)))
+  ($e!l (org-export-string-as "" 'w3ctr nil '(:html-preamble []))
+        '(org-w3ctr-error "Invalid preamble: []"))
+  ($e!l (org-export-string-as "" 'w3ctr nil '(:html-postamble []))
+        '(org-w3ctr-error "Invalid postamble: []"))
+  (dlet ((bar 'foo))
+    ($e!l (org-export-string-as "" 'w3ctr nil '(:html-preamble bar))
+          '(org-w3ctr-error "Invalid preamble symbol value: foo")))
+  (dlet ((bar 'foo))
+    ($e!l (org-export-string-as "" 'w3ctr nil '(:html-postamble bar))
+          '(org-w3ctr-error "Invalid postamble symbol value: foo"))))
+
+
 
 (defun t-parse-mathml-string (strs)
   (with-work-buffer
