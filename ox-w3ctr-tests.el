@@ -2675,8 +2675,41 @@ int a = 1;</code></p>\n</details>")
             (concat "This work by test is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>"
                     " " (t--get-cc-svgs 'cc-by-4.0)))))))
 
-;; Add pre/postamble tests here.
-
+(ert-deftest t--pre/postamble-format-spec ()
+  "Tests for `org-w3ctr--pre/postamble-format-spec'."
+  (cl-flet ((test (str info expect)
+              (t-check-element-values
+               #'t--build-pre/postamble
+               (list (list str "" expect)) nil info))
+            (i (str &optional ls)
+              `( :html-preamble ,str :html-postamble nil ,@ls)))
+    (test "" (i "%t") "")
+    (test "#+TITLE: 123" (i "%t") "123\n")
+    (test "#+TITLE: " (i "%t") "")
+    (test "#+SUBTITLE: 123" (i "%s") "123\n")
+    (test "#+SUBTITLE: " (i "%s") "")
+    (test "#+DATE: [2000-01-01]"
+          (i "%d" '(:html-metadata-timestamp-format "%Y"))
+          "2000\n")
+    (test "#+DATE: [2000-01-01]--[2020-01-01]"
+          (i "%d" '(:html-metadata-timestamp-format "%Y-%m-%d"))
+          "2000-01-01\n")
+    (test "" (i "%T" '(:html-metadata-timestamp-format "%F %R"))
+          (format-time-string "%F %R\n"))
+    (test "" (i "%a") "")
+    (test "#+AUTHOR: " (i "%a") "")
+    (test "#+AUTHOR: eXkeq" (i "%a") "eXkeq\n")
+    (test "" (i "%a" '(:author "test")) "test\n")
+    (let ((user-mail-address "hello@world.com"))
+      (test "" (i "%e")
+            "<a href=\"mailto:hello@world.com\">hello@world.com</a>\n"))
+    (test "#+email: a@b.c, d@e.f" (i "%e")
+          ($c "<a href=\"mailto:a@b.c\">a@b.c</a>, "
+              "<a href=\"mailto:d@e.f\">d@e.f</a>\n"))
+    (test "" (i "%e" '(:email "test"))
+          "<a href=\"mailto:test\">test</a>\n")
+    (test "" (i "%c" '(:creator "foo")) "foo\n")
+    (test "" (i "%v" '(:html-validation-link "foo.com")) "foo.com\n")))
 
 
 (defun t-parse-mathml-string (strs)

@@ -3300,38 +3300,42 @@ attribution and appropriate Creative Commons icons when applicable."
 ;;;; Preamble and Postamble
 ;; Options
 ;; - :html-metadata-timestamp-format (`org-w3ctr-metadata-timestamp-format')
-;;
+;; - :email (`user-mail-address')
+;; - :with-email (`org-export-with-email')
+;; - `org-export-date-timestamp-format'
+;; - :html-validation-link (`org-w3ctr-validation-link')
 
-;; Compared with org-html-format-spec, rename to make the name more
+;; Compared with `org-html-format-spec', rename to make the name more
 ;; specific, and add some helpful docstring.
 (defun t--pre/postamble-format-spec (info)
   "Return format specification for preamble and postamble.
 
-%t means produce title.
-%s means produce subtitle.
-%d means produce (start)date.
-%T means produce current time formatted with pre/postamble format.
-%a means produce author.
-%e means produce mailto link.
-%c means produce creator string.
-%C means produce file modification time (if exists).
-%v means produce W3C HTML validation link."
-  (let ((fmt (plist-get info :html-metadata-timestamp-format)))
-    `((?t . ,(org-export-data (plist-get info :title) info))
-      (?s . ,(org-export-data (plist-get info :subtitle) info))
+Possible entires:
+- %t means produce title.
+- %s means produce subtitle.
+- %d means produce (start)date.
+- %T means produce current time formatted with pre/postamble format.
+- %a means produce author.
+- %e means produce mailto link.
+- %c means produce creator string.
+- %C means produce file modification time (if exists).
+- %v means produce W3C HTML validation link."
+  (let ((fmt (t--pget info :html-metadata-timestamp-format)))
+    `((?t . ,(org-export-data (t--pget info :title) info))
+      (?s . ,(org-export-data (t--pget info :subtitle) info))
       (?d . ,(org-export-data (org-export-get-date info fmt) info))
       (?T . ,(format-time-string fmt))
-      (?a . ,(org-export-data (plist-get info :author) info))
+      (?a . ,(org-export-data (t--pget info :author) info))
       (?e . ,(mapconcat
               (lambda (e) (format "<a href=\"mailto:%s\">%s</a>" e e))
-              (split-string (plist-get info :email)  ",+ *")
+              (split-string (t--pget info :email)  ",+ *")
               ", "))
-      (?c . ,(plist-get info :creator))
-      (?C . ,(let ((file (plist-get info :input-file)))
+      (?c . ,(t--pget info :creator))
+      (?C . ,(let ((file (t--pget info :input-file)))
                (format-time-string
                 fmt (and file (file-attribute-modification-time
                                (file-attributes file))))))
-      (?v . ,(or (plist-get info :html-validation-link) "")))))
+      (?v . ,(or (t--pget info :html-validation-link) "")))))
 
 ;; Modified preamble/postamble handling compared to ox-html:
 ;; . Removed org-html-pre/postamble-format mechanism; values are now
