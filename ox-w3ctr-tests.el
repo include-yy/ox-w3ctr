@@ -2757,6 +2757,32 @@ int a = 1;</code></p>\n</details>")
       "[2000-01-01 Sat]&#x2013;[2001-01-01 Mon]"))
    nil '(:html-timestamp-wrapper none)))
 
+(ert-deftest t--get-info-mtime ()
+  "Tests for `org-w3ctr--get-info-mtime'."
+  ($l (t--get-info-mtime nil) (format-time-string "%FT%RZ" nil t))
+  ($l (t--get-info-mtime `(:input-file ,(file-name-concat
+                                         t--dir "ox-w3ctr-tests.el")))
+      (format-time-string
+       "%FT%RZ" (file-attribute-modification-time
+                 (file-attributes (file-name-concat
+                                   t--dir "ox-w3ctr-tests.el")))
+       t)))
+
+(ert-deftest t--preamble-default-function ()
+  "Tests for `org-w3ctr-preamble-default-function'."
+  (cl-letf (((symbol-function 't--get-info-date) #'ignore)
+            ((symbol-function 't--get-info-mtime) #'ignore)
+            ((symbol-function 't-format-public-license) #'ignore))
+    ($l (t-preamble-default-function nil)
+        ($c "<details open>\n"
+            "<summary>More details about this document</summary>\n"
+            "<dl>\n"
+            "<dt>Drafting to Completion / Publication:</dt> "
+            "<dd>[Not Specified]</dd>\n"
+            "<dt>Date of last modification:</dt> <dd></dd>\n"
+            "<dt>Creation Tools:</dt> <dd>[Not Specified]</dd>\n"
+            "<dt>Public License:</dt> <dd></dd>\n"
+            "</dl>\n</details>\n<hr>"))))
 
 (defun t-parse-mathml-string (strs)
   (with-work-buffer

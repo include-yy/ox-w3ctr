@@ -795,7 +795,7 @@ precedence over this variable."
 See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
-
+
 (defcustom t-toc-list-tag 'ul
   "Ordered list or unordered list."
   :group 'org-export-w3ctr
@@ -3303,9 +3303,12 @@ attribution and appropriate Creative Commons icons when applicable."
 ;; - :email (`user-mail-address')
 ;; - :with-email (`org-export-with-email')
 ;; - `org-export-date-timestamp-format'
+;; - :creator (`org-w3ctr-creator-string')
 ;; - :html-validation-link (`org-w3ctr-validation-link')
 ;; - :html-preamble (`org-w3ctr-preamble')
 ;; - :html-postamble (`org-w3ctr-postamble')
+;; - :with-date (`org-export-with-date')
+;; - :with-creator (`org-export-with-creator')
 
 ;; Compared with `org-html-format-spec', rename to make the name more
 ;; specific, and add some helpful docstring.
@@ -3388,6 +3391,17 @@ When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
               ((org-element-type-p (car date) 'timestamp)))
     (t--format-timestamp-int (car date) info)))
 
+;; Copied from `org-html-format-spec'.
+(defun t--get-info-mtime (info)
+  "Get the modification time of Org doc."
+  (declare (ftype (function (list) string))
+           (important-return-value t))
+  (format-time-string
+   "%FT%RZ" (and-let* ((file (t--pget info :input-file))
+                       (time (file-attribute-modification-time
+                              (file-attributes file)))))
+   t))
+
 (defun t-preamble-default-function (info)
   "Generate HTML preamble with document metadata in a <details> section.
 
@@ -3396,44 +3410,36 @@ information, and license details. Times are formatted according to INFO
 settings."
   (concat
    "<details open>\n"
-   " <summary>More details about this document</summary>\n"
-   " <dl>\n"
-   ;; "  <dt>Create Time:</dt> <dd>"
-   ;; (or (t--get-info-date info 'start) "[DATE Not Specified]")
-   ;; "</dd>\n"
-   ;; "  <dt>Publish Time:</dt> <dd>"
-   ;; (or (t--get-info-date info 'end) "[DATE Not Specified]")
-   ;; "</dd>\n"
-   "  <dt>Drafting to Completion / Publication:</dt> <dd>"
+   "<summary>More details about this document</summary>\n"
+   "<dl>\n"
+   ;; Create or finish time.
+   "<dt>Drafting to Completion / Publication:</dt> <dd>"
    (or (t--get-info-date info) "[Not Specified]")
    "</dd>\n"
-   "  <dt>Date of last modification:</dt> <dd>"
-   (format "<time>%s</time>"
-           (format-time-string "%FT%RZ" nil t))
-   ;;(format-time-string "%F %R")
-   ;;(t--format-normalized-timestamp (current-time) info)
-   ;;(format-time-string "%F %R"))
+   ;; Modification time.
+   "<dt>Date of last modification:</dt> <dd>"
+   (t--get-info-mtime info)
    "</dd>\n"
-   "  <dt>Creation Tools:</dt> <dd>"
-   (plist-get info :creator)
+   ;; Creation tools.
+   "<dt>Creation Tools:</dt> <dd>"
+   (or (t--pget info :creator) "[Not Specified]")
    "</dd>\n"
-   "  <dt>Public License:</dt> <dd>"
+   ;; License.
+   "<dt>Public License:</dt> <dd>"
    (t-format-public-license info)
    "</dd>\n"
-   " </dl>\n"
+   "</dl>\n"
    "</details>\n"
    "<hr>"))
 
-(defvar t-preamble-default-template "\
+(defconst t-preamble-example "\
 <details open>
- <summary>More details about this document</summary>
- <dl>
-  <dt>Date:</dt> <dd>%d</dd>
-  <dt>Creator:</dt> <dd>%c</dd>
-  <dt>License:</dt> <dd>This work is licensed under \
-<a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">\
-CC BY-SA 4.0</a></dd>
- </dl>
+  <summary>More details about this document</summary>
+  <dl>
+    <dt>Date:</dt> <dd>%d</dd>
+    <dt>Creator:</dt> <dd>%c</dd>
+    <dt>License:</dt> <dd>This work is licensed under CC BY-SA 4.0</dd>
+  </dl>
 </details>
 <hr>"
   "Default HTML template for document preamble metadata section.
