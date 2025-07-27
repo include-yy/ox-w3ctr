@@ -3322,7 +3322,7 @@ Possible entires:
 - %c means produce creator string.
 - %C means produce file modification time (if exists).
 - %v means produce W3C HTML validation link."
-  (declare (ftype (function list) list)
+  (declare (ftype (function (list) list))
            (important-return-value t))
   (let ((fmt (t--pget info :html-metadata-timestamp-format)))
     `((?t . ,(org-export-data (t--pget info :title) info))
@@ -3351,7 +3351,7 @@ Possible entires:
 (defun t--build-pre/postamble (type info)
   "Return document preamble or postamble as a string, or empty string.
 TYPE is either `preamble' or `postamble'."
-  (declare (ftype (function symbol list) string)
+  (declare (ftype (function (symbol list) string))
            (important-return-value t))
   (let ((section (t--pget info (intern (format ":html-%s" type))))
         (spec (t--pre/postamble-format-spec info))
@@ -3375,7 +3375,7 @@ TYPE is either `preamble' or `postamble'."
      (t (t-error "Invalid %s: %s" type section)))
     (or (and (t--nw-p it) (t--normalize-string it)) "")))
 
-;; Copied from `org-export-get-date'
+;; Copied from `org-export-get-date'.
 (defun t--get-info-date (info)
   "Extract date from INFO plist and format as timestamp.
 
@@ -3383,7 +3383,7 @@ Returns formatted timestamp string or nil if no valid timestamp found.
 When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
-  (when-let* ((date (plist-get info :date))
+  (when-let* ((date (t--pget info :date))
               ((and date (proper-list-p date) (null (cdr date))))
               ((org-element-type-p (car date) 'timestamp)))
     (t--format-timestamp-int (car date) info)))

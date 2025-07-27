@@ -2744,6 +2744,18 @@ int a = 1;</code></p>\n</details>")
     ($e!l (org-export-string-as "" 'w3ctr nil '(:html-postamble bar))
           '(org-w3ctr-error "Invalid postamble symbol value: foo"))))
 
+(ert-deftest t--get-info-date ()
+  "Tests for `org-w3ctr--get-info-date'."
+  (t-check-element-values
+   #'t--get-info-date
+   '(("#+date: [2020-01-01]" "[2020-01-01 Wed]")
+     ("#+date: [2000-01-01] [2000-01-02]" nil)
+     ("#+date: 123" nil)
+     ("#+date: " nil)
+     ("" nil)
+     ("#+date: [2000-01-01]--[2001-01-01]"
+      "[2000-01-01 Sat]&#x2013;[2001-01-01 Mon]"))
+   nil '(:html-timestamp-wrapper none)))
 
 
 (defun t-parse-mathml-string (strs)
