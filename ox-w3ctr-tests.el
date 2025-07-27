@@ -2618,12 +2618,12 @@ int a = 1;</code></p>\n</details>")
    nil '( :with-author t :html-format-license-function
           t-format-license-default-function)))
 
-(ert-deftest t-format-public-license-default-function ()
-  "Tests for `org-w3ctr-format-public-license-default-function'."
+(ert-deftest t-format-license-default-function ()
+  "Tests for `org-w3ctr-format-license-default-function'."
   (cl-letf (((symbol-function 't--get-info-author)
              (lambda (info) (plist-get info :author))))
     (cl-flet ((test (info)
-                (t-format-public-license-default-function info)))
+                (t-format-license-default-function (copy-sequence info))))
       (let ((info (list :html-license nil)))
         ($l (test info) "Not Specified")
         (setq info (plist-put info :html-license 'all-rights-reserved))

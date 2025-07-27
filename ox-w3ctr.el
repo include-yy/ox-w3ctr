@@ -3268,31 +3268,30 @@ Extracts license information from INFO plist and formats it with author
 attribution and appropriate Creative Commons icons when applicable."
   (declare (ftype (function (list) string))
            (important-return-value t))
-  (let* ((license (plist-get info :html-license))
+  (let* ((license (t--pget info :html-license))
          (details (assq license t-public-license-alist))
          (is-cc (string-match-p "^cc" (symbol-name license)))
-         (use-budget (plist-get info :html-use-cc-budget))
+         (use-budget (t--pget info :html-use-cc-budget))
          (author (t--get-info-author info)))
     (unless details
-      (error "Not a known license name: %s" license))
-    (cond
-     ((eq license nil) (nth 1 details))
-     ((eq license 'all-rights-reserved) (nth 1 details))
-     ((eq license 'all-rights-reversed) (nth 1 details))
-     (t (let* ((name (nth 1 details))
-               (link (nth 2 details)))
-          (concat
-           "This work"
-           (when author (concat " by " author))
-           " is licensed under "
-           (if (null link) name
-             (format "<a href=\"%s\">%s</a>" link name))
-           (when (and is-cc use-budget)
-             (concat " " (t--get-cc-svgs license)))))))))
+      (t-error "Unknown license: %s" license))
+    (pcase (cdr details)
+      (`(,name) name)
+      (`(,name ,link)
+       (concat
+        "This work"
+        (when (and author (not (eq license 'cc0)))
+          (concat " by " author))
+        " is licensed under "
+        (if (null link) name
+          (format "<a href=\"%s\">%s</a>" link name))
+        (when (and is-cc use-budget)
+          (concat " " (t--get-cc-svgs license)))))
+      (_ (t-error "Internal error")))))
 
 (defun t-format-public-license (info)
   "Generate HTML string describing the public license for a work."
-  (declare (ftype (function (plist) string))
+  (declare (ftype (function (list) string))
            (important-return-value t))
   (funcall (plist-get info :html-format-license-function) info))
 
