@@ -146,7 +146,7 @@
     (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
     (:subtitle "SUBTITLE" nil nil parse)
     (:html-head-include-style nil "html-style" t-head-include-style)
-    (:html-pre/post-timestamp-format nil nil t-pre/post-timestamp-format)
+    (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
     ;; HTML TOP place naviagtion elements -------------------------
     (:html-link-navbar "HTML_LINK_NAVBAR" nil t-link-navbar parse)
     (:html-format-navbar-function nil nil t-format-navbar-function)
@@ -719,7 +719,7 @@ return a string containing the complete HTML for the navigation bar
 See `org-w3ctr-format-navbar-default-function' for an example."
   :group 'org-export-w3ctr
   :type 'function)
-
+
 (defcustom t-use-cc-budget t
   "Use CC budget or not."
   :group 'org-export-w3ctr
@@ -745,7 +745,7 @@ supported Creative Commons licenses or variants."
   :group 'org-export-w3ctr
   :type 'function)
 
-(defcustom t-pre/post-timestamp-format "%Y-%m-%d %H:%M"
+(defcustom t-metadata-timestamp-format "%Y-%m-%d %H:%M"
   "Formatting string used for timestamps in preamble and postamble.
 See `format-time-string' for more information on its components."
   :group 'org-export-w3ctr
@@ -3166,7 +3166,7 @@ Each link is separated by newlines for readability in the output HTML."
          (if (not (string-empty-p res)) res
            (or (t--format-legacy-navbar info) ""))))
       (other (t-error "Invalid navbar type: %s" other)))))
-
+
 ;;;; CC license budget
 ;; Options
 ;; - :html-use-cc-budget (`org-w3ctr-use-cc-budget')
@@ -3298,6 +3298,9 @@ attribution and appropriate Creative Commons icons when applicable."
   (funcall (plist-get info :html-format-license-function) info))
 
 ;;;; Preamble and Postamble
+;; Options
+;; - :html-metadata-timestamp-format (`org-w3ctr-metadata-timestamp-format')
+;;
 
 ;; Compared with org-html-format-spec, rename to make the name more
 ;; specific, and add some helpful docstring.
@@ -3313,7 +3316,7 @@ attribution and appropriate Creative Commons icons when applicable."
 %c means produce creator string.
 %C means produce file modification time (if exists).
 %v means produce W3C HTML validation link."
-  (let ((fmt (plist-get info :html-pre/post-timestamp-format)))
+  (let ((fmt (plist-get info :html-metadata-timestamp-format)))
     `((?t . ,(org-export-data (plist-get info :title) info))
       (?s . ,(org-export-data (plist-get info :subtitle) info))
       (?d . ,(org-export-data (org-export-get-date info fmt) info))
