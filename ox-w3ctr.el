@@ -744,7 +744,7 @@ supported Creative Commons licenses or variants."
   "Default function to build license string."
   :group 'org-export-w3ctr
   :type 'function)
-
+
 (defcustom t-metadata-timestamp-format "%Y-%m-%d %H:%M"
   "Formatting string used for timestamps in preamble and postamble.
 See `format-time-string' for more information on its components."
@@ -773,24 +773,22 @@ Validate</a>"
   :type 'string)
 
 (defcustom t-preamble #'t-preamble-default-function
-  "Non-nil means insert a preamble in HTML export.
+  "Controls the insertion of a preamble in the exported HTML.
 
-When set to a string, use this formatted string.
-
-When set to a function, apply this function and insert the
-returned string.  The function takes the property list of export
-options as its only argument.
-
-When set to a non-nil symbol and symbol's function cell is nil,
-insert formatted symbol's value string.
-
-Setting :html-preamble in publishing projects will take
-precedence over this variable."
+It can be one of the following types:
+- string: The string will be formatted using `format-spec' and
+  inserted. See `org-w3ctr--pre/postamble-format-spec' for available
+  format codes (e.g., %d, %c).
+- function: The function is called with the INFO plist, and its return
+  value is inserted.
+- symbol: If the symbol is a function, it is called as above.
+  Otherwise, its string value is retrieved and formatted.
+- nil: No preamble is inserted."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
 
 (defcustom t-postamble nil
-  "Non-nil means insert a postamble in HTML export.
+  "Controls the insertion of a postamble in the exported HTML.
 
 See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
@@ -1338,7 +1336,8 @@ Intended for debugging or monitoring oclosure usage."
   (interactive)
   (let* ((buf (get-buffer-create "*ox-w3ctr-oinfo*"))
          (ls (mapcar
-              (lambda (x) (let ((key (car x)) (o (symbol-function (cdr x))))
+              (lambda (x) (let ((key (car x))
+                                (o (symbol-function (cdr x))))
                         (cons key (t--oinfo--cnt o))))
               t--oinfo-cache-alist))
          (sorted (sort ls :key #'cdr :reverse t)))
@@ -3296,7 +3295,7 @@ attribution and appropriate Creative Commons icons when applicable."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (funcall (plist-get info :html-format-license-function) info))
-
+
 ;;;; Preamble and Postamble
 ;; Options
 ;; - :html-metadata-timestamp-format (`org-w3ctr-metadata-timestamp-format')
@@ -3315,7 +3314,7 @@ attribution and appropriate Creative Commons icons when applicable."
 (defun t--pre/postamble-format-spec (info)
   "Return format specification for preamble and postamble.
 
-Possible entires:
+Supported format specifiers:
 - %t means produce title.
 - %s means produce subtitle.
 - %d means produce (start)date.
@@ -3352,8 +3351,11 @@ Possible entires:
 ;;   - Calls the symbol if it's a function.
 ;;   - Otherwise formats the symbol's string value if present.
 (defun t--build-pre/postamble (type info)
-  "Return document preamble or postamble as a string, or empty string.
-TYPE is either `preamble' or `postamble'."
+  "Build the preamble or postamble string.
+
+This function reads the configuration from `:html-preamble' or
+`:html-postamble' based on TYPE.  TYPE should be the symbol `preamble'
+or `postamble'."
   (declare (ftype (function (symbol list) string))
            (important-return-value t))
   (let ((section (t--pget info (intern (format ":html-%s" type))))
@@ -3380,10 +3382,11 @@ TYPE is either `preamble' or `postamble'."
 
 ;; Copied from `org-export-get-date'.
 (defun t--get-info-date (info)
-  "Extract date from INFO plist and format as timestamp.
+  "Extract and format the document's date from the INFO plist.
 
-Returns formatted timestamp string or nil if no valid timestamp found.
-When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
+This function looks for a `:date' property in INFO that contains a
+single Org timestamp. It returns the formatted timestamp as a string,
+or nil if no valid date is found."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* ((date (t--pget info :date))
@@ -3393,7 +3396,10 @@ When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
 
 ;; Copied from `org-html-format-spec'.
 (defun t--get-info-mtime (info)
-  "Get the modification time of Org doc."
+  "Return the modification time of the input file as a formatted string.
+
+If :input-file is not found, use current time."
+
   (declare (ftype (function (list) string))
            (important-return-value t))
   (format-time-string
@@ -3403,11 +3409,11 @@ When BOUNDARY is non-nil, adjust timestamp to boundary (start/end)."
    t))
 
 (defun t-preamble-default-function (info)
-  "Generate HTML preamble with document metadata in a <details> section.
+  "Return a default HTML preamble string with document metadata.
 
-Includes creation time, publication time, last update time, creator
-information, and license details. Times are formatted according to INFO
-settings."
+The generated HTML uses a <details> element to display the document's
+publication date, modification date, creator tools, and license.
+It takes the export options plist INFO as its argument."
   (concat
    "<details open>\n"
    "<summary>More details about this document</summary>\n"
