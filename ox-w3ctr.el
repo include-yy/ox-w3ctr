@@ -1876,13 +1876,14 @@ CONTENTS is nil."
            (pure t) (important-return-value t))
   "<hr>")
 
+;; FIXME: Consider add support for custom keywords
 ;;;; Keyword
 ;; See (info "(org) Quoting HTML tags")
 ;; Fixed export. Not customizable.
-(defun t-keyword (keyword _contents _info)
+(defun t-keyword (keyword _contents info)
   "Transcode a KEYWORD element from Org to HTML.
 CONTENTS is nil."
-  (declare (ftype (function (t t t) string))
+  (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let ((key (org-element-property :key keyword))
         (value (org-element-property :value keyword)))
@@ -1892,7 +1893,15 @@ CONTENTS is nil."
       ("D" (t--sexp2html (read (or (t--nw-p value) "\"\""))))
       ("L" (mapconcat #'t--sexp2html
                       (read (format "(%s)" value))))
+      ;; Implemented in Tables of Contents Section
+      ;; Try C-s ;;;; Table of Contents
+      ("TOC" (t--keyword-toc keyword value info))
       (_ nil))))
+
+;; FIXME: Consider add some tests after improve link's impl.
+;;;; Paragraph
+;; See (info "(org)Paragraphs")
+;; Fixed export. Not customizable.
 
 (defsubst t--wrap-image (contents _info caption attrs)
   "Wrap CONTENTS string within <figure> tag for images.
@@ -1906,10 +1915,6 @@ Also check attributes and caption of paragraph."
           (if-let* ((c (t--nw-trim caption)))
               (format "<figcaption>%s</figcaption>\n" c) "")))
 
-;; FIXME: Consider add some tests after improve link's impl.
-;;;; Paragraph
-;; See (info "(org)Paragraphs")
-;; Fixed export. Not customizable.
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML.
 CONTENTS is the contents of the paragraph, as a string."
@@ -3453,7 +3458,7 @@ It takes the export options plist INFO as its argument."
 Note: This variable is provided as an example only and may need
 adaptation for actual project use.")
 
-;;; Tables of Contents
+;;;; Table of Contents
 
 (defun t--format-toc-headline (headline info)
   "Return an appropriate table of contents entry for HEADLINE.
@@ -3529,6 +3534,33 @@ of contents as a string, or nil if it is empty."
                      top-level "Table of Contents" top-level))
            toc
            "</nav>\n"))))))
+
+(defun t--list-of-listings (info)
+  "WIP" nil)
+
+(defun t--list-of-tables (info)
+  "WIP" nil)
+
+;; copied from `org-html-keyword'.
+(defun t--keyword-toc (keyword value info)
+  "Export table of contents."
+  (let ((case-fold-search t))
+    (cond
+     ((string= "listings" value) (t--list-of-listings info))
+     ((string= "tables" value) (t--list-of-tables info))
+     ((string-match "\\<headlines\\>" value)
+      (let ((depth (and (string-match "\\<[0-9]+\\>" value)
+                        (string-to-number (match-string 0 value))))
+            (scope
+	     (cond
+              ;; link
+	      ((string-match ":target +\\(\".+?\"\\|\\S-+\\)" value)
+	       (org-export-resolve-link
+		(org-strip-quotes (match-string 1 value)) info))
+              ;; local headline
+	      ((string-match-p "\\<local\\>" value) keyword))))
+        (t-toc depth info scope))))))
+
 
 (defun t-inner-template (contents info)
   "Return body of document string after HTML conversion.
