@@ -3294,7 +3294,7 @@ attribution and appropriate Creative Commons icons when applicable."
   "Generate HTML string describing the public license for a work."
   (declare (ftype (function (list) string))
            (important-return-value t))
-  (funcall (plist-get info :html-format-license-function) info))
+  (funcall (t--pget info :html-format-license-function) info))
 
 ;;;; Preamble and Postamble
 ;; Options
@@ -3458,38 +3458,26 @@ adaptation for actual project use.")
 (defun t--format-toc-headline (headline info)
   "Return an appropriate table of contents entry for HEADLINE.
 INFO is a plist used as a communication channel."
-  (let* ((headline-number
-          (org-export-get-headline-number headline info))
-         (todo (when-let* (((plist-get info :with-todo-keywords))
-                           (todo (org-element-property
-                                  :todo-keyword headline)))
+  ;; copied from `org-w3ctr--build-normal-headline'.
+  (let* ((fn (lambda (prop) (org-element-property prop headline)))
+         (todo (and-let* (((t--pget info :with-todo-keywords))
+                          (todo (funcall fn :todo-keyword)))
                  (org-export-data todo info)))
-         ;; (todo-type (and todo (org-element-property
-         ;;                       :todo-type headline)))
-         (priority (and (plist-get info :with-priority)
-                        (org-element-property :priority headline)))
+         (priority (and (t--pget info :with-priority)
+                        (funcall fn :priority)))
+         ;; avoid links in toc's headline.
          (text (org-export-data-with-backend
                 (org-export-get-alt-title headline info)
                 (org-export-toc-entry-backend 'w3ctr)
                 info))
-         (tags (and (eq (plist-get info :with-tags) t)
-                    (org-export-get-tags headline info))))
-    (format "<a href=\"#%s\">%s</a>"
-            ;; Label.
-            (t--reference headline info)
-            ;; Body.
+         (tags (and (t--pget info :with-tags)
+                    (org-export-get-tags headline info)))
+         (f (t--pget info :html-format-headline-function)))
+    (format "<a href=\"#%s\">%s</a>" (t--reference headline info)
             (concat
-             (and
-              (not (org-export-low-level-p headline info))
-              (org-export-numbered-headline-p headline info)
-              (when headline-number
-                (format "<span class=\"secno\">%s</span> "
-                        (mapconcat #'number-to-string
-                                   headline-number "."))))
-             (format
-              "<span class=\"content\">%s</span>"
-              (funcall (plist-get info :html-format-headline-function)
-                       todo priority text tags info))))))
+             (and (not (t--low-level-headline-p headline info))
+                  (t--headline-secno headline info))
+             (funcall f todo priority text tags info)))))
 
 (defun t--toc-text (toc-entries info)
   "Return innards of a table of contents, as a string.
