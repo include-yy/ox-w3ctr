@@ -3511,26 +3511,12 @@ adaptation for actual project use.")
 (defun t--format-toc-headline (headline info)
   "Return an appropriate table of contents entry for HEADLINE.
 INFO is a plist used as a communication channel."
-  ;; copied from `org-w3ctr--build-normal-headline'.
-  (let* ((fn (lambda (prop) (org-element-property prop headline)))
-         (todo (and-let* (((t--pget info :with-todo-keywords))
-                          (todo (funcall fn :todo-keyword)))
-                 (org-export-data todo info)))
-         (priority (and (t--pget info :with-priority)
-                        (funcall fn :priority)))
-         ;; avoid links in toc's headline.
-         (text (org-export-data-with-backend
-                (org-export-get-alt-title headline info)
-                (org-export-toc-entry-backend 'w3ctr)
-                info))
-         (tags (and (t--pget info :with-tags)
-                    (org-export-get-tags headline info)))
-         (f (t--pget info :html-format-headline-function)))
-    (format "<a href=\"#%s\">%s</a>" (t--reference headline info)
-            (concat
-             (and (not (t--low-level-headline-p headline info))
-                  (t--headline-secno headline info))
-             (funcall f todo priority text tags info)))))
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (format "<a href=\"#%s\">%s</a>" (t--reference headline info)
+          (concat (and (not (t--low-level-headline-p headline info))
+                       (t--headline-secno headline info))
+                  (t--build-toc-headline headline info))))
 
 (defun t--toc-text (toc-entries info &optional top)
   "Return innards of a table of contents, as a string.
