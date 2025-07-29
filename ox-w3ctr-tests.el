@@ -2787,6 +2787,10 @@ int a = 1;</code></p>\n</details>")
             "<dt>Public License:</dt> <dd></dd>\n"
             "</dl>\n</details>\n<hr>"))))
 
+(ert-deftest t--format-toc-headline ()
+  "Tests for `org-w3ctr--format-toc-headline'."
+  nil)
+
 (defun t-parse-mathml-string (strs)
   (with-work-buffer
     (dolist (a strs)

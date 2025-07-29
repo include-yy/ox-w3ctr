@@ -2667,11 +2667,46 @@ holding contextual information."
 ;; - :section-numbers (`org-export-with-section-numbers')
 ;; - `org-footnote-section'
 
+(defun t--headline-todo (headline info)
+  "Format and return the TODO keyword for HEADLINE.
+
+Returns the exported keyword string only if `:with-todo-keywords' is
+enabled in INFO and a TODO keyword exists on the HEADLINE.  Returns nil
+otherwise."
+  (declare (ftype (function (t list) (or null string)))
+           (important-return-value t))
+  (and-let* (((t--pget info :with-todo-keywords))
+             (todo (org-element-property :todo-keyword headline)))
+    (org-export-data todo info)))
+
+(defun t--headline-priority (headline info)
+  "Return the numerical priority of a headline.
+
+This function returns the priority number (e.g., 65 for [#A]) only if
+the export option `:with-priority` is non-nil in INFO and the HEADLINE
+element has a priority cookie.  Returns nil otherwise."
+  (declare (ftype (function (t list) (or null fixnum)))
+           (important-return-value t))
+  (and (t--pget info :with-priority)
+       (org-element-property :priority headline)))
+
+(defun t--headline-tags (headline info)
+  "Return the list of tags for a headline.
+
+This function returns a list of tags associated with the HEADLINE
+element, but only if the export option `:with-tags` is enabled in the
+INFO plist. The tags are processed for export.  Returns nil if tags are
+disabled or not present."
+  (declare (ftype (function (t list) list))
+           (important-return-value t))
+  (and (t--pget info :with-tags)
+       (org-export-get-tags headline info)))
+
 (defun t-format-headline-default-function (todo priority text tags info)
   "Default format function for a headline.
 See `org-w3ctr-format-headline-function' for details and the
 description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
-  (declare (ftype (function ((or null string) (or null string)
+  (declare (ftype (function ((or null string) (or null fixnum)
                              (or null string) list list)
                             string)))
   (let ((todo (t--todo todo info))
