@@ -213,7 +213,7 @@
     (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
     (:html-format-license-function nil nil t-format-license-function)
     ;; toc tag name
-    (:html-toc-tagname nil "toctag" t-toc-tagname)
+    (:html-toc-element nil nil t-toc-element)
     ;; FIXME: Reformat whole info options
     (:html-todo-class nil nil t-todo-class)
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
@@ -820,7 +820,7 @@ See `org-w3ctr-preamble' for more information."
 (defvar t-fixup-js ""
   "js code that control toc's hide and show")
 
-(defcustom t-toc-tagname nil
+(defcustom t-toc-element nil
   "comment."
   :group 'org-export-w3ctr
   :type '(choice (const nil) string))
@@ -3484,13 +3484,13 @@ INFO is a plist used as a communication channel."
                   (t--headline-secno headline info))
              (funcall f todo priority text tags info)))))
 
-(defun t--toc-text (toc-entries info)
+(defun t--toc-text (toc-entries info &optional top)
   "Return innards of a table of contents, as a string.
 TOC-ENTRIES is an alist where key is an entry title, as a string,
 and value is its relative level, as an integer."
-  (let* ((prev-level (1- (cdar toc-entries)))
+  (let* ((prev-level (or (and top 0) (1- (cdar toc-entries))))
          (start-level prev-level)
-         (tag (or (plist-get info :html-toc-tagname) 'ul))
+         (tag (or (plist-get info :html-toc-element) 'ul))
          (open (if (eq tag 'ol) "\n<ol class=\"toc\">\n<li>"
                  "\n<ul class=\"toc\">\n<li>"))
          (close (if (eq tag 'ol) "</li>\n</ol>\n" "</li>\n</ul>\n")))
@@ -3535,10 +3535,10 @@ of contents as a string, or nil if it is empty."
            toc
            "</nav>\n"))))))
 
-(defun t--list-of-listings (info)
+(defun t--list-of-listings (_info)
   "WIP" nil)
 
-(defun t--list-of-tables (info)
+(defun t--list-of-tables (_info)
   "WIP" nil)
 
 ;; copied from `org-html-keyword'.

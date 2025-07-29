@@ -2088,7 +2088,8 @@ int a = 1;</code></p>\n</details>")
        '(("** a\n** b\n" 2 2 2 2)
          ("* a\n** b\n*** c\n" 2 2 3 3 4 4)
          ("* a\n* b\n**** c\n" 2 2 5 5 2 2))
-       t '(:html-toplevel-hlevel 2)))))
+       t '( :html-toplevel-hlevel 2
+            :with-toc nil)))))
 
 (ert-deftest t--low-level-headline-p ()
   "Tests for `org-w3ctr--low-level-headline-p'."
@@ -2117,7 +2118,8 @@ int a = 1;</code></p>\n</details>")
    '(("* a\n** b\n*** c\n**** d\n***** e\n" nil nil nil 1 2)
      ("** a\n*** b\n**** c\n***** d\n****** e\n" nil nil nil 1 2))
    t '( :html-honor-ox-headline-levels t
-        :headline-levels 3)))
+        :headline-levels 3
+        :with-toc nil)))
 
 ;; FIXME: Consider improve it
 (ert-deftest t--build-low-level-headline ()
@@ -2202,7 +2204,8 @@ int a = 1;</code></p>\n</details>")
        ("* a\n** b\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n*** c\n"
         "<span class=\"secno\">1. </span>" nil nil)
        ("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n** b\n*** c\n"
-        nil nil nil)))))
+        nil nil nil))
+     t '( :with-toc nil))))
 
 (ert-deftest t--headline-hN ()
   "Tests for `org-w3ctr--headline-hN'."
