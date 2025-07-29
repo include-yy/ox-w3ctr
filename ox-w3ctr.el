@@ -2716,12 +2716,13 @@ description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
             priority (and priority " ")
             text (and tags "&#xa0;&#xa0;&#xa0;") tags)))
 
+;; FIXME: Add tests
 (defun t--build-bare-headline (headline text info)
   "Build the inner HTML content of a headline.
 
-This function extracts all components of a HEADLINE element (like
-TODO keyword, priority, title, and tags) from the parse tree. It
-respects export options like `:with-todo-keywords' and `:with-tags'.
+This function extracts all components of a HEADLINE element (like TODO
+keyword, priority and tags) from the parse tree. It respects export
+options like `:with-todo-keywords' and `:with-tags'.
 
 Then, it passes these extracted components as arguments to the
 user-defined formatting function (from `:html-format-headline-function')
@@ -2735,16 +2736,27 @@ to construct the final string."
          (f (t--pget info :html-format-headline-function)))
     (funcall f todo priority text tags info)))
 
+;; FIXME: Adjust tests
 (defun t--build-base-headline (headline info)
-  "WIP"
+  "Build a standard headline string for the document body.
+
+This function extracts the main title from the HEADLINE element, formats
+it for export, and then passes it to `org-w3ctr--build-bare-headline' to
+be combined with other components like TODO keywords and tags."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((text (org-export-data
                (org-element-property :title headline) info)))
     (t--build-bare-headline headline text info)))
 
+;; FIXME: Add tests
 (defun t--build-toc-headline (headline info)
-  "WIP"
+  "Build a headline string for the Table of Contents.
+
+This function retrieves the headline's alternative title, which is used
+for TOC entries. It ensures the title is formatted with the correct
+backend before passing it to `org-w3ctr--build-bare-headline' for final
+assembly."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((text (org-export-data-with-backend
