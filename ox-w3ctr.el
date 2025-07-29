@@ -2716,7 +2716,7 @@ description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
             priority (and priority " ")
             text (and tags "&#xa0;&#xa0;&#xa0;") tags)))
 
-(defun t--build-base-headline (headline info)
+(defun t--build-bare-headline (headline text info)
   "Build the inner HTML content of a headline.
 
 This function extracts all components of a HEADLINE element (like
@@ -2726,19 +2726,32 @@ respects export options like `:with-todo-keywords' and `:with-tags'.
 Then, it passes these extracted components as arguments to the
 user-defined formatting function (from `:html-format-headline-function')
 to construct the final string."
-  (declare (ftype (function (t list) string))
+  (declare (ftype (function (t string list) string))
            (important-return-value t))
-  (let* ((fn (lambda (prop) (org-element-property prop headline)))
-         (todo (and-let* (((t--pget info :with-todo-keywords))
-                          (todo (funcall fn :todo-keyword)))
-                 (org-export-data todo info)))
-         (priority (and (t--pget info :with-priority)
-                        (funcall fn :priority)))
-         (text (org-export-data (funcall fn :title) info))
-         (tags (and (t--pget info :with-tags)
-                    (org-export-get-tags headline info)))
+  (let* ((todo (t--headline-todo headline info))
+         (priority (t--headline-priority headline info))
+         (tags (t--headline-tags headline info))
+         ;; FIXME: Check headline-function if valid
          (f (t--pget info :html-format-headline-function)))
     (funcall f todo priority text tags info)))
+
+(defun t--build-base-headline (headline info)
+  "WIP"
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (let ((text (org-export-data
+               (org-element-property :title headline) info)))
+    (t--build-bare-headline headline text info)))
+
+(defun t--build-toc-headline (headline info)
+  "WIP"
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (let ((text (org-export-data-with-backend
+               (org-export-get-alt-title headline info)
+               (org-export-toc-entry-backend 'w3ctr)
+               info)))
+    (t--build-bare-headline headline text info)))
 
 (defun t--get-headline-hlevel (headline info)
   "Calculate the absolute HTML heading level for a headline.
