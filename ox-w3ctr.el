@@ -3564,6 +3564,23 @@ and value is its relative level, as an integer."
       toc-entries "")
      (t--make-string (- prev-level start-level) close))))
 
+(defun t--build-table-of-contents (info)
+  "Build top-level table of contents."
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
+  (let ((fn (lambda (h) (cons (t--format-toc-headline h info)
+                              (org-export-get-relative-level h info)))))
+    (when-let* ((depth (t--pget info :with-toc))
+                (headlines (org-export-collect-headlines info depth))
+                (entries (mapcar fn headlines)))
+      (concat
+       "<nav id=\"toc\">\n"
+       (let ((top-level (t--pget info :html-toplevel-hlevel)))
+         (format "<h%d id=\"contents\">%s</h%d>"
+                 top-level "Table of Contents" top-level))
+       (t--toc-alist-to-text entries info t)
+       "</nav>\n"))))
+
 (defun t-toc (depth info &optional scope)
   "Build a table of contents.
 DEPTH is an integer specifying the depth of the table.  INFO is
@@ -3619,11 +3636,10 @@ of contents as a string, or nil if it is empty."
 CONTENTS is the transcoded contents string."
   ;; See also `org-html-inner-template'
   (concat
-   (prog1 (format "<div>%s</div>\n"
-                  (t--maybe-contents t--zeroth-section-output))
-     (setq t--zeroth-section-output nil))
-   (when-let* ((depth (plist-get info :with-toc)))
-     (t-toc depth info))
+   t--zeroth-section-output
+   (t--build-table-of-contents info)
+   ;; (when-let* ((depth (plist-get info :with-toc)))
+   ;;   (t-toc depth info))
    "<main>\n"
    contents
    "</main>\n"
