@@ -3586,7 +3586,7 @@ and value is its relative level, as an integer."
        (t--toc-alist-to-text entries info t)
        "</nav>\n"))))
 
-(defun t-toc (depth info &optional scope)
+(defun t--build-toc (depth info &optional scope)
   "Build a table of contents.
 DEPTH is an integer specifying the depth of the table.  INFO is
 a plist used as a communication channel.  Optional argument SCOPE
@@ -3625,7 +3625,7 @@ of contents as a string, or nil if it is empty."
 		(org-strip-quotes (match-string 1 value)) info))
               ;; local headline
 	      ((string-match-p "\\<local\\>" value) keyword))))
-        (t-toc depth info scope))))))
+        (t--build-toc depth info scope))))))
 
 
 (defun t-inner-template (contents info)
@@ -3634,7 +3634,7 @@ CONTENTS is the transcoded contents string."
   ;; See also `org-html-inner-template'
   (concat
    t--zeroth-section-output
-   (t-toc nil info)
+   (t--build-toc nil info)
    "<main>\n"
    contents
    "</main>\n"
