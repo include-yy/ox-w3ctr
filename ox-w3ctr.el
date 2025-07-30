@@ -794,11 +794,16 @@ See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
 
+(defcustom t-toc-element 'ul
+  "List element of table of contents."
+  :group 'org-export-w3ctr
+  :type '(choice (const ul) (const ol)))
+
 (defcustom t-toc-list-tag 'ul
   "Ordered list or unordered list."
   :group 'org-export-w3ctr
   :type '(choice (const ol) (const ul)))
-
+
 (defcustom t-language-string "zh-CN"
   "default HTML lang attribtue"
   :group 'org-export-w3ctr
@@ -819,11 +824,6 @@ See `org-w3ctr-preamble' for more information."
 
 (defvar t-fixup-js ""
   "js code that control toc's hide and show")
-
-(defcustom t-toc-element nil
-  "comment."
-  :group 'org-export-w3ctr
-  :type '(choice (const nil) string))
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -3530,31 +3530,37 @@ INFO is a plist used as a communication channel."
                        (t--headline-secno headline info))
                   (t--build-toc-headline headline info))))
 
-(defun t--toc-text (toc-entries info &optional top)
+(defun t--get-info-toc-element (info)
+  "WIP"
+  (declare (ftype (function (list) string))
+           (important-return-value t))
+  (let ((tag (t--pget info :html-toc-element)))
+    (pcase tag
+      (`ul "ul") (`ol "ol")
+      (_ (t-error "Invalid TOC list tag: %s" tag)))))
+
+(defun t--toc-alist-to-text (toc-entries info &optional top)
   "Return innards of a table of contents, as a string.
 TOC-ENTRIES is an alist where key is an entry title, as a string,
 and value is its relative level, as an integer."
+  (declare (ftype (function (list list &optional boolean) string))
+           (important-return-value t))
   (let* ((prev-level (or (and top 0) (1- (cdar toc-entries))))
          (start-level prev-level)
-         (tag (or (plist-get info :html-toc-element) 'ul))
-         (open (if (eq tag 'ol) "\n<ol class=\"toc\">\n<li>"
-                 "\n<ul class=\"toc\">\n<li>"))
-         (close (if (eq tag 'ol) "</li>\n</ol>\n" "</li>\n</ul>\n")))
+         (tag (t--get-info-toc-element info))
+         (open (format "\n<%s class=\"toc\">\n<li>" tag))
+         (close (format "</li>\n</%s>\n" tag)))
     (concat
      (mapconcat
-      (lambda (entry)
-        (let ((headline (car entry))
-              (level (cdr entry)))
+      (pcase-lambda (`(,headline . ,level))
+        (let* ((cnt (- level prev-level))
+               (times (if (> cnt 0) (1- cnt) (- cnt))))
+          (setq prev-level level)
           (concat
-           (let* ((cnt (- level prev-level))
-                  (times (if (> cnt 0) (1- cnt) (- cnt))))
-             (setq prev-level level)
-             (concat
-              (t--make-string
-               times (cond ((> cnt 0) open)
-                           ((< cnt 0) close)))
-              (if (> cnt 0) open "</li>\n<li>")))
-           headline)))
+            (t--make-string
+             times (cond ((> cnt 0) open) ((< cnt 0) close)))
+            (if (> cnt 0) open "</li>\n<li>")
+            headline)))
       toc-entries "")
      (t--make-string (- prev-level start-level) close))))
 
@@ -3570,7 +3576,7 @@ of contents as a string, or nil if it is empty."
                         (org-export-get-relative-level h info)))
           (org-export-collect-headlines info depth scope))))
     (when toc-entries
-      (let* ((toc (t--toc-text toc-entries info)))
+      (let* ((toc (t--toc-alist-to-text toc-entries info)))
         (if scope
             (format "<div role=\"doc-toc\">\n%s</div>" toc)
           (concat
