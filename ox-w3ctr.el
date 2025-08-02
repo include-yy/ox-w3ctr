@@ -3599,8 +3599,18 @@ of contents as a string, or nil if it is empty."
       (t--toc-alist-to-text entries info (not scope)))))
 
 ;; FIXME: Add index class to ul
+;; FIXME: Add named-only argument (MAYBE)
 (defun t--list-of-elements (collect-fn info)
-  "WIP"
+  "Return an HTML list of elements collected by COLLECT-FN.
+
+COLLECT-FN is a function that takes INFO and returns a list of Org
+elements. INFO is the export state plist.
+
+The function generates a `<ul>' list where each list item corresponds to
+an element, displaying its caption. If the element has a reference
+label, the item is hyperlinked to it."
+  (declare (ftype (function (function list) (or null string)))
+           (important-return-value t))
   (when-let* ((entries (funcall collect-fn info)))
     (concat
      "<ul class=\"index\">\n"
@@ -3617,16 +3627,27 @@ of contents as a string, or nil if it is empty."
      "\n</ul>")))
 
 (defun t--list-of-listings (info)
-  "WIP"
+  "Return a formatted HTML list of source code listings."
+  (declare (ftype (function (list) (or null string))))
   (t--list-of-elements #'org-export-collect-listings info))
 
 (defun t--list-of-tables (info)
-  "WIP"
+  "Return a formatted HTML list of tables."
+  (declare (ftype (function (list) (or null string))))
   (t--list-of-elements #'org-export-collect-tables info))
 
 ;; copied from `org-html-keyword'.
 (defun t--keyword-toc (keyword value info)
-  "Export table of contents."
+  "Transcode a table of contents keyword VALUE.
+
+VALUE determines the type of list to generate:
+- \"tables\": A list of tables.
+- \"listings\": A list of source code listings.
+- \"headlines\": A table of contents for headlines. It can be
+  followed by a number for depth and keywords like \":target\" or
+  \"local\" for scope."
+  (declare (ftype (function (t string list) (or (null string))))
+           (important-return-value t))
   (let ((case-fold-search t))
     (cond
      ((string= "listings" value) (t--list-of-listings info))
@@ -3643,7 +3664,6 @@ of contents as a string, or nil if it is empty."
               ;; local headline
 	      ((string-match-p "\\<local\\>" value) keyword))))
         (t--build-toc depth info scope))))))
-
 
 (defun t-inner-template (contents info)
   "Return body of document string after HTML conversion.
