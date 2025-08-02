@@ -3565,6 +3565,7 @@ and value is its relative level, as an integer."
      (t--make-string (- prev-level start-level) close))))
 
 ;; FIXME: Improve doc.
+;; Compose with headline, interesting www
 (defun t--build-table-of-contents (depth info)
   "Build top-level table of contents."
   (declare (ftype (function (t list) (or null string)))
@@ -3592,20 +3593,56 @@ DEPTH is an integer specifying the depth of the table.  INFO is
 a plist used as a communication channel.  Optional argument SCOPE
 is an element defining the scope of the table.  Return the table
 of contents as a string, or nil if it is empty."
-  (if (not (or scope (t--pget info :org-html--table-of-contents)))
-      (t--build-table-of-contents depth info)
-    (let ((fn (lambda (h) (cons (t--format-toc-headline h info)
-                                (org-export-get-relative-level h info)))))
-      (when-let* ((headlines (org-export-collect-headlines info depth scope))
-                  (entries (mapcar fn headlines))
-                  (toc (t--toc-alist-to-text entries info (not scope))))
-        (format "<div role=\"doc-toc\">\n%s</div>" toc)))))
+  ;; (if (not (or scope (t--pget info :org-html--table-of-contents)))
+  ;;     (t--build-table-of-contents depth info)
+    (let ((fn (lambda (h)
+                (cons (t--format-toc-headline h info)
+                      (org-export-get-relative-level h info)))))
+      (when-let* ((hs (org-export-collect-headlines info depth scope))
+                  (entries (mapcar fn hs)))
+        (t--toc-alist-to-text entries info (not scope)))))
 
-(defun t--list-of-listings (_info)
-  "WIP" nil)
+(defun t--list-of-elements (name id key collect-fn info)
+  "WIP"
+  (if (t--pget info key)
+      (t-error (concat name " already exists"))
+    (t--pput info key t)
+    (when-let* ((entries (funcall collect-fn info)))
+      (concat
+       (format "<nav id=\"%s\">\n" id)
+       (let ((N (t--pget info :html-toplevel-hlevel)))
+         (format "<h%d>%s</h%d>\n" N name N))
+       "<ul>\n"
+       (let ((count 0) (fmt "<span>%d. </span>"))
+         (mapconcat
+          (lambda (entry)
+            (let ((label (t--reference entry info t))
+                  (title (t--trim
+                          (org-export-data
+                           (or (org-export-get-caption entry t)
+                               (org-export-get-caption entry))
+                           info))))
+              (concat
+               "<li>"
+               (if (not label) (concat (format fmt (incf count)) title)
+                 (format "<a href=\"#%s\">%s%s</a>"
+                         label (format fmt (incf count)) title))
+               "</li>")))
+          entries "\n"))
+       "\n</ul>\n</nav>"))))
 
-(defun t--list-of-tables (_info)
-  "WIP" nil)
+(defun t--list-of-listings (info)
+  "WIP"
+  (t--list-of-elements
+   "List of Listings" "list-of-listings" :org-html--list-of-listings
+   #'org-export-collect-listings info))
+
+
+(defun t--list-of-tables (info)
+  "WIP"
+  (t--list-of-elements
+   "List of Tables" "list-of-tables" :org-html--list-of-tables
+   #'org-export-collect-tables info))
 
 ;; copied from `org-html-keyword'.
 (defun t--keyword-toc (keyword value info)
@@ -3634,7 +3671,8 @@ CONTENTS is the transcoded contents string."
   ;; See also `org-html-inner-template'
   (concat
    t--zeroth-section-output
-   (t--build-toc nil info)
+   ;; (t--build-toc nil info)
+   (t--build-table-of-contents nil info)
    "<main>\n"
    contents
    "</main>\n"
