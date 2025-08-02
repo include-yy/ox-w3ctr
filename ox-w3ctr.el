@@ -3522,6 +3522,9 @@ Note: This variable is provided as an example only and may need
 adaptation for actual project use.")
 
 ;;;; Table of Contents
+;; Options:
+;; :html-toc-element (`org-w3ctr-toc-element')
+;; :with-toc (`org-export-with-toc')
 
 (defun t--format-toc-headline (headline info)
   "Return an appropriate table of contents entry for HEADLINE.
@@ -3534,7 +3537,12 @@ INFO is a plist used as a communication channel."
                   (t--build-toc-headline headline info))))
 
 (defun t--get-info-toc-element (info)
-  "WIP"
+  "Return the HTML tag ('ul' or 'ol') for the TOC list from INFO.
+
+This function retrieves the value of the :html-toc-element
+property from the INFO plist. It ensures the value is a valid
+tag, either 'ul or 'ol, and returns the corresponding string.
+It signals an error for any other value."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (let ((tag (t--pget info :html-toc-element)))
