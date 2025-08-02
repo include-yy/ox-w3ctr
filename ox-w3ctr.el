@@ -140,7 +140,6 @@
     (:description "DESCRIPTION" nil nil newline)
     (:keywords "KEYWORDS" nil nil space)
     (:creator "CREATOR" nil t-creator-string)
-    (:language "LANGUAGE" nil t-language-string)
     (:html-viewport nil nil t-viewport)
     (:html-head "HTML_HEAD" nil t-head newline)
     (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
@@ -793,24 +792,14 @@ It can be one of the following types:
 See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
-
+
 (defcustom t-toc-element 'ul
   "List element of table of contents."
   :group 'org-export-w3ctr
   :type '(choice (const ul) (const ol)))
 
-(defcustom t-toc-list-tag 'ul
-  "Ordered list or unordered list."
-  :group 'org-export-w3ctr
-  :type '(choice (const ol) (const ul)))
-
-(defcustom t-language-string "zh-CN"
-  "default HTML lang attribtue"
-  :group 'org-export-w3ctr
-  :type 'string)
-
 (defcustom t-back-to-top t
-  "add back-to-top arrow at the end of html file"
+  "Add back-to-top arrow at the end of html file."
   :group 'org-export-w3ctr
   :type '(boolean))
 
@@ -3675,6 +3664,7 @@ VALUE determines the type of list to generate:
 
 ;;;; Template
 ;; Options:
+;; :language (`org-export-default-language')
 ;; :html-back-to-top (`org-w3ctr-back-to-top')
 ;; :html-fixup-js (`org-w3ctr-fixup-js')
 
