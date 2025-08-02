@@ -3569,23 +3569,19 @@ and value is its relative level, as an integer."
 
 ;; FIXME: Improve doc.
 ;; Compose with headline, interesting www
-(defun t--build-table-of-contents (depth info)
+(defun t--build-table-of-contents (info)
   "Build top-level table of contents."
-  (declare (ftype (function (t list) (or null string)))
+  (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (let ((fn (lambda (h) (cons (t--format-toc-headline h info)
                               (org-export-get-relative-level h info)))))
     (when-let* ((depth (or depth (t--pget info :with-toc)))
                 (headlines (org-export-collect-headlines info depth))
                 (entries (mapcar fn headlines)))
-      ;; Make sure it is called just once.
-      (if (t--pget info :org-html--table-of-contents)
-          (t-error "Top-level TOC already exists")
-        (t--pput info :org-html--table-of-contents t))
       (concat
        "<nav id=\"toc\">\n"
        (let ((top-level (t--pget info :html-toplevel-hlevel)))
-         (format "<h%d id=\"contents\">%s</h%d>"
+         (format "<h%d>%s</h%d>"
                  top-level "Table of Contents" top-level))
        (t--toc-alist-to-text entries info t)
        "</nav>\n"))))
@@ -3596,14 +3592,11 @@ DEPTH is an integer specifying the depth of the table.  INFO is
 a plist used as a communication channel.  Optional argument SCOPE
 is an element defining the scope of the table.  Return the table
 of contents as a string, or nil if it is empty."
-  ;; (if (not (or scope (t--pget info :org-html--table-of-contents)))
-  ;;     (t--build-table-of-contents depth info)
-    (let ((fn (lambda (h)
-                (cons (t--format-toc-headline h info)
-                      (org-export-get-relative-level h info)))))
-      (when-let* ((hs (org-export-collect-headlines info depth scope))
-                  (entries (mapcar fn hs)))
-        (t--toc-alist-to-text entries info (not scope)))))
+  (let ((fn (lambda (h) (cons (t--format-toc-headline h info)
+                              (org-export-get-relative-level h info)))))
+    (when-let* ((hs (org-export-collect-headlines info depth scope))
+                (entries (mapcar fn hs)))
+      (t--toc-alist-to-text entries info (not scope)))))
 
 (defun t--list-of-elements (name id key collect-fn info)
   "WIP"
@@ -3674,8 +3667,7 @@ CONTENTS is the transcoded contents string."
   ;; See also `org-html-inner-template'
   (concat
    t--zeroth-section-output
-   ;; (t--build-toc nil info)
-   (t--build-table-of-contents nil info)
+   (t--build-table-of-contents info)
    "<main>\n"
    contents
    "</main>\n"
