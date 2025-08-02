@@ -3575,7 +3575,7 @@ and value is its relative level, as an integer."
            (important-return-value t))
   (let ((fn (lambda (h) (cons (t--format-toc-headline h info)
                               (org-export-get-relative-level h info)))))
-    (when-let* ((depth (or depth (t--pget info :with-toc)))
+    (when-let* ((depth (t--pget info :with-toc))
                 (headlines (org-export-collect-headlines info depth))
                 (entries (mapcar fn headlines)))
       (concat
@@ -3598,47 +3598,31 @@ of contents as a string, or nil if it is empty."
                 (entries (mapcar fn hs)))
       (t--toc-alist-to-text entries info (not scope)))))
 
-(defun t--list-of-elements (name id key collect-fn info)
+;; FIXME: Add index class to ul
+(defun t--list-of-elements (collect-fn info)
   "WIP"
-  (if (t--pget info key)
-      (t-error (concat name " already exists"))
-    (t--pput info key t)
-    (when-let* ((entries (funcall collect-fn info)))
-      (concat
-       (format "<nav id=\"%s\">\n" id)
-       (let ((N (t--pget info :html-toplevel-hlevel)))
-         (format "<h%d>%s</h%d>\n" N name N))
-       "<ul>\n"
-       (let ((count 0) (fmt "<span>%d. </span>"))
-         (mapconcat
-          (lambda (entry)
-            (let ((label (t--reference entry info t))
-                  (title (t--trim
-                          (org-export-data
-                           (or (org-export-get-caption entry t)
-                               (org-export-get-caption entry))
-                           info))))
-              (concat
-               "<li>"
-               (if (not label) (concat (format fmt (incf count)) title)
-                 (format "<a href=\"#%s\">%s%s</a>"
-                         label (format fmt (incf count)) title))
-               "</li>")))
-          entries "\n"))
-       "\n</ul>\n</nav>"))))
+  (when-let* ((entries (funcall collect-fn info)))
+    (concat
+     "<ul class=\"index\">\n"
+     (thread-first
+       (lambda (entry)
+         (let* ((label (t--reference entry info t))
+                (caption (or (org-export-get-caption entry t)
+                             (org-export-get-caption entry)))
+                (title (t--trim (org-export-data caption info))))
+           (format "<li>%s</li>"
+                   (if (not label) title
+                     (format "<a href=\"#%s\">%s</a>" label title)))))
+       (mapconcat entries "\n"))
+     "\n</ul>")))
 
 (defun t--list-of-listings (info)
   "WIP"
-  (t--list-of-elements
-   "List of Listings" "list-of-listings" :org-html--list-of-listings
-   #'org-export-collect-listings info))
-
+  (t--list-of-elements #'org-export-collect-listings info))
 
 (defun t--list-of-tables (info)
   "WIP"
-  (t--list-of-elements
-   "List of Tables" "list-of-tables" :org-html--list-of-tables
-   #'org-export-collect-tables info))
+  (t--list-of-elements #'org-export-collect-tables info))
 
 ;; copied from `org-html-keyword'.
 (defun t--keyword-toc (keyword value info)
