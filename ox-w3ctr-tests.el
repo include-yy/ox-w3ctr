@@ -3,7 +3,7 @@
 (require 'ert)
 (load "ox-w3ctr")
 
-;; Test helper functions
+;;; Test helper functions
 (defun $c (&rest args) "concat" (apply #'concat args))
 (defun $s (a) "should" (should a))
 (defun $n (a) "should-not" (should-not a))
@@ -63,6 +63,11 @@ symbol (such as \\='headline, \\='paragraph, etc)."
       (org-element-parse-buffer))
     (org-element-map type #'identity)))
 
+(ert-deftest t-error ()
+  "Tests for `org-w3ctr-error'."
+  ($e!l (t-error "Hello world") '(org-w3ctr-error "Hello world"))
+  ($e!l (signal 't-error 1) '(t-error . 1)))
+
 (ert-deftest t--make-cache-oclosure ()
   "Tests for `org-w3ctr--make-cache-oclosure'."
   (let ((x (t--make-cache-oclosure :wtf)))

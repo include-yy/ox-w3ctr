@@ -219,8 +219,8 @@
 
 (defconst t--dir
   (if (not load-in-progress) default-directory
-    (file-name-directory load-file-name)
-  "The root directory of the ox-w3ctr package."))
+    (file-name-directory load-file-name))
+  "The root directory of the ox-w3ctr package.")
 
 (defgroup org-export-w3ctr nil
   "Options for exporting Org mode files to HTML."
