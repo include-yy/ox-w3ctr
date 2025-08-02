@@ -2839,7 +2839,8 @@ numbering is active."
            (important-return-value t))
   (let ((opt (org-element-property :HTML_SELF_LINK headline))
         (global-opt (t--pget info :html-self-link-headlines)))
-    (when (or (and (null opt) global-opt) (not (string= opt "noref")))
+    (when (or (and (null opt) global-opt)
+              (and (stringp opt) (not (string= opt "noref"))))
       (format (concat "<a class=\"self-link\" href=\"#%s\""
                     " aria-label=\"Link to this section\"></a>\n")
               id))))
