@@ -210,8 +210,7 @@
     (:html-priority-class nil nil t-priority-class)
     (:html-tag-class nil nil t-tag-class)
     (:html-container nil nil t-container-element)
-    (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)
-    ))
+    (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)))
 
 ;;; User Configuration Variables.
 
@@ -219,10 +218,9 @@
   "The current version string of the ox-w3ctr package.")
 
 (defconst t--dir
-  (if load-in-progress
-      (file-name-directory load-file-name)
-    default-directory)
-  "The root directory of the ox-w3ctr package.")
+  (if (not load-in-progress) default-directory
+    (file-name-directory load-file-name)
+  "The root directory of the ox-w3ctr package."))
 
 (defgroup org-export-w3ctr nil
   "Options for exporting Org mode files to HTML."
@@ -1515,14 +1513,14 @@ values, such as in alt=\"...\" or class=\"...\"."
   "Format a single Lisp LIST into an HTML attribute string.
 
 This low-level helper function converts a single list, LIST, into
-its corresponding HTML attribute string. It handles two formats:
+its corresponding HTML attribute string.  It handles two formats:
 
 - A boolean attribute: (ATTR) becomes \" ATTR\".
 - An attribute with values: (ATTR VAL1 VAL2) becomes
   \" attr=\"VAL1VAL2...\".
 
 The attribute name is lowercased, and its values are concatenated
-without spaces. All values are escaped for safety using
+without spaces.  All values are escaped for safety using
 `org-w3ctr--encode-plain-text*'."
   (declare (ftype (function (list) (or string null)))
            (pure t) (important-return-value t))
@@ -1555,7 +1553,7 @@ value (for example, (id \"foo\") )."
   "Format `:attr__' attributes, adding an `id' attribute if needed.
 
 This function first reads and parses the `:attr__' property from
-an ELEMENT. Its main purpose is to then automatically add an `id'
+an ELEMENT.  Its main purpose is to then automatically add an `id'
 attribute based on the element's reference, unless an `id' is
 already explicitly defined in the property.
 
@@ -1580,7 +1578,7 @@ It converts a property list, ATTRIBUTES, into a single string of
 HTML attributes (for example, \\='id=\"foo\" class=\"bar\"\\=').
 
 ATTRIBUTES should be a plist where keys are attribute names (as
-keywords) and values are strings. A key with a nil value will be
+keywords) and values are strings.  A key with a nil value will be
 omitted from the result."
   (declare (ftype (function (list) string))
            (pure t) (important-return-value t))
@@ -1598,7 +1596,7 @@ omitted from the result."
   "Format attributes from `:attr_html', adding an `id' if needed.
 
 This function processes the standard Org `:attr_html' property from
-an ELEMENT. Its main purpose is to automatically add an `id'
+an ELEMENT.  Its main purpose is to automatically add an `id'
 attribute based on the element's reference, unless an `id' is
 already present in the property list.
 
@@ -1645,7 +1643,7 @@ indentation of the first line of content."
 
 This function combines `org-w3ctr--nw-p' and `org-w3ctr--trim'.
 It first checks if S is a string containing at least one
-non-whitespace character. If the check passes, it returns
+non-whitespace character.  If the check passes, it returns
 a trimmed version of S.
 
 Otherwise (if S is nil, not a string, empty, or contains only
@@ -1662,7 +1660,7 @@ whitespace characters), this function returns nil."
   "A regular expression that matches HTML void elements.
 
 Void elements, also known as self-closing or empty tags, are
-elements in HTML that cannot have any child nodes. Therefore,
+elements in HTML that cannot have any child nodes.  Therefore,
 they do not require a closing tag. This regexp is used to
 identify such tags during HTML generation.")
 
@@ -1670,16 +1668,16 @@ identify such tags during HTML generation.")
   "Recursively convert an S-expression, DATA, into an HTML string.
 
 This function translates a Lisp S-expression into its HTML
-representation. The expected format is:
+representation.  The expected format is:
 
   (TAG-SYMBOL ATTRIBUTE-LIST ...CHILDREN)
 
-- TAG-SYMBOL: A symbol for the HTML tag (e.g., `p', `div'). It
-  is automatically converted to lowercase.
+- TAG-SYMBOL: A symbol for the HTML tag (for example, `p', `div').
+  It is automatically converted to lowercase.
 - ATTRIBUTE-LIST: A list of attribute specifications suitable for
-  `org-w3ctr--make-attr__'. Use nil or an empty list for no attributes.
+  `org-w3ctr--make-attr__'.  Use nil or an empty list for no attributes.
 - CHILDREN: Zero or more child elements, which are recursively
-  converted. Children can be other S-expressions, strings, or numbers.
+  converted.  Children can be other S-expressions, strings, or numbers.
 
 For example, the expression (p ((class \"foo\")) \"Hello\") is
 converted to \"<p class=\\\"foo\\\">Hello</p>\".
@@ -1719,7 +1717,7 @@ sanitizes string content using `org-w3ctr--encode-plain-text'."
   "Ensure string S ends with exactly one newline character.
 
 This function processes string S to ensure it ends with a single
-`\\n'. It removes any existing trailing newlines and whitespace,
+`\\n'.  It removes any existing trailing newlines and whitespace,
 then appends one newline.
 
 If S is not a string, or is an empty string, it is returned unchanged."
@@ -1748,7 +1746,7 @@ exist or is a directory."
   "Insert the contents of FILE at point in the current buffer.
 
 This function uses `insert-file-contents-literally' to place
-the full contents of FILE into the current buffer. It signals
+the full contents of FILE into the current buffer.  It signals
 a `org-w3ctr-error' if FILE does not exist or is a directory."
   (declare (ftype (function (string) t)))
   (unless (and (file-exists-p file) (not (file-directory-p file)))
@@ -1759,7 +1757,7 @@ a `org-w3ctr-error' if FILE does not exist or is a directory."
   "Return a list of all non-overlapping matches for REGEXP in STR.
 
 The search begins at position START, which defaults to the
-beginning of the string. This function returns a list of all
+beginning of the string.  This function returns a list of all
 substrings that completely match REGEXP.
 
 For example:
