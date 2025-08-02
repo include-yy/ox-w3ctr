@@ -2243,7 +2243,7 @@ int a = 1;</code></p>\n</details>")
                  (`:HTML_HEADLINE_CLASS "c2")
                  (_ "xx"))))
             ((symbol-function 't--headline-self-link)
-             (lambda (_id _info) "<a href=\"#x\"></a>\n")))
+             (lambda (_h _id _info) "<a href=\"#x\"></a>\n")))
     ($l (t--build-normal-headline nil nil nil)
         ($c "<section id=\"pid\">\n<div class=\"header-wrapper\">\n"
             "<h2 id=\"x-pid\">1. text</h2>\n<a href=\"#x\"></a>\n"
