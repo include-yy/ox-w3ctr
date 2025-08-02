@@ -3673,10 +3673,19 @@ VALUE determines the type of list to generate:
 	      ((string-match-p "\\<local\\>" value) keyword))))
         (t--build-toc depth info scope))))))
 
+;;;; Template
+;; Options:
+;; :html-back-to-top (`org-w3ctr-back-to-top')
+;; :html-fixup-js (`org-w3ctr-fixup-js')
+
+;; FIXME: Consider use :with-title
+;; Maybe I have use it in above or below codes.
 (defun t-inner-template (contents info)
   "Return body of document string after HTML conversion.
 CONTENTS is the transcoded contents string."
-  ;; See also `org-html-inner-template'
+  (declare (ftype (function ((or null string) list) string))
+           (important-return-value t))
+  ;; See also `org-html-inner-template'.
   (concat
    t--zeroth-section-output
    (t--build-table-of-contents info)
@@ -3686,6 +3695,13 @@ CONTENTS is the transcoded contents string."
    (t-footnote-section info)))
 
 (defun t--build-title (info)
+  "Build the HTML for the document title and subtitle.
+
+This function generates the `<h1>' title and an associated
+paragraph for the subtitle. It only produces output if
+:with-title is non-nil in the INFO plist."
+  (declare (ftype (function (list) string))
+           (important-return-value t))
   (when (plist-get info :with-title)
     (let ((title (plist-get info :title))
           (subtitle (plist-get info :subtitle)))
@@ -3694,10 +3710,18 @@ CONTENTS is the transcoded contents string."
        (let ((tit (org-export-data title info)))
          (or (t--nw-p tit)  "&lrm;"))
        "</h1>\n"
+       ;; FIXME: Consider use subtitle, not w3c-state
        (let ((sub (org-export-data subtitle info)))
          (format "<p id=\"w3c-state\">%s</p>\n" sub))))))
 
 (defun t-template-1 (contents info)
+  "Assemble the full HTML document structure around CONTENTS.
+
+This function generates the complete HTML page, including the `<html>',
+`<head>', and `<body>' tags. It orchestrates the inclusion of the
+navbar, title, preamble, postamble, and other standard page elements."
+  (declare (ftype (function (string list) string))
+           (important-return-value t))
   (concat
    "<!DOCTYPE html>\n"
    (format "<html lang=\"%s\">\n" (plist-get info :language))
@@ -3725,6 +3749,8 @@ CONTENTS is the transcoded contents string."
   "Return complete document string after HTML conversion.
 CONTENTS is the transcoded contents string.  INFO is a plist
 holding export options."
+  (declare (ftype (function (string list) string))
+           (important-return-value t))
   (prog1 (t-template-1 contents info)
     (t--oinfo-cleanup)))
 
