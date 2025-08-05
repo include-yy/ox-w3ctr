@@ -543,7 +543,7 @@ When non-nil, the styles defined by `t-style' or loaded from
   :group 'org-export-w3ctr
   :type 'boolean)
 
-(defcustom t-style ""
+(defcustom t-style nil
   "CSS rules to be embedded directly into the exported HTML.
 
 When this string is not empty, it *takes precedence* over
@@ -554,7 +554,7 @@ This variable is also used as a *cache* for styles loaded from
 this cache (e.g., via the `org-w3ctr-clear-css' command) to see your
 changes."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type '(choice string (const nil)))
 
 (defcustom t-style-file (file-name-concat t--dir "assets" "style.css")
    "Path to a CSS file to load styles from.
@@ -3219,14 +3219,14 @@ This function handles CSS loading in the following priority:
   If both are empty/nil, return empty string (no styles).
 
 The loaded CSS will be wrapped in HTML <style> tags when non-empty."
-  (declare (ftype (function (t) string))
+  (declare (ftype (function (t) (or null string)))
            (important-return-value t))
-  (let ((css (or (when (t--nw-p t-style) t-style)
-                 (when t-style-file
-                   (setq t-style (t--load-file t-style-file)))
-                 "")))
-    (if (string-empty-p css) ""
-      (format "<style>\n%s\n</style>\n" css))))
+  (or (t--nw-p t-style)
+      (when t-style-file
+        (let* ((str (t--load-file t-style-file))
+               (str* (t--normalize-string str))
+               (css (format "<style>\n%s</style>\n" str*)))
+          (setq t-style css)))))
 
 (defun t-clear-css ()
   "Set `org-w3ctr-style' to empty string \"\".

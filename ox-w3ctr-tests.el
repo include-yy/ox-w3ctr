@@ -2296,7 +2296,7 @@ int a = 1;</code></p>\n</details>")
   ($e!l
    (t--get-info-file-timestamp '( :time-stamp-file t
                                   :html-file-timestamp-function nil))
-   '(org-w3ctr-error ":html-file-timestamp-function is not valid: nil"))
+   '(org-w3ctr-error "Invalid :html-file-timestamp-function: nil"))
   (t-check-element-values
    #'t--get-info-file-timestamp
    `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
@@ -2405,21 +2405,21 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t--load-css ()
   "Tests for `org-w3ctr--load-css'."
   (let ((t-style nil) (t-style-file nil))
-    ($q (t--load-css nil) ""))
+    ($q (t--load-css nil) nil))
   (let ((t-style "123"))
-    ($l (t--load-css nil) "<style>\n123\n</style>\n"))
+    ($l (t--load-css nil) "123"))
   (let ((t-style "")
         (t-style-file nil))
-    ($l (t--load-css nil) ""))
+    ($l (t--load-css nil) nil))
   (let ((t-style "    \t")
         (t-style-file nil))
-    ($l (t--load-css nil) ""))
+    ($l (t--load-css nil) nil))
   (cl-letf (((symbol-function 't--load-file)
              #'identity)
             (t-style ""))
     ($l (t--load-css nil)
         (format "<style>\n%s\n</style>\n" t-style-file))
-    ($l t-style t-style-file)))
+    ($l t-style (format "<style>\n%s\n</style>\n" t-style-file))))
 
 (ert-deftest t--build-math-config ()
   "Test `t--build-math-config' function."
