@@ -2380,7 +2380,7 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr-meta-tags-default'."
   (let ((info-with-author '(:with-author t :author ("Alice")))
         (info-with-desc '(:description "Test doc"))
-        (info-with-keywords '(:keywords "org, test"))
+        (info-with-keywords '(:keywords "org test"))
         (info-empty '()))
     ($it t-meta-tags-default
       ($l (it info-with-author)
