@@ -3002,8 +3002,8 @@ numbering is active."
   "Return section number for HEADLINE as an HTML span."
   (declare (ftype (function (t list) (or null string)))
            (important-return-value t))
-  (when-let* ((numbers (and (org-export-numbered-headline-p headline info)
-                            (org-export-get-headline-number headline info))))
+  (when-let* (((org-export-numbered-headline-p headline info))
+              (numbers (org-export-get-headline-number headline info)))
     (format "<span class=\"secno\">%s. </span>"
             (mapconcat #'number-to-string numbers "."))))
 
