@@ -3174,8 +3174,7 @@ tags to be included in the HTML head."
    (when-let* ((desc (t--nw-trim (t--pget info :description))))
      (list "name" "description" desc))
    (when-let* ((keyw (t--nw-trim (t--pget info :keywords))))
-     (list "name" "keywords"
-           (string-join (string-split keyw " ") ", ")))
+     (list "name" "keywords" keyw))
    '("name" "generator" "Org Mode")))
 
 (defun t--build-meta-tags (info)
