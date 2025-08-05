@@ -1202,7 +1202,6 @@ ELEMENT is either a source or an example block."
 (define-error 't-error "ox-w3ctr-error")
 
 ;; FIXME: Replace `error' calls with `org-w3ctr-error'.
-;; Copied from `error'.
 (defun t-error (string &rest args)
   "Signal an `org-w3ctr-error', like `error'."
   (declare (ftype (function (string &rest t) t)))
@@ -1612,7 +1611,7 @@ The final property list is then formatted into a single string by
     (if (t--nw-p a) (concat " " a) "")))
 
 (defun t--make-attr__id* (element info &optional named-only)
- "Format attributes, using `:attr__' with a fallback to `:attr_html'.
+  "Format attributes, using `:attr__' with a fallback to `:attr_html'.
 
 This is the main function for generating an element's complete
 attribute string.  It first checks for the custom `:attr__'
@@ -2345,8 +2344,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
              "<br>\n" output)))
     ;; Return value.
     output))
-
-;;;; Timestamp
+
+;;; Timestamp
 ;; See (info "(org)Timestamps")
 ;; Options:
 ;; - :html-timezone          (`org-w3ctr-timezone')
@@ -2730,7 +2729,7 @@ indicates that no enclosing brackets should be applied."
                     (`fun #'t--format-timestamp-fun)
                     (o (error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
-
+
 ;;; Headline and Section
 
 ;;;; Section
@@ -3055,10 +3054,10 @@ holding contextual information."
         (t--build-low-level-headline headline contents info)
       ;; Normal headline.  Export it as a section.
       (t--build-normal-headline headline contents info))))
-
+
 ;;; Template and Inner Template
 
-;;;; <title> and <meta> tags export.
+;;;; <head> tags export.
 ;; Options:
 ;; - :time-stamp-file (`org-export-timestamp-file')
 ;; - :html-file-timestamp-function (`org-w3ctr-file-timestamp-function')
@@ -3108,7 +3107,7 @@ to the CONTENT-FORMAT and encoding the result as plain text."
     (if-let* ((fun (t--pget info :html-file-timestamp-function))
               ((functionp fun)))
         (funcall fun info)
-      (t-error ":html-file-timestamp-function is not valid: %s"
+      (t-error "Invalid :html-file-timestamp-function: %s"
                (t--pget info :html-file-timestamp-function)))))
 
 (defun t--ensure-charset-utf8 ()
@@ -3304,7 +3303,7 @@ the file."
    (t--normalize-string (t--pget info :html-head))
    (t--normalize-string (t--pget info :html-head-extra))
    "</head>\n"))
-
+
 ;;;; Legacy home and up
 ;; Options
 ;; - :html-link-up (`org-w3ctr-link-up')
@@ -3674,7 +3673,7 @@ It takes the export options plist INFO as its argument."
 
 Note: This variable is provided as an example only and may need
 adaptation for actual project use.")
-
+
 ;;;; Table of Contents
 ;; Options:
 ;; :html-toc-element (`org-w3ctr-toc-element')
