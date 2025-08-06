@@ -3895,7 +3895,8 @@ navbar, title, preamble, postamble, and other standard page elements."
    ;; Postamble.
    (t--build-pre/postamble 'postamble info)
    ;; fixup.js here
-   (t--nw-p (plist-get info :html-fixup-js))
+   (when-let* ((js (t--nw-p (plist-get info :html-fixup-js))))
+     (t--normalize-string js))
    ;; Closing document.
    "</body>\n</html>"))
 
