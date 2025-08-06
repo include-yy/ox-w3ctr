@@ -3679,6 +3679,15 @@ adaptation for actual project use.")
 ;; :html-toc-element (`org-w3ctr-toc-element')
 ;; :with-toc (`org-export-with-toc')
 
+(defun t--toc-headline-secno (headline info)
+  "Return section number for HEADLINE as an HTML span."
+  (declare (ftype (function (t list) (or null string)))
+           (important-return-value t))
+  (when-let* (((org-export-numbered-headline-p headline info))
+              (numbers (org-export-get-headline-number headline info)))
+    (format "<span class=\"secno\">%s</span>"
+            (mapconcat #'number-to-string numbers "."))))
+
 (defun t--format-toc-headline (headline info)
   "Return an appropriate table of contents entry for HEADLINE.
 INFO is a plist used as a communication channel."
@@ -3686,7 +3695,7 @@ INFO is a plist used as a communication channel."
            (important-return-value t))
   (format "<a href=\"#%s\">%s</a>" (t--reference headline info)
           (concat (and (not (t--low-level-headline-p headline info))
-                       (t--headline-secno headline info))
+                       (t--toc-headline-secno headline info))
                   (t--build-toc-headline headline info))))
 
 (defun t--get-info-toc-element (info)
