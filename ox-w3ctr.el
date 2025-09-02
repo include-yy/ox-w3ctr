@@ -229,12 +229,12 @@
 
 ;;;; Item and Plain Lists
 (defcustom t-checkbox-type 'unicode
-  "The type of checkboxes for HTML export.
+  "Specify the type of checkboxes for HTML export.
 
-Possible types:
-  `unicode': Use Unicode symbols
-  `ascii'  : Use ASCII characters
-  `html'   : Use HTML input elements
+Possible values are:
+- `unicode': Use Unicode symbols.
+- `ascii':   Use ASCII characters.
+- `html':    Use HTML <input> elements.
 
 See `org-w3ctr-checkbox-types' for details."
   :group 'org-export-w3ctr
@@ -251,14 +251,18 @@ See `org-w3ctr-checkbox-types' for details."
     (strike-through . "<s>%s</s>")
     (underline . "<u>%s</u>")
     (verbatim . "<code>%s</code>"))
-  "Alist of HTML expressions to convert text markup.
+  "Association list mapping Org markup types to HTML format strings.
+Each element in the alist should have the form (TYPE . FORMAT).
 
-The key must be a one of the symbols: `bold', `code', `italic',
-`strike-through', `underline' and `verbatim'.  The value is a
-formatting string used to to wrap the fontified text.
+TYPE is a symbol representing the markup, which must be one of
+symbol `bold', symbol `code', symbol `italic',
+symbol `strike-through', symbol `underline', or symbol `verbatim'.
 
-If no association is found for a given markup, the text will be
-returned as-is."
+FORMAT is a string used to wrap the text, where \"%s\" is
+replaced by the text content itself.
+
+If no entry exists for a given markup type, the text is exported
+without any special HTML tags."
   :group 'org-export-w3ctr
   :type '(alist :key-type (symbol :tag "Markup type")
                 :value-type (string :tag "Format string"))
@@ -282,46 +286,48 @@ returned as-is."
             (any (?0 . ?5))
             (any (?0 . ?9)))))
       string-end)
-  "Regular expression for matching UTC/GMT time zone designators
-and time zone offsets, including \"local\" for local timezone.")
+  "Regular expression for matching supported time zone designators.")
 
 (defcustom t-timezone "local"
-  "Time zone string for Org files.
+  "Specify the assumed time zone for timestamps in the source Org file.
 
-This value is used when generating datetime metadata. It should be in
-one of the following formats: [+-]HHMM, GMT/UTC[+-]XX or local.
+This value is used as the base time zone when interpreting timestamps
+from the file and generating datetime metadata for the export.  It
+must be a string in one of the following formats:
 
-Examples of valid values:
--  \"+0800\" for Beijing time
--  \"-0500\" for Eastern Time
--  \"UTC+8\" for Alternative format
--  \"GMT-5\" for Eastern Time alternative
--  \"local\" for Local time
+- The keyword \"local\" for the system's local time zone.
+- A four-digit offset from UTC, for example, \"+0800\" or \"-0500\".
+- A UTC/GMT-based designator, for example, \"UTC+8\" or \"GMT-5\".
 
-See ISO 8601 and RFC 2822 or 3339 for more details.
-- https://datatracker.ietf.org/doc/html/rfc2822
-- https://datatracker.ietf.org/doc/html/rfc3339"
+For more details on time zone formats, see IETF RFC 2822
+\(URL `https://datatracker.ietf.org/doc/html/rfc2822') or
+RFC 3339 (URL `https://datatracker.ietf.org/doc/html/rfc3339')."
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
          (let ((case-fold-search t))
            (if (not (string-match-p t-timezone-regex value))
-               (error "Not a valid time zone designator: %s" value)
+               (error "Invalid time zone designator: %s" value)
              (set symbol value))))
   :type 'string)
 
 (defcustom t-export-timezone nil
-  "Time zone string for exporting.
+  "Specify the target time zone for timestamps in the exported file.
 
-This specifies the time zone used for datetime attributes during export.
-If nil, the value of `org-w3ctr-timezone' is used instead.
+If this is nil (the default), no time zone conversion occurs.
+Timestamps are formatted based on the source time zone defined in
+the option `org-w3ctr-timezone'.
 
-The value format follows the same rules as `org-w3ctr-timezone'."
+When set to a string, this option enables time zone conversion.
+The exporter uses the option `org-w3ctr-timezone' to correctly
+interpret the source timestamp, then converts it to the time zone
+specified by this variable for the final output.  The string must
+follow the same format rules as the option `org-w3ctr-timezone'."
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
          (when value
            (let ((case-fold-search t))
              (if (not (string-match-p t-timezone-regex value))
-                 (error "Not a valid time zone designator: %s" value))))
+                 (error "Invalid time zone designator: %s" value))))
          (set symbol value))
   :type '(choice (const nil) string))
 
