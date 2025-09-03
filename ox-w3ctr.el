@@ -48,6 +48,7 @@
 (require 'ox-publish)
 (require 'ox-html)
 (require 'table)
+(require 'shortdoc)
 
 ;;;; Fundmental utilities
 (defconst t-version "0.2.4"
@@ -1408,11 +1409,10 @@ Otherwise, return an empty string."
   (if (stringp contents) (concat "\n" contents) ""))
 
 (defsubst t--nw-p (s)
-  "Return S if it is a string with non-whitespace characters.
-
-This is an inlined copy of `org-string-nw-p' for performance.
-It returns S if it contains at least one non-whitespace character,
-otherwise it returns nil."
+  "Return S if it is a string that has non-whitespace characters.
+Otherwise, return nil."
+  (declare (ftype (function (t) (or null string)))
+           (pure t) (important-return-value t))
   (and (stringp s) (string-match-p "[^ \r\t\n]" s) s))
 
 (defsubst t--2str (s)
@@ -4772,6 +4772,20 @@ Return output file name."
                                     t-extension
                                     "html"))
                         plist pub-dir)))
+
+;;; Shortdoc
+
+(define-short-documentation-group ox-w3ctr
+  "Helper"
+  (t--prepend-newline
+   :eval (t--prepend-newline nil)
+   :eval (t--prepend-newline "")
+   :eval (t--prepend-newline "123"))
+  (t--nw-p
+   :eval (t--nw-p nil)
+   :eval (t--nw-p "\n\t")
+   :eval (t--nw-p "  1  "))
+)
 
 (provide 'ox-w3ctr)
 
