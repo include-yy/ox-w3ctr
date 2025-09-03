@@ -144,39 +144,73 @@
               (if a (t-export-to-html t s v b)
                 (org-open-file (t-export-to-html nil s v b)))))))
   :options-alist
-  '(;; meta information for HTML <head> --------
+  '(;; Item and Plain Lists
+    (:html-checkbox-type nil nil t-checkbox-type)
+    ;; Smallest objects
+    (:html-text-markup-alist nil nil t-text-markup-alist)
+    ;; Timestamp
+    (:html-timezone "HTML_TIMEZONE" nil t-timezone)
+    (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
+    (:html-datetime-option nil "dt" t-datetime-format-choice)
+    (:html-timestamp-formats nil "tsf" t-timestamp-formats)
+    (:html-timestamp-option nil "ts" t-timestamp-option)
+    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
+    (:html-timestamp-format-function nil "tsfn" t-timestamp-format-function)
+    ;; Todo
+    (:html-todo-class nil nil t-todo-class)
+    (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
+    ;; Priority
+    (:html-priority-class nil nil t-priority-class)
+    ;; Tags
+    (:html-tag-class nil nil t-tag-class)
+    ;; Headline
+    (:html-format-headline-function nil nil t-format-headline-function)
+    (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
+    (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)
+    (:html-container nil nil t-container-element)
+    (:html-self-link-headlines nil nil t-self-link-headlines)
+    ;; <head>
+    (:html-file-timestamp-function nil nil t-file-timestamp-function)
+    (:html-viewport nil nil t-viewport)
     (:description "DESCRIPTION" nil nil newline)
     (:keywords "KEYWORDS" nil nil space)
-    (:creator "CREATOR" nil t-creator-string)
-    (:html-viewport nil nil t-viewport)
-    (:html-head "HTML_HEAD" nil t-head newline)
-    (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
-    (:subtitle "SUBTITLE" nil nil parse)
     (:html-head-include-style nil "html-style" t-head-include-style)
-    (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
-    ;; HTML TOP place naviagtion elements -------------------------
-    (:html-link-navbar "HTML_LINK_NAVBAR" nil t-link-navbar parse)
-    (:html-format-navbar-function nil nil t-format-navbar-function)
-    (:html-home/up-format nil nil t-home/up-format)
-    (:html-link-up "HTML_LINK_UP" nil t-link-up)
-    (:html-link-home "HTML_LINK_HOME" nil t-link-home)
-    ;; Latex and MathJAX options -------
-    (:with-latex nil "tex" t-with-latex)
     (:html-mathjax-config nil nil t-mathjax-config)
     (:html-mathml-config nil nil t-mathml-config)
     (:html-math-custom-function nil nil t-math-custom-function)
-    ;; postamble and preamble ------------------------
+    (:html-head "HTML_HEAD" nil t-head newline)
+    (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
+    (:with-latex nil "tex" t-with-latex)
+    ;; home and up
+    (:html-link-up "HTML_LINK_UP" nil t-link-up)
+    (:html-link-home "HTML_LINK_HOME" nil t-link-home)
+    (:html-home/up-format nil nil t-home/up-format)
+    ;; navbar
+    (:html-link-navbar "HTML_LINK_NAVBAR" nil t-link-navbar parse)
+    (:html-format-navbar-function nil nil t-format-navbar-function)
+    ;; preamble and postamble
+    (:html-license nil "license" t-public-license)
+    (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
+    (:html-format-license-function nil nil t-format-license-function)
+    (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
+    (:creator "CREATOR" nil t-creator-string)
+    (:html-validation-link nil nil t-validation-link)
     (:html-postamble nil "html-postamble" t-postamble)
     (:html-preamble nil "html-preamble" t-preamble)
-    (:html-validation-link nil nil t-validation-link)
-    ;; footnote options -----------------------------
+    ;; table of contents
+    (:html-toc-element nil nil t-toc-element)
+    ;; template
+    (:html-back-to-top nil "back-to-top" t-back-to-top)
+    (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
+    (:subtitle "SUBTITLE" nil nil parse)
+
+    ;; Unarranged
+    ;; FIXME: Reformat whole info options
+
+    ;; footnote options
     (:html-footnote-format nil nil t-footnote-format)
     (:html-footnote-separator nil nil t-footnote-separator)
     (:html-footnotes-section nil nil t-footnotes-section)
-    ;; headline options -------------------------------------
-    (:html-format-headline-function nil nil t-format-headline-function)
-    (:html-self-link-headlines nil nil t-self-link-headlines)
-    (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     ;; <yy> aux counter for unnumbered headline
     (:html-headline-cnt nil nil 0)
     ;; <yy> zeroth section's toc title name
@@ -189,45 +223,17 @@
     (:html-table-caption-above nil nil t-table-caption-above)
     (:html-table-data-tags nil nil t-table-data-tags)
     (:html-table-header-tags nil nil t-table-header-tags)
-    (:html-table-use-header-tags-for-first-column nil nil t-table-use-header-tags-for-first-column)
+    (:html-table-use-header-tags-for-first-column
+     nil nil t-table-use-header-tags-for-first-column)
     (:html-table-row-open-tag nil nil t-table-row-open-tag)
     (:html-table-row-close-tag nil nil t-table-row-close-tag)
     ;; misc options -----------------------------
-    (:html-checkbox-type nil nil t-checkbox-type)
     (:html-extension nil nil t-extension)
     (:html-indent nil nil t-indent)
     (:html-inline-image-rules nil nil t-inline-image-rules)
     (:html-link-org-files-as-html nil nil t-link-org-files-as-html)
-    (:html-text-markup-alist nil nil t-text-markup-alist)
     (:html-inline-images nil nil t-inline-images)
-    ;; <yy> add back to top arrow
-    (:html-back-to-top nil "back-to-top" t-back-to-top)
-    ;; <yy> add options for fixup.js's code
-    (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
-    ;; <yy> add timestamp format for timestamp
-    ;; <yy> time zone suffix
-    ;; timestamp new feature [2025-06-12 16:23]
-    (:html-timezone "HTML_TIMEZONE" nil t-timezone)
-    (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
-    (:html-datetime-option nil "dt" t-datetime-format-choice)
-    (:html-timestamp-formats nil "tsf" t-timestamp-formats)
-    (:html-timestamp-option nil "ts" t-timestamp-option)
-    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
-    (:html-timestamp-format-function nil "tsfn" t-timestamp-format-function)
-    (:html-file-timestamp-function nil nil t-file-timestamp-function)
-    ;; public license
-    (:html-license nil "license" t-public-license)
-    (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
-    (:html-format-license-function nil nil t-format-license-function)
-    ;; toc tag name
-    (:html-toc-element nil nil t-toc-element)
-    ;; FIXME: Reformat whole info options
-    (:html-todo-class nil nil t-todo-class)
-    (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
-    (:html-priority-class nil nil t-priority-class)
-    (:html-tag-class nil nil t-tag-class)
-    (:html-container nil nil t-container-element)
-    (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)))
+    ))
 
 ;;; User Configuration Variables.
 
@@ -1823,7 +1829,10 @@ CONTENTS holds the contents of the block."
            (pure t) (important-return-value t))
   (or contents ""))
 
-;;; Item and Plain Lists
+;;;; Item and Plain Lists
+;; See (info "(org)Plain lists")
+;; Options:
+;; - :html-checkbox-type (`org-w3ctr-checkbox-type')
 (defconst t-checkbox-types
   '(( unicode .
       ((on . "&#x2611;")
@@ -1847,7 +1856,6 @@ Choices are:
   `html'    HTML checkboxes")
 
 ;; See (info "(org)Checkboxes")
-;; To modify checkbox style, set `org-w3ctr-checkbox-type'.
 (defun t--checkbox (checkbox info)
   "Format CHECKBOX into HTML.
 See `org-w3ctr-checkbox-types' for customization options."
@@ -1971,7 +1979,7 @@ CONTENTS holds the contents of the block."
           (t--maybe-contents contents)))
 
 ;;; Lesser elements (17 - 7 - 3 = 7)
-;;; latex-environment, src-block, and table-row are not here.
+;; latex-environment, src-block, and table-row are not here.
 
 ;;;; Example Block
 ;; See (info "(org)Literal Examples")
@@ -2062,7 +2070,6 @@ CONTENTS is nil."
 ;;;; Paragraph
 ;; See (info "(org)Paragraphs")
 ;; Fixed export. Not customizable.
-
 (defsubst t--wrap-image (contents _info caption attrs)
   "Wrap CONTENTS string within <figure> tag for images.
 Also check attributes and caption of paragraph."
@@ -2137,10 +2144,10 @@ CONTENTS is verse block contents."
       (replace-regexp-in-string re "<br>\n" (or contents ""))))))
 
 ;;; Objects (25 - 4 - 5 - 7 = 9)
-;;; footnote-reference, inline-src-block are not here.
-;;; latex-fragment, link and table-cell are not here.
-;;; timestamp is not here.
-;;; smallest objects are not here.
+;; footnote-reference, inline-src-block are not here.
+;; latex-fragment, link and table-cell are not here.
+;; timestamp is not here.
+;; smallest objects are not here.
 
 ;;;; Entity
 ;; See (info "(org)Special Symbols")
@@ -2238,6 +2245,9 @@ information."
   (format "<sup>%s</sup>" contents))
 
 ;;; Smallest objects (7)
+;; See (info "(org) Emphasis and Monospace")
+;; Options:
+;; - :html-text-markup-alist (`org-w3ctr-text-markup-alist')
 
 (defun t--get-markup-format (name info)
   "Get markup format string for NAME from INFO plist.
@@ -2251,8 +2261,6 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
       str "%s"))
 
 ;;;; Bold
-;; See (info "(org) Emphasis and Monospace")
-;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-bold (_bold contents info)
   "Transcode BOLD from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2260,8 +2268,6 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'bold info) contents))
 
 ;;;; Italic
-;; See (info "(org) Emphasis and Monospace")
-;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-italic (_italic contents info)
   "Transcode ITALIC from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2269,8 +2275,6 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'italic info) contents))
 
 ;;;; Underline
-;; See (info "(org) Emphasis and Monospace")
-;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-underline (_underline contents info)
   "Transcode UNDERLINE from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2278,8 +2282,6 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'underline info) contents))
 
 ;;;; Verbatim
-;; See (info "(org) Emphasis and Monospace")
-;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-verbatim (verbatim _contents info)
   "Transcode VERBATIM from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2289,8 +2291,6 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
            (org-element-property :value verbatim))))
 
 ;;;; Code
-;; See (info "(org) Emphasis and Monospace")
-;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2300,8 +2300,6 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
            (org-element-property :value code))))
 
 ;;;; Strike-Through
-;; See (info "(org) Emphasis and Monospace")
-;; Change `org-w3ctr-text-markup-alist' to do customizations.
 (defun t-strike-through (_strike-through contents info)
   "Transcode STRIKE-THROUGH from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2309,6 +2307,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
+;; Options:
 ;; :with-smart-quotes    (`org-export-with-smart-quotes')
 ;; :with-special-strings (`org-export-with-special-strings')
 ;; :preserve-breaks      (`org-export-preserve-breaks')
@@ -2352,7 +2351,7 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
     ;; Return value.
     output))
 
-;;; Timestamp
+;;;; Timestamp
 ;; See (info "(org)Timestamps")
 ;; Options:
 ;; - :html-timezone          (`org-w3ctr-timezone')
@@ -2822,6 +2821,8 @@ holding contextual information."
 ;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
 ;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
 ;; - :html-honor-ox-headline-levels (`org-w3ctr-honor-ox-headline-levels')
+;; - :html-container (`org-w3ctr-container-element')
+;; - :html-self-link-headlines (`org-w3ctr-self-link-headlines')
 ;; - :headline-levels (`org-export-headline-levels')
 ;; - :headline-offset (internal)
 ;; - :section-numbers (`org-export-with-section-numbers')
