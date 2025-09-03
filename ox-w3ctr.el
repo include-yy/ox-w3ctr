@@ -39,7 +39,7 @@
 
 ;;; Code:
 
-;;; Dependencies
+;;;; Dependencies
 (require 'cl-lib)
 (require 'map)
 (require 'format-spec)
@@ -49,7 +49,24 @@
 (require 'ox-html)
 (require 'table)
 
-;;; Define Back-End
+;;;; Fundmental utils
+(defconst t-version "0.2.4"
+  "The current version string of the ox-w3ctr package.")
+
+(defconst t--dir
+  (if (not load-in-progress) default-directory
+    (file-name-directory load-file-name))
+  "The root directory of the ox-w3ctr package.")
+
+(define-error 't-error "ox-w3ctr-error")
+
+;; FIXME: Replace `error' calls with `org-w3ctr-error'.
+(defun t-error (string &rest args)
+  "Signal an `org-w3ctr-error', like `error'."
+  (declare (ftype (function (string &rest t) t)))
+  (signal 't-error (list (apply #'format-message string args))))
+
+;;;; Define Back-End
 (org-export-define-backend 'w3ctr
   '(;; see https://orgmode.org/worg/org-syntax.html for details
     ;; top-level structure
@@ -213,14 +230,6 @@
     (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)))
 
 ;;; User Configuration Variables.
-
-(defconst t-version "0.2.4"
-  "The current version string of the ox-w3ctr package.")
-
-(defconst t--dir
-  (if (not load-in-progress) default-directory
-    (file-name-directory load-file-name))
-  "The root directory of the ox-w3ctr package.")
 
 (defgroup org-export-w3ctr nil
   "Options for exporting Org mode files to HTML."
@@ -1204,14 +1213,6 @@ ELEMENT is either a source or an example block."
   (t--rpc-request! t--jstools-proc fun args))
 
 ;;; Basic utilities
-;;;; Error
-(define-error 't-error "ox-w3ctr-error")
-
-;; FIXME: Replace `error' calls with `org-w3ctr-error'.
-(defun t-error (string &rest args)
-  "Signal an `org-w3ctr-error', like `error'."
-  (declare (ftype (function (string &rest t) t)))
-  (signal 't-error (list (apply #'format-message string args))))
 
 ;;;; OINFO oclosure
 ;; A lightweight caching system for property lookups within the
