@@ -1400,13 +1400,11 @@ state before a new test run or benchmark."
    t--oinfo-cache-alist))
 
 ;;;; Helper functions
-(defsubst t--maybe-contents (contents)
-  "Safely prepend a newline to optional block contents.
-
-If CONTENTS is a string, this function returns it with a newline
-character prepended.  If CONTENTS is nil or not a string, it
-returns an empty string.  This is useful for formatting block
-elements that may or may not have content."
+(defun t--prepend-newline (contents)
+  "Prepend a newline to CONTENTS if it is a string.
+Otherwise, return an empty string."
+  (declare (ftype (function (t) string))
+           (pure t) (important-return-value t))
   (if (stringp contents) (concat "\n" contents) ""))
 
 (defsubst t--nw-p (s)
@@ -1803,7 +1801,7 @@ CONTENTS holds the contents of the block."
   (declare (ftype (function (t (or null string) t) string))
            (pure t) (important-return-value t))
   (format "<div style=\"text-align:center;\">%s</div>"
-          (t--maybe-contents contents)))
+          (t--prepend-newline contents)))
 
 ;;;; Drawer
 ;; See (info "(org)Drawers")
@@ -1819,7 +1817,7 @@ CONTENTS holds the contents of the block."
                   exp name))
          (attrs (t--make-attr__id* drawer info t)))
     (format "<details%s><summary>%s</summary>%s</details>"
-            attrs cap (t--maybe-contents contents))))
+            attrs cap (t--prepend-newline contents))))
 
 ;;;; Dynamic Block
 ;; See (info "(org)Dynamic Blocks")
@@ -1978,7 +1976,7 @@ CONTENTS holds the contents of the block."
            (important-return-value t))
   (format "<blockquote%s>%s</blockquote>"
           (t--make-attr__id* quote-block info t)
-          (t--maybe-contents contents)))
+          (t--prepend-newline contents)))
 
 ;;; Lesser elements (17 - 7 - 3 = 7)
 ;; latex-environment, src-block, and table-row are not here.
@@ -2011,7 +2009,7 @@ CONTENTS is nil."
       ;; Add mhtml-mode also.
       ((or "HTML" "MHTML") text)
       ;; CSS
-      ("CSS" (format "<style>%s</style>" (t--maybe-contents value)))
+      ("CSS" (format "<style>%s</style>" (t--prepend-newline value)))
       ;; JavaScript
       ((or "JS" "JAVASCRIPT") (concat "<script>\n" text "</script>"))
       ;; Expression that return HTML string.

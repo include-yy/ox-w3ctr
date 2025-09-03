@@ -187,13 +187,14 @@ symbol (such as \\='headline, \\='paragraph, etc)."
     ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)
     ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)))
 
-(ert-deftest t--maybe-contents ()
-  "Tests for `org-w3ctr--maybe-contents'."
-  ($l (t--maybe-contents nil) "")
-  ($l (t--maybe-contents "") "\n")
-  ($l (t--maybe-contents "abc") "\nabc")
-  ($l (t--maybe-contents 123) "")
-  ($l (t--maybe-contents '(1 2)) ""))
+(ert-deftest t--prepend-newline ()
+  "Tests for `org-w3ctr--prepend-newline'."
+  ($it t--prepend-newline
+    ($l (it nil) "")
+    ($l (it "") "\n")
+    ($l (it "abc") "\nabc")
+    ($l (it 123) "")
+    ($l (it '(1 2)) "")))
 
 (ert-deftest t--nw-p ()
   "Tests for `org-w3ctr--nw-p'."
