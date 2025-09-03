@@ -49,7 +49,7 @@
 (require 'ox-html)
 (require 'table)
 
-;;;; Fundmental utils
+;;;; Fundmental utilities
 (defconst t-version "0.2.4"
   "The current version string of the ox-w3ctr package.")
 
@@ -62,7 +62,7 @@
 
 ;; FIXME: Replace `error' calls with `org-w3ctr-error'.
 (defun t-error (string &rest args)
-  "Signal an `org-w3ctr-error', like `error'."
+  "Signal an `org-w3ctr-error' error.  STRING is formatted with ARGS."
   (declare (ftype (function (string &rest t) t)))
   (signal 't-error (list (apply #'format-message string args))))
 
@@ -418,7 +418,7 @@ These format strings follow the conventions of `format-time-string'.
   "Prefix for CSS classes applied to TODO keywords.
 
 The final class will be this prefix followed by the status
-(e.g., \"todo\" or \"done\"). For example, if a headline is a
+\(e.g., \"todo\" or \"done\").  For example, if a headline is a
 TODO item, its class will be \"org-status-todo\" by default."
   :group 'org-export-w3ctr
   :type 'string)
@@ -462,7 +462,7 @@ The function should return the formatted HTML string for the headline."
 (defcustom t-container-element "section"
   "The HTML tag name for the element that contains a headline.
 
-Common values are \"section\" or \"div\". If nil, \"div\" is used."
+Common values are \"section\" or \"div\".  If nil, \"div\" is used."
   :group 'org-export-w3ctr
   :type '(choice string (const nil)))
 
@@ -486,7 +486,7 @@ timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export.
 
-UTF-8 is the de facto standard for modern web content. The default
+UTF-8 is the de facto standard for modern web content.  The default
 value `utf-8-unix' is strongly recommended and should not be changed
 unless you have specific legacy system requirements."
   :group 'org-export-w3ctr
@@ -571,7 +571,7 @@ When this string is not empty, it *takes precedence* over
 `org-w3ctr-style-file'.
 
 This variable is also used as a *cache* for styles loaded from
-`org-w3ctr-style-file'. If you modify the source file, you must clear
+`org-w3ctr-style-file'.  If you modify the source file, you must clear
 this cache (e.g., via the `org-w3ctr-clear-css' command) to see your
 changes."
   :group 'org-export-w3ctr
@@ -580,7 +580,7 @@ changes."
 (defcustom t-style-file (file-name-concat t--dir "assets" "style.css")
    "Path to a CSS file to load styles from.
 
-This path must be *absolute*. This option is used as a fallback when
+This path must be *absolute*.  This option is used as a fallback when
 `org-w3ctr-style' is empty.
 
 When you set a new file path here, the `org-w3ctr-style' cache is
@@ -649,7 +649,7 @@ specifies the rendering method:
   async
   src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'>
 </script>"
-  "Configuration for MathJax rendering in HTML export,
+  "Configuration for MathJax rendering in HTML export.
 Used for MathJax rendering (:with-latex is set to `mathjax').
 
 For detailed configuration options, see:
@@ -658,8 +658,8 @@ https://docs.mathjax.org/en/latest/options/index.html"
   :type 'string)
 
 (defcustom t-mathml-config ""
-  "Configuration for MathML in HTML export. Used when :with-latex
-is set to `mathml'.
+  "Configuration for MathML in HTML export.
+Used when :with-latex is set to `mathml'.
 
 See https://developer.mozilla.org/en-US/docs/Web/MathML for details."
   :group 'org-export-w3ctr
@@ -720,7 +720,7 @@ The first %s is for the `UP' link, and the second for `HOME'."
   :type 'string)
 
 (defcustom t-link-navbar nil
-  "Navigation bar links. Can be:
+  "Navigation bar links.  Can be:
 - A vector of (URL . NAME) pairs, e.g [(\"../index.html\" . \"Up\")]
 - A list of Org elements (from HTML_LINK_NAVBAR)
 - nil to use the legacy home/up behavior"
@@ -732,7 +732,7 @@ The first %s is for the `UP' link, and the second for `HOME'."
 
 This function is called with one argument: INFO plist.  It should
 return a string containing the complete HTML for the navigation bar
-(e.g., inside `<nav>` tags).
+\(e.g., inside `<nav>` tags).
 
 See `org-w3ctr-format-navbar-default-function' for an example."
   :group 'org-export-w3ctr
@@ -744,8 +744,9 @@ See `org-w3ctr-format-navbar-default-function' for an example."
   :type 'boolean)
 
 (defcustom t-public-license nil
-  "Default license for exported content. Value should be one of the
-supported Creative Commons licenses or variants."
+  "Default license for exported content.
+Value should be one of the supported Creative Commons licenses
+or variants."
   :group 'org-export-w3ctr
   :type '(choice
           (const nil) (const cc0)
@@ -795,7 +796,7 @@ Validate</a>"
 
 It can be one of the following types:
 - string: The string will be formatted using `format-spec' and
-  inserted. See `org-w3ctr--pre/postamble-format-spec' for available
+  inserted.  See `org-w3ctr--pre/postamble-format-spec' for available
   format codes (e.g., %d, %c).
 - function: The function is called with the INFO plist, and its return
   value is inserted.
@@ -826,12 +827,12 @@ See `org-w3ctr-preamble' for more information."
   "<p role=\"navigation\" id=\"back-to-top\">\
 <a href=\"#title\"><abbr title=\"Back to Top\">↑\
 </abbr></a></p>\n"
-  "add comments here"
+  "Add comments here."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defvar t-fixup-js ""
-  "js code that control toc's hide and show")
+  "Js code that control toc's hide and show.")
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -893,7 +894,7 @@ See `org-html-inline-image-rules' for more information."
 ;;;; Src Block
 
 (defcustom t-fontify-method 'engrave
-  "Method to fontify code
+  "Method to fontify code.
 - nil means no highlighting
 - engrave means use a subset of engrave-face.el for code fontify
 
@@ -965,19 +966,19 @@ Otherwise, place it near the end."
 
 ;;;; Some options added by include-yy
 (defcustom t-use-babel nil
-  "use babel or not when exporting.
+  "Use babel or not when exporting.
 
 This option will override `org-export-use-babel'"
   :group 'org-export-w3ctr
   :type '(boolean))
 
 (defcustom t-example-default-class "example"
-  "default CSS class for example block, nil means no default class"
+  "Default CSS class for example block, nil means no default class."
   :group 'org-export-w3ctr
   :type 'sexp)
 
 (defcustom t-zeroth-section-tocname "Abstract"
-  "default toc name of the zeroth section"
+  "Default toc name of the zeroth section."
   :group 'org-export-w3ctr
   :type 'sexp)
 
@@ -1000,7 +1001,7 @@ This affects IDs that are determined from the ID property.")
 
 ;; load default CSS from style.css
 (defun t-update-css-js ()
-  "update ??? and t-fixup-js"
+  "Update ??? and `t-fixup-js'."
   (interactive)
   (setq t-fixup-js
         (let ((fname (file-name-concat t--dir "assets/fixup.js")))
@@ -1056,7 +1057,7 @@ targets and targets."
           (t (org-export-get-reference datum info)))))
 
 (defun t--get-headline-reference (datum info)
-  "return a reference id for headline
+  "Return a reference id for headline.
 if DATUM's type is not headline, return nil"
   (when (eq 'headline (org-element-type datum))
     (let ((cache (plist-get info :internal-references)))
@@ -1246,16 +1247,17 @@ CNT - An integer counter used to track cache hits."
     (cnt :mutable t :type integer))
 
   (defun t--make-cache-oclosure (keyword)
-    "Create and return a caching oclosure for a given property KEYWORD.
+    "Create a caching oclosure for a given property KEYWORD.
 
 The returned oclosure is a function that takes a single argument,
 INFO, which is an Org export property list.  It caches the value
 of the property specified by KEYWORD.
 
-On the first call or when INFO changes, it retrieves the property
-value from INFO and stores it.  On subsequent calls with the same
-INFO object, it returns the cached value directly.  This avoids
-repeated `plist-get' lookups.
+On the first call, or when called with a new INFO object, the
+oclosure retrieves the property value from INFO and stores it.
+On subsequent calls with the same INFO object, it returns the
+cached value directly.  This avoids repeated calls to the
+function `plist-get'.
 
 KEYWORD is the symbol for the property key to cache."
     (oclosure-lambda (t--oinfo (pid nil) (key keyword)
@@ -1265,7 +1267,7 @@ KEYWORD is the symbol for the property key to cache."
       (if (eq pid info) val
         (setq pid info val (plist-get info key)))))
 
-  ;; (defconst t--oinfo-cache-props nil) ; For test only.
+  ;; (defconst t--oinfo-cache-props nil)
 
   (defconst t--oinfo-cache-props
     '( :html-checkbox-type :html-text-markup-alist
@@ -1290,10 +1292,10 @@ KEYWORD is the symbol for the property key to cache."
     "A list of property keys to be cached by the `OINFO' system.
 
 This constant defines which properties from an Org export INFO
-plist will have a dedicated caching oclosure created for them.
-The oclosures are managed by the `org-w3ctr--oinfo-cache-alist'
+plist will have a dedicated caching closure created for them.
+The oclosures are managed by `org-w3ctr--oinfo-cache-alist'
 and accessed via `org-w3ctr--pget' to improve performance by
-reducing redundant `plist-get' calls during an export process.")
+reducing redundant calls to `plist-get' during an export process.")
 
   (defconst t--oinfo-cache-alist
     (let (alist)
@@ -1305,41 +1307,40 @@ reducing redundant `plist-get' calls during an export process.")
     "An alist mapping cached property keys to their oclosure functions.
 
 This internal variable is constructed automatically at load time based
-on the keys listed in `org-w3ctr--oinfo-cache-props'.  Each element is
-a cons cell of the form (KEY . FUNCTION), where KEY is a property
-symbol (for example, `:with-author') and FUNCTION is the caching
-oclosure generated by `org-w3ctr--make-cache-oclosure'.
+on the keys listed in the variable `org-w3ctr--oinfo-cache-props'.
+Each element is a cons cell of the form (KEY . FUNCTION), where KEY
+is a property symbol (for example, `:with-author') and FUNCTION is the
+symbol of the caching oclosure generated by the function
+`org-w3ctr--make-cache-oclosure'.
 
-It is used by `org-w3ctr--pget' to look up and invoke the correct
-caching function for a given property key.")
+This alist is used by the function `org-w3ctr--pget' to look up and
+invoke the correct caching function for a given property key.")
 
   (define-inline t--pget (info prop)
     "Get a property value from an Org export INFO plist, using a cache.
 
-This is a high-performance alternative to `plist-get'.  If the
-property PROP is a key defined in `org-w3ctr--oinfo-cache-props',
-this function invokes a dedicated caching oclosure to retrieve the
-value.  For any other key, it falls back to a standard `plist-get'
-call.
+This is a high-performance alternative to the function `plist-get'.
+If the property PROP is a key defined in the variable
+`org-w3ctr--oinfo-cache-props', this function invokes a dedicated
+caching oclosure to retrieve the value.  For any other key, it
+falls back to a standard call to `plist-get'.
 
-Use this throughout the back-end for frequent property lookups."
+This function is intended for use throughout the back-end for
+frequent property lookups to improve performance."
     (if-let* ((f (alist-get (inline-const-val prop)
                             t--oinfo-cache-alist)))
         (inline-quote (funcall #',f ,info))
       (inline-quote (plist-get ,info ,prop))))
 
   (define-inline t--pput (info prop value)
-    "Set a property VALUE for a PROP, interacting with the oinfo cache.
+    "Set the property PROP to VALUE in INFO and return VALUE.
 
-This is a hybrid function.  If PROP is a key defined in
-`org-w3ctr--oinfo-cache-props', this function updates the value
-directly within the corresponding caching oclosure's slots.
-*Note*: In this case, the INFO plist itself is NOT modified.
+If PROP is a key listed in the variable `org-w3ctr--oinfo-cache-props',
+this function updates the VALUE directly within the corresponding
+caching oclosure.  In this case, the INFO plist itself is NOT modified.
 
-For any other key, this function behaves identically to
-(plist-put INFO PROP VALUE).
-
-In both cases, the function returns VALUE."
+For any other PROP, this function behaves identically to `plist-put',
+modifying the INFO plist directly."
     (if-let* ((f (alist-get (inline-const-val prop)
                             t--oinfo-cache-alist)))
         (inline-quote
@@ -1351,10 +1352,11 @@ In both cases, the function returns VALUE."
 (defun t--oinfo-cleanup ()
   "Clear all cached values from the OINFO oclosures.
 
-This function iterates through all oclosures defined in
+This function iterates through all oclosures defined in the variable
 `org-w3ctr--oinfo-cache-alist' and resets their internal `pid'
 and `val' slots to nil.  It should be called at the end of an
-export process to prevent stale data from persisting."
+export process to prevent stale data from persisting across
+separate exports."
   (map-do
    (lambda (_k v)
      (let ((o (symbol-function v)))
@@ -1363,13 +1365,12 @@ export process to prevent stale data from persisting."
 
 (defun t-collect-oinfo-statistics ()
   "Collect and display usage statistics for the OINFO oclosures.
+This is an interactive command intended for debugging.
 
-This function retrieves the hit count (`cnt' slot) from each
-oclosure in `org-w3ctr--oinfo-cache-alist', sorts the entries
-by count in descending order, and displays the result in a buffer
- named \"*ox-w3ctr-oinfo*\".
-
-This is intended for debugging and monitoring oclosure usage."
+It retrieves the hit count (the `cnt' slot) from each oclosure
+listed in the variable `org-w3ctr--oinfo-cache-alist'.  The results
+are sorted in descending order by hit count and pretty-printed
+into the \"*ox-w3ctr-oinfo*\" buffer, which is then displayed."
   (interactive)
   (let* ((buf (get-buffer-create "*ox-w3ctr-oinfo*"))
          (ls (mapcar
@@ -1383,12 +1384,13 @@ This is intended for debugging and monitoring oclosure usage."
     (switch-to-buffer-other-window buf)))
 
 (defun t-clear-oinfo-statistics ()
-  "Clear all cached data and reset usage statistics for OINFO oclosures.
+  "Clear cached data and reset usage statistics for OINFO oclosures.
+This is an interactive command intended for debugging.
 
-This function sets the `pid' and `val' fields of each oclosure
-to nil, and resets their hit count (`cnt' field) to 0.  It is
-useful for clearing accumulated state before a new test run."
-  (interactive)
+It iterates through all caching closures, setting their cached value
+slots (`pid' and `val') to nil and resetting their hit-count
+slot (`cnt') to 0.  This is useful for clearing accumulated
+state before a new test run or benchmark."
   (map-do
    (lambda (_k v)
      (let ((o (symbol-function v)))
