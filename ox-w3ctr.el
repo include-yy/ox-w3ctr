@@ -1413,53 +1413,40 @@ Otherwise, return an empty string."
 Otherwise, return nil."
   (declare (ftype (function (t) (or null string)))
            (pure t) (important-return-value t))
+  ;; See `string-blank-p'
   (and (stringp s) (string-match-p "[^ \r\t\n]" s) s))
 
 (defsubst t--2str (s)
-  "Convert S to a string representation, if possible.
+  "Convert S to a string representation if possible.
 
 This function handles symbols, numbers, and existing strings.
-For any other type, or if S is nil, it returns nil to indicate a
-conversion failure."
+If S is one of these types, its string representation is returned.
+For any other type, or if S is nil, this function returns nil
+to indicate a conversion failure."
+  (declare (ftype (function (t) (or null string)))
+           (pure t) (important-return-value t))
   (cl-typecase s
     (null nil) (symbol (symbol-name s))
     (string s) (number (number-to-string s))
     (otherwise nil)))
 
 (defun t--read-attr (attribute element)
-  "Read an ELEMENT's property value as a list of Lisp objects.
-
-This function retrieves the property specified by ATTRIBUTE from
-an Org ELEMENT.  It then concatenates the property's string values,
-wraps them in parentheses, and parses the resulting string as a
-Lisp s-expression using `read'.
-
-Returns the parsed list on success.  Returns nil if the property
-does not exist or is empty.  Signals a `org-w3ctr-error' if the
-property value is not a valid Lisp s-expression."
+  "Read the property ATTRIBUTE from ELEMENT as a list of Lisp objects.
+Return nil if the property does not exist or is empty.
+Signal an error if the property value is not a valid Lisp s-expression."
   (declare (ftype (function (symbol t) list))
            (important-return-value t))
   (when-let* ((value (org-element-property attribute element))
               (str (t--nw-p (mapconcat #'identity value " "))))
     (let ((sstr (concat "(" str ")")))
       (condition-case nil (read sstr)
-        (error (t-error "Read attribute #+%s: %s failed"
-                        attribute str))))))
+        (error (t-error "Invalid attribute #+%s: %s" attribute str))))))
 
 (defun t--read-attr__ (element)
-  "Parse the custom `:attr__' property from ELEMENT.
+  "Parse the `:attr__' (#+attr__:) property from ELEMENT.
 
-This function reads the `:attr__' property using
-`org-w3ctr--read-attr' and then transforms its specific
-vector-based syntax for defining CSS classes into a standard
-attribute-list format.
-
-A vector like [class1 class2] in the property value will be
-converted into the list (\"class\" \"class1 class2\").
-Other standard list-based attributes are passed through unchanged.
-
-The return value is a list of attribute lists suitable for use
-with `org-w3ctr--make-attr__'."
+A vector in the property value, such as [class1 class2], is
+converted into the list (\"class\" \"class1 class2\")."
   (declare (ftype (function (t) list))
            (important-return-value t))
   (when-let* ((attrs (t--read-attr :attr__ element)))
@@ -4785,6 +4772,12 @@ Return output file name."
    :eval (t--nw-p nil)
    :eval (t--nw-p "\n\t")
    :eval (t--nw-p "  1  "))
+  (t--2str
+   :eval (t--2str nil)
+   :eval (t--2str 'foo)
+   :eval (t--2str 123)
+   :eval (t--2str "bar")
+   :eval (t--2str '(1 2 3)))
 )
 
 (provide 'ox-w3ctr)
