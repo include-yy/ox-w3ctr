@@ -2781,11 +2781,11 @@ holding contextual information."
            (important-return-value t))
   (when priority
     (let ((class (t--pget info :html-priority-class)))
-      ;; %c means produce a number as a single character.
-      (format "<span%s>[%c]</span>"
+      (format "<span%s>[%s]</span>"
               (if-let* ((c (t--nw-trim class)))
                   (format " class=\"%s\"" c) "")
-              priority))))
+              (if (< 0 priority 65) priority
+                (string priority))))))
 
 ;;;; Tags
 ;; Options:

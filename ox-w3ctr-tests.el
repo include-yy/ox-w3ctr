@@ -66,7 +66,7 @@ symbol (such as \\='headline, \\='paragraph, etc)."
 (ert-deftest t-error ()
   "Tests for `org-w3ctr-error'."
   ($e!l (t-error "Hello world") '(org-w3ctr-error "Hello world"))
-  ($e!l (signal 't-error 1) '(t-error . 1)))
+  ($e!l (signal '(t-error 1)) '(t-error 1)))
 
 (ert-deftest t--make-cache-oclosure ()
   "Tests for `org-w3ctr--make-cache-oclosure'."
