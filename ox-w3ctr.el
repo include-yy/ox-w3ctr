@@ -96,16 +96,16 @@
     ;; diary sexp `diary-sexp'                  NO-USE
     ;; node properties `node-property'          NO-USE
     ;; planning `planning'                      NO-USE
-    (example-block . t-example-block)           ; #+BEGIN_EXAMPLE
-    (export-block . t-export-block)             ; #+BEGIN_EXPORT
+    (example-block . t-example-block)           ; #+begin_example
+    (export-block . t-export-block)             ; #+begin_export
     (fixed-width . t-fixed-width)               ; ^: contents
     (horizontal-rule . t-horizontal-rule)       ; -----------
-    (keyword . t-keyword)                       ; #+NAME: ...
+    (keyword . t-keyword)                       ; #+name: ...
     (latex-environment . t-latex-environment)   ; \begin
     (paragraph . t-paragraph)                   ; \n ... \n
-    (src-block . t-src-block)                   ; #+BEGIN_SRC lang
+    (src-block . t-src-block)                   ; #+begin_src lang
     (table-row . t-table-row)                   ; | |
-    (verse-block . t-verse-block)               ; #+BEGIN_VERSE
+    (verse-block . t-verse-block)               ; #+begin_verse
     ;;@ objects [25]
     ;; citation                                 NO-USE
     ;; citation reference                       NO-USE
@@ -114,11 +114,11 @@
     (entity . t-entity)                         ; \alpha, \cent
     (export-snippet . t-export-snippet)         ; @@html:something@@
     (footnote-reference . t-footnote-reference) ; [fn:]
-    (inline-src-block . t-inline-src-block)     ; src_LANG{BODY}
+    (inline-src-block . t-inline-src-block)     ; src_LANG{body}
     (latex-fragment . t-latex-fragment)         ; \(, \[
     (line-break . t-line-break)                 ; \\
     (link . t-link)                             ; [[...][...]]
-    (radio-target . t-radio-target)             ; <<<CONTENTS>>>
+    (radio-target . t-radio-target)             ; <<<contents>>>
     (statistics-cookie . t-statistics-cookie)   ; [%] [/]
     (subscript . t-subscript)                   ; a_{b}
     (superscript . t-superscript)               ; a^{b}
