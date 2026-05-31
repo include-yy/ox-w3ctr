@@ -579,7 +579,7 @@ changes."
   :type '(choice string (const nil)))
 
 (defcustom t-style-file (file-name-concat t--dir "assets" "style.css")
-   "Path to a CSS file to load styles from.
+  "Path to a CSS file to load styles from.
 
 This path must be *absolute*.  This option is used as a fallback when
 `org-w3ctr-style' is empty.
@@ -2990,7 +2990,7 @@ numbering is active."
     (when (or (and (null opt) global-opt)
               (and (stringp opt) (not (string= opt "noref"))))
       (format (concat "<a class=\"self-link\" href=\"#%s\""
-                    " aria-label=\"Link to this section\"></a>\n")
+                      " aria-label=\"Link to this section\"></a>\n")
               id))))
 
 (defun t--headline-secno (headline info)
@@ -3725,10 +3725,10 @@ and value is its relative level, as an integer."
                (times (if (> cnt 0) (1- cnt) (- cnt))))
           (setq prev-level level)
           (concat
-            (t--make-string
-             times (cond ((> cnt 0) open) ((< cnt 0) close)))
-            (if (> cnt 0) open "</li>\n<li>")
-            headline)))
+           (t--make-string
+            times (cond ((> cnt 0) open) ((< cnt 0) close)))
+           (if (> cnt 0) open "</li>\n<li>")
+           headline)))
       toc-entries "")
      (t--make-string (- prev-level start-level) close))))
 
@@ -4778,7 +4778,7 @@ Return output file name."
    :eval (t--2str 123)
    :eval (t--2str "bar")
    :eval (t--2str '(1 2 3)))
-)
+  )
 
 (provide 'ox-w3ctr)
 
