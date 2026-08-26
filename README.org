@@ -4,10 +4,10 @@ Based on Org-mode's ox-html.el and CSS of W3C Technical Report [[https://github.
 
 ** Status
 
-| Emacs Version   | 30.1         |  31.1 |  32.1 |  33.1 |  34.1 |  35.1 |  36.1 | 37.1    | ... |
-|-----------------+--------------+-------+-------+-------+-------+-------+-------+---------+-----|
-| Package Version | 0.2~0.3      | 0.4.x | 0.5.x | 0.6.x | 0.7.x | 0.8.x | 0.9.x | 1.0 !!! |     |
-| Date            | [2025-02-23] |  2027 |  2029 |  2031 |  2033 |  2035 |  2037 | 2038?   |     |
+| Emacs Version   | 30.1         |         31.1 |  32.1 |  33.1 |  34.1 |  35.1 |  36.1 | 37.1    | ... |
+|-----------------+--------------+--------------+-------+-------+-------+-------+-------+---------+-----|
+| Package Version | 0.2~0.3      |        0.4.x | 0.5.x | 0.6.x | 0.7.x | 0.8.x | 0.9.x | 1.0 !!! |     |
+| Date            | [2025-02-23] | [2026-08-24] |  2029 |  2031 |  2033 |  2035 |  2037 | 2038?   |     |
 
 The current ox-w3ctr has not yet completed a full refactoring of the
 ox-html code, though it’s already largely usable. I plan to release
