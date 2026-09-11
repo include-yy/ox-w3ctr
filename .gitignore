@@ -5,3 +5,4 @@
 zhua.el
 /jstools/node_modules
 /jstools/*.py
+/material/
