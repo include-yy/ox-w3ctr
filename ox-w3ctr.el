@@ -249,8 +249,8 @@
 
 Possible values are:
 - `unicode': Use Unicode symbols.
-- `ascii':   Use ASCII characters.
-- `html':    Use HTML <input> elements.
+- `ascii'  : Use ASCII characters.
+- `html'   : Use HTML <input> elements.
 
 See `org-w3ctr-checkbox-types' for details."
   :group 'org-export-w3ctr
@@ -987,15 +987,6 @@ This option will override `org-export-use-babel'"
 
 ;;; Internal Variables
 
-(defconst t-html5-elements
-  '("article" "aside" "audio" "canvas" "details" "figcaption"
-    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
-    "output" "progress" "section" "summary" "video")
-  "Elements in html5.
-
-For blocks that should contain headlines, use the HTML_CONTAINER
-property on the headline itself.")
-
 (defvar t--id-attr-prefix "ID-"
   "Prefix to use in ID attributes.
 This affects IDs that are determined from the ID property.")
@@ -1013,98 +1004,6 @@ This affects IDs that are determined from the ID property.")
 ;; do update
 (t-update-css-js)
 
-;;; Internal Functions
-(defun t--has-caption-p (element &optional _info)
-  "Non-nil when ELEMENT has a caption affiliated keyword.
-INFO is a plist used as a communication channel.  This function
-is meant to be used as a predicate for `org-export-get-ordinal' or
-a value to `t-standalone-image-predicate'."
-  (org-element-property :caption element))
-
-;; FIXME: Consider remove it
-(defun t-close-tag (tag attr _info)
-  "Return close-tag for string TAG.
-ATTR specifies additional attributes.  INFO is a property list
-containing current export state."
-  (concat "<" tag
-          (org-string-nw-p (concat " " attr))
-          ">"))
-
-(defun t--reference (datum info &optional named-only)
-  "Return an appropriate reference for DATUM.
-
-DATUM is an element or a `target' type object.  INFO is the
-current export state, as a plist.
-
-When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
-nil.  This doesn't apply to headlines, inline tasks, radio
-targets and targets."
-  (let* ((type (org-element-type datum))
-         (custom-id (and (eq type 'headline)
-                         (org-element-property :CUSTOM_ID datum)))
-         (user-label
-          (or custom-id
-              (and (memq type '(radio-target target))
-                   (let ((val (org-element-property :value datum)))
-                     (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val) val)))
-              (org-element-property :name datum)
-              (when-let* ((id (org-element-property :ID datum)))
-                (concat t--id-attr-prefix id))
-              (t--get-headline-reference datum info))))
-    (cond (user-label user-label)
-          ((and named-only ; no #+NAME: and not headline
-                (not (memq type '(headline radio-target target))))
-           nil)
-          (t (org-export-get-reference datum info)))))
-
-(defun t--get-headline-reference (datum info)
-  "Return a reference id for headline.
-if DATUM's type is not headline, return nil"
-  (when (eq 'headline (org-element-type datum))
-    (let ((cache (plist-get info :internal-references)))
-      (or (car (rassq datum cache))
-          (let ((newid
-                 (if-let* ((numbers (org-export-get-headline-number datum info)))
-                     (concat "orgnh-" (mapconcat #'number-to-string numbers "."))
-                   (format "orguh-%s" (cl-incf (plist-get info :html-headline-cnt))))))
-            (push (cons newid datum) cache)
-            (plist-put info :internal-references cache)
-            newid)))))
-
-(defun t--format-image (source attributes info &optional caller)
-  "Return \"img\" tag with given SOURCE and ATTRIBUTES.
-SOURCE is a string specifying the location of the image.
-ATTRIBUTES is a plist, as returned by
-`org-export-read-attribute'.  INFO is a plist used as
-a communication channel."
-  (when (eq caller 'link)
-    (cl-remf attributes :id)
-    (cl-remf attributes :class))
-  (t-close-tag
-   "img"
-   (t--make-attribute-string
-    (org-combine-plists
-     (list :src source
-           :alt (if (string-match-p
-                     (concat "^" org-preview-latex-image-directory) source)
-                    (t--encode-plain-text
-                     (org-find-text-property-in-string 'org-latex-src source))
-                  (file-name-nondirectory source)))
-     (if (string= "svg" (file-name-extension source))
-         (org-combine-plists '(:class "org-svg") attributes '(:fallback nil))
-       attributes)))
-   info))
-
-(defun t--textarea-block (element)
-  "Transcode ELEMENT into a textarea block.
-ELEMENT is either a source or an example block."
-  (let* ((code (car (org-export-unravel-code element)))
-         (attr (org-export-read-attribute :attr_html element)))
-    (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
-            (or (plist-get attr :width) 80)
-            (or (plist-get attr :height) (org-count-lines code))
-            code)))
-
 ;;; Simple JSON based sync RPC, not JSONRPC
 (defvar t--rpc-timeout 1.0
   "Timeout for a rpc, in seconds.")
@@ -1775,6 +1674,102 @@ function returns nil."
         (push (match-string 0 str) matches)
         (setq pos (match-end 0)))
       (nreverse matches))))
+
+;;; Internal Functions
+(defun t--has-caption-p (element &optional _info)
+  "Non-nil when ELEMENT has a caption affiliated keyword.
+INFO is a plist used as a communication channel.  This function
+is meant to be used as a predicate for `org-export-get-ordinal' or
+a value to `org-w3ctr-standalone-image-predicate'."
+  (declare (ftype (function (t &optional t) t))
+           (pure t) (important-return-value t))
+  (org-element-property :caption element))
+
+(defun t--void-element (tag attrs)
+  "Return a void element string for TAG with ATTRS.
+
+TAG is the element name, as a string.  ATTRS is a string of
+pre-formatted attributes, with or without surrounding whitespace,
+or nil.  Void elements have no closing tag, so the result has the
+form \"<TAG ...>\"."
+  (declare (ftype (function (string (or null string)) string))
+           (pure t) (important-return-value t))
+  (let ((attrs (t--trim (or attrs ""))))
+    (format "<%s%s>" tag (if (t--nw-p attrs) (concat " " attrs) ""))))
+
+(defun t--reference (datum info &optional named-only)
+  "Return an appropriate reference for DATUM.
+
+DATUM is an element or a `target' type object.  INFO is the
+current export state, as a plist.
+
+When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
+nil.  This doesn't apply to headlines, inline tasks, radio
+targets and targets."
+  (let* ((type (org-element-type datum))
+         (custom-id (and (eq type 'headline)
+                         (org-element-property :CUSTOM_ID datum)))
+         (user-label
+          (or custom-id
+              (and (memq type '(radio-target target))
+                   (let ((val (org-element-property :value datum)))
+                     (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val) val)))
+              (org-element-property :name datum)
+              (when-let* ((id (org-element-property :ID datum)))
+                (concat t--id-attr-prefix id))
+              (t--get-headline-reference datum info))))
+    (cond (user-label user-label)
+          ((and named-only ; no #+NAME: and not headline
+                (not (memq type '(headline radio-target target))))
+           nil)
+          (t (org-export-get-reference datum info)))))
+
+(defun t--get-headline-reference (datum info)
+  "Return a reference id for headline.
+if DATUM's type is not headline, return nil"
+  (when (eq 'headline (org-element-type datum))
+    (let ((cache (plist-get info :internal-references)))
+      (or (car (rassq datum cache))
+          (let ((newid
+                 (if-let* ((numbers (org-export-get-headline-number datum info)))
+                     (concat "orgnh-" (mapconcat #'number-to-string numbers "."))
+                   (format "orguh-%s" (cl-incf (plist-get info :html-headline-cnt))))))
+            (push (cons newid datum) cache)
+            (plist-put info :internal-references cache)
+            newid)))))
+
+(defun t--format-image (source attributes _info &optional caller)
+  "Return \"img\" tag with given SOURCE and ATTRIBUTES.
+SOURCE is a string specifying the location of the image.
+ATTRIBUTES is a plist, as returned by
+`org-export-read-attribute'.  INFO is a plist used as
+a communication channel."
+  (when (eq caller 'link)
+    (cl-remf attributes :id)
+    (cl-remf attributes :class))
+  (t--void-element
+   "img"
+   (t--make-attribute-string
+    (org-combine-plists
+     (list :src source
+           :alt (if (string-match-p
+                     (concat "^" org-preview-latex-image-directory) source)
+                    (t--encode-plain-text
+                     (org-find-text-property-in-string 'org-latex-src source))
+                  (file-name-nondirectory source)))
+     (if (string= "svg" (file-name-extension source))
+         (org-combine-plists '(:class "org-svg") attributes '(:fallback nil))
+       attributes)))))
+
+(defun t--textarea-block (element)
+  "Transcode ELEMENT into a textarea block.
+ELEMENT is either a source or an example block."
+  (let* ((code (car (org-export-unravel-code element)))
+         (attr (org-export-read-attribute :attr_html element)))
+    (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
+            (or (plist-get attr :width) 80)
+            (or (plist-get attr :height) (org-count-lines code))
+            code)))
 
 ;;; Greater elements (11 - 3 - 2 = 6).
 ;; special-block and table are not here.
@@ -3916,6 +3911,15 @@ holding export options."
 ;;;; Special Block
 ;; FIXME
 ;; See (info "(org)HTML doctypes")
+(defconst t-html5-elements
+  '("article" "aside" "audio" "canvas" "details" "figcaption"
+    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
+    "output" "progress" "section" "summary" "video")
+  "Elements in html5.
+
+For blocks that should contain headlines, use the HTML_CONTAINER
+property on the headline itself.")
+
 (defun t-special-block (special-block contents info)
   "Transcode a SPECIAL-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block.  INFO is a plist
@@ -3938,7 +3942,7 @@ holding contextual information."
       (if html5-fancy
           (format "<%s%s>\n%s</%s>" block-type str contents block-type)
         (format "<div%s>\n%s\n</div>" str contents)))))
-
+
 ;;;; Table
 ;; FIXME
 (defun t-table (table contents info)
@@ -3969,8 +3973,7 @@ contextual information."
                       "\n<colgroup>")
                     ;; Add a column.  Also specify its alignment.
                     (format "\n%s"
-                            (t-close-tag
-                             "col" (concat " " (format alignspec alignment)) info))
+                            (t--void-element "col" (format alignspec alignment)))
                     ;; End a colgroup?
                     (when (org-export-table-cell-ends-colgroup-p
                            table-cell info)
@@ -4647,7 +4650,7 @@ INFO is a plist holding contextual information.  See
                      #'t--has-caption-p)
                     (counter-predicate
                      (if (eq 'latex-environment (org-element-type destination))
-                         #'t--math-environment-p
+                         #'org-html--math-environment-p
                        #'t--has-caption-p))
                     (number
                      (cond
