@@ -2837,6 +2837,44 @@ int a = 1;</code></p>\n</details>")
      )))
 
 
+(ert-deftest t-table ()
+  "Tests for `org-w3ctr-table'."
+  (t-check-element-values
+   #'t-table
+   '(("| a | b |"
+      "<table>\n\n\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>\n</table>")
+     ("| a | b |\n|---+---|\n| 1 | 2 |"
+      "<table>\n\n\n<colgroup span=\"2\">\n<thead>\n<tr>\n<th scope=\"col\">a</th>\n<th scope=\"col\">b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td>2</td>\n</tr>\n</tbody>\n</table>")
+     ("#+name: t\n#+caption: Cap\n| a |"
+      "<table id=\"t\">\n<caption>Cap</caption>\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
+     ("| <l> | <r> |\n| a | b |"
+      "<table>\n\n\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td style=\"text-align:left\">a</td>\n<td style=\"text-align:right\">b</td>\n</tr>\n</tbody>\n</table>")
+     ("#+attr_html: :class data\n| a |"
+      "<table class=\"data\">\n\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
+     ("| / | < | > | < | > |\n|   | a | b | c | d |"
+      "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>"))))
+
+(ert-deftest t--table-cell-align ()
+  "Tests for `org-w3ctr--table-cell-align'."
+  (with-temp-buffer
+    (insert "| <l> | <r> |\n| a | b |\n")
+    (org-mode)
+    (let* ((info (list :html-table-align-cache nil))
+           (cells (org-element-map (org-element-parse-buffer)
+                      'table-cell #'identity)))
+      ;; Cells in order: <l>, <r>, a, b.
+      ($q (t--table-cell-align (nth 2 cells) info) 'left)
+      ($q (t--table-cell-align (nth 3 cells) info) 'right)
+      ($s (hash-table-p (plist-get info :html-table-align-cache)))))
+  (with-temp-buffer
+    (insert "| a | b |\n")
+    (org-mode)
+    (let* ((info (list :html-table-align-cache nil))
+           (cells (org-element-map (org-element-parse-buffer)
+                      'table-cell #'identity)))
+      ($n (t--table-cell-align (car cells) info))
+      ($n (t--table-cell-align (cadr cells) info)))))
+
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-") ("$" . "org-w3ctr:test-"))
 ;; coding: utf-8-unix
