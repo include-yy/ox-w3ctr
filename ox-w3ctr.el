@@ -204,6 +204,9 @@
     (:html-back-to-top nil "back-to-top" t-back-to-top)
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     (:subtitle "SUBTITLE" nil nil parse)
+    ;; table options
+    (:html-table-use-header-tags-for-first-column
+     nil nil t-table-use-header-tags-for-first-column)
 
     ;; Unarranged
     ;; FIXME: Reformat whole info options
@@ -218,16 +221,6 @@
     (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
     ;; <yy> control max headline level
     (:headline-levels nil "H" org-export-headline-levels)
-    ;; table options ------------------------
-    (:html-table-align-individual-fields
-     nil nil t-table-align-individual-fields)
-    (:html-table-caption-above nil nil t-table-caption-above)
-    (:html-table-data-tags nil nil t-table-data-tags)
-    (:html-table-header-tags nil nil t-table-header-tags)
-    (:html-table-use-header-tags-for-first-column
-     nil nil t-table-use-header-tags-for-first-column)
-    (:html-table-row-open-tag nil nil t-table-row-open-tag)
-    (:html-table-row-close-tag nil nil t-table-row-close-tag)
     ;; misc options -----------------------------
     (:html-extension nil nil t-extension)
     (:html-indent nil nil t-indent)
@@ -905,56 +898,9 @@ There was a support for highlight.js, but has been abandoned."
 
 ;;;; Table
 
-(defcustom t-table-header-tags '("<th scope=\"%s\"%s>" . "</th>")
-  "The opening and ending tags for table header fields.
-This is customizable so that alignment options can be specified.
-The first %s will be filled with the scope of the field, either row or col.
-The second %s will be replaced by a style entry to align the field.
-See also the variable `t-table-use-header-tags-for-first-column'.
-See also the variable `t-table-align-individual-fields'."
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-(defcustom t-table-data-tags '("<td%s>" . "</td>")
-  "The opening and ending tags for table data fields.
-This is customizable so that alignment options can be specified.
-The first %s will be filled with the scope of the field, either row or col.
-The second %s will be replaced by a style entry to align the field.
-See also the variable `t-table-align-individual-fields'."
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-(defcustom t-table-row-open-tag "<tr>"
-  "The opening tag for table rows.
-
-See `org-html-table-row-open-tag' for more information."
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-(defcustom t-table-row-close-tag "</tr>"
-  "The closing tag for table rows.
-
-See `org-html-table-row-close-tag' for more information."
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-(defcustom t-table-align-individual-fields t
-  "Non-nil means attach style attributes for alignment to each table field.
-When nil, alignment will only be specified in the column tags, but this
-is ignored by some browsers (like Firefox, Safari).  Opera does it right
-though."
-  :group 'org-export-w3ctr
-  :type 'boolean)
-
 (defcustom t-table-use-header-tags-for-first-column nil
   "Non-nil means format column one in tables with header tags.
 When nil, also column one will use data tags."
-  :group 'org-export-w3ctr
-  :type 'boolean)
-
-(defcustom t-table-caption-above t
-  "When non-nil, place caption string at the beginning of the table.
-Otherwise, place it near the end."
   :group 'org-export-w3ctr
   :type 'boolean)
 
@@ -3908,6 +3854,194 @@ holding export options."
   (prog1 (t-template-1 contents info)
     (t--oinfo-cleanup)))
 
+;;;; Table
+
+(defun t--table-column-cookie (table column info)
+  "Return the explicit alignment cookie for COLUMN in TABLE, or nil.
+
+The value is taken from the last special row providing an `<l>',
+`<c>', or `<r>' cookie for COLUMN.  A number in the cookie denotes
+a column width and is ignored; a width-only cookie (e.g. `<5>') is
+not an alignment."
+  (declare (ftype (function (t fixnum list) (or null symbol)))
+           (important-return-value t))
+  (let (align)
+    (dolist (row (org-element-contents table) align)
+      (when (org-export-table-row-is-special-p row info)
+        (let* ((cells (org-element-contents row))
+               (value (and (< column (length cells))
+                           (org-element-contents (nth column cells)))))
+          (when (and value (null (cdr value)) (stringp (car value))
+                     (string-match "\\`<\\([lrc]\\)?\\([0-9]+\\)?>\\'"
+                                   (car value))
+                     (match-string 1 (car value)))
+            (setq align (pcase (match-string 1 (car value))
+                          ("l" 'left) ("c" 'center) ("r" 'right)))))))))
+
+(defun t--table-cell-align (cell info)
+  "Return the explicit alignment for CELL's column, or nil.
+
+The alignment is taken from the last `<l>', `<c>', or `<r>' cookie
+in the column.  When the column has no explicit cookie, return nil
+so that the CSS decides; Org's number-fraction heuristic is not
+used.  Results are memoized per table in INFO under
+`:html-table-align-cache' (the symbol `none' marks a column that
+was computed and has no cookie)."
+  (declare (ftype (function (t list) (or null symbol)))
+           (important-return-value t))
+  (let* ((row (org-export-get-parent cell))
+         (table (org-export-get-parent-table cell))
+         (cells (org-element-contents row))
+         (column (- (length cells) (length (memq cell cells))))
+         (cache (or (t--pget info :html-table-align-cache)
+                    (let ((h (make-hash-table :test #'eq)))
+                      (t--pput info :html-table-align-cache h)
+                      h)))
+         (vector (or (gethash table cache)
+                     (puthash table (make-vector (length cells) nil) cache))))
+    (when (>= column (length vector))
+      (setq vector (vconcat vector
+                            (make-list (- (1+ column) (length vector)) nil)))
+      (puthash table vector cache))
+    (let ((cached (aref vector column)))
+      (if cached
+          (if (eq cached 'none) nil cached)
+        (let ((align (t--table-column-cookie table column info)))
+          (aset vector column (or align 'none))
+          align)))))
+
+(defun t--table-cell-attrs (cell info)
+  "Return CELL's inline alignment attribute, or the empty string.
+
+Only an explicit Org alignment cookie produces an attribute; a
+column without a cookie is left to the CSS."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (if-let* ((align (t--table-cell-align cell info)))
+      (format " style=\"text-align:%s\"" align) ""))
+
+(defun t--table-column-specs (table info)
+  "Return the <colgroup> markup describing TABLE's column groups.
+
+Each column group is emitted as a single <colgroup span=\"N\">
+element.  `<col>' children are omitted: alignment now lives on the
+cells, and no other per-column attribute is expressible in Org."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (let ((n 0) out)
+    (dolist (cell (t--table-first-row-data-cells table info))
+      (setq n (1+ n))
+      (when (org-export-table-cell-ends-colgroup-p cell info)
+        (push (format "\n<colgroup span=\"%d\">" n) out)
+        (setq n 0)))
+    (mapconcat #'identity (nreverse out) "")))
+
+(defun t--table-caption (table info)
+  "Return TABLE's <caption> element, or the empty string.
+
+The caption is emitted as the table's first child; its visual
+position is left to CSS (`caption-side')."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (if-let* ((caption (org-export-get-caption table)))
+      (format "<caption>%s</caption>" (org-export-data caption info))
+    ""))
+
+(defun t--table-first-row-data-cells (table info)
+  "Return the cells of TABLE's first non-rule row.
+When TABLE has a special column, its first cell is dropped."
+  (declare (ftype (function (t list) list))
+           (important-return-value t))
+  (let ((row (org-element-map table 'table-row
+               (lambda (r)
+                 (unless (eq (org-element-property :type r) 'rule) r))
+               info 'first-match)))
+    (if (not (org-export-table-has-special-column-p table))
+        (org-element-contents row)
+      (cdr (org-element-contents row)))))
+
+(defun t-table-cell (table-cell contents info)
+  "Transcode a TABLE-CELL element from Org to HTML.
+CONTENTS is the cell's contents.  INFO is a plist used as a
+communication channel."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (let* ((row (org-export-get-parent table-cell))
+         (table (org-export-get-parent-table table-cell))
+         (attrs (t--table-cell-attrs table-cell info))
+         (contents (if (or (not contents) (string= "" (org-trim contents)))
+                       "&#xa0;" contents)))
+    (cond
+     ((and (org-export-table-has-header-p table info)
+           (= 1 (org-export-table-row-group row info)))
+      (format "\n<th scope=\"col\"%s>%s</th>" attrs contents))
+     ((and (t--pget info :html-table-use-header-tags-for-first-column)
+           (zerop (cdr (org-export-table-cell-address table-cell info))))
+      (format "\n<th scope=\"row\"%s>%s</th>" attrs contents))
+     (t
+      (format "\n<td%s>%s</td>" attrs contents)))))
+
+(defun t-table-row (table-row contents info)
+  "Transcode a TABLE-ROW element from Org to HTML.
+CONTENTS is the contents of the row.  INFO is a plist used as a
+communication channel."
+  (declare (ftype (function (t (or null string) list) (or null string)))
+           (important-return-value t))
+  ;; Rules are ignored since table separators are deduced from the
+  ;; borders of the current row.
+  (when (eq (org-element-property :type table-row) 'standard)
+    (let* ((group (org-export-table-row-group table-row info))
+           (start (org-export-table-row-starts-rowgroup-p table-row info))
+           (end (org-export-table-row-ends-rowgroup-p table-row info))
+           (group-tags
+            (cond
+             ((not (= 1 group)) '("<tbody>" . "\n</tbody>"))
+             ((org-export-table-has-header-p
+               (org-export-get-parent-table table-row) info)
+              '("<thead>" . "\n</thead>"))
+             (t '("<tbody>" . "\n</tbody>")))))
+      (concat (and start (car group-tags))
+              (concat "\n<tr>" contents "\n</tr>")
+              (and end (cdr group-tags))))))
+
+(defun t-table (table contents info)
+  "Transcode a TABLE element from Org to HTML.
+CONTENTS is the contents of the table.  INFO is a plist holding
+contextual information."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (if (eq (org-element-property :type table) 'table.el)
+      ;; "table.el" table.  Convert it using appropriate tools.
+      ;; (Modern-HTML reimplementation pending.)
+      (t--table.el-table table info)
+    ;; Standard table.
+    (format "<table%s>\n%s\n%s\n%s</table>"
+            (t--make-attr__id* table info t)
+            (t--table-caption table info)
+            (t--table-column-specs table info)
+            contents)))
+
+(defun t--table.el-table (table _info)
+  "Format a table.el TABLE into HTML.
+INFO is a plist used as a communication channel.
+Output is delegated to `table-generate-source' for now; a
+modern-HTML reimplementation is planned."
+  (declare (ftype (function (t list) (or null string)))
+           (important-return-value t))
+  (when (eq (org-element-property :type table) 'table.el)
+    (require 'table)
+    (let ((outbuf (with-current-buffer
+                      (get-buffer-create "*org-export-table*")
+                    (erase-buffer) (current-buffer))))
+      (with-temp-buffer
+        (insert (org-element-property :value table))
+        (goto-char (point-min))
+        (re-search-forward "^[ \t]*|[^|]" nil t)
+        (table-generate-source 'html outbuf))
+      (with-current-buffer outbuf
+        (prog1 (org-trim (buffer-string))
+          (kill-buffer))))))
+
 ;;;; Special Block
 ;; FIXME
 ;; See (info "(org)HTML doctypes")
@@ -3942,161 +4076,6 @@ holding contextual information."
       (if html5-fancy
           (format "<%s%s>\n%s</%s>" block-type str contents block-type)
         (format "<div%s>\n%s\n</div>" str contents)))))
-
-;;;; Table
-;; FIXME
-(defun t-table (table contents info)
-  "Transcode a TABLE element from Org to HTML.
-CONTENTS is the contents of the table.  INFO is a plist holding
-contextual information."
-  (if (eq (org-element-property :type table) 'table.el)
-      ;; "table.el" table.  Convert it using appropriate tools.
-      (t-table--table.el-table table info)
-    ;; Standard table.
-    (let* ((caption (org-export-get-caption table))
-           (attributes
-            (t--make-attribute-string
-             (org-combine-plists
-              (list :id (t--reference table info t))
-              (org-export-read-attribute :attr_html table))))
-           (alignspec "class=\"org-%s\"")
-           (table-column-specs
-            (lambda (table info)
-              (mapconcat
-               (lambda (table-cell)
-                 (let ((alignment (org-export-table-cell-alignment
-                                   table-cell info)))
-                   (concat
-                    ;; Begin a colgroup?
-                    (when (org-export-table-cell-starts-colgroup-p
-                           table-cell info)
-                      "\n<colgroup>")
-                    ;; Add a column.  Also specify its alignment.
-                    (format "\n%s"
-                            (t--void-element "col" (format alignspec alignment)))
-                    ;; End a colgroup?
-                    (when (org-export-table-cell-ends-colgroup-p
-                           table-cell info)
-                      "\n</colgroup>"))))
-               (t-table-first-row-data-cells table info) "\n"))))
-      (format "<table%s>\n%s\n%s\n%s</table>"
-              (if (equal attributes "") "" (concat " " attributes))
-              (if (not caption) ""
-                (format (if (plist-get info :html-table-caption-above)
-                            "<caption class=\"t-above\">%s</caption>"
-                          "<caption class=\"t-bottom\">%s</caption>")
-                        (org-export-data caption info)))
-              (funcall table-column-specs table info)
-              contents))))
-
-;;;; Table Row
-
-(defun t-table-row (table-row contents info)
-  "Transcode a TABLE-ROW element from Org to HTML.
-CONTENTS is the contents of the row.  INFO is a plist used as a
-communication channel."
-  ;; Rules are ignored since table separators are deduced from
-  ;; borders of the current row.
-  (when (eq (org-element-property :type table-row) 'standard)
-    (let* ((group (org-export-table-row-group table-row info))
-           (number (org-export-table-row-number table-row info))
-           (start-group-p
-            (org-export-table-row-starts-rowgroup-p table-row info))
-           (end-group-p
-            (org-export-table-row-ends-rowgroup-p table-row info))
-           (topp (and (equal start-group-p '(top))
-                      (equal end-group-p '(below top))))
-           (bottomp (and (equal start-group-p '(above))
-                         (equal end-group-p '(bottom above))))
-           (row-open-tag
-            (pcase (plist-get info :html-table-row-open-tag)
-              ((and accessor (pred functionp))
-               (funcall accessor
-                        number group start-group-p end-group-p topp bottomp))
-              (accessor accessor)))
-           (row-close-tag
-            (pcase (plist-get info :html-table-row-close-tag)
-              ((and accessor (pred functionp))
-               (funcall accessor
-                        number group start-group-p end-group-p topp bottomp))
-              (accessor accessor)))
-           (group-tags
-            (cond
-             ;; Row belongs to second or subsequent groups.
-             ((not (= 1 group)) '("<tbody>" . "\n</tbody>"))
-             ;; Row is from first group.  Table has >=1 groups.
-             ((org-export-table-has-header-p
-               (org-export-get-parent-table table-row) info)
-              '("<thead>" . "\n</thead>"))
-             ;; Row is from first and only group.
-             (t '("<tbody>" . "\n</tbody>")))))
-      (concat (and start-group-p (car group-tags))
-              (concat "\n"
-                      row-open-tag
-                      contents
-                      "\n"
-                      row-close-tag)
-              (and end-group-p (cdr group-tags))))))
-
-;;;; Table Cell
-
-(defun t-table-cell (table-cell contents info)
-  "Transcode a TABLE-CELL element from Org to HTML.
-CONTENTS is nil.  INFO is a plist used as a communication
-channel."
-  (let* ((table-row (org-export-get-parent table-cell))
-         (table (org-export-get-parent-table table-cell))
-         (cell-attrs ""))
-    (when (or (not contents) (string= "" (org-trim contents)))
-      (setq contents "&#xa0;"))
-    (cond
-     ((and (org-export-table-has-header-p table info)
-           (= 1 (org-export-table-row-group table-row info)))
-      (let ((header-tags (plist-get info :html-table-header-tags)))
-        (concat "\n" (format (car header-tags) "col" cell-attrs)
-                contents
-                (cdr header-tags))))
-     ((and (plist-get info :html-table-use-header-tags-for-first-column)
-           (zerop (cdr (org-export-table-cell-address table-cell info))))
-      (let ((header-tags (plist-get info :html-table-header-tags)))
-        (concat "\n" (format (car header-tags) "row" cell-attrs)
-                contents
-                (cdr header-tags))))
-     (t (let ((data-tags (plist-get info :html-table-data-tags)))
-          (concat "\n" (format (car data-tags) cell-attrs)
-                  contents
-                  (cdr data-tags)))))))
-
-;;;; Table
-
-(defun t-table-first-row-data-cells (table info)
-  "Transcode the first row of TABLE.
-INFO is a plist used as a communication channel."
-  (let ((table-row
-         (org-element-map table 'table-row
-           (lambda (row)
-             (unless (eq (org-element-property :type row) 'rule) row))
-           info 'first-match))
-        (special-column-p (org-export-table-has-special-column-p table)))
-    (if (not special-column-p) (org-element-contents table-row)
-      (cdr (org-element-contents table-row)))))
-
-(defun t-table--table.el-table (table _info)
-  "Format table.el tables into HTML.
-INFO is a plist used as a communication channel."
-  (when (eq (org-element-property :type table) 'table.el)
-    (require 'table)
-    (let ((outbuf (with-current-buffer
-                      (get-buffer-create "*org-export-table*")
-                    (erase-buffer) (current-buffer))))
-      (with-temp-buffer
-        (insert (org-element-property :value table))
-        (goto-char 1)
-        (re-search-forward "^[ \t]*|[^|]" nil t)
-        (table-generate-source 'html outbuf))
-      (with-current-buffer outbuf
-        (prog1 (org-trim (buffer-string))
-          (kill-buffer) )))))
 
 ;;; LATEX utilties.
 (defun t--mathml-to-oneline (xml)
