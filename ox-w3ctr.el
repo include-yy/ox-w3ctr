@@ -827,6 +827,12 @@ See `org-w3ctr-preamble' for more information."
 
 (defvar t-fixup-js ""
   "Js code that control toc's hide and show.")
+
+(defcustom t-table-use-header-tags-for-first-column nil
+  "Non-nil means format column one in tables with header tags.
+When nil, also column one will use data tags."
+  :group 'org-export-w3ctr
+  :type 'boolean)
 
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
@@ -895,14 +901,6 @@ See `org-html-inline-image-rules' for more information."
 There was a support for highlight.js, but has been abandoned."
   :group 'org-export-w3ctr
   :type '(choice (const engrave) (const nil)))
-
-;;;; Table
-
-(defcustom t-table-use-header-tags-for-first-column nil
-  "Non-nil means format column one in tables with header tags.
-When nil, also column one will use data tags."
-  :group 'org-export-w3ctr
-  :type 'boolean)
 
 ;;;; Template :: Generic
 
