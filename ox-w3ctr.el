@@ -4099,6 +4099,257 @@ MODE is the value of `:with-latex'; INFO is the export state."
    (org-remove-indentation (org-element-property :value latex-environment))
    (t--pget info :with-latex) info))
 
+;;;; Link
+
+(defun t-image-link-filter (data _backend info)
+  "Process image links that are inside descriptions.
+DATA is the parse tree.  INFO is and info plist.
+See `org-export-insert-image-links' for more details."
+  (org-export-insert-image-links data info t-inline-image-rules))
+
+(defun t-inline-image-p (link info)
+  "Non-nil when LINK is meant to appear as an image.
+INFO is a plist used as a communication channel.  LINK is an
+inline image when it has no description and targets an image
+file (see `t-inline-image-rules' for more information), or
+if its description is a single link targeting an image file."
+  (if (not (org-element-contents link))
+      (org-export-inline-image-p
+       link (plist-get info :html-inline-image-rules))
+    (not
+     (let ((link-count 0))
+       (org-element-map (org-element-contents link)
+           (cons 'plain-text org-element-all-objects)
+         (lambda (obj)
+           (pcase (org-element-type obj)
+             (`plain-text (org-string-nw-p obj))
+             (`link (if (= link-count 1) t
+                      (cl-incf link-count)
+                      (not (org-export-inline-image-p
+                            obj (plist-get info :html-inline-image-rules)))))
+             (_ t)))
+         info t)))))
+
+(defvar t-standalone-image-predicate)
+(defun t-standalone-image-p (element info)
+  "Non-nil if ELEMENT is a standalone image.
+
+INFO is a plist holding contextual information.
+
+An element or object is a standalone image when
+
+  - its type is `paragraph' and its sole content, save for white
+    spaces, is a link that qualifies as an inline image;
+
+  - its type is `link' and its containing paragraph has no other
+    content save white spaces.
+
+Bind `t-standalone-image-predicate' to constrain paragraph
+further.  For example, to check for only captioned standalone
+images, set it to:
+
+  (lambda (paragraph) (org-element-property :caption paragraph))"
+  (let ((paragraph (pcase (org-element-type element)
+                     (`paragraph element)
+                     (`link (org-export-get-parent element)))))
+    (and (eq (org-element-type paragraph) 'paragraph)
+         (or (not (and (boundp 't-standalone-image-predicate)
+                       (fboundp t-standalone-image-predicate)))
+             (funcall t-standalone-image-predicate paragraph))
+         (catch 'exit
+           (let ((link-count 0))
+             (org-element-map (org-element-contents paragraph)
+                 (cons 'plain-text org-element-all-objects)
+               (lambda (obj)
+                 (when (pcase (org-element-type obj)
+                         (`plain-text (org-string-nw-p obj))
+                         (`link (or (> (cl-incf link-count) 1)
+                                    (not (t-inline-image-p obj info))))
+                         (_ t))
+                   (throw 'exit nil)))
+               info nil 'link)
+             (= link-count 1))))))
+
+(defun t-link (link desc info)
+  "Transcode a LINK object from Org to HTML.
+DESC is the description part of the link, or the empty string.
+INFO is a plist holding contextual information.  See
+`org-export-data'."
+  (let* ((html-ext (plist-get info :html-extension))
+         (dot (when (> (length html-ext) 0) "."))
+         (link-org-files-as-html-maybe
+          (lambda (raw-path info)
+            ;; Treat links to `file.org' as links to `file.html', if
+            ;; needed.  See `t-link-org-files-as-html'.
+            (cond
+             ((and (plist-get info :html-link-org-files-as-html)
+                   (string= ".org"
+                            (downcase (file-name-extension raw-path "."))))
+              (concat (file-name-sans-extension raw-path) dot html-ext))
+             (t raw-path))))
+         (type (org-element-property :type link))
+         (raw-path (org-element-property :path link))
+         ;; Ensure DESC really exists, or set it to nil.
+         (desc (org-string-nw-p desc))
+         (path
+          (cond
+           ((string= "file" type)
+            ;; During publishing, turn absolute file names belonging
+            ;; to base directory into relative file names.  Otherwise,
+            ;; append "file" protocol to absolute file name.
+            (setq raw-path
+                  (org-export-file-uri
+                   (org-publish-file-relative-name raw-path info)))
+            ;; Maybe turn ".org" into ".html".
+            (setq raw-path (funcall link-org-files-as-html-maybe raw-path info))
+            ;; Add search option, if any.  A search option can be
+            ;; relative to a custom-id, a headline title, a name or
+            ;; a target.
+            (let ((option (org-element-property :search-option link)))
+              (if (not option) raw-path
+                (let ((path (org-element-property :path link)))
+                  (concat raw-path
+                          "#"
+                          (org-publish-resolve-external-link option path t))))))
+           (t (url-encode-url (concat type ":" raw-path)))))
+         (attributes-plist
+          (org-combine-plists
+           ;; Extract attributes from parent's paragraph.  HACK: Only
+           ;; do this for the first link in parent (inner image link
+           ;; for inline images).  This is needed as long as
+           ;; attributes cannot be set on a per link basis.
+           (let* ((parent (org-export-get-parent-element link))
+                  (link (let ((container (org-export-get-parent link)))
+                          (if (and (eq 'link (org-element-type container))
+                                   (t-inline-image-p link info))
+                              container
+                            link))))
+             (and (eq link (org-element-map parent 'link #'identity info t))
+                  (org-export-read-attribute :attr_html parent)))
+           ;; Also add attributes from link itself.  Currently, those
+           ;; need to be added programmatically before `t-link'
+           ;; is invoked, for example, by backends building upon HTML
+           ;; export.
+           (org-export-read-attribute :attr_html link)))
+         (attributes
+          (let ((attr (t--make-attribute-string attributes-plist)))
+            (if (org-string-nw-p attr) (concat " " attr) ""))))
+    (cond
+     ;; Link type is handled by a special function.
+     ((org-export-custom-protocol-maybe link desc 'w3ctr info))
+     ;; Image file.
+     ((and (plist-get info :html-inline-images)
+           (org-export-inline-image-p
+            link (plist-get info :html-inline-image-rules)))
+      (t--format-image path attributes-plist info 'link))
+     ;; Radio target: Transcode target's contents and use them as
+     ;; link's description.
+     ((string= type "radio")
+      (let ((destination (org-export-resolve-radio-link link info)))
+        (if (not destination) desc
+          (format "<a href=\"#%s\"%s>%s</a>"
+                  (t--reference destination info)
+                  attributes
+                  desc))))
+     ;; Links pointing to a headline: Find destination and build
+     ;; appropriate referencing command.
+     ((member type '("custom-id" "fuzzy" "id"))
+      (let ((destination (if (string= type "fuzzy")
+                             (org-export-resolve-fuzzy-link link info)
+                           (org-export-resolve-id-link link info))))
+        (pcase (org-element-type destination)
+          ;; ID link points to an external file.
+          (`plain-text
+           (let ((fragment (concat t--id-attr-prefix path))
+                 ;; Treat links to ".org" files as ".html", if needed.
+                 (path (funcall link-org-files-as-html-maybe
+                                destination info)))
+             (format "<a href=\"%s#%s\"%s>%s</a>"
+                     path fragment attributes (or desc destination))))
+          ;; Fuzzy link points nowhere.
+          (`nil
+           (format "<i>%s</i>"
+                   (or desc
+                       (org-export-data
+                        (org-element-property :raw-link link) info))))
+          ;; Link points to a headline.
+          (`headline
+           (let ((href (t--reference destination info))
+                 ;; What description to use?
+                 (desc
+                  ;; Case 1: Headline is numbered and LINK has no
+                  ;; description.  Display section number.
+                  (if (and (org-export-numbered-headline-p destination info)
+                           (not desc))
+                      (mapconcat #'number-to-string
+                                 (org-export-get-headline-number destination info)
+                                 ".")
+                    ;; Case 2: Either the headline is un-numbered or
+                    ;; LINK has a custom description.  Display LINK's
+                    ;; description or headline's title.
+                    (or desc
+                        (org-export-data
+                         (org-element-property :title destination) info)))))
+             (format "<a href=\"#%s\"%s>%s</a>" href attributes desc)))
+          ;; Fuzzy link points to a target or an element.
+          (_
+           (if (and destination
+                    (memq (plist-get info :with-latex) '(mathjax t))
+                    (eq 'latex-environment (org-element-type destination))
+                    (eq 'math (org-latex--environment-type destination)))
+               ;; Caption and labels are introduced within LaTeX
+               ;; environment.  Use "ref" or "eqref" macro, depending on user
+               ;; preference to refer to those in the document.
+               (format (plist-get info :html-equation-reference-format)
+                       (t--reference destination info))
+             (let* ((ref (t--reference destination info))
+                    (t-standalone-image-predicate
+                     #'t--has-caption-p)
+                    (counter-predicate
+                     (if (eq 'latex-environment (org-element-type destination))
+                         #'org-html--math-environment-p
+                       #'t--has-caption-p))
+                    (number
+                     (cond
+                      (desc nil)
+                      ((t-standalone-image-p destination info)
+                       (org-export-get-ordinal
+                        (org-element-map destination 'link #'identity info t)
+                        info 'link 't-standalone-image-p))
+                      (t (org-export-get-ordinal
+                          destination info nil counter-predicate))))
+                    (desc
+                     (cond (desc)
+                           ((not number) "No description for this link")
+                           ((numberp number) (number-to-string number))
+                           (t (mapconcat #'number-to-string number ".")))))
+               (format "<a href=\"#%s\"%s>%s</a>" ref attributes desc)))))))
+     ;; Coderef: replace link with the reference name or the
+     ;; equivalent line number.
+     ((string= type "coderef")
+      (let ((fragment (concat "coderef-" (t--encode-plain-text path))))
+        (format "<a href=\"#%s\" %s%s>%s</a>"
+                fragment
+                (format "class=\"coderef\" onmouseover=\"CodeHighlightOn(this, \
+'%s');\" onmouseout=\"CodeHighlightOff(this, '%s');\""
+                        fragment fragment)
+                attributes
+                (format (org-export-get-coderef-format path desc)
+                        (org-export-resolve-coderef path info)))))
+     ;; External link with a description part.
+     ((and path desc)
+      (format "<a href=\"%s\"%s>%s</a>"
+              (t--encode-plain-text path)
+              attributes
+              desc))
+     ;; External link without a description part.
+     (path
+      (let ((path (t--encode-plain-text path)))
+        (format "<a href=\"%s\"%s>%s</a>" path attributes path)))
+     ;; No path, only description.  Try to do something useful.
+     (t
+      (format "<i>%s</i>" desc)))))
+
 ;;;; Special Block
 ;; FIXME
 ;; See (info "(org)HTML doctypes")
@@ -4365,257 +4616,6 @@ INFO is a plist used as a communication channel."
                        id dt contents)))))
         definitions
         "\n"))))))
-
-;;;; Link
-
-(defun t-image-link-filter (data _backend info)
-  "Process image links that are inside descriptions.
-DATA is the parse tree.  INFO is and info plist.
-See `org-export-insert-image-links' for more details."
-  (org-export-insert-image-links data info t-inline-image-rules))
-
-(defun t-inline-image-p (link info)
-  "Non-nil when LINK is meant to appear as an image.
-INFO is a plist used as a communication channel.  LINK is an
-inline image when it has no description and targets an image
-file (see `t-inline-image-rules' for more information), or
-if its description is a single link targeting an image file."
-  (if (not (org-element-contents link))
-      (org-export-inline-image-p
-       link (plist-get info :html-inline-image-rules))
-    (not
-     (let ((link-count 0))
-       (org-element-map (org-element-contents link)
-           (cons 'plain-text org-element-all-objects)
-         (lambda (obj)
-           (pcase (org-element-type obj)
-             (`plain-text (org-string-nw-p obj))
-             (`link (if (= link-count 1) t
-                      (cl-incf link-count)
-                      (not (org-export-inline-image-p
-                            obj (plist-get info :html-inline-image-rules)))))
-             (_ t)))
-         info t)))))
-
-(defvar t-standalone-image-predicate)
-(defun t-standalone-image-p (element info)
-  "Non-nil if ELEMENT is a standalone image.
-
-INFO is a plist holding contextual information.
-
-An element or object is a standalone image when
-
-  - its type is `paragraph' and its sole content, save for white
-    spaces, is a link that qualifies as an inline image;
-
-  - its type is `link' and its containing paragraph has no other
-    content save white spaces.
-
-Bind `t-standalone-image-predicate' to constrain paragraph
-further.  For example, to check for only captioned standalone
-images, set it to:
-
-  (lambda (paragraph) (org-element-property :caption paragraph))"
-  (let ((paragraph (pcase (org-element-type element)
-                     (`paragraph element)
-                     (`link (org-export-get-parent element)))))
-    (and (eq (org-element-type paragraph) 'paragraph)
-         (or (not (and (boundp 't-standalone-image-predicate)
-                       (fboundp t-standalone-image-predicate)))
-             (funcall t-standalone-image-predicate paragraph))
-         (catch 'exit
-           (let ((link-count 0))
-             (org-element-map (org-element-contents paragraph)
-                 (cons 'plain-text org-element-all-objects)
-               (lambda (obj)
-                 (when (pcase (org-element-type obj)
-                         (`plain-text (org-string-nw-p obj))
-                         (`link (or (> (cl-incf link-count) 1)
-                                    (not (t-inline-image-p obj info))))
-                         (_ t))
-                   (throw 'exit nil)))
-               info nil 'link)
-             (= link-count 1))))))
-
-(defun t-link (link desc info)
-  "Transcode a LINK object from Org to HTML.
-DESC is the description part of the link, or the empty string.
-INFO is a plist holding contextual information.  See
-`org-export-data'."
-  (let* ((html-ext (plist-get info :html-extension))
-         (dot (when (> (length html-ext) 0) "."))
-         (link-org-files-as-html-maybe
-          (lambda (raw-path info)
-            ;; Treat links to `file.org' as links to `file.html', if
-            ;; needed.  See `t-link-org-files-as-html'.
-            (cond
-             ((and (plist-get info :html-link-org-files-as-html)
-                   (string= ".org"
-                            (downcase (file-name-extension raw-path "."))))
-              (concat (file-name-sans-extension raw-path) dot html-ext))
-             (t raw-path))))
-         (type (org-element-property :type link))
-         (raw-path (org-element-property :path link))
-         ;; Ensure DESC really exists, or set it to nil.
-         (desc (org-string-nw-p desc))
-         (path
-          (cond
-           ((string= "file" type)
-            ;; During publishing, turn absolute file names belonging
-            ;; to base directory into relative file names.  Otherwise,
-            ;; append "file" protocol to absolute file name.
-            (setq raw-path
-                  (org-export-file-uri
-                   (org-publish-file-relative-name raw-path info)))
-            ;; Maybe turn ".org" into ".html".
-            (setq raw-path (funcall link-org-files-as-html-maybe raw-path info))
-            ;; Add search option, if any.  A search option can be
-            ;; relative to a custom-id, a headline title, a name or
-            ;; a target.
-            (let ((option (org-element-property :search-option link)))
-              (if (not option) raw-path
-                (let ((path (org-element-property :path link)))
-                  (concat raw-path
-                          "#"
-                          (org-publish-resolve-external-link option path t))))))
-           (t (url-encode-url (concat type ":" raw-path)))))
-         (attributes-plist
-          (org-combine-plists
-           ;; Extract attributes from parent's paragraph.  HACK: Only
-           ;; do this for the first link in parent (inner image link
-           ;; for inline images).  This is needed as long as
-           ;; attributes cannot be set on a per link basis.
-           (let* ((parent (org-export-get-parent-element link))
-                  (link (let ((container (org-export-get-parent link)))
-                          (if (and (eq 'link (org-element-type container))
-                                   (t-inline-image-p link info))
-                              container
-                            link))))
-             (and (eq link (org-element-map parent 'link #'identity info t))
-                  (org-export-read-attribute :attr_html parent)))
-           ;; Also add attributes from link itself.  Currently, those
-           ;; need to be added programmatically before `t-link'
-           ;; is invoked, for example, by backends building upon HTML
-           ;; export.
-           (org-export-read-attribute :attr_html link)))
-         (attributes
-          (let ((attr (t--make-attribute-string attributes-plist)))
-            (if (org-string-nw-p attr) (concat " " attr) ""))))
-    (cond
-     ;; Link type is handled by a special function.
-     ((org-export-custom-protocol-maybe link desc 'w3ctr info))
-     ;; Image file.
-     ((and (plist-get info :html-inline-images)
-           (org-export-inline-image-p
-            link (plist-get info :html-inline-image-rules)))
-      (t--format-image path attributes-plist info 'link))
-     ;; Radio target: Transcode target's contents and use them as
-     ;; link's description.
-     ((string= type "radio")
-      (let ((destination (org-export-resolve-radio-link link info)))
-        (if (not destination) desc
-          (format "<a href=\"#%s\"%s>%s</a>"
-                  (t--reference destination info)
-                  attributes
-                  desc))))
-     ;; Links pointing to a headline: Find destination and build
-     ;; appropriate referencing command.
-     ((member type '("custom-id" "fuzzy" "id"))
-      (let ((destination (if (string= type "fuzzy")
-                             (org-export-resolve-fuzzy-link link info)
-                           (org-export-resolve-id-link link info))))
-        (pcase (org-element-type destination)
-          ;; ID link points to an external file.
-          (`plain-text
-           (let ((fragment (concat t--id-attr-prefix path))
-                 ;; Treat links to ".org" files as ".html", if needed.
-                 (path (funcall link-org-files-as-html-maybe
-                                destination info)))
-             (format "<a href=\"%s#%s\"%s>%s</a>"
-                     path fragment attributes (or desc destination))))
-          ;; Fuzzy link points nowhere.
-          (`nil
-           (format "<i>%s</i>"
-                   (or desc
-                       (org-export-data
-                        (org-element-property :raw-link link) info))))
-          ;; Link points to a headline.
-          (`headline
-           (let ((href (t--reference destination info))
-                 ;; What description to use?
-                 (desc
-                  ;; Case 1: Headline is numbered and LINK has no
-                  ;; description.  Display section number.
-                  (if (and (org-export-numbered-headline-p destination info)
-                           (not desc))
-                      (mapconcat #'number-to-string
-                                 (org-export-get-headline-number destination info)
-                                 ".")
-                    ;; Case 2: Either the headline is un-numbered or
-                    ;; LINK has a custom description.  Display LINK's
-                    ;; description or headline's title.
-                    (or desc
-                        (org-export-data
-                         (org-element-property :title destination) info)))))
-             (format "<a href=\"#%s\"%s>%s</a>" href attributes desc)))
-          ;; Fuzzy link points to a target or an element.
-          (_
-           (if (and destination
-                    (memq (plist-get info :with-latex) '(mathjax t))
-                    (eq 'latex-environment (org-element-type destination))
-                    (eq 'math (org-latex--environment-type destination)))
-               ;; Caption and labels are introduced within LaTeX
-               ;; environment.  Use "ref" or "eqref" macro, depending on user
-               ;; preference to refer to those in the document.
-               (format (plist-get info :html-equation-reference-format)
-                       (t--reference destination info))
-             (let* ((ref (t--reference destination info))
-                    (t-standalone-image-predicate
-                     #'t--has-caption-p)
-                    (counter-predicate
-                     (if (eq 'latex-environment (org-element-type destination))
-                         #'org-html--math-environment-p
-                       #'t--has-caption-p))
-                    (number
-                     (cond
-                      (desc nil)
-                      ((t-standalone-image-p destination info)
-                       (org-export-get-ordinal
-                        (org-element-map destination 'link #'identity info t)
-                        info 'link 't-standalone-image-p))
-                      (t (org-export-get-ordinal
-                          destination info nil counter-predicate))))
-                    (desc
-                     (cond (desc)
-                           ((not number) "No description for this link")
-                           ((numberp number) (number-to-string number))
-                           (t (mapconcat #'number-to-string number ".")))))
-               (format "<a href=\"#%s\"%s>%s</a>" ref attributes desc)))))))
-     ;; Coderef: replace link with the reference name or the
-     ;; equivalent line number.
-     ((string= type "coderef")
-      (let ((fragment (concat "coderef-" (t--encode-plain-text path))))
-        (format "<a href=\"#%s\" %s%s>%s</a>"
-                fragment
-                (format "class=\"coderef\" onmouseover=\"CodeHighlightOn(this, \
-'%s');\" onmouseout=\"CodeHighlightOff(this, '%s');\""
-                        fragment fragment)
-                attributes
-                (format (org-export-get-coderef-format path desc)
-                        (org-export-resolve-coderef path info)))))
-     ;; External link with a description part.
-     ((and path desc)
-      (format "<a href=\"%s\"%s>%s</a>"
-              (t--encode-plain-text path)
-              attributes
-              desc))
-     ;; External link without a description part.
-     (path
-      (let ((path (t--encode-plain-text path)))
-        (format "<a href=\"%s\"%s>%s</a>" path attributes path)))
-     ;; No path, only description.  Try to do something useful.
-     (t
-      (format "<i>%s</i>" desc)))))
 
 ;;; Filter Functions
 (defun t-final-function (contents _backend info)
