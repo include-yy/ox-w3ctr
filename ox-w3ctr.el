@@ -4044,88 +4044,16 @@ modern-HTML reimplementation is planned."
   frag)
 
 (defun t--normalize-latex (frag)
-  "Normalize LaTeX fragments in the given string FRAG.
+  "Normalize the delimiters of LaTeX FRAG for client-side MathJax.
 
-This function processes LaTeX fragments and environments in the
-input string, converting inline and block LaTeX ($.$ and $$.$$)
-to \\(...\\) and \\[...\\].
-
-The code for this function is from `org-format-latex'."
+Inline `$...$' becomes `\\(...\\)' and display `$$...$$' becomes
+`\\[...\\]'; anything else is returned unchanged."
   (declare (ftype (function (string) string))
-           (important-return-value t))
-  (let* ((math-regexp
-          "\\$\\|\\\\[([]\\|^[ \t]*\\\\begin{[A-Za-z0-9*]+}"))
-    (org-export-with-buffer-copy
-     :to-buffer (get-buffer-create " *Org HTML Export LaTeX*")
-     :drop-visibility t :drop-narrowing t :drop-contents t
-     (erase-buffer)
-     (insert frag)
-     (goto-char (point-min))
-     (while (re-search-forward math-regexp nil t)
-       (let* ((context (org-element-context))
-              (type (org-element-type context)))
-         (when (memq type '(latex-environment latex-fragment))
-           (let ((value (org-element-property :value context))
-                 (beg (org-element-begin context))
-                 (end (save-excursion
-                        (goto-char (org-element-end context))
-                        (skip-chars-backward " \r\t\n")
-                        (point))))
-             (if (not (string-match "\\`\\$\\$?" value))
-                 (goto-char end)
-               (delete-region beg end)
-               (if (string= (match-string 0 value) "$$")
-                   (insert "\\[" (substring value 2 -2) "\\]")
-                 (insert "\\(" (substring value 1 -1) "\\)")))))))
-     (t--trim (buffer-string)))))
-
-(defun t--mathml-to-oneline (xml)
-  "Convert a MathML XML structure into a single-line string.
-
-If XML is a string and empty, return an empty string;
-otherwise, recursively process the XML structure, converting
-it into a single-line formatted string.
-
-MathJax includes the original LaTeX code in the `data-latex'
-attribute of the generated tags. Here, we remove them.
-
-According to MathML Spec:
-`xmlns=http://www.w3.org/1998/Math/MathML' may be used on the
-math element; it will be ignored by the HTML parser."
-  (declare (ftype (function (t) string))
-           (important-return-value t))
-  (if (stringp xml) (or (and (t--nw-p xml) (t--trim xml)) "")
-    (let* ((tag (symbol-name (car xml)))
-           (exclude-regex
-            (rx (or "xmlns" "data-latex")))
-           (props
-            (thread-first
-              (lambda (x)
-                (let ((name (symbol-name (car x))))
-                  (cond
-                   ((and (string= name "display")
-                         (string= (cdr x) "inline"))
-                    "")
-                   ((string-match-p exclude-regex name) "")
-                   (t (concat " " name "=\"" (cdr x) "\"")))))
-              (mapconcat (cadr xml))))
-           (childs (mapconcat
-                    #'t--mathml-to-oneline (cddr xml))))
-      (format "<%s%s>%s</%s>"
-              tag props childs tag))))
-
-(defun t--reformat-mathml (str)
-  "Reformat the given MathML STR into a one-line XML string.
-
-In the MathML returned by MathJax, there are some attribute
-values that are not particularly useful for browser rendering
-and need to be removed."
-  (declare (ftype (function (string) string))
-           (important-return-value t))
-  (with-work-buffer
-    (insert str) (goto-char (point-min))
-    (let ((xml (xml-parse-tag)))
-      (t--mathml-to-oneline xml))))
+           (pure t) (important-return-value t))
+  (cond
+   ((string-prefix-p "$$" frag) (concat "\\[" (substring frag 2 -2) "\\]"))
+   ((string-prefix-p "$" frag) (concat "\\(" (substring frag 1 -1) "\\)"))
+   (t frag)))
 
 (defun t--format-latex (frag mode info)
   "Return the HTML for LaTeX fragment FRAG under MODE.
@@ -4136,8 +4064,7 @@ MODE is the value of `:with-latex'; INFO is the export state."
     ((or `nil `verbatim) frag)
     (`mathjax (t--normalize-latex frag))
     (`mathml-by-mathjax
-     (t--reformat-mathml
-      (t--jstools-call 'tex2mml (t--normalize-latex frag))))
+     (t--jstools-call 'tex2mml (t--normalize-latex frag)))
     (`custom
      (funcall (t--pget info :html-math-custom-render-function) frag info))
     (o (error "Unknown LaTeX mode: %s" o))))

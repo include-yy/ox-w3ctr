@@ -2428,7 +2428,6 @@ int a = 1;</code></p>\n</details>")
   ($l (t--normalize-latex "$$x$$") "\\[x\\]")
   ($l (t--normalize-latex "\\(x\\)") "\\(x\\)")
   ($l (t--normalize-latex "\\[x\\]") "\\[x\\]")
-  ($l (t--normalize-latex "a $x$ b") "a \\(x\\) b")
   ($l (t--normalize-latex "\\begin{equation}\nx=1\n\\end{equation}")
       "\\begin{equation}\nx=1\n\\end{equation}"))
 
@@ -2833,44 +2832,6 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t--format-toc-headline ()
   "Tests for `org-w3ctr--format-toc-headline'."
   nil)
-
-(defun t-parse-mathml-string (strs)
-  (with-work-buffer
-    (dolist (a strs)
-      (insert a "\n"))
-    (goto-char (point-min))
-    (xml-parse-tag)))
-
-(defun t-check-mathml (pairs)
-  (dolist (p pairs)
-    (let ((xml (t-parse-mathml-string (cdr p)))
-          (result (car p)))
-      ($l result (t--mathml-to-oneline xml)))))
-
-(ert-deftest t--mathml-to-oneline ()
-  ;; https://www.w3.org/TR/2025/WD-mathml4-20250326/
-  (t-check-mathml
-   '(("<math><mrow>...</mrow></math>"
-      "<math xmlns=\"http://www.w3.org/1998/Math/MathML\">"
-      "<mrow>...</mrow>"
-      "</math>")
-     ("<body>...<m:math><m:mrow>...</m:mrow></m:math>...</body>"
-      "<body xmlns:m=\"http://www.w3.org/1998/Math/MathML\">"
-      "  ..."
-      "  <m:math><m:mrow>...</m:mrow></m:math>"
-      "  ..."
-      "</body>")
-     ("<mtext>Theorem\n1:</mtext>"
-      "<mtext>"
-      "Theorem"
-      "1:"
-      "</mtext>")
-     ("<msup><mrow><mo>(</mo><mrow><mi>f</mi><mo>+</mo><mi>g</mi></mrow><mo>)</mo></mrow><mo>′</mo></msup>"
-      "<msup>"
-      "<mrow><mo>(</mo><mrow><mi>f</mi><mo>+</mo><mi>g</mi></mrow><mo>)</mo></mrow>"
-      "<mo>&#x2032;<!--PRIME--></mo>"
-      "</msup>")
-     )))
 
 
 (ert-deftest t-table ()
