@@ -596,6 +596,7 @@ The default value points to a `style.css' file inside the package's
          (setq t-style ""))
   :type '(choice (const nil) file))
 
+;;;; LaTeX
 (defcustom t-with-latex 'mathjax
   "Control how LaTeX math expressions are processed in HTML export.
 
@@ -927,8 +928,6 @@ This option will override `org-export-use-babel'"
   "Default toc name of the zeroth section."
   :group 'org-export-w3ctr
   :type 'sexp)
-
-;;;; LaTeX
 
 ;;; Internal Variables
 
@@ -3846,6 +3845,9 @@ holding export options."
     (t--oinfo-cleanup)))
 
 ;;;; Table
+;; Options:
+;; - :html-table-use-header-tags-for-first-column
+;;   (`org-w3ctr-table-use-header-tags-for-first-column')
 
 (defun t--table-column-cookie (table column info)
   "Return the explicit alignment cookie for COLUMN in TABLE, or nil.
@@ -4134,7 +4136,8 @@ MODE is the value of `:with-latex'; INFO is the export state."
     ((or `nil `verbatim) frag)
     (`mathjax (t--normalize-latex frag))
     (`mathml-by-mathjax
-     (t--reformat-mathml (t--jstools-call 'tex2mml frag)))
+     (t--reformat-mathml
+      (t--jstools-call 'tex2mml (t--normalize-latex frag))))
     (`custom
      (funcall (t--pget info :html-math-custom-render-function) frag info))
     (o (error "Unknown LaTeX mode: %s" o))))
