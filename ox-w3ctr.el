@@ -176,12 +176,8 @@
     (:description "DESCRIPTION" nil nil newline)
     (:keywords "KEYWORDS" nil nil space)
     (:html-head-include-style nil "html-style" t-head-include-style)
-    (:html-mathjax-config nil nil t-mathjax-config)
-    (:html-mathml-config nil nil t-mathml-config)
-    (:html-math-custom-function nil nil t-math-custom-function)
     (:html-head "HTML_HEAD" nil t-head newline)
     (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
-    (:with-latex nil "tex" t-with-latex)
     ;; home and up
     (:html-link-up "HTML_LINK_UP" nil t-link-up)
     (:html-link-home "HTML_LINK_HOME" nil t-link-home)
@@ -207,7 +203,12 @@
     ;; table options
     (:html-table-use-header-tags-for-first-column
      nil nil t-table-use-header-tags-for-first-column)
-
+    ;; LaTeX
+    (:with-latex nil "tex" t-with-latex)
+    (:html-mathjax-config nil nil t-mathjax-config)
+    (:html-math-head-function nil nil t-math-head-function)
+    ( :html-math-custom-render-function nil nil
+      t-math-custom-render-function)
     ;; Unarranged
     ;; FIXME: Reformat whole info options
 
@@ -598,16 +599,16 @@ The default value points to a `style.css' file inside the package's
 (defcustom t-with-latex 'mathjax
   "Control how LaTeX math expressions are processed in HTML export.
 
-When non-nil, enables processing of LaTeX math snippets.  The value
-specifies the rendering method:
-- `mathjax': Render math using MathJax (client-side)
-- `mathml' : Convert to MathML markup using MathJax (server-side)
-- `custom' : Use custom option and function to do what you want."
+The value specifies the rendering method:
+- `verbatim'         : Keep raw fragment
+- `mathjax'          : Render math using MathJax (client-side)
+- `mathml-by-mathjax': Convert to MathML markup using MathJax
+- `custom'           : Use custom option and function"
   :group 'org-export-w3ctr
   :type '(choice
-          (const :tag "Disable math processing" nil)
+          (const :tag "Keep raw fragment" verbatim)
           (const :tag "Use MathJax to display math" mathjax)
-          (const :tag "Use MathJax to render mathML" mathml)
+          (const :tag "Use MathJax to render mathML" mathml-by-mathjax)
           (const :tag "Use custom method" custom)))
 
 (defcustom t-mathjax-config "\
@@ -651,17 +652,17 @@ https://docs.mathjax.org/en/latest/options/index.html"
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-mathml-config ""
-  "Configuration for MathML in HTML export.
-Used when :with-latex is set to `mathml'.
-
-See https://developer.mozilla.org/en-US/docs/Web/MathML for details."
+(defcustom t-math-head-function #'t-math-head-default-function
+  "Function returning the math setup to insert into <head>.
+Called with the INFO plist; return a string (or nil)."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'function)
 
-(defcustom t-math-custom-function #'t-math-custom-default-function
-  "Configuration for custom Math rendering in HTML export.
-Used when :with-latex is set to `custom'."
+(defcustom t-math-custom-render-function
+  #'t-math-custom-default-render-function
+  "Function rendering a LaTeX fragment for the `custom' math mode.
+It is called with FRAG, a LaTeX string, and the INFO plist, and
+must return the HTML/MathML/SVG string for the fragment."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -1128,8 +1129,8 @@ KEYWORD is the symbol for the property key to cache."
        ;; inner-template and template
        :with-author :author :with-title :title
        :time-stamp-file :html-file-timestamp-function :html-viewport
-       :with-latex :html-mathjax-config :html-mathml-config
-       :html-math-custom-function
+       :with-latex :html-mathjax-config
+       :html-math-head-function :html-math-custom-render-function
        :html-use-cc-budget :html-license
        :html-format-license-function
        )
@@ -3176,31 +3177,23 @@ the file."
 ;; Options:
 ;; - :with-latex (`org-w3ctr-with-latex')
 ;; - :html-mathjax-config (`org-w3ctr-mathjax-config')
-;; - :html-mathml-config (`org-w3ctr-mathml-config')
-;; - :html-math-custom-function (`org-w3ctr-math-custom-function')
+;; - :html-math-head-function (`org-w3ctr-math-head-function')
+;; - :html-math-custom-render-function
+;; (`org-w3ctr-math-custom-default-render-function')
 
-(defun t-math-custom-default-function (_info)
-  "Default function for `org-w3ctr-math-custom-function'."
-  (declare (ftype (function (t) string))
-           (pure t) (important-return-value t))
-  "")
-
-(defun t--build-math-config (info)
-  "Insert the user setup into the mathjax template."
+(defun t-math-head-default-function (info)
+  "Default value for `org-w3ctr-math-head-function'.
+Return the MathJax script for `mathjax' mode, nothing otherwise."
   (declare (ftype (function (list) string))
            (important-return-value t))
-  (let* ((type (t--pget info :with-latex))
-         (key (pcase type
-                (`nil nil)
-                (`mathjax :html-mathjax-config)
-                (`mathml :html-mathml-config)
-                (`custom :html-math-custom-function)
-                (o (t-error "Unrecognized math option: %s" o))))
-         (value (and key (t--pget info key))))
-    (cond
-     ((null key) "")
-     ((eq type 'custom) (t--normalize-string (funcall value info)))
-     (t (if (t--nw-p value) (t--normalize-string value) "")))))
+  (if (not (eq (t--pget info :with-latex) 'mathjax)) ""
+    (t--pget info :html-mathjax-config)))
+
+(defun t--build-math-config (info)
+  "Return the math setup to insert into <head>."
+  (declare (ftype (function (list) string))
+           (important-return-value t))
+  (funcall (t--pget info :html-math-head-function) info))
 
 ;;;; Rest of <head>
 ;; No options
@@ -4040,6 +4033,128 @@ modern-HTML reimplementation is planned."
         (prog1 (org-trim (buffer-string))
           (kill-buffer))))))
 
+;;;; LaTeX
+
+(defun t-math-custom-default-render-function (frag _info)
+  "Default value for `org-w3ctr-math-custom-render-function'."
+  (declare (ftype (function (string t) string))
+           (pure t) (important-return-value t))
+  frag)
+
+(defun t--normalize-latex (frag)
+  "Normalize LaTeX fragments in the given string FRAG.
+
+This function processes LaTeX fragments and environments in the
+input string, converting inline and block LaTeX ($.$ and $$.$$)
+to \\(...\\) and \\[...\\].
+
+The code for this function is from `org-format-latex'."
+  (declare (ftype (function (string) string))
+           (important-return-value t))
+  (let* ((math-regexp
+          "\\$\\|\\\\[([]\\|^[ \t]*\\\\begin{[A-Za-z0-9*]+}"))
+    (org-export-with-buffer-copy
+     :to-buffer (get-buffer-create " *Org HTML Export LaTeX*")
+     :drop-visibility t :drop-narrowing t :drop-contents t
+     (erase-buffer)
+     (insert frag)
+     (goto-char (point-min))
+     (while (re-search-forward math-regexp nil t)
+       (let* ((context (org-element-context))
+              (type (org-element-type context)))
+         (when (memq type '(latex-environment latex-fragment))
+           (let ((value (org-element-property :value context))
+                 (beg (org-element-begin context))
+                 (end (save-excursion
+                        (goto-char (org-element-end context))
+                        (skip-chars-backward " \r\t\n")
+                        (point))))
+             (if (not (string-match "\\`\\$\\$?" value))
+                 (goto-char end)
+               (delete-region beg end)
+               (if (string= (match-string 0 value) "$$")
+                   (insert "\\[" (substring value 2 -2) "\\]")
+                 (insert "\\(" (substring value 1 -1) "\\)")))))))
+     (t--trim (buffer-string)))))
+
+(defun t--mathml-to-oneline (xml)
+  "Convert a MathML XML structure into a single-line string.
+
+If XML is a string and empty, return an empty string;
+otherwise, recursively process the XML structure, converting
+it into a single-line formatted string.
+
+MathJax includes the original LaTeX code in the `data-latex'
+attribute of the generated tags. Here, we remove them.
+
+According to MathML Spec:
+`xmlns=http://www.w3.org/1998/Math/MathML' may be used on the
+math element; it will be ignored by the HTML parser."
+  (declare (ftype (function (t) string))
+           (important-return-value t))
+  (if (stringp xml) (or (and (t--nw-p xml) (t--trim xml)) "")
+    (let* ((tag (symbol-name (car xml)))
+           (exclude-regex
+            (rx (or "xmlns" "data-latex")))
+           (props
+            (thread-first
+              (lambda (x)
+                (let ((name (symbol-name (car x))))
+                  (cond
+                   ((and (string= name "display")
+                         (string= (cdr x) "inline"))
+                    "")
+                   ((string-match-p exclude-regex name) "")
+                   (t (concat " " name "=\"" (cdr x) "\"")))))
+              (mapconcat (cadr xml))))
+           (childs (mapconcat
+                    #'t--mathml-to-oneline (cddr xml))))
+      (format "<%s%s>%s</%s>"
+              tag props childs tag))))
+
+(defun t--reformat-mathml (str)
+  "Reformat the given MathML STR into a one-line XML string.
+
+In the MathML returned by MathJax, there are some attribute
+values that are not particularly useful for browser rendering
+and need to be removed."
+  (declare (ftype (function (string) string))
+           (important-return-value t))
+  (with-work-buffer
+    (insert str) (goto-char (point-min))
+    (let ((xml (xml-parse-tag)))
+      (t--mathml-to-oneline xml))))
+
+(defun t--format-latex (frag mode info)
+  "Return the HTML for LaTeX fragment FRAG under MODE.
+MODE is the value of `:with-latex'; INFO is the export state."
+  (declare (ftype (function (string t list) string))
+           (important-return-value t))
+  (pcase mode
+    ((or `nil `verbatim) frag)
+    (`mathjax (t--normalize-latex frag))
+    (`mathml-by-mathjax
+     (t--reformat-mathml (t--jstools-call 'tex2mml frag)))
+    (`custom
+     (funcall (t--pget info :html-math-custom-render-function) frag info))
+    (o (error "Unknown LaTeX mode: %s" o))))
+
+(defun t-latex-fragment (latex-fragment _contents info)
+  "Transcode a LATEX-FRAGMENT object from Org to HTML."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (t--format-latex
+   (org-element-property :value latex-fragment)
+   (t--pget info :with-latex) info))
+
+(defun t-latex-environment (latex-environment _contents info)
+  "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (t--format-latex
+   (org-remove-indentation (org-element-property :value latex-environment))
+   (t--pget info :with-latex) info))
+
 ;;;; Special Block
 ;; FIXME
 ;; See (info "(org)HTML doctypes")
@@ -4074,118 +4189,6 @@ holding contextual information."
       (if html5-fancy
           (format "<%s%s>\n%s</%s>" block-type str contents block-type)
         (format "<div%s>\n%s\n</div>" str contents)))))
-
-;;; LATEX utilties.
-(defun t--mathml-to-oneline (xml)
-  "Convert a MathML XML structure into a single-line string.
-
-If XML is a string and empty, return an empty string;
-otherwise, recursively process the XML structure, converting
-it into a single-line formatted string.
-
-MathJax includes the original LaTeX code in the `data-latex'
-attribute of the generated tags. Here, we remove them.
-
-According to MathML Spec:
-`xmlns=http://www.w3.org/1998/Math/MathML' may be used on the
-math element; it will be ignored by the HTML parser."
-  (if (stringp xml) (or (and (t--nw-p xml) (t--trim xml)) "")
-    (let* ((tag (symbol-name (car xml)))
-           (exclude-regex
-            (rx (or "xmlns" "data-latex")))
-           (props
-            (thread-first
-              (lambda (x)
-                (let ((name (symbol-name (car x))))
-                  (cond
-                   ((and (string= name "display")
-                         (string= (cdr x) "inline"))
-                    "")
-                   ((string-match-p exclude-regex name) "")
-                   (t (concat " " name "=\"" (cdr x) "\"")))))
-              (mapconcat (cadr xml))))
-           (childs (mapconcat
-                    #'t--mathml-to-oneline (cddr xml))))
-      (format "<%s%s>%s</%s>"
-              tag props childs tag))))
-
-(defun t--reformat-mathml (str)
-  "Reformat the given MathML STR into a one-line XML string.
-
-In the MathML returned by MathJax, there are some attribute
-values that are not particularly useful for browser rendering
-and need to be removed."
-  (with-work-buffer
-    (insert str) (goto-char (point-min))
-    (let ((xml (xml-parse-tag)))
-      (t--mathml-to-oneline xml))))
-
-;; FIXME: Test needed.
-(defun t--normalize-latex (frag)
-  "Normalize LaTeX fragments in the given string FRAG.
-
-This function processes LaTeX fragments and environments in the
-input string, converting inline and block LaTeX ($.$ and $$.$$)
-to \\(.\\) and \\\\=[.\\\\=].
-
-The code for this function is from `org-format-latex'."
-  (let* ((math-regexp
-          "\\$\\|\\\\[([]\\|^[ \t]*\\\\begin{[A-Za-z0-9*]+}"))
-    (org-export-with-buffer-copy
-     :to-buffer (get-buffer-create " *Org HTML Export LaTeX*")
-     :drop-visibility t :drop-narrowing t :drop-contents t
-     (erase-buffer)
-     (insert frag)
-     (goto-char (point-min))
-     (while (re-search-forward math-regexp nil t)
-       (let* ((context (org-element-context))
-              (type (org-element-type context)))
-         (when (memq type '(latex-environment latex-fragment))
-           (let ((value (org-element-property :value context))
-                 (beg (org-element-begin context))
-                 (end (save-excursion
-                        (goto-char (org-element-end context))
-                        (skip-chars-backward " \r\t\n")
-                        (point))))
-             (if (not (string-match "\\`\\$\\$?" value))
-                 (goto-char end)
-               (delete-region beg end)
-               (if (string= (match-string 0 value) "$$")
-                   (insert "\\[" (substring value 2 -2) "\\]")
-                 (insert "\\(" (substring value 1 -1) "\\)")))))))
-     (t--trim (buffer-string)))))
-
-(defun t-format-latex (frag type _info)
-  "Format a LaTeX fragment LATEX-FRAG into HTML.
-TYPE designates the tool used for conversion.  It can
-be `mathjax', `mathml' or `nil'(do nothing)."
-  (if (null type) frag
-    (let ((new-frag (t--normalize-latex frag)))
-      (pcase type
-        (`mathjax new-frag)
-        ;; FIXME: Check if rpc server is available
-        (`mathml (t--jstools-call 'tex2mml frag))
-        (_ (error "Unknown Latex export type: %s" type))))))
-
-;;;; Latex Fragment
-(defun t-latex-fragment (latex-fragment _contents info)
-  "Transcode a LATEX-FRAGMENT object from Org to HTML."
-  (let* ((frag (org-element-property :value latex-fragment))
-         (type (plist-get info :with-latex))
-         (result (t-format-latex frag type info)))
-    (if (eq type 'mathml) (t--reformat-mathml result)
-      result)))
-
-;;;; Latex Environment
-;; FIXME: Consider #+name and #+attr_*, and something else.
-(defun t-latex-environment (latex-environment _contents info)
-  "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
-  (let* ((type (plist-get info :with-latex))
-         (frag (org-remove-indentation
-                (org-element-property :value latex-environment)))
-         (result (t-format-latex frag type info)))
-    (if (eq type 'mathml) (t--reformat-mathml result)
-      result)))
 
 ;;;; src-block export backend
 

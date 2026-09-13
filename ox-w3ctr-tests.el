@@ -2422,26 +2422,62 @@ int a = 1;</code></p>\n</details>")
         (format "<style>\n%s\n</style>\n" t-style-file))
     ($l t-style (format "<style>\n%s\n</style>\n" t-style-file))))
 
+(ert-deftest t--normalize-latex ()
+  "Tests for `org-w3ctr--normalize-latex'."
+  ($l (t--normalize-latex "$x$") "\\(x\\)")
+  ($l (t--normalize-latex "$$x$$") "\\[x\\]")
+  ($l (t--normalize-latex "\\(x\\)") "\\(x\\)")
+  ($l (t--normalize-latex "\\[x\\]") "\\[x\\]")
+  ($l (t--normalize-latex "a $x$ b") "a \\(x\\) b")
+  ($l (t--normalize-latex "\\begin{equation}\nx=1\n\\end{equation}")
+      "\\begin{equation}\nx=1\n\\end{equation}"))
+
+(ert-deftest t--format-latex ()
+  "Tests for `org-w3ctr--format-latex'."
+  ($l (t--format-latex "$x$" nil nil) "$x$")
+  ($l (t--format-latex "$x$" 'verbatim nil) "$x$")
+  ($l (t--format-latex "$x$" 'mathjax nil) "\\(x\\)")
+  (let ((info '(:html-math-custom-render-function
+                (lambda (f _i) (format "<M>%s</M>" f)))))
+    ($l (t--format-latex "$x$" 'custom info) "<M>$x$</M>"))
+  ($e! (t--format-latex "$x$" 'bogus nil)))
+
+(ert-deftest t-math-head-default-function ()
+  "Tests for `org-w3ctr-math-head-default-function'."
+  ($l (t-math-head-default-function '(:with-latex nil)) "")
+  ($l (t-math-head-default-function '(:with-latex verbatim)) "")
+  ($l (t-math-head-default-function '(:with-latex mathml-by-mathjax)) "")
+  ($l (t-math-head-default-function
+       '(:with-latex mathjax :html-mathjax-config "JX"))
+      "JX"))
+
 (ert-deftest t--build-math-config ()
-  "Test `t--build-math-config' function."
-  (let ((info '( :with-latex nil)))
-    ($l (t--build-math-config info) ""))
-  (let ((info '( :with-latex mathjax
-                 :html-mathjax-config "mathjax")))
-    ($l (t--build-math-config info) "mathjax\n"))
-  (let ((info '( :with-latex mathml
-                 :html-mathml-config "mathml")))
-    ($l (t--build-math-config info) "mathml\n"))
-  (let ((info '(:with-latex invalid)))
-    ($e! (t--build-math-config info)))
-  (let ((info '( :with-latex custom
-                 :html-math-custom-function
-                 (lambda (_i) "test"))))
-    ($l (t--build-math-config info) "test\n"))
-  (let ((info '( :with-latex custom
-                 :html-math-custom-function
-                 t-math-custom-default-function)))
-    ($l (t--build-math-config info) "")))
+  "Tests for `org-w3ctr--build-math-config'."
+  (let ((f '(:html-math-head-function t-math-head-default-function)))
+    ($l (t--build-math-config (append f '(:with-latex nil))) "")
+    ($l (t--build-math-config
+         (append f '(:with-latex mathjax :html-mathjax-config "JX")))
+        "JX")
+    ($l (t--build-math-config
+         '(:with-latex custom :html-math-head-function (lambda (_i) "H")))
+        "H")))
+
+(ert-deftest t-latex-fragment ()
+  "Tests for `org-w3ctr-latex-fragment'."
+  ;; NB: for `verbatim', Org expands the fragment itself (ox.el) and
+  ;; never calls the back-end transcoder, so only `mathjax' is tested.
+  (t-check-element-values
+   #'t-latex-fragment
+   '(("$x^2$" "\\(x^2\\)"))
+   nil '(:with-latex mathjax)))
+
+(ert-deftest t-latex-environment ()
+  "Tests for `org-w3ctr-latex-environment'."
+  (t-check-element-values
+   #'t-latex-environment
+   '(("\\begin{equation}\nx=1\n\\end{equation}"
+      "\\begin{equation}\nx=1\n\\end{equation}"))
+   nil '(:with-latex mathjax)))
 
 (ert-deftest t--use-default-style-p ()
   "Tests for `org-w3ctr--use-default-styple-p'."
