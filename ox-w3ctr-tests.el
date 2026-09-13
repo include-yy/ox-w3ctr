@@ -2446,6 +2446,8 @@ int a = 1;</code></p>\n</details>")
   ($l (t-math-head-default-function '(:with-latex nil)) "")
   ($l (t-math-head-default-function '(:with-latex verbatim)) "")
   ($l (t-math-head-default-function '(:with-latex mathml-by-mathjax)) "")
+  ($l (t-math-head-default-function '(:with-latex svg-by-mathjax))
+      t-svg-math-style)
   ($l (t-math-head-default-function
        '(:with-latex mathjax :html-mathjax-config "JX"))
       "JX"))

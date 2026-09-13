@@ -604,12 +604,14 @@ The value specifies the rendering method:
 - `verbatim'         : Keep raw fragment
 - `mathjax'          : Render math using MathJax (client-side)
 - `mathml-by-mathjax': Convert to MathML markup using MathJax
+- `svg-by-mathjax'   : Convert to inline SVG using MathJax
 - `custom'           : Use custom option and function"
   :group 'org-export-w3ctr
   :type '(choice
           (const :tag "Keep raw fragment" verbatim)
           (const :tag "Use MathJax to display math" mathjax)
           (const :tag "Use MathJax to render mathML" mathml-by-mathjax)
+          (const :tag "Use MathJax to render SVG" svg-by-mathjax)
           (const :tag "Use custom method" custom)))
 
 (defcustom t-mathjax-config "\
@@ -3180,13 +3182,23 @@ the file."
 ;; - :html-math-custom-render-function
 ;; (`org-w3ctr-math-custom-default-render-function')
 
+(defconst t-svg-math-style "\
+<style>
+.math-display { display: block; text-align: center; margin: 1em 0; }
+</style>
+"
+  "Style for display math produced by `svg-by-mathjax'.")
+
 (defun t-math-head-default-function (info)
   "Default value for `org-w3ctr-math-head-function'.
-Return the MathJax script for `mathjax' mode, nothing otherwise."
+Return the MathJax script for `mathjax' mode, the display-math style
+for `svg-by-mathjax' mode, nothing otherwise."
   (declare (ftype (function (list) string))
            (important-return-value t))
-  (if (not (eq (t--pget info :with-latex) 'mathjax)) ""
-    (t--pget info :html-mathjax-config)))
+  (pcase (t--pget info :with-latex)
+    (`mathjax (t--pget info :html-mathjax-config))
+    (`svg-by-mathjax t-svg-math-style)
+    (_ "")))
 
 (defun t--build-math-config (info)
   "Return the math setup to insert into <head>."
@@ -4065,6 +4077,8 @@ MODE is the value of `:with-latex'; INFO is the export state."
     (`mathjax (t--normalize-latex frag))
     (`mathml-by-mathjax
      (t--jstools-call 'tex2mml (t--normalize-latex frag)))
+    (`svg-by-mathjax
+     (t--jstools-call 'tex2svg (t--normalize-latex frag)))
     (`custom
      (funcall (t--pget info :html-math-custom-render-function) frag info))
     (o (error "Unknown LaTeX mode: %s" o))))

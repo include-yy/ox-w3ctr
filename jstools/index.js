@@ -45,8 +45,10 @@ touch()
 // `ui/safe` filters the HTML attributes that TeX macros can inject.  Without
 // it, the `html` extension (auto-loaded on demand) lets `\href{javascript:...}`
 // and friends through unfiltered.
+// `output/svg` is what creates `tex2svg' / `tex2svgPromise'; `tex2mml' is
+// available regardless of the output jax.
 const mathjax = await Mathjax.init({
-    loader: { load: ['input/tex', 'ui/safe', 'adaptors/liteDOM'] }
+    loader: { load: ['input/tex', 'output/svg', 'ui/safe', 'adaptors/liteDOM'] }
 })
 
 // MathJax expects bare TeX, but ox-w3ctr hands over a whole fragment with its
@@ -79,6 +81,27 @@ const tex2mml = async (fragment) => {
     return stripNoise(mml)
 }
 
+const escapeAttr = (s) => s
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+
+// MathJax wraps the SVG in a non-standard <mjx-container>, which would fail HTML
+// validation, so keep only the <svg>.  Drop the `data-latex` annotations and
+// give the image an accessible name.  Display math gets a phrasing wrapper
+// (`.math-display'), so it stays valid inside a <p>.
+const tex2svg = async (fragment) => {
+    const { tex, display } = unwrap(fragment)
+    const node = await mathjax.tex2svgPromise(tex, { display })
+    const label = escapeAttr(tex.replace(/\s+/g, ' ').trim())
+    const svg = mathjax.startup.adaptor.outerHTML(node)
+        .replace(/^<mjx-container\b[^>]*>/, '')
+        .replace(/<\/mjx-container>$/, '')
+        .replace(/\s+data-latex(?:-item)?="[^"]*"/g, '')
+        .replace(/^<svg /, `<svg aria-label="${label}" `)
+    return display ? `<span class="math-display">${svg}</span>` : svg
+}
+
 // ---------------------------------------------------------------------------
 // RPC
 // ---------------------------------------------------------------------------
@@ -89,6 +112,7 @@ const tex2mml = async (fragment) => {
 const server = new JSONRPCServer({ errorListener: () => {} })
 
 server.addMethod('tex2mml', tex2mml)
+server.addMethod('tex2svg', tex2svg)
 server.addMethod('echo', ({ text }) => text)
 server.addMethod('add', ([a, b]) => a + b)
 
