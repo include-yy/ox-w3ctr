@@ -2157,14 +2157,6 @@ CONTENTS is verse block contents."
            (pure t) (important-return-value t))
   "<br>\n")
 
-;; FIXME: Consider remove it.
-(defun t--anchor (id desc attributes _info)
-  "Format a HTML anchor."
-  (let* ((attributes
-          (concat (and id (format " id=\"%s\"" id))
-                  attributes)))
-    (format "<a%s>%s</a>" attributes (or desc ""))))
-
 ;;;; Target
 ;; See (info "(org)Internal Links")
 ;; Fixed export. Not customizable.
