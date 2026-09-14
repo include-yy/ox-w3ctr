@@ -929,7 +929,18 @@ int a = 1;</code></p>\n</details>")
      ("[[file:1.jpg]]" "<figure>\n<img src=\"1.jpg\" alt=\"1.jpg\"></figure>")
      ("[[./1.png][name]]" "<p><a href=\"./1.png\">name</a></p>")
      ("[[https://example.com/1.jpg][file:1.jpg]]"
-      "<figure>\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))))
+      "<figure>\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>")
+     ;; `:attr_html' applies to the image element, not the figure
+     ("#+attr_html: :class foo\n[[./1.png]]"
+      "<figure>\n<img src=\"./1.png\" alt=\"1.png\" class=\"foo\"></figure>")
+     ("#+attr_html: :class foo\n[[https://example.com/1.jpg][file:1.jpg]]"
+      "<figure>\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\" class=\"foo\"></a></figure>")
+     ;; in a non-standalone paragraph `:attr_html' stays on the <p>
+     ("#+attr_html: :class foo\n[[./1.png]] [[./2.png]]"
+      "<p class=\"foo\"><img src=\"./1.png\" alt=\"1.png\"> <img src=\"./2.png\" alt=\"2.png\"></p>")
+     ;; `:attr__' applies to the figure
+     ("#+attr__: [bar]\n[[https://example.com/1.jpg][file:1.jpg]]"
+      "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))))
 
 (ert-deftest t-paragraph-filter ()
   "Tests for `org-w3ctr-paragraph-filter'."
@@ -2873,6 +2884,98 @@ int a = 1;</code></p>\n</details>")
                       'table-cell #'identity)))
       ($n (t--table-cell-align (car cells) info))
       ($n (t--table-cell-align (cadr cells) info)))))
+
+(ert-deftest t-inline-image-p ()
+  "Tests for `org-w3ctr-inline-image-p'."
+  (let* ((info '(:html-inline-image-rules (("file" . "\\.png\\'"))))
+         (p (lambda (s)
+             (with-temp-buffer
+               (org-mode)
+               (insert s)
+               (org-w3ctr-inline-image-p
+                (car (org-element-map (org-element-parse-buffer)
+                         'link #'identity))
+                info)))))
+    ($s (funcall p "[[file:img.png]]"))
+    ($n (funcall p "[[https://example.com][ ]]"))
+    ($n (funcall p "[[https://example.com][  x  ]]"))
+    ($n (funcall p "[[https://example.com][]]"))
+    ;; Description = white space + exactly one image link.
+    ($s (with-temp-buffer
+          (org-mode)
+          (insert "[[https://example.com][file:img.png]]")
+          (let ((tree (org-element-parse-buffer)))
+            (org-export-insert-image-links
+             tree info org-w3ctr-inline-image-rules)
+            (let ((link (car (org-element-map tree 'link #'identity))))
+              (org-element-set-contents
+               link (cons " " (org-element-contents link)))
+              (org-w3ctr-inline-image-p link info)))))))
+
+(ert-deftest t--link-org-files-as-html ()
+  "Tests for `org-w3ctr--link-org-files-as-html'."
+  (let ((info '(:html-link-org-files-as-html t :html-extension "html")))
+    ($l (t--link-org-files-as-html "foo.org" info) "foo.html")
+    ($l (t--link-org-files-as-html "dir/foo.org" info) "dir/foo.html")
+    ($l (t--link-org-files-as-html "foo.txt" info) "foo.txt"))
+  ($l (t--link-org-files-as-html
+       "foo.org" '(:html-link-org-files-as-html nil :html-extension "html"))
+      "foo.org"))
+
+(ert-deftest t--link-external ()
+  "Tests for `org-w3ctr--link-external'."
+  ($l (t--link-external "https://example.com" "desc" "")
+      "<a href=\"https://example.com\">desc</a>")
+  ($l (t--link-external "https://example.com" nil "")
+      "<a href=\"https://example.com\">https://example.com</a>"))
+
+(ert-deftest t-link ()
+  "Tests for `org-w3ctr-link'."
+  (t-check-element-values
+   #'t-link
+   '(("[[https://example.com][desc]]"
+      "<a href=\"https://example.com\">desc</a>")
+     ("[[https://example.com]]"
+      "<a href=\"https://example.com\">https://example.com</a>")
+     ("[[file:other.org][other]]"
+      "<a href=\"other.html\">other</a>")
+     ("[[file:img.png]]"
+      "<img src=\"img.png\" alt=\"img.png\">")
+     ;; Fuzzy link to a headline.
+     ("* Head\n\nSee [[*Head]]."
+      "<a href=\"#orgnh-1\">1</a>")
+     ;; Custom ID link to a headline.
+     ("* Head\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n\nSee [[#custom]]."
+      "<a href=\"#custom\">1</a>")
+     ;; Fuzzy link to a target.
+     ("A <<foo>> target. See [[foo]]."
+      "<a href=\"#foo\">No description for this link</a>")
+     ;; Fuzzy link to a named element.
+     ("#+name: tab\n| a |\n\nSee [[tab]]."
+      "<a href=\"#tab\">No description for this link</a>")
+     ;; Radio target link.
+     ("<<<radio>>>\n\nSee radio here."
+      "<a href=\"#radio\">radio</a>"))
+   t '(:with-latex verbatim)))
+
+(ert-deftest t--link-equation ()
+  "Tests for `org-w3ctr--link-equation'."
+  (t-check-element-values
+   #'t-link
+   '(("#+name: eq\n\\begin{equation}\nx=1\n\\end{equation}\n\nSee [[eq]]."
+      "\\eqref{eq}"))
+   t '(:with-latex mathjax)))
+
+(ert-deftest t-inline-image-path-regexp ()
+  "Tests for `org-w3ctr-inline-image-path-regexp'."
+  (let ((case-fold-search t))
+    (dolist (p '("img.png" "img.PNG" "img.jpeg" "img.jpg" "img.jfif"
+                 "img.gif" "img.svg" "img.webp" "img.avif" "img.jxl"
+                 "img.bmp" "img.ico" "img.apng"
+                 "img.png?x=1" "img.png#frag"))
+      ($s (string-match-p t-inline-image-path-regexp p)))
+    (dolist (p '("img.png.txt" "img.tiff" "img.heic" "img.jp2"))
+      ($n (string-match-p t-inline-image-path-regexp p)))))
 
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-") ("$" . "org-w3ctr:test-"))
