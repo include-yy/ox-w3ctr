@@ -209,15 +209,21 @@
     (:html-math-head-function nil nil t-math-head-function)
     ( :html-math-custom-render-function nil nil
       t-math-custom-render-function)
-    (:html-equation-reference-format "HTML_EQUATION_REFERENCE_FORMAT"
-     nil t-equation-reference-format)
-    ;; Unarranged
-    ;; FIXME: Reformat whole info options
-
-    ;; footnote options
+    ;; Link
+    ( :html-equation-reference-format "HTML_EQUATION_REFERENCE_FORMAT"
+      nil t-equation-reference-format)
+    (:html-inline-image-rules nil nil t-inline-image-rules)
+    (:html-link-org-files-as-html nil nil t-link-org-files-as-html)
+    (:html-inline-images nil nil t-inline-images)
+    ;; Footnote
     (:html-footnote-format nil nil t-footnote-format)
     (:html-footnote-separator nil nil t-footnote-separator)
     (:html-footnotes-section nil nil t-footnotes-section)
+    (:html-footnote-section-function nil nil t-footnote-section-function)
+
+    ;; Unarranged
+    ;; FIXME: Reformat whole info options
+    ;; footnote options
     ;; <yy> aux counter for unnumbered headline
     (:html-headline-cnt nil nil 0)
     ;; <yy> zeroth section's toc title name
@@ -227,9 +233,6 @@
     ;; misc options -----------------------------
     (:html-extension nil nil t-extension)
     (:html-indent nil nil t-indent)
-    (:html-inline-image-rules nil nil t-inline-image-rules)
-    (:html-link-org-files-as-html nil nil t-link-org-files-as-html)
-    (:html-inline-images nil nil t-inline-images)
     ))
 
 ;;; User Configuration Variables.
@@ -851,37 +854,8 @@ See `org-w3ctr-preamble' for more information."
 When nil, also column one will use data tags."
   :group 'org-export-w3ctr
   :type 'boolean)
-
-(defcustom t-indent nil
-  "Non-nil means to indent the generated HTML.
-Warning: non-nil may break indentation of source code blocks."
-  :group 'org-export-w3ctr
-  :type 'boolean)
 
-;;;; Footnotes
-
-(defcustom t-footnotes-section "<div id=\"references\">
-<h2>%s</h2>
-<dl>%s</dl>\n</div>\n"
-  "Format for the footnotes section.
-Should contain a two instances of %s.  The first will be replaced with the
-language-specific word for \"Footnotes\", the second one will be replaced
-by the footnotes themselves."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-footnote-format "[%s]"
-  "The format for the footnote reference.
-%s will be replaced by the footnote reference itself."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-footnote-separator ", "
-  "Text used to separate footnotes."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-;;;; Links :: Generic
+;;;; Links
 
 (defcustom t-link-org-files-as-html t
   "Non-nil means make file links to \"file.org\" point to \"file.html\".
@@ -890,8 +864,6 @@ When nil, the links still point to the plain \".org\" file.
 See `org-html-link-org-files-as-html' for more information."
   :group 'org-export-w3ctr
   :type 'boolean)
-
-;;;; Links :: Inline images
 
 (defcustom t-inline-images t
   "Non-nil means inline images into exported HTML pages.
@@ -925,6 +897,45 @@ for an image.")
 See `org-html-inline-image-rules' for more information."
   :group 'org-export-w3ctr
   :type 'sexp)
+
+;;;; Footnotes
+
+(defcustom t-footnotes-section "<div id=\"references\">
+<h2>%s</h2>
+<dl>%s</dl>\n</div>\n"
+  "Format for the footnotes section.
+Should contain two instances of %s.  The first will be replaced with the
+section heading (e.g. \"References\"), the second one with the footnote
+definitions themselves."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-footnote-format "[%s]"
+  "The format for the footnote reference.
+%s will be replaced by the footnote reference itself."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-footnote-section-function #'t-footnote-section-default-function
+  "Function used to build the footnotes section.
+
+It is called with the list of footnote definitions, as returned by
+`org-export-collect-footnote-definitions', and INFO; it should return
+the complete HTML for the section.  See
+`org-w3ctr-footnote-section-default-function' for an example."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+(defcustom t-footnote-separator ", "
+  "Text used to separate footnotes."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-indent nil
+  "Non-nil means to indent the generated HTML.
+Warning: non-nil may break indentation of source code blocks."
+  :group 'org-export-w3ctr
+  :type 'boolean)
 
 ;;;; Src Block
 
@@ -4131,6 +4142,8 @@ MODE is the value of `:with-latex'; INFO is the export state."
    (t--pget info :with-latex) info))
 
 ;;;; Link
+;; Options:
+;; - :html-equation-reference-format (`org-w3ctr-equation-reference-format')
 
 (defun t-image-link-filter (data _backend info)
   "Process image links that are inside descriptions.
@@ -4503,43 +4516,72 @@ INFO is a plist holding contextual information.  See
 
 ;;;; Footnote
 
+(defun t--footnote-key (label n)
+  "Return the key of a footnote with LABEL and number N.
+A nil or purely numeric LABEL is ignored, so that `[fn:1]' and an
+anonymous footnote do not share a key."
+  (declare (ftype (function ((or null string) integer) (or string integer)))
+           (pure t) (important-return-value t))
+  (if (and label (not (string-match-p "\\`[0-9]+\\'" label)))
+      label n))
+
+(defun t--footnote-id (label n)
+  "Return the HTML id for a footnote with LABEL and number N."
+  (declare (ftype (function ((or null string) integer) string))
+           (pure t) (important-return-value t))
+  (format "fn-%s" (t--footnote-key label n)))
+
 (defun t-footnote-reference (footnote-reference _contents info)
-  "Transcode a FOOTNOTE-REFERENCE element from Org to HTML.
+  "Transcode a FOOTNOTE-REFERENCE object from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual information."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
   (concat
    ;; Insert separator between two footnotes in a row.
    (let ((prev (org-export-get-previous-element footnote-reference info)))
-     (when (eq (org-element-type prev) 'footnote-reference)
-       (plist-get info :html-footnote-separator)))
-   (let* ((n (org-export-get-footnote-number footnote-reference info))
-          (label (org-element-property :label footnote-reference)))
-     (t--anchor
-      nil (format (plist-get info :html-footnote-format) (or label n))
-      (format " href=\"#fn.%d\" aria-label=\"reference to %s\"" n label) info))))
+     (when (org-element-type-p prev 'footnote-reference)
+       (t--pget info :html-footnote-separator)))
+   (let* ((label (org-element-property :label footnote-reference))
+          (n (org-export-get-footnote-number footnote-reference info)))
+     (format (t--pget info :html-footnote-format)
+             (format "<a href=\"#%s\">%s</a>"
+                     (t--footnote-id label n)
+                     (t--footnote-key label n))))))
+
+(defun t--footnote-definition (definition info)
+  "Format a footnote DEFINITION.
+DEFINITION is a (NUMBER LABEL DEF) tuple, as returned by
+`org-export-collect-footnote-definitions'.  INFO is the export
+state."
+  (declare (ftype (function (list list) string))
+           (important-return-value t))
+  (pcase-let ((`(,n ,label ,def) definition))
+    (format "<dt id=\"%s\">%s</dt>\n<dd>\n%s\n</dd>"
+            (t--footnote-id label n)
+            (format (t--pget info :html-footnote-format)
+                    (t--footnote-key label n))
+            (t--trim (org-export-data def info)))))
+
+(defun t-footnote-section-default-function (definitions info)
+  "Default function to build the footnotes section.
+DEFINITIONS is the list returned by
+`org-export-collect-footnote-definitions'.  INFO is the export
+state."
+  (declare (ftype (function (list list) string))
+           (important-return-value t))
+  (format (t--pget info :html-footnotes-section)
+          "References"
+          (format "\n%s\n"
+                  (mapconcat (lambda (d) (t--footnote-definition d info))
+                             definitions "\n"))))
 
 (defun t-footnote-section (info)
   "Format the footnote section.
 INFO is a plist used as a communication channel."
-  (pcase (org-export-collect-footnote-definitions info)
-    (`nil nil)
-    (definitions
-     (format
-      (plist-get info :html-footnotes-section)
-      "References"
-      (format
-       "\n%s\n"
-       (mapconcat
-        (lambda (definition)
-          (pcase definition
-            (`(,n ,label ,def)
-             (let* ((dt (format (plist-get info :html-footnote-format)
-                                (or label n)))
-                    (id (format "fn.%d" n))
-                    (contents (org-trim (org-export-data def info))))
-               (format "<dt id=\"%s\">%s</dt>\n<dd>\n%s\n</dd>"
-                       id dt contents)))))
-        definitions
-        "\n"))))))
+  (declare (ftype (function (list) t))
+           (important-return-value t))
+  (when-let* ((definitions (org-export-collect-footnote-definitions info)))
+    (funcall (t--pget info :html-footnote-section-function) definitions info)))
 
 ;;;; Source block
 
