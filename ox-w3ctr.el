@@ -4501,42 +4501,47 @@ INFO is a plist holding contextual information.  See
      (t
       (format "<i>%s</i>" desc)))))
 
-;;;; Special Block
-;; FIXME
-;; See (info "(org)HTML doctypes")
-(defconst t-html5-elements
-  '("article" "aside" "audio" "canvas" "details" "figcaption"
-    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
-    "output" "progress" "section" "summary" "video")
-  "Elements in html5.
+;;;; Footnote
 
-For blocks that should contain headlines, use the HTML_CONTAINER
-property on the headline itself.")
+(defun t-footnote-reference (footnote-reference _contents info)
+  "Transcode a FOOTNOTE-REFERENCE element from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information."
+  (concat
+   ;; Insert separator between two footnotes in a row.
+   (let ((prev (org-export-get-previous-element footnote-reference info)))
+     (when (eq (org-element-type prev) 'footnote-reference)
+       (plist-get info :html-footnote-separator)))
+   (let* ((n (org-export-get-footnote-number footnote-reference info))
+          (label (org-element-property :label footnote-reference)))
+     (t--anchor
+      nil (format (plist-get info :html-footnote-format) (or label n))
+      (format " href=\"#fn.%d\" aria-label=\"reference to %s\"" n label) info))))
 
-(defun t-special-block (special-block contents info)
-  "Transcode a SPECIAL-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information."
-  (let* ((block-type (org-element-property :type special-block))
-         (html5-fancy (member block-type t-html5-elements))
-         (attributes (org-export-read-attribute :attr_html special-block)))
-    (unless html5-fancy
-      (let ((class (plist-get attributes :class)))
-        (setq attributes (plist-put attributes :class
-                                    (if class (concat class " " block-type)
-                                      block-type)))))
-    (let* ((contents (or contents ""))
-           (reference (t--reference special-block info t))
-           (a (t--make-attribute-string
-               (if (or (not reference) (plist-member attributes :id))
-                   attributes
-                 (plist-put attributes :id reference))))
-           (str (if (org-string-nw-p a) (concat " " a) "")))
-      (if html5-fancy
-          (format "<%s%s>\n%s</%s>" block-type str contents block-type)
-        (format "<div%s>\n%s\n</div>" str contents)))))
+(defun t-footnote-section (info)
+  "Format the footnote section.
+INFO is a plist used as a communication channel."
+  (pcase (org-export-collect-footnote-definitions info)
+    (`nil nil)
+    (definitions
+     (format
+      (plist-get info :html-footnotes-section)
+      "References"
+      (format
+       "\n%s\n"
+       (mapconcat
+        (lambda (definition)
+          (pcase definition
+            (`(,n ,label ,def)
+             (let* ((dt (format (plist-get info :html-footnote-format)
+                                (or label n)))
+                    (id (format "fn.%d" n))
+                    (contents (org-trim (org-export-data def info))))
+               (format "<dt id=\"%s\">%s</dt>\n<dd>\n%s\n</dd>"
+                       id dt contents)))))
+        definitions
+        "\n"))))))
 
-;;;; src-block export backend
+;;;; Source block
 
 ;; engrave src-block render code is steal from engrave-faces.el
 ;; see https://github.com/tecosaur/engrave-faces
@@ -4728,45 +4733,40 @@ contextual information."
             (if (not lbl) "" (format " id=\"%s\"" lbl)))))
     (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
 
-;;;; Footnote Reference
+;;;; Special Block
+;; FIXME
+;; See (info "(org)HTML doctypes")
+(defconst t-html5-elements
+  '("article" "aside" "audio" "canvas" "details" "figcaption"
+    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
+    "output" "progress" "section" "summary" "video")
+  "Elements in html5.
 
-(defun t-footnote-reference (footnote-reference _contents info)
-  "Transcode a FOOTNOTE-REFERENCE element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (concat
-   ;; Insert separator between two footnotes in a row.
-   (let ((prev (org-export-get-previous-element footnote-reference info)))
-     (when (eq (org-element-type prev) 'footnote-reference)
-       (plist-get info :html-footnote-separator)))
-   (let* ((n (org-export-get-footnote-number footnote-reference info))
-          (label (org-element-property :label footnote-reference)))
-     (t--anchor
-      nil (format (plist-get info :html-footnote-format) (or label n))
-      (format " href=\"#fn.%d\" aria-label=\"reference to %s\"" n label) info))))
+For blocks that should contain headlines, use the HTML_CONTAINER
+property on the headline itself.")
 
-(defun t-footnote-section (info)
-  "Format the footnote section.
-INFO is a plist used as a communication channel."
-  (pcase (org-export-collect-footnote-definitions info)
-    (`nil nil)
-    (definitions
-     (format
-      (plist-get info :html-footnotes-section)
-      "References"
-      (format
-       "\n%s\n"
-       (mapconcat
-        (lambda (definition)
-          (pcase definition
-            (`(,n ,label ,def)
-             (let* ((dt (format (plist-get info :html-footnote-format)
-                                (or label n)))
-                    (id (format "fn.%d" n))
-                    (contents (org-trim (org-export-data def info))))
-               (format "<dt id=\"%s\">%s</dt>\n<dd>\n%s\n</dd>"
-                       id dt contents)))))
-        definitions
-        "\n"))))))
+(defun t-special-block (special-block contents info)
+  "Transcode a SPECIAL-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the block.  INFO is a plist
+holding contextual information."
+  (let* ((block-type (org-element-property :type special-block))
+         (html5-fancy (member block-type t-html5-elements))
+         (attributes (org-export-read-attribute :attr_html special-block)))
+    (unless html5-fancy
+      (let ((class (plist-get attributes :class)))
+        (setq attributes (plist-put attributes :class
+                                    (if class (concat class " " block-type)
+                                      block-type)))))
+    (let* ((contents (or contents ""))
+           (reference (t--reference special-block info t))
+           (a (t--make-attribute-string
+               (if (or (not reference) (plist-member attributes :id))
+                   attributes
+                 (plist-put attributes :id reference))))
+           (str (if (org-string-nw-p a) (concat " " a) "")))
+      (if html5-fancy
+          (format "<%s%s>\n%s</%s>" block-type str contents block-type)
+        (format "<div%s>\n%s\n</div>" str contents)))))
 
 ;;; Filter Functions
 (defun t-final-function (contents _backend info)
