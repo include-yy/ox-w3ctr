@@ -50,7 +50,7 @@
 (require 'table)
 (require 'shortdoc)
 
-;;;; Fundmental utilities
+;;;; Fundamental utilities
 (defconst t-version "0.2.6"
   "The current version string of the ox-w3ctr package.")
 
@@ -1713,7 +1713,7 @@ function returns nil."
         (setq pos (match-end 0)))
       (nreverse matches))))
 
-;;; Greater elements (11 - 3 - 2 = 6).
+;;; Greater elements
 ;; special-block and table are not here.
 
 ;;;; Center Block
@@ -1902,7 +1902,7 @@ CONTENTS holds the contents of the block."
           (t--make-attr__id* quote-block info t)
           (t--prepend-newline contents)))
 
-;;; Lesser elements (17 - 7 - 3 = 7)
+;;; Lesser elements
 ;; latex-environment, src-block, and table-row are not here.
 
 ;;;; Example Block
@@ -2070,7 +2070,7 @@ CONTENTS is verse block contents."
     (let* ((re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote "<br>"))))
       (replace-regexp-in-string re "<br>\n" (or contents ""))))))
 
-;;; Objects (25 - 4 - 5 - 7 = 9)
+;;; Objects
 ;; footnote-reference, inline-src-block are not here.
 ;; latex-fragment, link and table-cell are not here.
 ;; timestamp is not here.
@@ -2163,7 +2163,7 @@ information."
            (pure t) (important-return-value t))
   (format "<sup>%s</sup>" contents))
 
-;;; Smallest objects (7)
+;;; Smallest objects
 ;; See (info "(org) Emphasis and Monospace")
 ;; Options:
 ;; - :html-text-markup-alist (`org-w3ctr-text-markup-alist')
@@ -3758,13 +3758,13 @@ VALUE determines the type of list to generate:
       (let ((depth (and (string-match "\\<[0-9]+\\>" value)
                         (string-to-number (match-string 0 value))))
             (scope
-	     (cond
+             (cond
               ;; link
-	      ((string-match ":target +\\(\".+?\"\\|\\S-+\\)" value)
-	       (org-export-resolve-link
-		(org-strip-quotes (match-string 1 value)) info))
+              ((string-match ":target +\\(\".+?\"\\|\\S-+\\)" value)
+               (org-export-resolve-link
+                (org-strip-quotes (match-string 1 value)) info))
               ;; local headline
-	      ((string-match-p "\\<local\\>" value) keyword))))
+              ((string-match-p "\\<local\\>" value) keyword))))
         (t--build-toc depth info scope))))))
 
 ;;;; Template
@@ -3850,6 +3850,7 @@ holding export options."
   (prog1 (t-template-1 contents info)
     (t--oinfo-cleanup)))
 
+;;; Complex elements
 ;;;; Table
 ;; Options:
 ;; - :html-table-use-header-tags-for-first-column
