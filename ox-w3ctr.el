@@ -1745,16 +1745,6 @@ if DATUM's type is not headline, return nil"
             (push (cons newid datum) cache)
             (plist-put info :internal-references cache)
             newid)))))
-
-(defun t--textarea-block (element)
-  "Transcode ELEMENT into a textarea block.
-ELEMENT is either a source or an example block."
-  (let* ((code (car (org-export-unravel-code element)))
-         (attr (org-export-read-attribute :attr_html element)))
-    (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
-            (or (plist-get attr :width) 80)
-            (or (plist-get attr :height) (org-count-lines code))
-            code)))
 
 ;;; Greater elements (11 - 3 - 2 = 6).
 ;; special-block and table are not here.
@@ -4575,32 +4565,36 @@ INFO is a plist used as a communication channel."
   (when-let* ((definitions (org-export-collect-footnote-definitions info)))
     (funcall (t--pget info :html-footnote-section-function) definitions info)))
 
-;;;; Source block
+;;;; Engrave-faces subset
 
-;; engrave src-block render code is steal from engrave-faces.el
-;; see https://github.com/tecosaur/engrave-faces
-;; To get CSS from current or specified theme, use
-;; `engrave-faces-html-gen-stylesheet'
+;; A self-contained subset of engrave-faces.el's HTML backend.
+;; See https://github.com/tecosaur/engrave-faces (v0.3.1,
+;; engrave-faces-html.el + engrave-faces.el).  The CSS for the slugs
+;; below lives in assets/style.css (".ef-*").
+;;
+;; Unlike engrave-faces, there is no inline-style fallback: unknown or
+;; unspecified faces are emitted as plain escaped text; the slug →
+;; colour mapping is the stylesheet's job.
 
-(defun org-w3ctr-faces-buffer (&optional in-buffer out-buffer)
-  "Export the current buffer to HTML and return the output buffer.
-If IN-BUFFER is not nil, use it instead of current buffer.
-If OUT-BUFFER is not nil, it will be the output buffer and return value.
-
-Make sure the current buffer is already fontified with `font-lock-ensure'"
+(defun t--engrave-buffer (&optional in-buffer out-buffer)
+  "Engrave the fontified text of IN-BUFFER into OUT-BUFFER.
+IN-BUFFER defaults to the current buffer; it must already be
+fontified (see `font-lock-ensure').  OUT-BUFFER defaults to a fresh
+\"*html*\" buffer and is returned."
+  (declare (ftype (function (&optional buffer buffer) buffer))
+           (important-return-value t))
   (let ((ibuf (or in-buffer (current-buffer)))
-        (obuf (or out-buffer
-                  (generate-new-buffer "*html*")))
+        (obuf (or out-buffer (generate-new-buffer "*html*")))
         (completed nil))
     (with-current-buffer ibuf
       (unwind-protect
           (let (next-change text)
             (goto-char (point-min))
             (while (not (eobp))
-              (setq next-change (org-w3ctr-faces--next-change (point)))
+              (setq next-change (t--engrave-next-face-change (point)))
               (setq text (buffer-substring-no-properties (point) next-change))
               (when (> (length text) 0)
-                (princ (org-w3ctr-faces-transformer
+                (princ (t--engrave-face-transformer
                         (get-text-property (point) 'face)
                         text)
                        obuf))
@@ -4610,46 +4604,46 @@ Make sure the current buffer is already fontified with `font-lock-ensure'"
         (if out-buffer t (kill-buffer obuf))
       obuf)))
 
-(defun org-w3ctr-faces--next-change (pos &optional limit)
-  "Find the next face change from POS up to LIMIT.
-
-This function is lifted from htmlize.
-This function is lifted from engrave-faces [2024-04-12]"
-  (unless limit
-    (setq limit (point-max)))
+(defun t--engrave-next-face-change (pos &optional limit)
+  "Return the position of the next face change after POS, up to LIMIT.
+Merges text-property and overlay faces, and extends over `display'
+properties.  Lifted from htmlize, via engrave-faces [2024-04-12]."
+  (declare (ftype (function (integer &optional integer) integer))
+           (important-return-value t))
+  (unless limit (setq limit (point-max)))
   (let ((next-prop (next-single-property-change pos 'face nil limit))
-        (overlay-faces (org-w3ctr-faces--overlay-faces-at pos)))
+        (overlay-faces (t--engrave-overlay-faces-at pos)))
     (while (progn
              (setq pos (next-overlay-change pos))
              (and (< pos next-prop)
-                  (equal overlay-faces (org-w3ctr-faces--overlay-faces-at pos)))))
+                  (equal overlay-faces (t--engrave-overlay-faces-at pos)))))
     (setq pos (min pos next-prop))
-    ;; Additionally, we include the entire region that specifies the
-    ;; `display' property.
     (when (get-char-property pos 'display)
       (setq pos (next-single-char-property-change pos 'display nil limit)))
     pos))
 
-(defun org-w3ctr-faces--overlay-faces-at (pos)
+(defun t--engrave-overlay-faces-at (pos)
+  "Return the non-nil `face' values of overlays at POS."
+  (declare (ftype (function (integer) list))
+           (important-return-value t))
   (delq nil (mapcar (lambda (o) (overlay-get o 'face)) (overlays-at pos))))
 
-(defun org-w3ctr-faces-transformer (prop text)
-  "Transform text to HTML code with CSS"
-  (let ((protected-content (org-w3ctr-faces--protect-string text))
-        (style (org-w3ctr-faces-get-style prop)))
-    (if (string-match-p "\\`[\n[:space:]]+\\'" text) protected-content
-      (if (not style) protected-content
-        (concat "<span class=\"ef-"
-                (plist-get (cdr style) :slug) "\">"
-                protected-content "</span>")))))
+(defun t--engrave-face-transformer (prop text)
+  "Transform TEXT with face property PROP into an HTML span.
+Whitespace-only runs and text without a known face are returned
+escaped but unwrapped."
+  (declare (ftype (function (t string) string))
+           (pure t) (important-return-value t))
+  (let ((escaped (t--encode-plain-text text))
+        (style (t--engrave-get-style prop)))
+    (if (or (string-match-p "\\`[\n[:space:]]+\\'" text)
+            (not style))
+        escaped
+      (concat "<span class=\"ef-" (plist-get (cdr style) :slug) "\">"
+              escaped "</span>"))))
 
-(defun org-w3ctr-faces--protect-string (text)
-  (dolist (pair '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;")) text)
-    (setq text (replace-regexp-in-string (car pair) (cdr pair) text t t))))
-
-(defconst org-w3ctr-faces-style-plist
-  '(;; faces.el --- excluding: bold, italic, bold-italic, underline, and some others
-    (default :slug "D")
+(defconst t--engrave-style-plist
+  '(;; faces.el --- excluding bold, italic, bold-italic, underline, …
     (shadow  :slug "h")
     (success :slug "sc")
     (warning :slug "w")
@@ -4671,100 +4665,156 @@ This function is lifted from engrave-faces [2024-04-12]"
     (font-lock-preprocessor-face :slug "pp")
     (font-lock-regexp-grouping-construct :slug "rc")
     (font-lock-regexp-grouping-backslash :slug "rb")
-    ;; font for css
+    ;; css-mode: reuse the function-name / keyword colours.
     (css-property :slug "f")
-    (css-selector :slug "k")
-    ))
+    (css-selector :slug "k"))
+  "Face → slug alist used by the engraving engine.
+A slug is the compact CSS class emitted by `t--engrave-face-transformer';
+the colours live in assets/style.css under \".ef-SLUG\".  `default' is
+deliberately absent: bare (unfaced) text carries a nil face and is
+emitted as plain text, as engrave-faces does.")
 
-(defun org-w3ctr-faces-get-style (prop)
+(defun t--engrave-get-style (prop)
+  "Return the style entry for face property PROP, or nil.
+PROP is a face name, a list of faces, or nil (no face).  A nil PROP
+returns nil, so bare text gets no span."
+  (declare (ftype (function (t) (or null cons)))
+           (pure t) (important-return-value t))
   (cond
    ((null prop) nil)
-   ((listp prop)
-    (assoc (car prop) org-w3ctr-faces-style-plist))
-   (t (assoc prop org-w3ctr-faces-style-plist))))
+   ((listp prop) (assoc (car prop) t--engrave-style-plist))
+   (t (assoc prop t--engrave-style-plist))))
 
-(defun t-faces-fontify-code (code lang)
-  (setq lang (or (assoc-default lang org-src-lang-modes) lang))
-  (let* ((lang-mode (and lang (intern (format "%s-mode" lang)))))
-    (cond
-     ((not (functionp lang-mode))
-      (format "<code class=\"src src-%s\">%s</code>" lang (t--encode-plain-text code)))
-     (t
-      (setq code
-            (let ((inhibit-read-only t))
-              (with-temp-buffer
-                (let ((inbuf (current-buffer)))
-                  (funcall lang-mode)
-                  (insert code)
-                  (font-lock-ensure)
-                  (set-buffer-modified-p nil)
-                  (with-temp-buffer
-                    (org-w3ctr-faces-buffer inbuf (current-buffer))
-                    (buffer-string))))))
-      (format "<code class=\"src src-%s\">%s</code>" lang code)))))
-;;;; Src Code
+;;;; Source block
+
+(defun t--engrave-fontify-code (code lang)
+  "Fontify CODE (a string) in LANG, returning bare fontified HTML.
+The result contains `<span>' runs only, with no wrapper element:
+callers wrap it in `<code>' as appropriate.  When LANG has no
+associated major mode, CODE is returned escaped but uncoloured."
+  (declare (ftype (function (string (or null string)) string))
+           (important-return-value t))
+  (let ((lang-mode (and lang (org-src-get-lang-mode lang))))
+    (if (not (functionp lang-mode))
+        (t--encode-plain-text code)
+      (let ((inhibit-read-only t))
+        (with-temp-buffer
+          (let ((inbuf (current-buffer)))
+            (funcall lang-mode)
+            (insert code)
+            (font-lock-ensure)
+            (set-buffer-modified-p nil)
+            (with-temp-buffer
+              (t--engrave-buffer inbuf (current-buffer))
+              (buffer-string))))))))
+
+(defun t--textarea-block (element)
+  "Transcode ELEMENT into a textarea block.
+ELEMENT is either a source or an example block."
+  (let* ((code (car (org-export-unravel-code element)))
+         (attr (org-export-read-attribute :attr_html element)))
+    (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
+            (or (plist-get attr :width) 80)
+            (or (plist-get attr :height) (org-count-lines code))
+            code)))
+
 (defun t-fontify-code (code lang)
-  "Color the code.
-CODE is a string representing the source code to colorize.  LANG
-is the language used for CODE, as a string, or nil."
-  (cond
-   ((or (string= code "") (not lang) (not t-fontify-method))
-    (format "<code>%s</code>" (t--encode-plain-text code)))
-   ((eq t-fontify-method 'engrave)
-    (t-faces-fontify-code code lang))
-   (t (format "<code>%s</code>" (t--encode-plain-text code)))))
+  "Colorize CODE (a string) for LANG, returning bare fontified HTML.
+The result contains `<span>' runs only, with no wrapper element:
+callers wrap it in `<code>' as appropriate (block vs inline).  LANG
+is a language name as a string, or nil.  Uses `t-fontify-method';
+returns escaped plain text when it is nil or CODE is empty."
+  (declare (ftype (function (string (or null string)) string))
+           (important-return-value t))
+  (if (and (not (string-empty-p code)) lang (eq t-fontify-method 'engrave))
+      (t--engrave-fontify-code code lang)
+    (t--encode-plain-text code)))
 
-(defun t-format-src-block-code (element _info)
-  (let* ((lang (org-element-property :language element))
-         ;; Extract code and references.
-         (code-info (org-export-unravel-code element))
-         (code (car code-info)))
-    (let ((code (t-fontify-code code lang)))
-      code)))
+(defun t--src-code (src-block lang)
+  "Return bare fontified HTML for SRC-BLOCK's code in LANG.
+`org-export-unravel-code' also returns a coderef alist, which
+ox-w3ctr does not support; drop it (the car)."
+  (declare (ftype (function (t (or null string)) string))
+           (important-return-value t))
+  (t-fontify-code (car (org-export-unravel-code src-block)) lang))
 
-;;;; Src Block
-;; FIXME
+(defun t--src-code-tag (lang code)
+  "Wrap bare CODE in a `<code>' tag carrying LANG's class.
+A nil LANG yields a plain `<code>' without a language class."
+  (declare (ftype (function ((or null string) string) string))
+           (pure t) (important-return-value t))
+  (if lang
+      (format "<code class=\"src src-%s\">%s</code>" lang code)
+    (format "<code>%s</code>" code)))
+
+(defun t--src-block-attrs (src-block info captioned)
+  "Return the attribute string for SRC-BLOCK, as \" ATTRS\" or \"\".
+Attributes come from `:attr__' (`#+attr__:').  An `id' is added
+from the element reference unless the attributes already carry one.
+CAPTIONED non-nil prepends the default `example' class to the class
+list (class is written as a vector, e.g. `#+attr__: [foo]')."
+  (declare (ftype (function (t list boolean) string))
+           (important-return-value t))
+  (let* ((reference (t--reference src-block info (not captioned)))
+         (attributes (t--read-attr__ src-block)))
+    (when captioned
+      (let ((entry (or (assoc "class" attributes)
+                       (assoc 'class attributes))))
+        (if entry
+            (setcdr entry (list (concat "example " (cadr entry))))
+          (push (list "class" "example") attributes))))
+    (let ((a (t--make-attr__
+              (if (or (not reference)
+                      (cl-find 'id attributes :key #'car-safe))
+                  attributes
+                (cons `("id" ,reference) attributes)))))
+      (if (t--nw-p a) a ""))))
+
 (defun t-src-block (src-block _contents info)
   "Transcode a SRC-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the item.  INFO is a plist holding
-contextual information."
-  (if (org-export-read-attribute :attr_html src-block :textarea)
-      (t--textarea-block src-block)
-    (if (not (t--has-caption-p src-block))
-        (let ((code (t-format-src-block-code src-block info))
-              (id (t--reference src-block info t))
-              (cls (org-export-read-attribute :attr_html src-block :class)))
-          (format "<pre%s%s>%s</pre>"
-                  (if id (format " id=\"%s\"" id) "")
-                  (if cls (format " class=\"%s\"" cls) "")
-                  code))
-      (let* ((code (t-format-src-block-code src-block info))
-             (id (t--reference src-block info))
-             (cls (org-export-read-attribute :attr_html src-block :class))
-             (caption (let ((cap (org-export-get-caption src-block)))
-                        (if cap (org-trim (org-export-data cap info) nil))))
-             (class (if (org-string-nw-p cls) (concat "example " cls) "example")))
-        (format "<div%s%s>\n%s\n%s\n<pre>%s</pre></div>"
-                (format " id=\"%s\"" id)
-                (format " class=\"%s\"" class)
-                (format "<a class=\"self-link\" href=\"#%s\" %s></a>" id
-                        "aria-label=\"source block\"")
-                (if (not caption) "" caption)
-                code)))))
+CONTENTS is nil.  INFO is a plist holding contextual information.
 
-;;;; Inline Src Block
-;; FIXME
+A `:textarea' attribute yields a `<textarea>'; otherwise the code is
+wrapped in `<pre>', and a captioned block gets a `.example' `<div>'
+wrapper with a self-link."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (cond
+   ((org-export-read-attribute :attr_html src-block :textarea)
+    (t--textarea-block src-block))
+   ((t--has-caption-p src-block)
+    (let* ((lang (org-element-property :language src-block))
+           (code (t--src-code src-block lang))
+           (id (t--reference src-block info))
+           (caption (when-let* ((cap (org-export-get-caption src-block)))
+                      (org-trim (org-export-data cap info)))))
+      (format (concat "<div%s>\n"
+                      "<a class=\"self-link\" href=\"#%s\""
+                      " aria-label=\"source block\"></a>\n"
+                      "%s\n<pre>\n%s</pre></div>")
+              (t--src-block-attrs src-block info t)
+              id (or caption "") (t--src-code-tag lang code))))
+   (t
+    (let* ((lang (org-element-property :language src-block))
+           (code (t--src-code src-block lang)))
+      (format "<pre%s>\n%s</pre>"
+              (t--src-block-attrs src-block info nil)
+              (t--src-code-tag lang code))))))
+
 (defun t-inline-src-block (inline-src-block _contents info)
-  "Transcode an INLINE-SRC-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the item.  INFO is a plist holding
-contextual information."
+  "Transcode an INLINE-SRC-BLOCK object from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information.
+The code is fontified bare by `t-fontify-code' and wrapped here in a
+single `<code class=\"src-inline src-LANG\">' (no nesting)."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
   (let* ((lang (org-element-property :language inline-src-block))
          (code (t-fontify-code
                 (org-element-property :value inline-src-block)
                 lang))
-         (label
-          (let ((lbl (t--reference inline-src-block info t)))
-            (if (not lbl) "" (format " id=\"%s\"" lbl)))))
+         (label (if-let* ((lbl (t--reference inline-src-block info t)))
+                   (format " id=\"%s\"" lbl)
+                 "")))
     (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
 
 ;;;; Special Block

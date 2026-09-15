@@ -77,13 +77,13 @@ latex (`latex-fragment`/`latex-environment` + `t--format-latex`/
 `t--normalize-latex`), link (the `t--link-*` helpers plus `t-inline-image-p`,
 `t-standalone-image-p`, `t-image-link-filter`), footnote
 (`footnote-reference` + `t-footnote-section`), and the whole `<head>` / CSS /
-MathJax / navbar / license / preamble / TOC layer.
+MathJax / navbar / license / preamble / TOC layer, src-block
+(`inline-src-block` + the `t--engrave-*` subset, `t-fontify-code` and the
+`t--src-*` transcoders; rough — see the `<code>` line-break note).
 
 Not done (still ported from ox-html, no `(declare ...)`, no tests):
 
-- `src-block`, `inline-src-block` (+ `t-fontify-code`,
-  `t-format-src-block-code`, the engrave-faces port)
-- `special-block` (current WIP)
+- `special-block` — deferred to phase 2 (see Non-goals)
 
 ## Refactoring order (dependency-based)
 
@@ -93,9 +93,10 @@ Not done (still ported from ox-html, no `(declare ...)`, no tests):
 2. latex — done
 3. link & image — done (tests in `ox-w3ctr-tests.el`)
 4. footnote — done (tests in `ox-w3ctr-tests.el`)
-5. src-block (largest, includes the engrave-faces port) — next
+5. src-block (largest, includes the engrave-faces port) — done (rough)
 6. options — tidy the whole `:options-alist` (see the Options note)
-7. special-block (Web Component design WIP)
+7. docstring & code layout tidy — next: order and rewrite docstrings,
+   tidy section/function ordering
 
 ## Notes
 
@@ -153,6 +154,95 @@ Not done (still ported from ox-html, no `(declare ...)`, no tests):
   The helper loads `ui/safe`, without which the auto-loaded `html' TeX
   extension lets `\href{javascript:...}`, `\style` and `\class` through.
 
+- **Src-block feature gaps vs ox-html.**  Dropped when forking and out
+  of scope for this refactor round (judged low-value for W3C TR
+  output).  Revisit later; each should slot in *between*
+  `t-fontify-code` and the transcoders (a layout layer), not back into
+  fontify.
+  - Line numbers (`-n`/`+n` via `org-export-get-loc`), coderef
+    (`(ref:label)` via `org-export-format-code`) and `retain-labels`:
+    a bound trio in ox-html's `org-html-do-format-code`.
+  - `:html-wrap-src-lines` (per-line `<code>`) and `:html-klipsify-src`.
+  - Listing number in captions (`org-export-get-ordinal` +
+    `org-html--translate "Listing %d:"`).
+  - example-block fontification / line numbers: ox-html routes
+    example-block through `org-html-format-code`; `t-example-block` is
+    plain text.
+  - Highlight engine is a *replacement*, not a gap: htmlize +
+    `org-html-htmlize-output-type` / `-font-prefix` versus
+    `t-fontify-method` + fixed `ef-` slugs.
+- **Attr-reading machinery (revisit).**  The attribute helpers have
+  grown several layers: `t--read-attr__`, `t--make-attr__`,
+  `t--make-attr__id`, `t--make-attr__id*`, `t--make-attr_html`,
+  `t--make-attribute-string`, plus the src-block-specific
+  `t--src-block-attrs`.  Two syntaxes coexist (Lisp s-exprs for
+  `#+attr__`, plists for `#+attr_html`), and the "add an id unless one
+  is present" logic is duplicated across four functions.  Revisit
+  after the element refactors: candidates are a single intermediate
+  representation read from both syntaxes, or one canonical syntax with
+  the other as a thin compatibility shim.
+
+## Docstring & code layout tidy
+
+The next main task (refactoring order item 7).  Rules first, then the
+current inventory.  Mechanical work; follow the rules, no redesign.
+
+### Rules
+
+- **Docstring**: every `defun`/`defsubst` gets a full docstring — a
+  one-line summary first, then parameter / return-value notes where
+  they are non-obvious.
+- **Declarations**: refactored functions carry
+  `(declare (ftype (function (ARGS) RET)))`; add
+  `(important-return-value t)` where the caller must use the result;
+  add `(pure t)` where the function is side-effect free and its result
+  depends only on its arguments.  Exemptions: `defsubst`, end-user
+  commands (`t-export-*`, `t-publish-*`, `t-convert-*`), interactive
+  commands whose return value is incidental.
+- **Naming**: internal helpers `t--*`, public API `t-*`.  No third
+  scheme (`org-w3ctr-faces-*` is gone; keep it that way).
+- **Headers**: `;;;` for major parts, `;;;;` for sections.  No
+  `;;;;`-under-`;;;;` that pretends to be a third level.  A refactored
+  element is either under a `;;;` part or a flat `;;;;` block — not a
+  mix.
+- **Ordering**: within a section, bottom-up (helper before its user)
+  or top-down by call layer — pick one per section and keep it.
+- **Header hygiene**: correct spelling ("Fundamental"), no author
+  names, no arithmetic comments that drift out of date.
+
+### Inventory (as of the src-block round)
+
+- 231 `defun`/`defsubst` total.
+- **No docstring (13)** — all in the jstools RPC area:
+  `t--rpc-make-json`, `t--rpc-send`, `t--rpc-call`, `t--rpc-filter`,
+  `t--rpc-sentinel`, `t--rpc-start`, `t--rpc-request-sync`,
+  `t--rpc-request!`, `t-toggle-jstools-debug`, `t--start-jstools`,
+  `t--restart-jstools`, `t-launch-jstools`, `t--jstools-call`.
+- **Docstring but no `declare` (23)** — `t-update-css-js`,
+  `t--oinfo-cleanup`, `t-collect-oinfo-statistics`,
+  `t-clear-oinfo-statistics`, `t--normalize-string`, `t--reference`,
+  `t--get-headline-reference`, `t--format-checkbox`,
+  `t--call-with-invalid-time-spec-handler`, `t--build-normal-headline`,
+  `t-headline`, `t-clear-css`, `t-preamble-default-function`,
+  `t--build-toc`, `t--textarea-block`, `t-special-block`,
+  `t-final-function`, `t-export-as-html`, `t-convert-region-to-html`,
+  `t-export-to-html`, `t-publish-to-html`, `t--trim`, `t--nw-trim`.
+  (The last two are `defsubst`; the `t-export-*`/`t-publish-*`/
+  `t-convert-*` ones are end-user commands — exempt per the rules.)
+- **Section headers**:
+  - `;;;; Fundmental utilities` → "Fundamental".
+  - `;;;; Some options added by include-yy` → rename, drop the author.
+  - `;;;; Legacy home and up` → fold into `;;;; Navbar` or rename.
+  - The refactored elements `;;;; Table` / `;;;; LaTeX` / `;;;; Link` /
+    `;;;; Footnote` / `;;;; Engrave-faces subset` / `;;;; Source block` /
+    `;;;; Special Block` are flat `;;;;` blocks after
+    `;;; Template and Inner Template`; either group them under one
+    `;;;` part (e.g. `;;; Refactored elements`) or add a note that
+    they are intentionally flat.
+  - `;;; Greater elements (11 - 3 - 2 = 6).` and its Lesser/Objects/
+    Smallest siblings: the arithmetic has drifted; drop the numbers or
+    recompute.
+
 ## Known issues
 
 - **Link leftovers.**  The refactor is done, but a few spots are still weak
@@ -170,7 +260,7 @@ Not done (still ported from ox-html, no `(declare ...)`, no tests):
   tests.
 - The unfinished Web Component `t-special-block` has been moved out of the
   back-end to `zhua.el`; it still needs `ox-w3ctr-component-registry` and
-  `ox-w3ctr-collect-dependency`.
+  `ox-w3ctr-collect-dependency`.  Deferred to phase 2 (see Non-goals).
 
 ## TODO
 
@@ -206,6 +296,9 @@ Not done (still ported from ox-html, no `(declare ...)`, no tests):
 Explicitly out of scope until the refactor is otherwise complete.  Do not
 start these now.
 
+- **special-block (Web Component).**  Deferred to the start of phase 2.
+  The unfinished `t-special-block` lives in `zhua.el` and still needs
+  `ox-w3ctr-component-registry` and `ox-w3ctr-collect-dependency`.
 - **Dependency analysis.**  Charting how far ox-w3ctr leans on Org (which
   `org-*` symbols it calls, how many are private `org-*--*` API, and which
   Org file each comes from) and mapping the internal `t-*` call graph is a

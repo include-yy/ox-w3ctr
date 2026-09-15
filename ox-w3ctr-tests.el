@@ -3029,6 +3029,128 @@ int a = 1;</code></p>\n</details>")
         "<FOOTNOTES n=2/>"))
      nil '(:with-latex verbatim))))
 
+(ert-deftest t--engrave-get-style ()
+  "Tests for `org-w3ctr--engrave-get-style'."
+  ($n (t--engrave-get-style nil))
+  ($n (t--engrave-get-style 'default))
+  ($n (t--engrave-get-style 'no-such-face))
+  ($l (t--engrave-get-style 'font-lock-keyword-face)
+      '(font-lock-keyword-face :slug "k"))
+  ($l (t--engrave-get-style '(font-lock-comment-face))
+      '(font-lock-comment-face :slug "c"))
+  ($l (t--engrave-get-style 'css-property)
+      '(css-property :slug "f")))
+
+(ert-deftest t--engrave-face-transformer ()
+  "Tests for `org-w3ctr--engrave-face-transformer'."
+  ($l (t--engrave-face-transformer 'font-lock-keyword-face "defun")
+      "<span class=\"ef-k\">defun</span>")
+  ($l (t--engrave-face-transformer 'font-lock-keyword-face "<&>")
+      "<span class=\"ef-k\">&lt;&amp;&gt;</span>")
+  ;; Unfaced, unknown and default faces are emitted unwrapped.
+  ($l (t--engrave-face-transformer nil "<&>") "&lt;&amp;&gt;")
+  ($l (t--engrave-face-transformer 'no-such-face "<&>") "&lt;&amp;&gt;")
+  ($l (t--engrave-face-transformer 'default "<&>") "&lt;&amp;&gt;")
+  ;; Whitespace-only runs are never wrapped.
+  ($l (t--engrave-face-transformer 'font-lock-keyword-face "  \n ")
+      "  \n "))
+
+(ert-deftest t--engrave-overlay-faces-at ()
+  "Tests for `org-w3ctr--engrave-overlay-faces-at'."
+  (with-temp-buffer
+    (insert "abc")
+    ($n (t--engrave-overlay-faces-at 2))
+    (let ((ov (make-overlay 1 4)))
+      (overlay-put ov 'face 'font-lock-keyword-face)
+      ($l (t--engrave-overlay-faces-at 2) '(font-lock-keyword-face)))))
+
+(ert-deftest t--engrave-next-face-change ()
+  "Tests for `org-w3ctr--engrave-next-face-change'."
+  (with-temp-buffer
+    (insert "abcdef")
+    (put-text-property 1 4 'face 'font-lock-keyword-face)
+    ($l (t--engrave-next-face-change 1) 4)
+    ($l (t--engrave-next-face-change 4) (point-max))))
+
+(ert-deftest t--engrave-buffer ()
+  "Tests for `org-w3ctr--engrave-buffer'."
+  (with-temp-buffer
+    (insert "abc def")
+    (put-text-property 1 4 'face 'font-lock-keyword-face)
+    (let ((out (generate-new-buffer " *engrave-out*")))
+      (unwind-protect
+          (progn
+            (t--engrave-buffer (current-buffer) out)
+            ($l (with-current-buffer out (buffer-string))
+                "<span class=\"ef-k\">abc</span> def"))
+        (kill-buffer out)))))
+
+(ert-deftest t--engrave-fontify-code ()
+  "Tests for `org-w3ctr--engrave-fontify-code'."
+  (let ((out (t--engrave-fontify-code "(defun foo () 1)" "emacs-lisp")))
+    (should (string-match-p "ef-k" out))
+    ($n (string-match-p "<code" out)))
+  ($l (t--engrave-fontify-code "(a < b)" "no-such-lang") "(a &lt; b)")
+  ($l (t--engrave-fontify-code "(a < b)" nil) "(a &lt; b)"))
+
+(ert-deftest t-fontify-code ()
+  "Tests for `org-w3ctr-fontify-code'."
+  (let ((out (t-fontify-code "(defun foo () 1)" "emacs-lisp")))
+    (should (string-match-p "ef-k" out))
+    ($n (string-match-p "<code" out)))
+  (let ((t-fontify-method nil))
+    ($l (t-fontify-code "(a < b)" "emacs-lisp") "(a &lt; b)"))
+  ($l (t-fontify-code "" "emacs-lisp") "")
+  ($l (t-fontify-code "(a < b)" nil) "(a &lt; b)"))
+
+(ert-deftest t--src-code ()
+  "Tests for `org-w3ctr--src-code'."
+  (cl-flet ((f (str) (car (t-get-parsed-elements str 'src-block))))
+    (let ((out (t--src-code (f "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src")
+                            "emacs-lisp")))
+      (should (string-match-p "ef-k" out))
+      ($n (string-match-p "<code" out)))))
+
+(ert-deftest t--src-code-tag ()
+  "Tests for `org-w3ctr--src-code-tag'."
+  ($l (t--src-code-tag "emacs-lisp" "body")
+      "<code class=\"src src-emacs-lisp\">body</code>")
+  ($l (t--src-code-tag nil "body") "<code>body</code>"))
+
+(ert-deftest t--src-block-attrs ()
+  "Tests for `org-w3ctr--src-block-attrs' (uncaptioned, deterministic)."
+  (t-check-element-values
+   #'t--src-block-attrs
+   '(("#+begin_src emacs-lisp\nx\n#+end_src" "")
+     ("#+attr__: [foo]\n#+begin_src emacs-lisp\nx\n#+end_src"
+      " class=\"foo\"")
+     ("#+name: nm\n#+begin_src emacs-lisp\nx\n#+end_src"
+      " id=\"nm\""))))
+
+(ert-deftest t-src-block ()
+  "Tests for `org-w3ctr-src-block'."
+  (let ((out (org-export-string-as
+              "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
+              'w3ctr t)))
+    (should (string-match-p "<pre>\n<code class=\"src src-emacs-lisp\">" out)))
+  (let ((out (org-export-string-as
+              "#+caption: C\n#+begin_src emacs-lisp\nx\n#+end_src"
+              'w3ctr t)))
+    (should (string-match-p "<div id=\"org[^\"]*\" class=\"example\">" out))
+    (should (string-match-p "self-link" out)))
+  (let ((out (org-export-string-as
+              "#+attr_html: :textarea t\n#+begin_src emacs-lisp\nx\n#+end_src"
+              'w3ctr t)))
+    (should (string-match-p "<textarea" out))))
+
+(ert-deftest t-inline-src-block ()
+  "Tests for `org-w3ctr-inline-src-block'."
+  (let ((org-export-babel-evaluate nil))
+    (let ((out (org-export-string-as "src_emacs-lisp{(+ 1 2)}" 'w3ctr t)))
+      (should (string-match-p "<code class=\"src-inline src-emacs-lisp\">" out))
+      ;; Single wrapper: no nested <code>.
+      ($n (string-match-p "src-inline[^\"]*\"><code" out)))))
+
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-") ("$" . "org-w3ctr:test-"))
 ;; coding: utf-8-unix
