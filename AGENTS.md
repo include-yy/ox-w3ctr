@@ -13,6 +13,7 @@ style.  Version 0.2.6; requires Emacs 31.
 - `ox-w3ctr-tests.el` — ERT test suite
 - `assets/`           — CSS / SVG / JS
 - `jstools/`          — Node.js MathJax RPC helper
+- `tools/`            — local check/reorder scripts (gitignored)
 - `zhua.el`           — scratch file for refactor proposals (gitignored)
 
 ## Environment
@@ -114,7 +115,8 @@ Not done (still ported from ox-html, no `(declare ...)`, no tests):
 
 ## Refactoring order (dependency-based)
 
-0. shared helpers — round 1 done (`t--void-element`, `t--has-caption-p`);
+0. shared helpers — round 1 done (`t--void-element`; `t--has-caption-p`
+   was later inlined and removed)
    further proposals live in `zhua.el`
 1. table — done (tests in `ox-w3ctr-tests.el`)
 2. latex — done

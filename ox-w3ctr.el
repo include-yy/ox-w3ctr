@@ -977,6 +977,9 @@ This affects IDs that are determined from the ID property.")
 (t-update-css-js)
 
 ;;; Simple JSON based sync RPC, not JSONRPC
+;; FIXME: Hand-rolled RPC from way back.  Consider migrating to the
+;; built-in `jsonrpc.el', which provides the same JSON framing over
+;; the same process transport.
 (defvar t--rpc-timeout 1.0
   "Timeout for a rpc, in seconds.")
 (defvar t--rpc-id 0
@@ -1275,14 +1278,7 @@ state before a new test run or benchmark."
        (setf (t--oinfo--cnt o) 0)))
    t--oinfo-cache-alist))
 
-;;;; Helper functions
-(defun t--prepend-newline (contents)
-  "Prepend a newline to CONTENTS if it is a string.
-Otherwise, return an empty string."
-  (declare (ftype (function (t) string))
-           (pure t) (important-return-value t))
-  (if (stringp contents) (concat "\n" contents) ""))
-
+;;;; String helpers
 (defsubst t--nw-p (s)
   "Return S if it is a string that has non-whitespace characters.
 Otherwise, return nil."
@@ -1305,32 +1301,62 @@ to indicate a conversion failure."
     (string s) (number (number-to-string s))
     (otherwise nil)))
 
-(defun t--read-attr (attribute element)
-  "Read the property ATTRIBUTE from ELEMENT as a list of Lisp objects.
-Return nil if the property does not exist or is empty.
-Signal an error if the property value is not a valid Lisp s-expression."
-  (declare (ftype (function (symbol t) list))
-           (important-return-value t))
-  (when-let* ((value (org-element-property attribute element))
-              (str (t--nw-p (mapconcat #'identity value " "))))
-    (let ((sstr (concat "(" str ")")))
-      (condition-case nil (read sstr)
-        (error (t-error "Invalid attribute #+%s: %s" attribute str))))))
+(defsubst t--trim (s &optional keep-lead)
+  "Remove whitespace from the beginning and end of string S.
 
-(defun t--read-attr__ (element)
-  "Parse the `:attr__' (#+attr__:) property from ELEMENT.
+This is a local, inlined copy of `org-trim'.
 
-A vector in the property value, such as [class1 class2], is
-converted into the list (\"class\" \"class1 class2\")."
-  (declare (ftype (function (t) list))
-           (important-return-value t))
-  (when-let* ((attrs (t--read-attr :attr__ element)))
-    (mapcar (lambda (x)
-              (cond ((not (vectorp x)) x)
-                    ((equal x []) nil)
-                    (t (list "class" (mapconcat #'t--2str x " ")))))
-            attrs)))
+When the optional argument KEEP-LEAD is non-nil, removing blank
+lines from the beginning of S will not affect the leading
+indentation of the first line of content."
+  (replace-regexp-in-string
+   (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
+   (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
 
+(defsubst t--nw-trim (s)
+  "Trim S only if it is a non-empty, non-whitespace string.
+
+This function combines `org-w3ctr--nw-p' and `org-w3ctr--trim'.
+It first checks if S is a string containing at least one
+non-whitespace character.  If the check passes, it returns
+a trimmed version of S.
+
+Otherwise (if S is nil, not a string, empty, or contains only
+whitespace characters), this function returns nil."
+  (and (t--nw-p s) (t--trim s)))
+
+(defun t--prepend-newline (contents)
+  "Prepend a newline to CONTENTS if it is a string.
+Otherwise, return an empty string."
+  (declare (ftype (function (t) string))
+           (pure t) (important-return-value t))
+  (if (stringp contents) (concat "\n" contents) ""))
+
+(defsubst t--normalize-string (s)
+  "Ensure string S ends with exactly one newline character.
+
+This function processes string S to ensure it ends with a single
+`\\n'.  It removes any existing trailing newlines and whitespace,
+then appends one newline.
+
+If S is not a string, or is an empty string, it is returned unchanged."
+  (cond
+   ((not (stringp s)) s)
+   ((string= "" s) "")
+   (t (and (string-match "\\(\n[ \t]*\\)*\\'" s)
+           (replace-match "\n" nil nil s)))))
+
+(defun t--make-string (n string)
+  "Return a new string by repeating STRING N times."
+  (declare (ftype (function (fixnum string) string))
+           (pure t) (important-return-value t))
+  (cond
+   ((<= n 0) "")
+   ((string= string "") "")
+   (t (let (out) (dotimes (_ n (or out ""))
+                   (setq out (concat string out)))))))
+
+;;;; HTML escaping
 (defconst t--protect-char-alist
   '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;"))
   "An alist mapping special HTML characters to their entities.
@@ -1383,6 +1409,91 @@ values, such as in alt=\"...\" or class=\"...\"."
     (setq text (replace-regexp-in-string
                 (car pair) (cdr pair) text t t))))
 
+;;;; References
+;; FIXME: Rethink whether this predicate is still needed.  It used to
+;; feed the ordinal counting in `t--link-target', which was removed, so
+;; it is currently unused.
+(defun t--math-environment-p (element &optional _info)
+  "Non-nil when ELEMENT is a LaTeX math environment.
+
+Math environments match `org-latex-math-environments-re', defined
+in ox-latex.  This function is meant to be used as a predicate
+for `org-export-get-ordinal'."
+  (declare (ftype (function (t &optional t) t))
+           (important-return-value t))
+  (require 'ox-latex)
+  (defvar org-latex-math-environments-re)
+  (string-match-p org-latex-math-environments-re
+                  (org-element-property :value element)))
+
+(defun t--get-headline-reference (datum info)
+  "Return a reference id for headline.
+if DATUM's type is not headline, return nil"
+  (when (eq 'headline (org-element-type datum))
+    (let ((cache (plist-get info :internal-references)))
+      (or (car (rassq datum cache))
+          (let ((newid
+                 (if-let* ((numbers (org-export-get-headline-number datum info)))
+                     (concat "orgnh-" (mapconcat #'number-to-string numbers "."))
+                   (format "orguh-%s" (cl-incf (plist-get info :html-headline-cnt))))))
+            (push (cons newid datum) cache)
+            (plist-put info :internal-references cache)
+            newid)))))
+
+(defun t--reference (datum info &optional named-only)
+  "Return an appropriate reference for DATUM.
+
+DATUM is an element or a `target' type object.  INFO is the
+current export state, as a plist.
+
+When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
+nil.  This doesn't apply to headlines, inline tasks, radio
+targets and targets."
+  (let* ((type (org-element-type datum))
+         (custom-id (and (eq type 'headline)
+                         (org-element-property :CUSTOM_ID datum)))
+         (user-label
+          (or custom-id
+              (and (memq type '(radio-target target))
+                   (let ((val (org-element-property :value datum)))
+                     (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val) val)))
+              (org-element-property :name datum)
+              (when-let* ((id (org-element-property :ID datum)))
+                (concat t--id-attr-prefix id))
+              (t--get-headline-reference datum info))))
+    (cond (user-label user-label)
+          ((and named-only ; no #+NAME: and not headline
+                (not (memq type '(headline radio-target target))))
+           nil)
+          (t (org-export-get-reference datum info)))))
+
+;;;; HTML attributes
+(defun t--read-attr (attribute element)
+  "Read the property ATTRIBUTE from ELEMENT as a list of Lisp objects.
+Return nil if the property does not exist or is empty.
+Signal an error if the property value is not a valid Lisp s-expression."
+  (declare (ftype (function (symbol t) list))
+           (important-return-value t))
+  (when-let* ((value (org-element-property attribute element))
+              (str (t--nw-p (mapconcat #'identity value " "))))
+    (let ((sstr (concat "(" str ")")))
+      (condition-case nil (read sstr)
+        (error (t-error "Invalid attribute #+%s: %s" attribute str))))))
+
+(defun t--read-attr__ (element)
+  "Parse the `:attr__' (#+attr__:) property from ELEMENT.
+
+A vector in the property value, such as [class1 class2], is
+converted into the list (\"class\" \"class1 class2\")."
+  (declare (ftype (function (t) list))
+           (important-return-value t))
+  (when-let* ((attrs (t--read-attr :attr__ element)))
+    (mapcar (lambda (x)
+              (cond ((not (vectorp x)) x)
+                    ((equal x []) nil)
+                    (t (list "class" (mapconcat #'t--2str x " ")))))
+            attrs)))
+
 (defun t--make-attr (list)
   "Format a single Lisp LIST into an HTML attribute string.
 
@@ -1423,27 +1534,6 @@ value (for example, (id \"foo\") )."
   (mapconcat (lambda (x) (t--make-attr (if (atom x) (list x) x)))
              attributes))
 
-(defun t--make-attr__id (element info &optional named-only)
-  "Format `:attr__' attributes, adding an `id' attribute if needed.
-
-This function first reads and parses the `:attr__' property from
-an ELEMENT.  Its main purpose is to then automatically add an `id'
-attribute based on the element's reference, unless an `id' is
-already explicitly defined in the property.
-
-The final, combined list of attributes is then formatted into a
-single string by `org-w3ctr--make-attr__'."
-  (declare (ftype (function (t list &optional boolean) string))
-           (important-return-value t))
-  (let* ((reference (t--reference element info named-only))
-         (attributes (t--read-attr__ element))
-         (a (t--make-attr__
-             (if (or (not reference)
-                     (cl-find 'id attributes :key #'car-safe))
-                 attributes
-               (cons `("id" ,reference) attributes)))))
-    (if (t--nw-p a) a "")))
-
 (defun t--make-attribute-string (attributes)
   "Format a property list into an HTML attribute string.
 
@@ -1466,64 +1556,6 @@ omitted from the result."
                 (value (t--encode-plain-text* item)))
             (setcar output (format "%s=\"%s\"" key value))))))))
 
-(defun t--make-attr_html (element info &optional named-only)
-  "Format attributes from `:attr_html', adding an `id' if needed.
-
-This function processes the standard Org `:attr_html' property from
-an ELEMENT.  Its main purpose is to automatically add an `id'
-attribute based on the element's reference, unless an `id' is
-already present in the property list.
-
-The final property list is then formatted into a single string by
-`org-w3ctr--make-attribute-string'."
-  (declare (ftype (function (t list &optional boolean) string))
-           (important-return-value t))
-  (let* ((attrs (org-export-read-attribute :attr_html element))
-         (reference (t--reference element info named-only))
-         (a (t--make-attribute-string
-             (if (or (not reference) (plist-member attrs :id))
-                 attrs (plist-put attrs :id reference)))))
-    (if (t--nw-p a) (concat " " a) "")))
-
-(defun t--make-attr__id* (element info &optional named-only)
-  "Format attributes, using `:attr__' with a fallback to `:attr_html'.
-
-This is the main function for generating an element's complete
-attribute string.  It first checks for the custom `:attr__'
-property and processes it with `org-w3ctr--make-attr__id'.
-
-If `:attr__' is not found, it falls back to processing the
-standard `:attr_html' property using `org-w3ctr--make-attr_html'."
-  (declare (ftype (function (t list &optional boolean) string))
-           (important-return-value t))
-  (if (org-element-property :attr__ element)
-      (t--make-attr__id element info named-only)
-    (t--make-attr_html element info named-only)))
-
-(defsubst t--trim (s &optional keep-lead)
-  "Remove whitespace from the beginning and end of string S.
-
-This is a local, inlined copy of `org-trim'.
-
-When the optional argument KEEP-LEAD is non-nil, removing blank
-lines from the beginning of S will not affect the leading
-indentation of the first line of content."
-  (replace-regexp-in-string
-   (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
-   (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
-
-(defsubst t--nw-trim (s)
-  "Trim S only if it is a non-empty, non-whitespace string.
-
-This function combines `org-w3ctr--nw-p' and `org-w3ctr--trim'.
-It first checks if S is a string containing at least one
-non-whitespace character.  If the check passes, it returns
-a trimmed version of S.
-
-Otherwise (if S is nil, not a string, empty, or contains only
-whitespace characters), this function returns nil."
-  (and (t--nw-p s) (t--trim s)))
-
 ;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
 (defconst t--void-element-regexp
   (rx string-start
@@ -1537,6 +1569,18 @@ Void elements, also known as self-closing or empty tags, are
 elements in HTML that cannot have any child nodes.  Therefore,
 they do not require a closing tag. This regexp is used to
 identify such tags during HTML generation.")
+
+(defun t--void-element (tag attrs)
+  "Return a void element string for TAG with ATTRS.
+
+TAG is the element name, as a string.  ATTRS is a string of
+pre-formatted attributes, with or without surrounding whitespace,
+or nil.  Void elements have no closing tag, so the result has the
+form \"<TAG ...>\"."
+  (declare (ftype (function (string (or null string)) string))
+           (pure t) (important-return-value t))
+  (let ((attrs (t--trim (or attrs ""))))
+    (format "<%s%s>" tag (if (t--nw-p attrs) (concat " " attrs) ""))))
 
 (defun t--sexp2html (data)
   "Recursively convert an S-expression, DATA, into an HTML string.
@@ -1577,30 +1621,62 @@ sanitizes string content using `org-w3ctr--encode-plain-text'."
                    tag attrs children tag)))))
     (otherwise "")))
 
-(defun t--make-string (n string)
-  "Return a new string by repeating STRING N times."
-  (declare (ftype (function (fixnum string) string))
-           (pure t) (important-return-value t))
-  (cond
-   ((<= n 0) "")
-   ((string= string "") "")
-   (t (let (out) (dotimes (_ n (or out ""))
-                   (setq out (concat string out)))))))
+(defun t--make-attr__id (element info &optional named-only)
+  "Format `:attr__' attributes, adding an `id' attribute if needed.
 
-(defsubst t--normalize-string (s)
-  "Ensure string S ends with exactly one newline character.
+This function first reads and parses the `:attr__' property from
+an ELEMENT.  Its main purpose is to then automatically add an `id'
+attribute based on the element's reference, unless an `id' is
+already explicitly defined in the property.
 
-This function processes string S to ensure it ends with a single
-`\\n'.  It removes any existing trailing newlines and whitespace,
-then appends one newline.
+The final, combined list of attributes is then formatted into a
+single string by `org-w3ctr--make-attr__'."
+  (declare (ftype (function (t list &optional boolean) string))
+           (important-return-value t))
+  (let* ((reference (t--reference element info named-only))
+         (attributes (t--read-attr__ element))
+         (a (t--make-attr__
+             (if (or (not reference)
+                     (cl-find 'id attributes :key #'car-safe))
+                 attributes
+               (cons `("id" ,reference) attributes)))))
+    (if (t--nw-p a) a "")))
 
-If S is not a string, or is an empty string, it is returned unchanged."
-  (cond
-   ((not (stringp s)) s)
-   ((string= "" s) "")
-   (t (and (string-match "\\(\n[ \t]*\\)*\\'" s)
-           (replace-match "\n" nil nil s)))))
+(defun t--make-attr_html (element info &optional named-only)
+  "Format attributes from `:attr_html', adding an `id' if needed.
 
+This function processes the standard Org `:attr_html' property from
+an ELEMENT.  Its main purpose is to automatically add an `id'
+attribute based on the element's reference, unless an `id' is
+already present in the property list.
+
+The final property list is then formatted into a single string by
+`org-w3ctr--make-attribute-string'."
+  (declare (ftype (function (t list &optional boolean) string))
+           (important-return-value t))
+  (let* ((attrs (org-export-read-attribute :attr_html element))
+         (reference (t--reference element info named-only))
+         (a (t--make-attribute-string
+             (if (or (not reference) (plist-member attrs :id))
+                 attrs (plist-put attrs :id reference)))))
+    (if (t--nw-p a) (concat " " a) "")))
+
+(defun t--make-attr__id* (element info &optional named-only)
+  "Format attributes, using `:attr__' with a fallback to `:attr_html'.
+
+This is the main function for generating an element's complete
+attribute string.  It first checks for the custom `:attr__'
+property and processes it with `org-w3ctr--make-attr__id'.
+
+If `:attr__' is not found, it falls back to processing the
+standard `:attr_html' property using `org-w3ctr--make-attr_html'."
+  (declare (ftype (function (t list &optional boolean) string))
+           (important-return-value t))
+  (if (org-element-property :attr__ element)
+      (t--make-attr__id element info named-only)
+    (t--make-attr_html element info named-only)))
+
+;;;; File and regexp
 (defun t--load-file (file)
   "Read the entire contents of FILE into a string.
 
@@ -1650,85 +1726,6 @@ function returns nil."
         (push (match-string 0 str) matches)
         (setq pos (match-end 0)))
       (nreverse matches))))
-
-;;; Internal Functions
-(defun t--has-caption-p (element &optional _info)
-  "Non-nil when ELEMENT has a caption affiliated keyword.
-INFO is a plist used as a communication channel.  This function
-is meant to be used as a predicate for `org-export-get-ordinal' or
-a value to `org-w3ctr-standalone-image-predicate'."
-  (declare (ftype (function (t &optional t) t))
-           (pure t) (important-return-value t))
-  (org-element-property :caption element))
-
-;; FIXME: Rethink whether this predicate is still needed.  It used to
-;; feed the ordinal counting in `t--link-target', which was removed, so
-;; it is currently unused.
-(defun t--math-environment-p (element &optional _info)
-  "Non-nil when ELEMENT is a LaTeX math environment.
-
-Math environments match `org-latex-math-environments-re', defined
-in ox-latex.  This function is meant to be used as a predicate
-for `org-export-get-ordinal'."
-  (declare (ftype (function (t &optional t) t))
-           (important-return-value t))
-  (require 'ox-latex)
-  (defvar org-latex-math-environments-re)
-  (string-match-p org-latex-math-environments-re
-                  (org-element-property :value element)))
-
-(defun t--void-element (tag attrs)
-  "Return a void element string for TAG with ATTRS.
-
-TAG is the element name, as a string.  ATTRS is a string of
-pre-formatted attributes, with or without surrounding whitespace,
-or nil.  Void elements have no closing tag, so the result has the
-form \"<TAG ...>\"."
-  (declare (ftype (function (string (or null string)) string))
-           (pure t) (important-return-value t))
-  (let ((attrs (t--trim (or attrs ""))))
-    (format "<%s%s>" tag (if (t--nw-p attrs) (concat " " attrs) ""))))
-
-(defun t--reference (datum info &optional named-only)
-  "Return an appropriate reference for DATUM.
-
-DATUM is an element or a `target' type object.  INFO is the
-current export state, as a plist.
-
-When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
-nil.  This doesn't apply to headlines, inline tasks, radio
-targets and targets."
-  (let* ((type (org-element-type datum))
-         (custom-id (and (eq type 'headline)
-                         (org-element-property :CUSTOM_ID datum)))
-         (user-label
-          (or custom-id
-              (and (memq type '(radio-target target))
-                   (let ((val (org-element-property :value datum)))
-                     (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val) val)))
-              (org-element-property :name datum)
-              (when-let* ((id (org-element-property :ID datum)))
-                (concat t--id-attr-prefix id))
-              (t--get-headline-reference datum info))))
-    (cond (user-label user-label)
-          ((and named-only ; no #+NAME: and not headline
-                (not (memq type '(headline radio-target target))))
-           nil)
-          (t (org-export-get-reference datum info)))))
-
-(defun t--get-headline-reference (datum info)
-  "Return a reference id for headline.
-if DATUM's type is not headline, return nil"
-  (when (eq 'headline (org-element-type datum))
-    (let ((cache (plist-get info :internal-references)))
-      (or (car (rassq datum cache))
-          (let ((newid
-                 (if-let* ((numbers (org-export-get-headline-number datum info)))
-                     (concat "orgnh-" (mapconcat #'number-to-string numbers "."))
-                   (format "orguh-%s" (cl-incf (plist-get info :html-headline-cnt))))))
-            (push (cons newid datum) cache)
-            (plist-put info :internal-references cache)
-            newid)))))
 
 ;;; Greater elements (11 - 3 - 2 = 6).
 ;; special-block and table are not here.
@@ -4766,7 +4763,7 @@ wrapper with a self-link."
   (cond
    ((org-export-read-attribute :attr_html src-block :textarea)
     (t--textarea-block src-block))
-   ((t--has-caption-p src-block)
+   ((org-element-property :caption src-block)
     (let* ((lang (org-element-property :language src-block))
            (code (t--src-code src-block lang))
            (id (t--reference src-block info))
