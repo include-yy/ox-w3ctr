@@ -284,9 +284,9 @@ other two follow it.
   `.html` (`t--link-org-files-as-html`); LaTeX equation references only
   cover math environments under `mathjax`/`t`; and coderef support is kept
   only for ox-html compatibility.
-- `t--math-environment-p` is now unused (the ordinal machinery it fed was
-  removed) and `t--link-broken` looks unreachable (Org handles broken links
-  before the transcoder); both are `FIXME`-marked.
+- `t--link-broken` looks unreachable (Org handles broken links before the
+  transcoder); it is `FIXME`-marked.  (`t--math-environment-p`, likewise
+  FIXME-marked, was removed — its ordinal purpose is long gone.)
 - `t--link-to-file`, `t--link-broken` and `t--link-coderef` still have no
   tests.
 

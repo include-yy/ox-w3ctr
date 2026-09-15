@@ -1410,22 +1410,6 @@ values, such as in alt=\"...\" or class=\"...\"."
                 (car pair) (cdr pair) text t t))))
 
 ;;;; References
-;; FIXME: Rethink whether this predicate is still needed.  It used to
-;; feed the ordinal counting in `t--link-target', which was removed, so
-;; it is currently unused.
-(defun t--math-environment-p (element &optional _info)
-  "Non-nil when ELEMENT is a LaTeX math environment.
-
-Math environments match `org-latex-math-environments-re', defined
-in ox-latex.  This function is meant to be used as a predicate
-for `org-export-get-ordinal'."
-  (declare (ftype (function (t &optional t) t))
-           (important-return-value t))
-  (require 'ox-latex)
-  (defvar org-latex-math-environments-re)
-  (string-match-p org-latex-math-environments-re
-                  (org-element-property :value element)))
-
 (defun t--get-headline-reference (datum info)
   "Return a reference id for headline.
 if DATUM's type is not headline, return nil"
@@ -1435,7 +1419,7 @@ if DATUM's type is not headline, return nil"
           (let ((newid
                  (if-let* ((numbers (org-export-get-headline-number datum info)))
                      (concat "orgnh-" (mapconcat #'number-to-string numbers "."))
-                   (format "orguh-%s" (cl-incf (plist-get info :html-headline-cnt))))))
+                   (format "orguh-%s" (incf (plist-get info :html-headline-cnt))))))
             (push (cons newid datum) cache)
             (plist-put info :internal-references cache)
             newid)))))
@@ -1615,7 +1599,7 @@ sanitizes string content using `org-w3ctr--encode-plain-text'."
             (attrs (if (booleanp attr-ls) ""
                      (mapconcat #'t--make-attr (nth 1 data)))))
        (if (string-match-p t--void-element-regexp tag)
-           (format "<%s%s>" tag attrs)
+           (t--void-element tag attrs)
          (let ((children (mapconcat #'t--sexp2html (cddr data))))
            (format "<%s%s>%s</%s>"
                    tag attrs children tag)))))
@@ -4137,7 +4121,7 @@ only the top-level links are counted."
       (lambda (obj)
         (when (pcase (org-element-type obj)
                 (`plain-text (org-string-nw-p obj))
-                (`link (or (> (cl-incf link-count) 1)
+                (`link (or (> (incf link-count) 1)
                            (not (funcall link-image-p obj))))
                 (_ t))
           (setq clean nil)))
