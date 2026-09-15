@@ -7,7 +7,7 @@ Guidance for AI agents working in this repository.
 `ox-w3ctr` is an Emacs Lisp package: an Org export back-end that emits HTML
 styled for W3C Technical Reports.  It is a "parasitic implementation" of
 Org's `ox-html.el`, being progressively reimplemented (refactored) in its own
-style.  Version 0.2.6; requires Emacs 31.
+style.  Version 0.2.7; requires Emacs 31.
 
 - `ox-w3ctr.el`       — the back-end (main source)
 - `ox-w3ctr-tests.el` — ERT test suite
@@ -30,7 +30,7 @@ Shell: MSYS2 bash (MINGW64); paths and commands below are bash-style.
 - Remotes: `gh` = GitHub (`https://github.com/include-yy/ox-w3ctr`),
   `origin` = SourceHut (`git@git.sr.ht:~exkeq/ox-w3ctr`).
 - GitHub is reached over HTTPS and needs the proxy; set it per command:
-  `HTTPS_PROXY='http://127.0.0.1:7890' git push gh master v0.2.6`.
+  `HTTPS_PROXY='http://127.0.0.1:7890' git push gh master v0.2.7`.
   SourceHut is over SSH and needs no proxy.
 - Releases: bump `Package-Version` (header) and `t-version` together,
   commit, then tag `vX.Y.Z` (lightweight, matching `v0.2.5`) and push the
@@ -64,6 +64,11 @@ Expected baseline: **159 tests, 158 pass, 1 skipped** (`org-w3ctr-headline`).
   tests.
 - Workflow: write proposals to `zhua.el`, review in Emacs, then merge into
   `ox-w3ctr.el`.  `zhua.el` is gitignored — do not commit it.
+- **LF line endings.**  Any script or tool that rewrites a source file
+  must write LF (`\n`), never CRLF.  A Windows Python `write_text`
+  silently converts to CRLF and breaks multi-line string literals
+  (navbar / footnote tests then fail).  After a rewrite, check
+  `grep -c $'\r'` is 0.
 - Do not commit changes unless explicitly asked.
 
 ## Methodology
@@ -124,8 +129,24 @@ Not done (still ported from ox-html, no `(declare ...)`, no tests):
 4. footnote — done (tests in `ox-w3ctr-tests.el`)
 5. src-block (largest, includes the engrave-faces port) — done (rough)
 6. options — tidy the whole `:options-alist` (see the Options note)
-7. docstring & code layout tidy — first-phase wrap-up: reorder the
-   whole document (headers, function order, docstrings).  Next.
+   — partially done: entries reordered and `;; Options:` annotations
+   added; the `*-function` replacement and the ox-html compatibility
+   chart become the first phase-2 task
+7. docstring & code layout tidy — done: three passes (defcustom /
+   options-alist / helpers) plus section-header cleanup.  Three
+   mechanical leftovers are deferred (see TODO).
+
+## Phase 2 (incremental polish) — preparation
+
+Phase 2 is currently in its preparation (discovery) phase: no fixed
+task list yet.  Refine functions one at a time (docstring, `declare`,
+`important-return-value`/`pure`, helper use, tests), and each problem
+found while refining becomes a new phase-2 task.  Expect a long
+discovery period before phase 2 is "officially" underway.
+
+First phase-2 task: the options leftover — replace cumbersome string
+options with `*-function` ones and chart ox-html compatibility.  The
+special-block Web Component follows.
 
 ## Notes
 
@@ -292,6 +313,12 @@ other two follow it.
 
 ## TODO
 
+- **Docstring & layout leftovers (deferred from the tidy pass).**
+  - Add docstrings to the 13 jstools RPC functions
+    (`t--rpc-make-json` … `t--jstools-call`).
+  - Add `(declare (ftype …))` to the ~18 functions that still lack it
+    (excluding `defsubst` and end-user commands).
+  - Rename `;;;; Legacy home and up` (fold into Navbar or rename).
 - **Options tidy-up.**  The `:options-alist` is a grab-bag: a few
   entries are grouped (`;; Link`, `;; Footnote`), most are not, and a
   couple carry inline `;; Options:` comments.  Order every entry, add a
