@@ -145,93 +145,78 @@
               (if a (t-export-to-html t s v b)
                 (org-open-file (t-export-to-html nil s v b)))))))
   :options-alist
-  '(;; Item and Plain Lists
-    (:html-checkbox-type nil nil t-checkbox-type)
-    ;; Smallest objects
-    (:html-text-markup-alist nil nil t-text-markup-alist)
-    ;; Timestamp
-    (:html-timezone "HTML_TIMEZONE" nil t-timezone)
-    (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
-    (:html-datetime-option nil "dt" t-datetime-format-choice)
-    (:html-timestamp-formats nil "tsf" t-timestamp-formats)
-    (:html-timestamp-option nil "ts" t-timestamp-option)
-    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
-    (:html-timestamp-format-function nil "tsfn" t-timestamp-format-function)
-    ;; Todo
+  '(;; Headline and Section
     (:html-todo-class nil nil t-todo-class)
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
-    ;; Priority
     (:html-priority-class nil nil t-priority-class)
-    ;; Tags
     (:html-tag-class nil nil t-tag-class)
-    ;; Headline
     (:html-format-headline-function nil nil t-format-headline-function)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)
     (:html-container nil nil t-container-element)
     (:html-self-link-headlines nil nil t-self-link-headlines)
-    ;; <head>
-    (:html-file-timestamp-function nil nil t-file-timestamp-function)
-    (:html-viewport nil nil t-viewport)
-    (:description "DESCRIPTION" nil nil newline)
-    (:keywords "KEYWORDS" nil nil space)
-    (:html-head-include-style nil "html-style" t-head-include-style)
-    (:html-head "HTML_HEAD" nil t-head newline)
-    (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
-    ;; home and up
-    (:html-link-up "HTML_LINK_UP" nil t-link-up)
-    (:html-link-home "HTML_LINK_HOME" nil t-link-home)
-    (:html-home/up-format nil nil t-home/up-format)
-    ;; navbar
-    (:html-link-navbar "HTML_LINK_NAVBAR" nil t-link-navbar parse)
-    (:html-format-navbar-function nil nil t-format-navbar-function)
-    ;; preamble and postamble
-    (:html-license nil "license" t-public-license)
-    (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
-    (:html-format-license-function nil nil t-format-license-function)
-    (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
-    (:creator "CREATOR" nil t-creator-string)
-    (:html-validation-link nil nil t-validation-link)
-    (:html-postamble nil "html-postamble" t-postamble)
-    (:html-preamble nil "html-preamble" t-preamble)
-    ;; table of contents
-    (:html-toc-element nil nil t-toc-element)
-    ;; template
-    (:html-back-to-top nil "back-to-top" t-back-to-top)
-    (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
-    (:subtitle "SUBTITLE" nil nil parse)
-    ;; table options
+    (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
+    (:html-headline-cnt nil nil 0)
+    (:headline-levels nil "H" org-export-headline-levels)
+    ;; Markup texts
+    (:html-text-markup-alist nil nil t-text-markup-alist)
+    ;; Item and Plain Lists
+    (:html-checkbox-type nil nil t-checkbox-type)
+    ;; Table
     (:html-table-use-header-tags-for-first-column
      nil nil t-table-use-header-tags-for-first-column)
-    ;; LaTeX
+    ;; LaTeX and Math
     (:with-latex nil "tex" t-with-latex)
     (:html-mathjax-config nil nil t-mathjax-config)
     (:html-math-head-function nil nil t-math-head-function)
-    ( :html-math-custom-render-function nil nil
-      t-math-custom-render-function)
-    ;; Link
-    ( :html-equation-reference-format "HTML_EQUATION_REFERENCE_FORMAT"
-      nil t-equation-reference-format)
-    (:html-inline-image-rules nil nil t-inline-image-rules)
+    (:html-math-custom-render-function nil nil t-math-custom-render-function)
+    (:html-equation-reference-format "HTML_EQUATION_REFERENCE_FORMAT"
+     nil t-equation-reference-format)
+    ;; Link and Images
     (:html-link-org-files-as-html nil nil t-link-org-files-as-html)
     (:html-inline-images nil nil t-inline-images)
+    (:html-inline-image-rules nil nil t-inline-image-rules)
+    (:html-link-home "HTML_LINK_HOME" nil t-link-home)
+    (:html-link-up "HTML_LINK_UP" nil t-link-up)
+    (:html-home/up-format nil nil t-home/up-format)
+    (:html-link-navbar "HTML_LINK_NAVBAR" nil t-link-navbar parse)
+    (:html-format-navbar-function nil nil t-format-navbar-function)
     ;; Footnote
+    (:html-footnotes-section nil nil t-footnotes-section)
     (:html-footnote-format nil nil t-footnote-format)
     (:html-footnote-separator nil nil t-footnote-separator)
-    (:html-footnotes-section nil nil t-footnotes-section)
     (:html-footnote-section-function nil nil t-footnote-section-function)
-
-    ;; Unarranged
-    ;; FIXME: Reformat whole info options
-    ;; footnote options
-    ;; <yy> aux counter for unnumbered headline
-    (:html-headline-cnt nil nil 0)
-    ;; <yy> zeroth section's toc title name
-    (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
-    ;; <yy> control max headline level
-    (:headline-levels nil "H" org-export-headline-levels)
-    ;; misc options -----------------------------
+    ;; Timestamp
+    (:html-timezone "HTML_TIMEZONE" nil t-timezone)
+    (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
+    (:html-datetime-option nil "dt" t-datetime-format-choice)
+    (:html-timestamp-option nil "ts" t-timestamp-option)
+    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
+    (:html-timestamp-formats nil "tsf" t-timestamp-formats)
+    (:html-timestamp-format-function nil "tsfn" t-timestamp-format-function)
+    ;; Head and Template
+    (:html-viewport nil nil t-viewport)
+    (:description "DESCRIPTION" nil nil newline)
+    (:keywords "KEYWORDS" nil nil space)
+    (:subtitle "SUBTITLE" nil nil parse)
+    (:html-head-include-style nil "html-style" t-head-include-style)
+    (:html-head "HTML_HEAD" nil t-head newline)
+    (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
+    (:html-file-timestamp-function nil nil t-file-timestamp-function)
+    (:html-metadata-timestamp-format nil nil t-metadata-timestamp-format)
+    (:creator "CREATOR" nil t-creator-string)
+    (:html-validation-link nil nil t-validation-link)
+    (:html-toc-element nil nil t-toc-element)
+    (:html-back-to-top nil "back-to-top" t-back-to-top)
+    (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     (:html-extension nil nil t-extension)
+    ;; Preamble and License
+    (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
+    (:html-license nil "license" t-public-license)
+    (:html-format-license-function nil nil t-format-license-function)
+    (:html-preamble nil "html-preamble" t-preamble)
+    (:html-postamble nil "html-postamble" t-postamble)
+    ;; Misc
     (:html-indent nil nil t-indent)
     ))
 
