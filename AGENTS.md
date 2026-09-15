@@ -50,7 +50,7 @@ Two gotchas:
 - `system-time-locale` must be C/en; otherwise `%a` localizes day names and
   6 timestamp tests fail (e.g. `Fri` becomes a GBK-encoded Chinese string).
 
-Expected baseline: **147 tests, 146 pass, 1 skipped** (`org-w3ctr-headline`).
+Expected baseline: **159 tests, 158 pass, 1 skipped** (`org-w3ctr-headline`).
 
 ## Conventions
 
@@ -81,6 +81,9 @@ MathJax / navbar / license / preamble / TOC layer, src-block
 (`inline-src-block` + the `t--engrave-*` subset, `t-fontify-code` and the
 `t--src-*` transcoders; rough — see the `<code>` line-break note).
 
+The first phase — per-element refactoring — is complete.  Its wrap-up
+is reordering the whole document; see "Docstring & code layout tidy".
+
 Not done (still ported from ox-html, no `(declare ...)`, no tests):
 
 - `special-block` — deferred to phase 2 (see Non-goals)
@@ -95,8 +98,8 @@ Not done (still ported from ox-html, no `(declare ...)`, no tests):
 4. footnote — done (tests in `ox-w3ctr-tests.el`)
 5. src-block (largest, includes the engrave-faces port) — done (rough)
 6. options — tidy the whole `:options-alist` (see the Options note)
-7. docstring & code layout tidy — next: order and rewrite docstrings,
-   tidy section/function ordering
+7. docstring & code layout tidy — first-phase wrap-up: reorder the
+   whole document (headers, function order, docstrings).  Next.
 
 ## Notes
 
@@ -112,17 +115,7 @@ Not done (still ported from ox-html, no `(declare ...)`, no tests):
 - Do **not** "optimize" by turning INFO into a hashtable: INFO is owned by
   Org's export engine and is a plist by contract (all of `ox.el`,
   `org-export-data`, and filters read it as a plist).
-- **Options.**  The `:options-alist` is a grab-bag: a few entries are
-  grouped (`;; Link`, `;; Footnote`), most are not, and a couple carry
-  inline `;; Options:` comments.  Planned tidy-up (after src-block,
-  before special-block): order every entry, add a `;; Options:` comment
-  wherever the semantics are not obvious, and consider replacing the
-  cumbersome string options with `*-function` ones (as
-  `t-footnote-section-function` does).  Also chart compatibility with
-  ox-html: for each option, whether ox-html has the same name and
-  semantics, a different one, or none, and quantify the result (e.g.
-  "N of M options shared").  Keep the `:html-*` keyword names compatible
-  where cheap.
+
 - **Table column groups.**  Org's `/`-row (`<`/`>`/`<>`) only marks group
   boundaries; it cannot carry attributes, because its cells must be exactly
   those markers or Org's own colgroup detection (`org-export-table-cell-borders`)
@@ -154,38 +147,12 @@ Not done (still ported from ox-html, no `(declare ...)`, no tests):
   The helper loads `ui/safe`, without which the auto-loaded `html' TeX
   extension lets `\href{javascript:...}`, `\style` and `\class` through.
 
-- **Src-block feature gaps vs ox-html.**  Dropped when forking and out
-  of scope for this refactor round (judged low-value for W3C TR
-  output).  Revisit later; each should slot in *between*
-  `t-fontify-code` and the transcoders (a layout layer), not back into
-  fontify.
-  - Line numbers (`-n`/`+n` via `org-export-get-loc`), coderef
-    (`(ref:label)` via `org-export-format-code`) and `retain-labels`:
-    a bound trio in ox-html's `org-html-do-format-code`.
-  - `:html-wrap-src-lines` (per-line `<code>`) and `:html-klipsify-src`.
-  - Listing number in captions (`org-export-get-ordinal` +
-    `org-html--translate "Listing %d:"`).
-  - example-block fontification / line numbers: ox-html routes
-    example-block through `org-html-format-code`; `t-example-block` is
-    plain text.
-  - Highlight engine is a *replacement*, not a gap: htmlize +
-    `org-html-htmlize-output-type` / `-font-prefix` versus
-    `t-fontify-method` + fixed `ef-` slugs.
-- **Attr-reading machinery (revisit).**  The attribute helpers have
-  grown several layers: `t--read-attr__`, `t--make-attr__`,
-  `t--make-attr__id`, `t--make-attr__id*`, `t--make-attr_html`,
-  `t--make-attribute-string`, plus the src-block-specific
-  `t--src-block-attrs`.  Two syntaxes coexist (Lisp s-exprs for
-  `#+attr__`, plists for `#+attr_html`), and the "add an id unless one
-  is present" logic is duplicated across four functions.  Revisit
-  after the element refactors: candidates are a single intermediate
-  representation read from both syntaxes, or one canonical syntax with
-  the other as a thin compatibility shim.
-
 ## Docstring & code layout tidy
 
-The next main task (refactoring order item 7).  Rules first, then the
-current inventory.  Mechanical work; follow the rules, no redesign.
+The first-phase wrap-up (refactoring order item 7): reorder the whole
+document — section headers, function order, docstrings.  Rules first,
+then the current inventory.  Mechanical work; follow the rules, no
+redesign.
 
 ### Rules
 
@@ -258,12 +225,45 @@ current inventory.  Mechanical work; follow the rules, no redesign.
   before the transcoder); both are `FIXME`-marked.
 - `t--link-to-file`, `t--link-broken` and `t--link-coderef` still have no
   tests.
-- The unfinished Web Component `t-special-block` has been moved out of the
-  back-end to `zhua.el`; it still needs `ox-w3ctr-component-registry` and
-  `ox-w3ctr-collect-dependency`.  Deferred to phase 2 (see Non-goals).
 
 ## TODO
 
+- **Options tidy-up.**  The `:options-alist` is a grab-bag: a few
+  entries are grouped (`;; Link`, `;; Footnote`), most are not, and a
+  couple carry inline `;; Options:` comments.  Order every entry, add a
+  `;; Options:` comment wherever the semantics are not obvious, and
+  consider replacing the cumbersome string options with `*-function`
+  ones (as `t-footnote-section-function` does).  Also chart
+  compatibility with ox-html: for each option, whether ox-html has the
+  same name and semantics, a different one, or none, and quantify the
+  result (e.g. "N of M options shared").  Keep the `:html-*` keyword
+  names compatible where cheap.
+- **Src-block feature gaps vs ox-html.**  Dropped when forking and out
+  of scope for this refactor round (judged low-value for W3C TR
+  output).  Revisit later; each should slot in *between*
+  `t-fontify-code` and the transcoders (a layout layer), not back into
+  fontify.
+  - Line numbers (`-n`/`+n` via `org-export-get-loc`), coderef
+    (`(ref:label)` via `org-export-format-code`) and `retain-labels`:
+    a bound trio in ox-html's `org-html-do-format-code`.
+  - `:html-wrap-src-lines` (per-line `<code>`) and `:html-klipsify-src`.
+  - Listing number in captions (`org-export-get-ordinal` +
+    `org-html--translate "Listing %d:"`).
+  - example-block fontification / line numbers: ox-html routes
+    example-block through `org-html-format-code`; `t-example-block` is
+    plain text.
+  - Highlight engine is a *replacement*, not a gap: htmlize +
+    `org-html-htmlize-output-type` / `-font-prefix` versus
+    `t-fontify-method` + fixed `ef-` slugs.
+- **Attr-reading machinery.**  The attribute helpers have grown several
+  layers: `t--read-attr__`, `t--make-attr__`, `t--make-attr__id`,
+  `t--make-attr__id*`, `t--make-attr_html`, `t--make-attribute-string`,
+  plus the src-block-specific `t--src-block-attrs`.  Two syntaxes
+  coexist (Lisp s-exprs for `#+attr__`, plists for `#+attr_html`), and
+  the "add an id unless one is present" logic is duplicated across four
+  functions.  Candidates: a single intermediate representation read
+  from both syntaxes, or one canonical syntax with the other as a thin
+  compatibility shim.
 - **SVG global font cache.**  `svg-by-mathjax` currently uses MathJax's
   default `fontCache: 'local'`, which embeds every formula's glyph paths in
   every formula; a formula-heavy document reaches the megabyte range.
@@ -290,6 +290,16 @@ current inventory.  Mechanical work; follow the rules, no redesign.
   - Inline src (`t-inline-src-block` emits `class="src-inline src-LANG"`)
     has no CSS: no `.src-inline`/`.src-*` rules.  Give it a style or drop
     the dead class from the back-end (src-block refactor decides).
+- **Src-block highlight backends.**  Today `t-fontify-method` is
+  `engrave` or nil (server-side).  Planned directions, either or both:
+  add further server-side backends, or hand colouring to the client
+  (e.g. highlight.js) by emitting bare
+  `<code class="language-LANG">` and letting the front-end script
+  highlight it.  The extension points are the dispatch in
+  `t-fontify-code` and the class generation in `t--src-code-tag`
+  (`src src-LANG` today, `language-LANG` for highlight.js).  When the
+  client does the work, the `.ef-*` CSS in `style.css` becomes optional
+  and the engrave engine is only needed for server-side output.
 
 ## Non-goals
 
