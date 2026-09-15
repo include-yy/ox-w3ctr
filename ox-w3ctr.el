@@ -242,20 +242,75 @@
   :tag "Org Export W3CTR HTML"
   :group 'org-export)
 
-;;;; Item and Plain Lists
-(defcustom t-checkbox-type 'unicode
-  "Specify the type of checkboxes for HTML export.
-
-Possible values are:
-- `unicode': Use Unicode symbols.
-- `ascii'  : Use ASCII characters.
-- `html'   : Use HTML <input> elements.
-
-See `org-w3ctr-checkbox-types' for details."
+;;;; Headline and Section
+(defcustom t-todo-class "org-todo"
+  "The CSS class for the `<span>' element wrapping a TODO keyword."
   :group 'org-export-w3ctr
-  :type '(choice (const :tag "Unicode symbols" unicode)
-                 (const :tag "ASCII characters" ascii)
-                 (const :tag "HTML <input> elements" html)))
+  :type 'string)
+
+(defcustom t-todo-kwd-class-prefix "org-status-"
+  "Prefix for CSS classes applied to TODO keywords.
+
+The final class will be this prefix followed by the status
+\(e.g., \"todo\" or \"done\").  For example, if a headline is a
+TODO item, its class will be \"org-status-todo\" by default."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-priority-class "org-priority"
+  "The CSS class for the `<span>' element wrapping a priority marker."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-tag-class "org-tag"
+  "The CSS class for the `<span>' element wrapping all tags."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-format-headline-function
+  #'t-format-headline-default-function
+  "Function to format headline text.
+
+This function will be called with six arguments:
+- TODO      the todo keyword (string or nil).
+- PRIORITY  the priority of the headline (integer or nil)
+- TEXT      the main headline text (string).
+- TAGS      the tags (list of string).
+- INFO      the export options (plist).
+
+The function should return the formatted HTML string for the headline."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+;; See `org-html-toplevel-hlevel' for more information.
+
+(defcustom t-toplevel-hlevel 2
+  "The <H> level for level 1 headings in HTML export."
+  :group 'org-export-w3ctr
+  :type 'integer)
+
+(defcustom t-honor-ox-headline-levels nil
+  "Honor `org-export-headline-levels' or not."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
+(defcustom t-container-element "section"
+  "The HTML tag name for the element that contains a headline.
+
+Common values are \"section\" or \"div\".  If nil, \"div\" is used."
+  :group 'org-export-w3ctr
+  :type '(choice string (const nil)))
+
+(defcustom t-self-link-headlines t
+  "When non-nil, the headlines contain a hyperlink to themselves."
+  :group 'org-export-w3ctr
+  :type 'boolean
+  :safe #'booleanp)
+
+(defcustom t-zeroth-section-tocname "Abstract"
+  "Default toc name of the zeroth section."
+  :group 'org-export-w3ctr
+  :type 'sexp)
 
 ;;;; Markup texts
 (defcustom t-text-markup-alist
@@ -282,6 +337,244 @@ without any special HTML tags."
   :type '(alist :key-type (symbol :tag "Markup type")
                 :value-type (string :tag "Format string"))
   :options '(bold code italic strike-through underline verbatim))
+
+;;;; Item and Plain Lists
+(defcustom t-checkbox-type 'unicode
+  "Specify the type of checkboxes for HTML export.
+
+Possible values are:
+- `unicode': Use Unicode symbols.
+- `ascii'  : Use ASCII characters.
+- `html'   : Use HTML <input> elements.
+
+See `org-w3ctr-checkbox-types' for details."
+  :group 'org-export-w3ctr
+  :type '(choice (const :tag "Unicode symbols" unicode)
+                 (const :tag "ASCII characters" ascii)
+                 (const :tag "HTML <input> elements" html)))
+
+;;;; Table
+(defcustom t-table-use-header-tags-for-first-column nil
+  "Non-nil means format column one in tables with header tags.
+When nil, also column one will use data tags."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
+;;;; LaTeX and Math
+(defcustom t-with-latex 'mathjax
+  "Control how LaTeX math expressions are processed in HTML export.
+
+The value specifies the rendering method:
+- `verbatim'         : Keep raw fragment
+- `mathjax'          : Render math using MathJax (client-side)
+- `mathml-by-mathjax': Convert to MathML markup using MathJax
+- `svg-by-mathjax'   : Convert to inline SVG using MathJax
+- `custom'           : Use custom option and function"
+  :group 'org-export-w3ctr
+  :type '(choice
+          (const :tag "Keep raw fragment" verbatim)
+          (const :tag "Use MathJax to display math" mathjax)
+          (const :tag "Use MathJax to render mathML" mathml-by-mathjax)
+          (const :tag "Use MathJax to render SVG" svg-by-mathjax)
+          (const :tag "Use custom method" custom)))
+
+(defcustom t-mathjax-config "\
+<script>
+  window.MathJax = {
+    tex: {
+      ams: {
+        multlineWidth: '85%'
+      },
+      tags: 'ams',
+      tagSide: 'right',
+      tagIndent: '.8em'
+    },
+    chtml: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    svg: {
+      scale: 1.0,
+      displayAlign: 'center',
+      displayIndent: '0em'
+    },
+    output: {
+      font: 'mathjax-modern',
+      displayOverflow: 'overflow'
+    }
+  };
+</script>
+
+<script
+  id='MathJax-script'
+  async
+  src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'>
+</script>"
+  "Configuration for MathJax rendering in HTML export.
+Used for MathJax rendering (:with-latex is set to `mathjax').
+
+For detailed configuration options, see:
+https://docs.mathjax.org/en/latest/options/index.html"
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-math-head-function #'t-math-head-default-function
+  "Function returning the math setup to insert into <head>.
+Called with the INFO plist; return a string (or nil)."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+(defcustom t-math-custom-render-function
+  #'t-math-custom-default-render-function
+  "Function rendering a LaTeX fragment for the `custom' math mode.
+It is called with FRAG, a LaTeX string, and the INFO plist, and
+must return the HTML/MathML/SVG string for the fragment."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+(defcustom t-equation-reference-format "\\eqref{%s}"
+  "The command to use when referencing an equation.
+
+A format control string expecting the label as its single
+argument.  It is inserted verbatim, so it only makes sense with
+client-side MathJax (`mathjax' mode), where \\eqref and \\ref are
+resolved in the browser.
+
+See `org-html-equation-reference-format' for more information."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+;;;; Link and Images
+(defcustom t-link-org-files-as-html t
+  "Non-nil means make file links to \"file.org\" point to \"file.html\".
+When nil, the links still point to the plain \".org\" file.
+
+See `org-html-link-org-files-as-html' for more information."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
+(defcustom t-inline-images t
+  "Non-nil means inline images into exported HTML pages.
+When nil, an anchor with href is used to link to the image."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
+(defconst t-inline-image-extensions
+  '(".jpeg" ".jpg" ".jfif" ".png" ".apng" ".gif" ".svg"
+    ".webp" ".avif" ".jxl" ".bmp" ".ico")
+  "Image file extensions that can be inlined into HTML.
+
+These are the formats modern browsers render natively in an
+`<img>' element.")
+
+(defconst t-inline-image-path-regexp
+  (concat (regexp-opt t-inline-image-extensions)
+          "\\(?:[?#].*\\)?\\'")
+  "Regexp matching a link path that points to an inlinable image.
+
+The extension must end the path, optionally followed by a query
+string or a fragment, so that e.g. \"img.png.txt\" is not mistaken
+for an image.")
+
+(defcustom t-inline-image-rules
+  `(("file" . ,t-inline-image-path-regexp)
+    ("http" . ,t-inline-image-path-regexp)
+    ("https" . ,t-inline-image-path-regexp))
+  "Rules characterizing image files that can be inlined into HTML.
+
+See `org-html-inline-image-rules' for more information."
+  :group 'org-export-w3ctr
+  :type 'sexp)
+
+(defcustom t-link-home ""
+  "URL for the `HOME' link in the legacy navigation bar.
+
+Used as a fallback when `org-w3ctr-link-navbar' is not set."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-link-up ""
+  "URL for the `UP' link in the legacy navigation bar.
+
+Used as a fallback when `org-w3ctr-link-navbar' is not set."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-home/up-format
+  "<nav id=\"navbar\">\n <a href=\"%s\"> UP </a>
+ <a href=\"%s\"> HOME </a>\n</nav>"
+  "Formatting string for the legacy home/up navigation bar.
+
+The first %s is for the `UP' link, and the second for `HOME'."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-link-navbar nil
+  "Navigation bar links.  Can be:
+- A vector of (URL . NAME) pairs, e.g [(\"../index.html\" . \"Up\")]
+- A list of Org elements (from HTML_LINK_NAVBAR)
+- nil to use the legacy home/up behavior"
+  :group 'org-export-w3ctr
+  :type 'sexp)
+
+(defcustom t-format-navbar-function #'t-format-navbar-default-function
+  "The function used to generate the HTML for the navbar.
+
+This function is called with one argument: INFO plist.  It should
+return a string containing the complete HTML for the navigation bar
+\(e.g., inside `<nav>` tags).
+
+See `org-w3ctr-format-navbar-default-function' for an example."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+;;;; Footnote
+(defcustom t-footnotes-section "<div id=\"references\">
+<h2>%s</h2>
+<dl>%s</dl>\n</div>\n"
+  "Format for the footnotes section.
+Should contain two instances of %s.  The first will be replaced with the
+section heading (e.g. \"References\"), the second one with the footnote
+definitions themselves."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-footnote-format "[%s]"
+  "The format for the footnote reference.
+%s will be replaced by the footnote reference itself."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-footnote-separator ", "
+  "Text used to separate footnotes."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defcustom t-footnote-section-function #'t-footnote-section-default-function
+  "Function used to build the footnotes section.
+
+It is called with the list of footnote definitions, as returned by
+`org-export-collect-footnote-definitions', and INFO; it should return
+the complete HTML for the section.  See
+`org-w3ctr-footnote-section-default-function' for an example."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+;;;; Src Block
+(defcustom t-fontify-method 'engrave
+  "Method to fontify code.
+- nil means no highlighting
+- engrave means use a subset of engrave-face.el for code fontify
+
+There was a support for highlight.js, but has been abandoned."
+  :group 'org-export-w3ctr
+  :type '(choice (const engrave) (const nil)))
+
+(defcustom t-example-default-class "example"
+  "Default CSS class for example block, nil means no default class."
+  :group 'org-export-w3ctr
+  :type 'sexp)
 
 ;;;; Timestamp
 (defconst t-timezone-regex
@@ -409,80 +702,7 @@ These format strings follow the conventions of `format-time-string'.
   :group 'org-export-w3ctr
   :type 'function)
 
-(defcustom t-todo-class "org-todo"
-  "The CSS class for the `<span>' element wrapping a TODO keyword."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-todo-kwd-class-prefix "org-status-"
-  "Prefix for CSS classes applied to TODO keywords.
-
-The final class will be this prefix followed by the status
-\(e.g., \"todo\" or \"done\").  For example, if a headline is a
-TODO item, its class will be \"org-status-todo\" by default."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-priority-class "org-priority"
-  "The CSS class for the `<span>' element wrapping a priority marker."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-tag-class "org-tag"
-  "The CSS class for the `<span>' element wrapping all tags."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-format-headline-function
-  #'t-format-headline-default-function
-  "Function to format headline text.
-
-This function will be called with six arguments:
-- TODO      the todo keyword (string or nil).
-- PRIORITY  the priority of the headline (integer or nil)
-- TEXT      the main headline text (string).
-- TAGS      the tags (list of string).
-- INFO      the export options (plist).
-
-The function should return the formatted HTML string for the headline."
-  :group 'org-export-w3ctr
-  :type 'function)
-
-;; See `org-html-toplevel-hlevel' for more information.
-(defcustom t-toplevel-hlevel 2
-  "The <H> level for level 1 headings in HTML export."
-  :group 'org-export-w3ctr
-  :type 'integer)
-
-(defcustom t-honor-ox-headline-levels nil
-  "Honor `org-export-headline-levels' or not."
-  :group 'org-export-w3ctr
-  :type 'boolean)
-
-(defcustom t-container-element "section"
-  "The HTML tag name for the element that contains a headline.
-
-Common values are \"section\" or \"div\".  If nil, \"div\" is used."
-  :group 'org-export-w3ctr
-  :type '(choice string (const nil)))
-
-(defcustom t-self-link-headlines t
-  "When non-nil, the headlines contain a hyperlink to themselves."
-  :group 'org-export-w3ctr
-  :type 'boolean
-  :safe #'booleanp)
-
-(defcustom t-file-timestamp-function #'t-file-timestamp-default-function
-  "Function to generate timestamp for exported files at top place.
-
-This function should take INFO as the only argument and return a
-string representing the timestamp.
-
-The default value is `org-w3ctr-file-timestamp-default', which generates
-timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
-  :group 'org-export-w3ctr
-  :type 'function)
-
+;;;; Head and Template
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export.
 
@@ -601,91 +821,6 @@ The default value points to a `style.css' file inside the package's
          (setq t-style ""))
   :type '(choice (const nil) file))
 
-;;;; LaTeX
-(defcustom t-with-latex 'mathjax
-  "Control how LaTeX math expressions are processed in HTML export.
-
-The value specifies the rendering method:
-- `verbatim'         : Keep raw fragment
-- `mathjax'          : Render math using MathJax (client-side)
-- `mathml-by-mathjax': Convert to MathML markup using MathJax
-- `svg-by-mathjax'   : Convert to inline SVG using MathJax
-- `custom'           : Use custom option and function"
-  :group 'org-export-w3ctr
-  :type '(choice
-          (const :tag "Keep raw fragment" verbatim)
-          (const :tag "Use MathJax to display math" mathjax)
-          (const :tag "Use MathJax to render mathML" mathml-by-mathjax)
-          (const :tag "Use MathJax to render SVG" svg-by-mathjax)
-          (const :tag "Use custom method" custom)))
-
-(defcustom t-mathjax-config "\
-<script>
-  window.MathJax = {
-    tex: {
-      ams: {
-        multlineWidth: '85%'
-      },
-      tags: 'ams',
-      tagSide: 'right',
-      tagIndent: '.8em'
-    },
-    chtml: {
-      scale: 1.0,
-      displayAlign: 'center',
-      displayIndent: '0em'
-    },
-    svg: {
-      scale: 1.0,
-      displayAlign: 'center',
-      displayIndent: '0em'
-    },
-    output: {
-      font: 'mathjax-modern',
-      displayOverflow: 'overflow'
-    }
-  };
-</script>
-
-<script
-  id='MathJax-script'
-  async
-  src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'>
-</script>"
-  "Configuration for MathJax rendering in HTML export.
-Used for MathJax rendering (:with-latex is set to `mathjax').
-
-For detailed configuration options, see:
-https://docs.mathjax.org/en/latest/options/index.html"
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-math-head-function #'t-math-head-default-function
-  "Function returning the math setup to insert into <head>.
-Called with the INFO plist; return a string (or nil)."
-  :group 'org-export-w3ctr
-  :type 'function)
-
-(defcustom t-math-custom-render-function
-  #'t-math-custom-default-render-function
-  "Function rendering a LaTeX fragment for the `custom' math mode.
-It is called with FRAG, a LaTeX string, and the INFO plist, and
-must return the HTML/MathML/SVG string for the fragment."
-  :group 'org-export-w3ctr
-  :type 'function)
-
-(defcustom t-equation-reference-format "\\eqref{%s}"
-  "The command to use when referencing an equation.
-
-A format control string expecting the label as its single
-argument.  It is inserted verbatim, so it only makes sense with
-client-side MathJax (`mathjax' mode), where \\eqref and \\ref are
-resolved in the browser.
-
-See `org-html-equation-reference-format' for more information."
-  :group 'org-export-w3ctr
-  :type 'string)
-
 (defcustom t-head ""
   "Raw HTML content to insert into the <head> section.
 
@@ -711,71 +846,14 @@ or for publication projects using the :html-head-extra property."
 ;;;###autoload
 (put 't-head-extra 'safe-local-variable 'stringp)
 
-(defcustom t-link-home ""
-  "URL for the `HOME' link in the legacy navigation bar.
+(defcustom t-file-timestamp-function #'t-file-timestamp-default-function
+  "Function to generate timestamp for exported files at top place.
 
-Used as a fallback when `org-w3ctr-link-navbar' is not set."
-  :group 'org-export-w3ctr
-  :type 'string)
+This function should take INFO as the only argument and return a
+string representing the timestamp.
 
-(defcustom t-link-up ""
-  "URL for the `UP' link in the legacy navigation bar.
-
-Used as a fallback when `org-w3ctr-link-navbar' is not set."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-home/up-format
-  "<nav id=\"navbar\">\n <a href=\"%s\"> UP </a>
- <a href=\"%s\"> HOME </a>\n</nav>"
-  "Formatting string for the legacy home/up navigation bar.
-
-The first %s is for the `UP' link, and the second for `HOME'."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-link-navbar nil
-  "Navigation bar links.  Can be:
-- A vector of (URL . NAME) pairs, e.g [(\"../index.html\" . \"Up\")]
-- A list of Org elements (from HTML_LINK_NAVBAR)
-- nil to use the legacy home/up behavior"
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-(defcustom t-format-navbar-function #'t-format-navbar-default-function
-  "The function used to generate the HTML for the navbar.
-
-This function is called with one argument: INFO plist.  It should
-return a string containing the complete HTML for the navigation bar
-\(e.g., inside `<nav>` tags).
-
-See `org-w3ctr-format-navbar-default-function' for an example."
-  :group 'org-export-w3ctr
-  :type 'function)
-
-(defcustom t-use-cc-budget t
-  "Use CC budget or not."
-  :group 'org-export-w3ctr
-  :type 'boolean)
-
-(defcustom t-public-license nil
-  "Default license for exported content.
-Value should be one of the supported Creative Commons licenses
-or variants."
-  :group 'org-export-w3ctr
-  :type '(choice
-          (const nil) (const cc0)
-          (const all-rights-reserved)
-          (const all-rights-reversed)
-          (const cc-by-4.0) (const cc-by-nc-4.0)
-          (const cc-by-nc-nd-4.0) (const cc-by-nc-sa-4.0)
-          (const cc-by-nd-4.0) (const cc-by-sa-4.0)
-          (const cc-by-3.0) (const cc-by-nc-3.0)
-          (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
-          (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
-
-(defcustom t-format-license-function #'t-format-license-default-function
-  "Default function to build license string."
+The default value is `org-w3ctr-file-timestamp-default', which generates
+timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -806,6 +884,59 @@ Validate</a>"
   :group 'org-export-w3ctr
   :type 'string)
 
+(defcustom t-toc-element 'ul
+  "List element of table of contents."
+  :group 'org-export-w3ctr
+  :type '(choice (const ul) (const ol)))
+
+(defcustom t-back-to-top t
+  "Add back-to-top arrow at the end of html file."
+  :group 'org-export-w3ctr
+  :type '(boolean))
+
+(defcustom t-back-to-top-arrow
+  "<p role=\"navigation\" id=\"back-to-top\">\
+<a href=\"#title\"><abbr title=\"Back to Top\">↑\
+</abbr></a></p>\n"
+  "Add comments here."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+(defvar t-fixup-js ""
+  "Js code that control toc's hide and show.")
+
+(defcustom t-extension "html"
+  "The extension for exported HTML files."
+  :group 'org-export-w3ctr
+  :type 'string)
+
+;;;; Preamble and License
+(defcustom t-use-cc-budget t
+  "Use CC budget or not."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
+(defcustom t-public-license nil
+  "Default license for exported content.
+Value should be one of the supported Creative Commons licenses
+or variants."
+  :group 'org-export-w3ctr
+  :type '(choice
+          (const nil) (const cc0)
+          (const all-rights-reserved)
+          (const all-rights-reversed)
+          (const cc-by-4.0) (const cc-by-nc-4.0)
+          (const cc-by-nc-nd-4.0) (const cc-by-nc-sa-4.0)
+          (const cc-by-nd-4.0) (const cc-by-sa-4.0)
+          (const cc-by-3.0) (const cc-by-nc-3.0)
+          (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
+          (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
+
+(defcustom t-format-license-function #'t-format-license-default-function
+  "Default function to build license string."
+  :group 'org-export-w3ctr
+  :type 'function)
+
 (defcustom t-preamble #'t-preamble-default-function
   "Controls the insertion of a preamble in the exported HTML.
 
@@ -828,151 +959,19 @@ See `org-w3ctr-preamble' for more information."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
 
-(defcustom t-toc-element 'ul
-  "List element of table of contents."
-  :group 'org-export-w3ctr
-  :type '(choice (const ul) (const ol)))
-
-(defcustom t-back-to-top t
-  "Add back-to-top arrow at the end of html file."
-  :group 'org-export-w3ctr
-  :type '(boolean))
-
-(defcustom t-back-to-top-arrow
-  "<p role=\"navigation\" id=\"back-to-top\">\
-<a href=\"#title\"><abbr title=\"Back to Top\">↑\
-</abbr></a></p>\n"
-  "Add comments here."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defvar t-fixup-js ""
-  "Js code that control toc's hide and show.")
-
-(defcustom t-table-use-header-tags-for-first-column nil
-  "Non-nil means format column one in tables with header tags.
-When nil, also column one will use data tags."
-  :group 'org-export-w3ctr
-  :type 'boolean)
-
-;;;; Links
-
-(defcustom t-link-org-files-as-html t
-  "Non-nil means make file links to \"file.org\" point to \"file.html\".
-When nil, the links still point to the plain \".org\" file.
-
-See `org-html-link-org-files-as-html' for more information."
-  :group 'org-export-w3ctr
-  :type 'boolean)
-
-(defcustom t-inline-images t
-  "Non-nil means inline images into exported HTML pages.
-When nil, an anchor with href is used to link to the image."
-  :group 'org-export-w3ctr
-  :type 'boolean)
-
-(defconst t-inline-image-extensions
-  '(".jpeg" ".jpg" ".jfif" ".png" ".apng" ".gif" ".svg"
-    ".webp" ".avif" ".jxl" ".bmp" ".ico")
-  "Image file extensions that can be inlined into HTML.
-
-These are the formats modern browsers render natively in an
-`<img>' element.")
-
-(defconst t-inline-image-path-regexp
-  (concat (regexp-opt t-inline-image-extensions)
-          "\\(?:[?#].*\\)?\\'")
-  "Regexp matching a link path that points to an inlinable image.
-
-The extension must end the path, optionally followed by a query
-string or a fragment, so that e.g. \"img.png.txt\" is not mistaken
-for an image.")
-
-(defcustom t-inline-image-rules
-  `(("file" . ,t-inline-image-path-regexp)
-    ("http" . ,t-inline-image-path-regexp)
-    ("https" . ,t-inline-image-path-regexp))
-  "Rules characterizing image files that can be inlined into HTML.
-
-See `org-html-inline-image-rules' for more information."
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-;;;; Footnotes
-
-(defcustom t-footnotes-section "<div id=\"references\">
-<h2>%s</h2>
-<dl>%s</dl>\n</div>\n"
-  "Format for the footnotes section.
-Should contain two instances of %s.  The first will be replaced with the
-section heading (e.g. \"References\"), the second one with the footnote
-definitions themselves."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-footnote-format "[%s]"
-  "The format for the footnote reference.
-%s will be replaced by the footnote reference itself."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-footnote-section-function #'t-footnote-section-default-function
-  "Function used to build the footnotes section.
-
-It is called with the list of footnote definitions, as returned by
-`org-export-collect-footnote-definitions', and INFO; it should return
-the complete HTML for the section.  See
-`org-w3ctr-footnote-section-default-function' for an example."
-  :group 'org-export-w3ctr
-  :type 'function)
-
-(defcustom t-footnote-separator ", "
-  "Text used to separate footnotes."
-  :group 'org-export-w3ctr
-  :type 'string)
-
+;;;; Misc
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
 Warning: non-nil may break indentation of source code blocks."
   :group 'org-export-w3ctr
   :type 'boolean)
 
-;;;; Src Block
-
-(defcustom t-fontify-method 'engrave
-  "Method to fontify code.
-- nil means no highlighting
-- engrave means use a subset of engrave-face.el for code fontify
-
-There was a support for highlight.js, but has been abandoned."
-  :group 'org-export-w3ctr
-  :type '(choice (const engrave) (const nil)))
-
-;;;; Template :: Generic
-
-(defcustom t-extension "html"
-  "The extension for exported HTML files."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-;;;; Some options added by include-yy
 (defcustom t-use-babel nil
   "Use babel or not when exporting.
 
 This option will override `org-export-use-babel'"
   :group 'org-export-w3ctr
   :type '(boolean))
-
-(defcustom t-example-default-class "example"
-  "Default CSS class for example block, nil means no default class."
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
-(defcustom t-zeroth-section-tocname "Abstract"
-  "Default toc name of the zeroth section."
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
 ;;; Internal Variables
 
 (defvar t--id-attr-prefix "ID-"

@@ -337,10 +337,9 @@ other two follow it.
   contain `<svg>` and which is built after the body anyway.  Tried and
   reverted; revisit if SVG output is kept.
 - **CSS cleanup in `assets/style.css`.**  Not urgent; note for later.
-  - `assets/style.min.css` is stale (24KB vs 49KB, June vs July): missing
-    `#navbar`, `.ef-*` italic/weight, different colours.  Untracked and
-    unused by the back-end (which reads `style.css` via `t-style-file`).
-    Delete it or ignore it.
+  - `assets/style.min.css` (stale, 24KB vs 49KB, June vs July) was
+    deleted; do not regenerate a minified copy — the back-end reads
+    `style.css` via `t-style-file`.
   - Dead rules: `#home-and-up` (superseded by `#navbar`, which
     `t-format-navbar-default-function` emits) and `.org-center` (never
     emitted).  Both violate the object-theming contract; remove them.
