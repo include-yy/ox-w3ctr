@@ -398,3 +398,10 @@ start these now.
   with local implementations: the first two belong with the planned crossref
   backend (`t-xref-backend`), the last with yynt's publish flow.  Related to
   the crossref non-goal above.  Not now.
+- **Distributed shortdoc.**  `define-short-documentation-group`
+  overwrites a same-named group (it does `delq` then `push`), so shortdoc
+  entries cannot be spread across modules by repeated calls to the same
+  group.  If the shortdoc grows, use "data distributed, definition
+  centralized": each module keeps a `t--shortdoc-*' list, and the single
+  `define-short-documentation-group' at the end splices them with `,@'.
+  Far-future; not now.

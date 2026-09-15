@@ -217,8 +217,7 @@
     (:html-preamble nil "html-preamble" t-preamble)
     (:html-postamble nil "html-postamble" t-postamble)
     ;; Misc
-    (:html-indent nil nil t-indent)
-    ))
+    (:html-indent nil nil t-indent)))
 
 ;;; User Configuration Variables.
 
@@ -556,6 +555,9 @@ There was a support for highlight.js, but has been abandoned."
   :group 'org-export-w3ctr
   :type '(choice (const engrave) (const nil)))
 
+;; FIXME: Unused — t-example-block hardcodes the "example" class and
+;; never consults this defcustom.  Decide whether to wire it in or drop
+;; it.
 (defcustom t-example-default-class "example"
   "Default CSS class for example block, nil means no default class."
   :group 'org-export-w3ctr
@@ -2734,7 +2736,7 @@ holding contextual information."
       (format "<span>%s</span>" spans))))
 
 ;;;; Headline
-;; Options
+;; Options:
 ;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
 ;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
 ;; - :html-honor-ox-headline-levels (`org-w3ctr-honor-ox-headline-levels')
@@ -3196,7 +3198,10 @@ for `svg-by-mathjax' mode, nothing otherwise."
   (funcall (t--pget info :html-math-head-function) info))
 
 ;;;; Rest of <head>
-;; No options
+;; Options:
+;; - :html-head (`org-w3ctr-head')
+;; - :html-head-extra (`org-w3ctr-head-extra')
+;; - :html-head-include-style (`org-w3ctr-head-include-style')
 
 (defun t--use-default-style-p (info)
   "Test if org export use default CSS style."
@@ -3232,7 +3237,7 @@ for `svg-by-mathjax' mode, nothing otherwise."
    "</head>\n"))
 
 ;;;; Legacy home and up
-;; Options
+;; Options:
 ;; - :html-link-up (`org-w3ctr-link-up')
 ;; - :html-link-home (`org-w3ctr-link-home')
 ;; - :html-home/up-format (`org-w3ctr-home/up-format')
@@ -3252,7 +3257,7 @@ empty. Returns nil if both links are empty strings."
               (or link-up link-home) (or link-home link-up)))))
 
 ;;;; Navbar
-;; Options
+;; Options:
 ;; - :html-link-navbar (`org-w3ctr-link-navbar')
 ;; - :html-format-navbar-function (`org-w3ctr-format-navbar-function')
 
@@ -3315,7 +3320,7 @@ Each link is separated by newlines for readability in the output HTML."
       (other (t-error "Invalid navbar type: %s" other)))))
 
 ;;;; CC license budget
-;; Options
+;; Options:
 ;; - :html-use-cc-budget (`org-w3ctr-use-cc-budget')
 ;; - :html-license (`org-w3ctr-public-license')
 ;; - :html-format-license-function (`org-w3ctr-format-license-function')
@@ -3445,7 +3450,7 @@ attribution and appropriate Creative Commons icons when applicable."
   (funcall (t--pget info :html-format-license-function) info))
 
 ;;;; Preamble and Postamble
-;; Options
+;; Options:
 ;; - :html-metadata-timestamp-format (`org-w3ctr-metadata-timestamp-format')
 ;; - :email (`user-mail-address')
 ;; - :with-email (`org-export-with-email')
@@ -4037,6 +4042,9 @@ modern-HTML reimplementation is planned."
           (kill-buffer))))))
 
 ;;;; LaTeX
+;; Options:
+;; - :html-math-custom-render-function
+;;   (`org-w3ctr-math-custom-render-function')
 
 (defun t-math-custom-default-render-function (frag _info)
   "Default value for `org-w3ctr-math-custom-render-function'."
@@ -4090,7 +4098,12 @@ MODE is the value of `:with-latex'; INFO is the export state."
 
 ;;;; Link
 ;; Options:
-;; - :html-equation-reference-format (`org-w3ctr-equation-reference-format')
+;; - :html-link-org-files-as-html (`org-w3ctr-link-org-files-as-html')
+;; - :html-inline-images (`org-w3ctr-inline-images')
+;; - :html-inline-image-rules (`org-w3ctr-inline-image-rules')
+;; - :html-extension (`org-w3ctr-extension')
+;; - :html-equation-reference-format
+;;   (`org-w3ctr-equation-reference-format')
 
 (defun t-image-link-filter (data _backend info)
   "Process image links that are inside descriptions.
@@ -4462,6 +4475,12 @@ INFO is a plist holding contextual information.  See
       (format "<i>%s</i>" desc)))))
 
 ;;;; Footnote
+;; Options:
+;; - :html-footnotes-section (`org-w3ctr-footnotes-section')
+;; - :html-footnote-format (`org-w3ctr-footnote-format')
+;; - :html-footnote-separator (`org-w3ctr-footnote-separator')
+;; - :html-footnote-section-function
+;;   (`org-w3ctr-footnote-section-function')
 
 (defun t--footnote-key (label n)
   "Return the key of a footnote with LABEL and number N.
