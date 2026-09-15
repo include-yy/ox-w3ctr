@@ -4690,7 +4690,7 @@ associated major mode, CODE is returned escaped but uncoloured."
             (font-lock-ensure)
             (set-buffer-modified-p nil)
             (with-temp-buffer
-              (t--engrave-buffer inbuf (current-buffer))
+              (ignore (t--engrave-buffer inbuf (current-buffer)))
               (buffer-string))))))))
 
 (defun t--textarea-block (element)
