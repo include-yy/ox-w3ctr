@@ -65,6 +65,30 @@ Expected baseline: **159 tests, 158 pass, 1 skipped** (`org-w3ctr-headline`).
   `ox-w3ctr.el`.  `zhua.el` is gitignored — do not commit it.
 - Do not commit changes unless explicitly asked.
 
+## Methodology
+
+An AI author can afford to write everything down, so the refactor
+favours "fix at generation time" over "infer at runtime": explicit
+beats implicit, and the back-end should trust explicit input.
+
+- **Explicit over implicit.**  Prefer writing things down over
+  computing them later: explicit `CUSTOM_ID`s and anchors instead of
+  random reference ids, explicit configuration over conventions.
+  Do not invent fallback machinery for input the author could have
+  supplied explicitly.
+- **Materialize what is stable, defer what varies.**  Identity (ids,
+  crossrefs, anchors) is stable and cheap to maintain — make it
+  explicit first.  Presentation (rendered HTML, highlighting, theme
+  colours) varies with the environment — keep it deferred rather
+  than baking it into the document.
+- **The back-end degrades to a verifier.**  Its value shifts from
+  "deriving the result" to "checking the explicit input"; simpler
+  transcoders that trust explicit markup beat large rule engines.
+- **The AI is the maintainer.**  Explicit things drift (a renamed
+  heading, a stale id).  A human cannot afford to keep them in sync;
+  an AI can — prefer explicitness wherever drift is catchable by a
+  test or lint.
+
 ## Refactoring status
 
 Done (refactored): center-block, drawer, dynamic-block, item, plain-list,
@@ -209,6 +233,44 @@ redesign.
   - `;;; Greater elements (11 - 3 - 2 = 6).` and its Lesser/Objects/
     Smallest siblings: the arithmetic has drifted; drop the numbers or
     recompute.
+
+### Execution plan (defcustom order is primary)
+
+Three passes; the defcustom order below is the primary one, and the
+other two follow it.
+
+1. **defcustom reorder** — group the defcustoms by the element/object
+   they serve, in this order:
+   1. Headline & section — todo / priority / tags,
+      `format-headline-function`, `toplevel-hlevel`,
+      `honor-ox-headline-levels`, `container-element`,
+      `self-link-headlines`, `headline-cnt`,
+      `zeroth-section-tocname`.
+   2. Markup texts — `text-markup-alist`.
+   3. Item & plain lists — `checkbox-type`.
+   4. Table — `table-use-header-tags-for-first-column`.
+   5. LaTeX & math — `with-latex`, mathjax config, math-head
+      function, `equation-reference-format`.
+   6. Link & images — `link-org-files-as-html`, `inline-images`,
+      image rules, `link-home`/`link-up`, navbar.
+   7. Footnote — `footnotes-section`, `footnote-format`,
+      `footnote-separator`, `footnote-section-function`.
+   8. Src block — `fontify-method`, `example-default-class`.
+   9. Timestamp — timezone, formats, option, wrapper,
+      format-function.
+   10. Head & template — head / style / viewport / meta-tags /
+       coding-system / `toc-element` / `back-to-top` / fixup-js /
+       `extension`.
+   11. Preamble & license — license, cc-budget, preamble, postamble,
+       creator, validation-link.
+   12. Misc — `indent`, `use-babel`.
+   Merge the "Some options added by include-yy" group into its proper
+   places and drop the author name.
+2. **`:options-alist` reorder** — order the option entries to follow
+   the defcustom order above; keep the `;;` group comments in sync.
+3. **Internal functions & helpers reorder** — move misplaced helpers
+   (e.g. `t--textarea-block`) next to their element and sort the
+   helper sections to follow the same element order.
 
 ## Known issues
 
