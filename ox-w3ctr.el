@@ -1128,7 +1128,9 @@ This affects IDs that are determined from the ID property.")
 ;;
 ;; Reading order: `org-w3ctr--oinfo-cache-props' first — it lists the keys
 ;; the cache knows and the read/write discipline they require — then
-;; `org-w3ctr--pget' / `org-w3ctr--pput', then the pieces they lean on.
+;; `org-w3ctr--pget' / `org-w3ctr--pput', and finally
+;; `org-w3ctr--oinfo-cache-alist', `org-w3ctr--oinfo-oclosure' and
+;; `org-w3ctr--make-cache-oclosure'.
 
 (eval-and-compile
   ;; The switch is read at definition time — when the file is compiled,
@@ -1139,7 +1141,10 @@ This affects IDs that are determined from the ID property.")
 
 Nil makes `org-w3ctr--pget' and `org-w3ctr--pput' plain `plist-get'
 and `plist-put' calls, with no cache and no oclosures; either way a
-read returns the same value, only a write to a cached key differs.")
+read returns the same value, only a write to a cached key differs.
+
+It is t by default; the value this build actually uses is
+`org-w3ctr--oinfo-cache-p'.")
 
   ;; Decided once, when the file is compiled or evaluated; it cannot
   ;; change at run time.
@@ -1149,10 +1154,10 @@ read returns the same value, only a write to a cached key differs.")
   (oclosure-define t--oinfo
     "Caching oclosure for one property of an export INFO plist.
 
-PID - The INFO plist the other slots were filled from.
+PID - The INFO plist the slots were filled from (compared with `eq').
 KEY - The property keyword this oclosure caches.
 VAL - The value of KEY in PID, or nil if it is absent.
-CNT - How many times this oclosure has been called."
+CNT - How many times the oclosure has been called, hits and misses alike."
     (pid :mutable t :type list)
     (key :type symbol)
     (val :mutable t)
@@ -1178,10 +1183,11 @@ empties it."
   (defun t--oinfo-oclosure (key)
     "Return the symbol whose function cell holds KEY's caching oclosure.
 
-`org-w3ctr--oinfo-cache-alist' pairs each cached property with the name
-this function returns for it, so that `org-w3ctr--pget' — which is
-inlined, and may run compiled — can reach the oclosure through that
-symbol.  KEY is a property keyword."
+The name is `org-w3ctr--oinfo' followed by the keyword, as in
+`org-w3ctr--oinfo:title'.  `org-w3ctr--oinfo-cache-alist' pairs each
+cached property with the name this function returns for it, so that
+`org-w3ctr--pget' — which is inlined, and may run compiled — reaches the
+oclosure through that symbol.  KEY is a property keyword."
     (declare (ftype (function (symbol) symbol))
              (important-return-value t))
     (intern (concat "org-w3ctr--oinfo" (symbol-name key))))
@@ -1218,7 +1224,10 @@ the plist object identical, so a write that bypasses the cache is
 invisible to it.  A key that Org reads with `plist-get'
 (`:with-latex', `:time-stamp-file', `:with-tags') must in particular
 never be written with `org-w3ctr--pput'.  The test suite checks that every
-key here is read through `org-w3ctr--pget'.")
+key here is read through `org-w3ctr--pget'.
+
+The cache notices a different plist object, not a change inside one: a
+`plist-put' that keeps the plist's identity cannot invalidate it.")
 
   (defconst t--oinfo-cache-alist
     (static-when t--oinfo-cache-p
@@ -1256,9 +1265,10 @@ the cache, so it can differ from what `plist-get' returns for that key."
     "Set property PROP to VALUE in the export INFO plist and return VALUE.
 
 For a key in `org-w3ctr--oinfo-cache-props' with the cache on, the
-value goes into that key's oclosure and INFO is left untouched:
-later `org-w3ctr--pget' calls return it, while Org and `plist-get'
-still see the old value.  Any other PROP is written with `plist-put'.
+value goes into that key's oclosure, together with INFO, and the plist is
+left untouched: later `org-w3ctr--pget' calls with the same INFO plist
+return it, while Org and `plist-get' still see the old value.  Any other
+PROP is written with `plist-put'.
 
 Unlike `plist-put', return VALUE rather than the plist."
     (static-if t--oinfo-cache-p
