@@ -24,6 +24,11 @@ Shell: MSYS2 bash (MINGW64); paths and commands below are bash-style.
 - Upstream Org sources (reference for ports):
   - `/d/org-mode/lisp/`  (the real Org source tree)
   - especially `ox-html.el`, `ox.el`, `org-element.el`
+- **Never search inside `node_modules`.**  No recursive `grep`/`find`/`rg`
+  over `node_modules` (including the pi install tree or any package's
+  `node_modules/`): it is enormous and the search hangs the shell.  Read
+  the specific documented file by path instead (e.g. under the pi
+  `docs/` directory) — never discover it with a recursive scan.
 
 ## Git
 
@@ -34,7 +39,9 @@ Shell: MSYS2 bash (MINGW64); paths and commands below are bash-style.
   SourceHut is over SSH and needs no proxy.
 - Releases: bump `Package-Version` (header) and `t-version` together,
   commit, then tag `vX.Y.Z` (lightweight, matching `v0.2.5`) and push the
-  branch and the tag to both remotes.
+  branch and the tag to both remotes.  For a release, set
+  `org-w3ctr-oinfo-enabled' to nil first: the OINFO cache is then compiled
+  out of the shipped byte code (see the OINFO note).
 
 ## Running the tests
 
@@ -51,7 +58,13 @@ Two gotchas:
 - `system-time-locale` must be C/en; otherwise `%a` localizes day names and
   6 timestamp tests fail (e.g. `Fri` becomes a GBK-encoded Chinese string).
 
-Expected baseline: **159 tests, 158 pass, 1 skipped** (`org-w3ctr-headline`).
+Expected baseline: **163 tests, 161 pass, 2 skipped** (`org-w3ctr-headline`,
+and `org-w3ctr--oinfo-plain-flavor`, which only runs in a build with
+`org-w3ctr-oinfo-enabled' nil — see the OINFO note).  Without the source
+files, `org-w3ctr--oinfo-props-are-looked-up` also skips (160 pass, 3
+skipped): it reads `ox-w3ctr.el' next to the loaded file.  A build with
+`org-w3ctr-oinfo-enabled' nil skips all four OINFO cache tests instead
+(158 pass, 5 skipped).
 
 ## Conventions
 
@@ -67,8 +80,16 @@ Expected baseline: **159 tests, 158 pass, 1 skipped** (`org-w3ctr-headline`).
 - **LF line endings.**  Any script or tool that rewrites a source file
   must write LF (`\n`), never CRLF.  A Windows Python `write_text`
   silently converts to CRLF and breaks multi-line string literals
-  (navbar / footnote tests then fail).  After a rewrite, check
-  `grep -c $'\r'` is 0.
+  (navbar / footnote tests then fail).  After a rewrite, count CR
+  bytes:
+
+  ```bash
+  tr -cd '\r' < ox-w3ctr.el | wc -c   # expect 0
+  ```
+
+  Do not use `grep -c $'\r'` for this: in this MSYS2 environment it
+  reports the line count for *any* file (a pure-LF 4937-line
+  `ox-w3ctr.el` gives 4937), so it always looks like a failure.
 - Do not commit changes unless explicitly asked.
 
 ## Methodology
@@ -157,8 +178,18 @@ special-block Web Component follows.
   INFO plist, saving on the order of 1-2 ms out of ~1 s (~0.1%).  A
   100-document build with ~500 lookups each saves single-digit milliseconds.
   `plist-get` is a C subr and is not the bottleneck; string building, tree
-  walking, regexp replacement, and fontification are.  Keep-or-drop OINFO is
-  deferred until the refactor is otherwise complete.
+  walking, regexp replacement, and fontification are.  The layer is also
+  optional and off-switchable: `org-w3ctr-oinfo-enabled` is a
+  *definition-time* switch — with it nil, `t--pget`/`t--pput` compile into
+  plain `plist-get`/`plist-put` (no oclosure, no cache-only writes, no INFO
+  held between exports), and changing it means recompiling or re-evaluating
+  the whole buffer.  `org-w3ctr-collect-oinfo-statistics' shows how often
+  each cached key was looked up (the `cnt' slot).  A full export clears the
+  caches at its end (`org-w3ctr--oinfo-cleanup'); an aborted or body-only
+  export does not, which is why `org-w3ctr-oinfo-cleanup-before-export'
+  exists — it is **not** installed by default; add it to
+  `org-export-before-processing-functions' yourself if that matters.
+  Keep-or-drop OINFO is deferred until the refactor is otherwise complete.
 - Do **not** "optimize" by turning INFO into a hashtable: INFO is owned by
   Org's export engine and is a plist by contract (all of `ox.el`,
   `org-export-data`, and filters read it as a plist).
@@ -232,8 +263,8 @@ redesign.
   `t--rpc-sentinel`, `t--rpc-start`, `t--rpc-request-sync`,
   `t--rpc-request!`, `t-toggle-jstools-debug`, `t--start-jstools`,
   `t--restart-jstools`, `t-launch-jstools`, `t--jstools-call`.
-- **Docstring but no `declare` (23)** — `t-update-css-js`,
-  `t--oinfo-cleanup`, `t-collect-oinfo-statistics`,
+- **Docstring but no `declare` (22)** — `t-update-css-js`,
+  `t-collect-oinfo-statistics`,
   `t-clear-oinfo-statistics`, `t--normalize-string`, `t--reference`,
   `t--get-headline-reference`, `t--format-checkbox`,
   `t--call-with-invalid-time-spec-handler`, `t--build-normal-headline`,

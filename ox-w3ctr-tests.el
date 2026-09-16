@@ -26,6 +26,34 @@
   (when-let* ((f (alist-get prop t--oinfo-cache-alist)))
     (symbol-function f)))
 
+(defun $oinfo-oclosure (key)
+  "Name of the test-only caching oclosure for property KEY.
+
+Deliberately distinct from `org-w3ctr--oinfo-oclosure', so that the
+closures these tests install can never replace a real one."
+  (intern (concat "org-w3ctr--oinfo-test" (symbol-name key))))
+
+(defmacro $oinfo-cache (keys &rest body)
+  "Run BODY with a throwaway OINFO cache for the property keys KEYS.
+
+Binds `org-w3ctr--oinfo-cache-props' and `org-w3ctr--oinfo-cache-alist'
+to closures named by `$oinfo-oclosure', and removes those names again
+when BODY exits: `fset' is not undone by `dlet'."
+  (declare (indent 1))
+  `(dlet ((org-w3ctr--oinfo-cache-props ,keys)
+          (org-w3ctr--oinfo-cache-alist nil))
+     (let (names)
+       (unwind-protect
+           (progn
+             (dolist (a org-w3ctr--oinfo-cache-props)
+               (let ((name ($oinfo-oclosure a)))
+                 (fset name (org-w3ctr--make-cache-oclosure a))
+                 (push (cons a name) org-w3ctr--oinfo-cache-alist)
+                 (push name names)))
+             ,@body)
+         (dolist (name names)
+           (when (fboundp name) (fmakunbound name)))))))
+
 (defvar t-test-values nil
   "A list to store return values during testing.")
 (defun t-advice-return-value (result)
@@ -94,7 +122,7 @@ symbol (such as \\='headline, \\='paragraph, etc)."
     ($q (t--oinfo--pid oc) info)
     ($l (t--oinfo--val oc) 3)
     ($l (t--oinfo--cnt oc) 1)
-    ;; test cnt
+    ;; cnt counts lookups
     (funcall oa info)
     ($l (t--oinfo--cnt oa) 2)
     (funcall ob info) (funcall ob info)
@@ -109,83 +137,109 @@ symbol (such as \\='headline, \\='paragraph, etc)."
     ($l (funcall oc info2) 1)
     ($q (t--oinfo--pid oc) info2)))
 
+(ert-deftest t-oinfo-cleanup-before-export ()
+  "The opt-in export-start hook clears what a previous export left behind."
+  (skip-unless t--oinfo-cache-p)
+  ($oinfo-cache '(:a)
+    (dlet ((info (list :a 1)))
+      ($l (eval '(t--pget info :a)) 1)
+      ($q (t--oinfo--pid (t--oinfo-oget :a)) info)
+      (t-oinfo-cleanup-before-export 'w3ctr)
+      ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
+      ($l (t--oinfo--val (t--oinfo-oget :a)) nil))))
+
+(ert-deftest t--oinfo-plain-flavor ()
+  "A build without the cache is plain `plist-get'/`plist-put'."
+  (skip-unless (not t--oinfo-cache-p))
+  (dlet ((info (list :a 1)))
+    ($l (eval '(t--pget info :a)) 1)
+    ($l (eval '(t--pput info :a 2)) 2)
+    ($l (plist-get info :a) 2)
+    ($l (eval '(t--pget info :a)) 2)))
+
+(ert-deftest t--oinfo-props-are-looked-up ()
+  "Every key of `org-w3ctr--oinfo-cache-props' is read through `t--pget'."
+  (let* ((build (symbol-file 'org-w3ctr--pget 'defun))
+         (source (and build (concat (file-name-sans-extension build) ".el"))))
+    (skip-unless (and source (file-readable-p source)))
+    (with-temp-buffer
+      (insert-file-contents source)
+      (dolist (key t--oinfo-cache-props)
+        (goto-char (point-min))
+        (should (re-search-forward
+                 (format "[(]t--pget[ \t\n]+info[ \t\n]+%s[)]"
+                         (regexp-quote (symbol-name key)))
+                 nil t))))))
+
 (ert-deftest t--oinfo-pget ()
   "Tests for `org-w3ctr--pget'."
-  (dlet ((t--oinfo-cache-props '(:a :b))
-         (t--oinfo-cache-alist nil)
-         (info '(:a 1 :b 2 :c 3)))
-    (dolist (a t--oinfo-cache-props)
-      (let* ((kname (symbol-name a))
-             (fname (intern (concat "org-w3ctr--oinfo-test" kname))))
-        (fset fname (t--make-cache-oclosure a))
-        (push (cons a fname) t--oinfo-cache-alist)))
-    ($l (eval '(t--pget info :a)) 1)
-    ($l (t--oinfo--cnt (t--oinfo-oget :a)) 1)
-    ($l (eval '(t--pget info :b)) 2)
-    ($l (t--oinfo--cnt (t--oinfo-oget :b)) 1)
-    ($l (eval '(t--pget info :c)) 3)
-    ($n (alist-get :c t--oinfo-cache-alist))))
+  (skip-unless t--oinfo-cache-p)
+  ($oinfo-cache '(:a :b)
+    (dlet ((info '(:a 1 :b 2 :c 3)))
+      ($l (eval '(t--pget info :a)) 1)
+      ($l (t--oinfo--cnt (t--oinfo-oget :a)) 1)
+      ($l (eval '(t--pget info :b)) 2)
+      ($l (t--oinfo--cnt (t--oinfo-oget :b)) 1)
+      ($l (eval '(t--pget info :c)) 3)
+      ($n (alist-get :c t--oinfo-cache-alist)))))
 
 (ert-deftest t--oinfo-pput ()
   "Tests for `org-w3ctr--pput'."
-  (dlet ((t--oinfo-cache-props '(:a :b))
-         (t--oinfo-cache-alist nil)
-         (info '(:a 1 :b 2 :c 3))
-         (val 1))
-    (dolist (a t--oinfo-cache-props)
-      (let* ((kname (symbol-name a))
-             (fname (intern (concat "org-w3ctr--oinfo-test" kname))))
-        (fset fname (t--make-cache-oclosure a))
-        (push (cons a fname) t--oinfo-cache-alist)))
-    ;; a
-    ($l (eval '(t--pput info :a 2)) 2)
-    ($l (eval '(t--pget info :a)) 2)
-    ($l (t--oinfo--val (t--oinfo-oget :a)) 2)
-    ($l (plist-get info :a) 1)
-    ;; b
-    ($l (eval '(t--pput info :b 3)) 3)
-    ($l (eval '(t--pget info :b)) 3)
-    ($l (t--oinfo--val (t--oinfo-oget :b)) 3)
-    ($l (plist-get info :b) 2)
-    ;; c
-    ($l (eval '(t--pput info :c 4)) 4)
-    ($l (eval '(t--pget info :c)) 4)
-    ($l (plist-get info :c) 4)
-    ;; test side effect c
-    ($l (eval '(t--pput info :c (incf val))) 2)
-    ($l (eval '(t--pget info :c)) 2)
-    ($l (plist-get info :c) 2)
-    ;; test side effect b
-    ($l (eval '(t--pput info :b (incf val))) 3)
-    ($l (eval '(t--pget info :b)) 3)
-    ($l (plist-get info :b) 2)))
+  (skip-unless t--oinfo-cache-p)
+  ($oinfo-cache '(:a :b)
+    (dlet ((info '(:a 1 :b 2 :c 3))
+           (val 1))
+      ;; a
+      ($l (eval '(t--pput info :a 2)) 2)
+      ($l (eval '(t--pget info :a)) 2)
+      ($l (t--oinfo--val (t--oinfo-oget :a)) 2)
+      ($l (plist-get info :a) 1)
+      ;; b
+      ($l (eval '(t--pput info :b 3)) 3)
+      ($l (eval '(t--pget info :b)) 3)
+      ($l (t--oinfo--val (t--oinfo-oget :b)) 3)
+      ($l (plist-get info :b) 2)
+      ;; c
+      ($l (eval '(t--pput info :c 4)) 4)
+      ($l (eval '(t--pget info :c)) 4)
+      ($l (plist-get info :c) 4)
+      ;; test side effect c
+      ($l (eval '(t--pput info :c (incf val))) 2)
+      ($l (eval '(t--pget info :c)) 2)
+      ($l (plist-get info :c) 2)
+      ;; test side effect b
+      ($l (eval '(t--pput info :b (incf val))) 3)
+      ($l (eval '(t--pget info :b)) 3)
+      ($l (plist-get info :b) 2))))
 
 (ert-deftest t--oinfo-cleanup ()
   "Tests for `org-w3ctr--oinfo-cleanup'."
-  (dlet ((t--oinfo-cache-props '(:a :b))
-         (t--oinfo-cache-alist nil)
-         (info '(:a 1 :b 2 :c 3)))
-    (dolist (a t--oinfo-cache-props)
-      (let* ((kname (symbol-name a))
-             (fname (intern (concat "org-w3ctr--oinfo" kname))))
-        (fset fname (t--make-cache-oclosure a))
-        (push (cons a fname) t--oinfo-cache-alist)))
-    ($l (eval '(t--pget info :a)) 1)
-    ($l (eval '(t--pget info :b)) 2)
-    ($l (eval '(t--pget info :c)) 3)
-    ($q (t--oinfo--pid (t--oinfo-oget :a)) info)
-    ($q (t--oinfo--pid (t--oinfo-oget :b)) info)
-    ($q (t--oinfo--val (t--oinfo-oget :a)) 1)
-    ($q (t--oinfo--val (t--oinfo-oget :b)) 2)
-    ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)
-    ($q (t--oinfo--cnt (t--oinfo-oget :b)) 1)
-    (t--oinfo-cleanup)
-    ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
-    ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
-    ($l (t--oinfo--val (t--oinfo-oget :a)) nil)
-    ($l (t--oinfo--val (t--oinfo-oget :a)) nil)
-    ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)
-    ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)))
+  (skip-unless t--oinfo-cache-p)
+  ($oinfo-cache '(:a :b)
+    (dlet ((info '(:a 1 :b 2 :c 3)))
+      ($l (eval '(t--pget info :a)) 1)
+      ($l (eval '(t--pget info :b)) 2)
+      ($l (eval '(t--pget info :c)) 3)
+      ($q (t--oinfo--pid (t--oinfo-oget :a)) info)
+      ($q (t--oinfo--pid (t--oinfo-oget :b)) info)
+      ($q (t--oinfo--val (t--oinfo-oget :a)) 1)
+      ($q (t--oinfo--val (t--oinfo-oget :b)) 2)
+      ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)
+      ($q (t--oinfo--cnt (t--oinfo-oget :b)) 1)
+      (t--oinfo-cleanup)
+      ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
+      ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
+      ($l (t--oinfo--val (t--oinfo-oget :a)) nil)
+      ($l (t--oinfo--val (t--oinfo-oget :a)) nil)
+      ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)
+      ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1))))
+
+(ert-deftest t--oinfo-test-namespace ()
+  "The names the tests generate can never replace a production closure."
+  (dolist (key t--oinfo-cache-props)
+    (should-not (eq ($oinfo-oclosure key) (t--oinfo-oclosure key))))
+  (should-not (memq ($oinfo-oclosure :a)
+                    (mapcar #'cdr t--oinfo-cache-alist))))
 
 (ert-deftest t--prepend-newline ()
   "Tests for `org-w3ctr--prepend-newline'."
