@@ -190,6 +190,21 @@ special-block Web Component follows.
   exists — it is **not** installed by default; add it to
   `org-export-before-processing-functions' yourself if that matters.
   Keep-or-drop OINFO is deferred until the refactor is otherwise complete.
+- **Compile-time switches and conditionals.**  Four measured facts, learned
+  while building `org-w3ctr-oinfo-enabled`:
+  - a top-level `defvar`/`defconst`/`defun` is *not* visible to compile-time
+    evaluation later in the same file (it fails with a "void" error), so
+    anything read at macro-expansion time has to be defined inside an
+    `eval-and-compile`;
+  - `eval-and-compile` evaluates its body *and* emits it, so a plain
+    `defconst` init is re-evaluated when the `.elc` loads; freeze such a
+    value with `eval-when-compile` when compiled call sites depend on it;
+  - never put top-level definitions inside a conditional: the compiler
+    hoists them and emits *both* branches, the later one winning (the
+    symptom is a switch that reports one flavour while the other is built);
+  - inside a `define-inline`, a flag test must sit *outside* the
+    `inline-quote`: inside it is a runtime branch, and the whole machinery
+    is expanded into every call site.
 - Do **not** "optimize" by turning INFO into a hashtable: INFO is owned by
   Org's export engine and is a plist by contract (all of `ox.el`,
   `org-export-data`, and filters read it as a plist).

@@ -68,9 +68,11 @@
   (signal 't-error (list (apply #'format-message string args))))
 
 ;; A PRECONDITION OF THE WHOLE BACK-END
-;; INFO is shared by identity with every transcoder, while callers
-;; discard `plist-put''s return value (its docstring only promises that
-;; value), so `plist-put' has to modify a non-empty plist in place.
+;; INFO is shared by identity with every transcoder, while callers discard
+;; `plist-put''s return value (its docstring only promises that value), so
+;; `plist-put' has to modify a *non-empty* plist in place — keeping the head
+;; cell (setcar for an existing key, splicing for a missing one).  An empty
+;; plist would need the return value; INFO is never empty here.
 (unless (let ((p (list :probe nil)))
           (and (eq p (plist-put p :probe t))   ; existing key, in place
                (eq p (plist-put p :probe-2 t)) ; missing key, in place
@@ -1132,6 +1134,9 @@ This affects IDs that are determined from the ID property.")
   (defvar t-oinfo-enabled t
     "Whether the OINFO option cache is used.")
 
+  ;; Frozen at definition time: a plain init would be re-evaluated when the
+  ;; .elc loads, i.e. with the load-time flag, and could then disagree with
+  ;; the `static-if's that were fixed at compile time.
   (defconst t--oinfo-cache-p (eval-when-compile (and t-oinfo-enabled t))
     "Whether this build routes property lookups through the OINFO cache.")
 
@@ -1197,9 +1202,10 @@ how `org-w3ctr--pget' finds it from `org-w3ctr--oinfo-cache-alist'."
        )
     "The property keys the OINFO cache has a closure for.
 
-Every key listed here has to be looked up through `org-w3ctr--pget';
-`org-w3ctr--oinfo-cache-alist' is built from this list, and
-`org-w3ctr--pput' caches writes to these keys.")
+Reading and writing one of them must go through `org-w3ctr--pget' /
+`org-w3ctr--pput': a later `plist-put' is invisible to the cache, and a
+key Org itself reads with `plist-get' (`:with-latex', `:time-stamp-file',
+`:with-tags') must never be written with `org-w3ctr--pput'.")
 
   (defconst t--oinfo-cache-alist
     (static-when t--oinfo-cache-p
@@ -1267,9 +1273,12 @@ would otherwise keep the dead INFO plist and its parse tree reachable
 from every oclosure until the next export.  Not installed by default —
 the cache is a development option — so add it yourself if you want
 this; the backend symbol it would be called with is ignored."
+  (declare (ftype (function (&rest t) null)))
   (t--oinfo-cleanup))
 
-;; To have every export start with the caches cleared:
+;; To have every export start with the caches cleared — the hook runs
+;; before the first `org-w3ctr--pget' of an export, since
+;; `org-export-as' calls it before transcoding:
 ;;
 ;;   (add-hook 'org-export-before-processing-functions
 ;;             #'org-w3ctr-oinfo-cleanup-before-export)
