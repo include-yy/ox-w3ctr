@@ -1371,6 +1371,8 @@ Interactive; useful before a benchmark or a test run."
    t--oinfo-cache-alist))
 
 ;;;; String helpers
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defsubst t--nw-p (s)
   "Return S if it is a string that has non-whitespace characters.
 Otherwise, return nil."
@@ -1449,6 +1451,8 @@ If S is not a string, or is an empty string, it is returned unchanged."
                    (setq out (concat string out)))))))
 
 ;;;; HTML escaping
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defconst t--protect-char-alist
   '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;"))
   "An alist mapping special HTML characters to their entities.
@@ -1502,6 +1506,8 @@ values, such as in alt=\"...\" or class=\"...\"."
                 (car pair) (cdr pair) text t t))))
 
 ;;;; References
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t--get-headline-reference (datum info)
   "Return a reference id for headline.
 if DATUM's type is not headline, return nil"
@@ -1544,6 +1550,8 @@ targets and targets."
           (t (org-export-get-reference datum info)))))
 
 ;;;; HTML attributes
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t--read-attr (attribute element)
   "Read the property ATTRIBUTE from ELEMENT as a list of Lisp objects.
 Return nil if the property does not exist or is empty.
@@ -1753,6 +1761,8 @@ standard `:attr_html' property using `org-w3ctr--make-attr_html'."
     (t--make-attr_html element info named-only)))
 
 ;;;; File and regexp
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t--load-file (file)
   "Read the entire contents of FILE into a string.
 
@@ -1807,6 +1817,8 @@ function returns nil."
 ;; special-block and table are not here.
 
 ;;;; Center Block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Paragraphs")
 ;; Fixed export. Not customizable.
 (defun t-center-block (_center-block contents _info)
@@ -1818,6 +1830,8 @@ CONTENTS holds the contents of the block."
           (t--prepend-newline contents)))
 
 ;;;; Drawer
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Drawers")
 ;; Fixed export. Not customizable.
 (defun t-drawer (drawer contents info)
@@ -1834,6 +1848,8 @@ CONTENTS holds the contents of the block."
             attrs cap (t--prepend-newline contents))))
 
 ;;;; Dynamic Block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Dynamic Blocks")
 ;; Fixed export. Not customizable.
 (defun t-dynamic-block (_dynamic-block contents _info)
@@ -1844,6 +1860,8 @@ CONTENTS holds the contents of the block."
   (or contents ""))
 
 ;;;; Item and Plain Lists
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Plain lists")
 ;; Options:
 ;; - :html-checkbox-type (`org-w3ctr-checkbox-type')
@@ -1942,6 +1960,8 @@ Returns an empty string if CHECKBOX is not one of the these three."
                   (when contents (format "<dd>%s</dd>" contents))))))))
 
 ;;;; Item
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Plain Lists")
 ;; Fixed export. Not customizable.
 (defun t-item (item contents info)
@@ -1967,6 +1987,8 @@ CONTENTS holds the contents of the item."
       (_ (error "Unrecognized list item type: %s" type)))))
 
 ;;;; Plain List
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Plain Lists")
 ;; Fixed export. Not customizable.
 (defun t-plain-list (plain-list contents info)
@@ -1981,6 +2003,8 @@ CONTENTS is the contents of the list."
     (format "<%s%s>\n%s</%s>" type attributes contents type)))
 
 ;;;; Quote Block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Paragraphs")
 ;; Fixed export. Not customizable.
 (defun t-quote-block (quote-block contents info)
@@ -1996,6 +2020,8 @@ CONTENTS holds the contents of the block."
 ;; latex-environment, src-block, and table-row are not here.
 
 ;;;; Example Block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Literal Examples")
 ;; Fixed export. Not customizable.
 (defun t-example-block (example-block _contents info)
@@ -2009,6 +2035,8 @@ CONTENTS is nil."
            (org-element-property :value example-block))))
 
 ;;;; Export Block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org) Quoting HTML tags")
 ;; Fixed export. Not customizable.
 (defun t-export-block (export-block _contents _info)
@@ -2034,6 +2062,8 @@ CONTENTS is nil."
       (_ ""))))
 
 ;;;; Fixed Width
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org) Literal Examples")
 ;; Fixed export. Not customizable.
 (defun t-fixed-width (fixed-width _contents info)
@@ -2049,6 +2079,8 @@ CONTENTS is nil."
               (concat "\n" value "\n")))))
 
 ;;;; Horizontal Rule
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org) Horizontal Rules")
 ;; Fixed export. Not customizable.
 (defun t-horizontal-rule (_horizontal-rule _contents _info)
@@ -2060,6 +2092,8 @@ CONTENTS is nil."
 
 ;; FIXME: Consider add support for custom keywords
 ;;;; Keyword
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org) Quoting HTML tags")
 ;; Fixed export. Not customizable.
 (defun t-keyword (keyword _contents info)
@@ -2082,6 +2116,8 @@ CONTENTS is nil."
 
 ;; FIXME: Consider add some tests after improve link's impl.
 ;;;; Paragraph
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Paragraphs")
 ;; Fixed export. Not customizable.
 (defsubst t--wrap-image (contents _info caption attrs)
@@ -2141,6 +2177,8 @@ CONTENTS is the contents of the paragraph, as a string."
   (concat (string-trim-right value) "\n"))
 
 ;;;; Verse Block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Paragraphs")
 ;; Fixed export. Not customizable.
 (defun t-verse-block (verse-block contents info)
@@ -2167,6 +2205,8 @@ CONTENTS is verse block contents."
 ;; smallest objects are not here.
 
 ;;;; Entity
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Special Symbols")
 ;; Fixed export. Not customizable.
 (defun t-entity (entity _contents _info)
@@ -2176,6 +2216,8 @@ CONTENTS is verse block contents."
   (org-element-property :html entity))
 
 ;;;; Export Snippet
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Quoting HTML tags")
 ;; Fixed export. Not customizable.
 (defun t-export-snippet (export-snippet _contents _info)
@@ -2196,6 +2238,8 @@ CONTENTS is verse block contents."
       (_ ""))))
 
 ;;;; Line Break
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Paragraphs")
 ;; Fixed export. Not customizable.
 (defun t-line-break (_line-break _contents _info)
@@ -2205,6 +2249,8 @@ CONTENTS is verse block contents."
   "<br>\n")
 
 ;;;; Target
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Internal Links")
 ;; Fixed export. Not customizable.
 (defun t-target (target _contents info)
@@ -2216,6 +2262,8 @@ information."
   (format "<span id=\"%s\"></span>" (t--reference target info)))
 
 ;;;; Radio Target
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Radio Targets")
 ;; Fixed export. Not customizable.
 (defun t-radio-target (radio-target text info)
@@ -2226,6 +2274,8 @@ information."
           (t--reference radio-target info) (or text "")))
 
 ;;;; Statistics Cookie
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Checkboxes")
 ;; Fixed export. Not customizable.
 (defun t-statistics-cookie (statistics-cookie _contents _info)
@@ -2236,6 +2286,8 @@ information."
           (org-element-property :value statistics-cookie)))
 
 ;;;; Subscript
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Subscripts and Superscripts")
 ;; Fixed export. Not customizable.
 (defun t-subscript (_subscript contents _info)
@@ -2245,6 +2297,8 @@ information."
   (format "<sub>%s</sub>" contents))
 
 ;;;; Superscript
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Subscripts and Superscripts")
 ;; Fixed export. Not customizable.
 (defun t-superscript (_superscript contents _info)
@@ -2270,6 +2324,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
       str "%s"))
 
 ;;;; Bold
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-bold (_bold contents info)
   "Transcode BOLD from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2277,6 +2333,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'bold info) contents))
 
 ;;;; Italic
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-italic (_italic contents info)
   "Transcode ITALIC from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2284,6 +2342,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'italic info) contents))
 
 ;;;; Underline
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-underline (_underline contents info)
   "Transcode UNDERLINE from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2291,6 +2351,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'underline info) contents))
 
 ;;;; Verbatim
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-verbatim (verbatim _contents info)
   "Transcode VERBATIM from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2300,6 +2362,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
            (org-element-property :value verbatim))))
 
 ;;;; Code
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2309,6 +2373,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
            (org-element-property :value code))))
 
 ;;;; Strike-Through
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-strike-through (_strike-through contents info)
   "Transcode STRIKE-THROUGH from Org to HTML."
   (declare (ftype (function (t string list) string))
@@ -2316,6 +2382,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
   (format (t--get-markup-format 'strike-through info) contents))
 
 ;;;; Plain Text
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; :with-smart-quotes    (`org-export-with-smart-quotes')
 ;; :with-special-strings (`org-export-with-special-strings')
@@ -2361,6 +2429,8 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
     output))
 
 ;;;; Timestamp
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Timestamps")
 ;; Options:
 ;; - :html-timezone          (`org-w3ctr-timezone')
@@ -2748,6 +2818,8 @@ indicates that no enclosing brackets should be applied."
 ;;; Headline and Section
 
 ;;;; Section
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Fixed export. Not customizable.
 
 (defvar t--zeroth-section-output nil
@@ -2769,6 +2841,8 @@ holding contextual information."
     (prog1 nil (setq t--zeroth-section-output contents))))
 
 ;;;; Todo
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - `org-done-keywords'
 ;; - :with-todo-keywords (`org-export-with-todo-keywords')
@@ -2790,6 +2864,8 @@ holding contextual information."
               todo))))
 
 ;;;; Priority
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :with-priority (`org-export-with-priority')
 ;; - :html-priority-class (`org-w3ctr-priority-class')
@@ -2810,6 +2886,8 @@ holding contextual information."
                 (string priority))))))
 
 ;;;; Tags
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :with-tags (`org-export-with-tags')
 ;; - :html-tag-class (`org-w3ctr-tag-class')
@@ -2826,6 +2904,8 @@ holding contextual information."
       (format "<span>%s</span>" spans))))
 
 ;;;; Headline
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
 ;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
@@ -3075,6 +3155,8 @@ holding contextual information."
 ;;; Template and Inner Template
 
 ;;;; <head> tags export.
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :time-stamp-file (`org-export-timestamp-file')
 ;; - :html-file-timestamp-function (`org-w3ctr-file-timestamp-function')
@@ -3221,6 +3303,8 @@ tags to be included in the HTML head."
    (t--build-meta-tags info)))
 
 ;;;; Default CSS export.
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-head-include-style (`org-w3ctr-head-include-style')
 ;; - `org-w3ctr-style'
@@ -3256,6 +3340,8 @@ the file."
   (setq t-style ""))
 
 ;;;; Mathjax config
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :with-latex (`org-w3ctr-with-latex')
 ;; - :html-mathjax-config (`org-w3ctr-mathjax-config')
@@ -3288,6 +3374,8 @@ for `svg-by-mathjax' mode, nothing otherwise."
   (funcall (t--pget info :html-math-head-function) info))
 
 ;;;; Rest of <head>
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-head (`org-w3ctr-head')
 ;; - :html-head-extra (`org-w3ctr-head-extra')
@@ -3327,6 +3415,8 @@ for `svg-by-mathjax' mode, nothing otherwise."
    "</head>\n"))
 
 ;;;; Legacy home and up
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-link-up (`org-w3ctr-link-up')
 ;; - :html-link-home (`org-w3ctr-link-home')
@@ -3347,6 +3437,8 @@ empty. Returns nil if both links are empty strings."
               (or link-up link-home) (or link-home link-up)))))
 
 ;;;; Navbar
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-link-navbar (`org-w3ctr-link-navbar')
 ;; - :html-format-navbar-function (`org-w3ctr-format-navbar-function')
@@ -3410,6 +3502,8 @@ Each link is separated by newlines for readability in the output HTML."
       (other (t-error "Invalid navbar type: %s" other)))))
 
 ;;;; CC license budget
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-use-cc-budget (`org-w3ctr-use-cc-budget')
 ;; - :html-license (`org-w3ctr-public-license')
@@ -3540,6 +3634,8 @@ attribution and appropriate Creative Commons icons when applicable."
   (funcall (t--pget info :html-format-license-function) info))
 
 ;;;; Preamble and Postamble
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-metadata-timestamp-format (`org-w3ctr-metadata-timestamp-format')
 ;; - :email (`user-mail-address')
@@ -3697,6 +3793,8 @@ Note: This variable is provided as an example only and may need
 adaptation for actual project use.")
 
 ;;;; Table of Contents
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; :html-toc-element (`org-w3ctr-toc-element')
 ;; :with-toc (`org-export-with-toc')
@@ -3858,6 +3956,8 @@ VALUE determines the type of list to generate:
         (t--build-toc depth info scope))))))
 
 ;;;; Template
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; :language (`org-export-default-language')
 ;; :html-back-to-top (`org-w3ctr-back-to-top')
@@ -3942,6 +4042,8 @@ holding export options."
 
 ;;; Complex elements
 ;;;; Table
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-table-use-header-tags-for-first-column
 ;;   (`org-w3ctr-table-use-header-tags-for-first-column')
@@ -4133,6 +4235,8 @@ modern-HTML reimplementation is planned."
           (kill-buffer))))))
 
 ;;;; LaTeX
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-math-custom-render-function
 ;;   (`org-w3ctr-math-custom-render-function')
@@ -4188,6 +4292,8 @@ MODE is the value of `:with-latex'; INFO is the export state."
    (t--pget info :with-latex) info))
 
 ;;;; Link
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-link-org-files-as-html (`org-w3ctr-link-org-files-as-html')
 ;; - :html-inline-images (`org-w3ctr-inline-images')
@@ -4566,6 +4672,8 @@ INFO is a plist holding contextual information.  See
       (format "<i>%s</i>" desc)))))
 
 ;;;; Footnote
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-footnotes-section (`org-w3ctr-footnotes-section')
 ;; - :html-footnote-format (`org-w3ctr-footnote-format')
@@ -4641,6 +4749,8 @@ INFO is a plist used as a communication channel."
     (funcall (t--pget info :html-footnote-section-function) definitions info)))
 
 ;;;; Engrave-faces subset
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 
 ;; A self-contained subset of engrave-faces.el's HTML backend.
 ;; See https://github.com/tecosaur/engrave-faces (v0.3.1,
@@ -4761,6 +4871,8 @@ returns nil, so bare text gets no span."
    (t (assoc prop t--engrave-style-plist))))
 
 ;;;; Source block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 
 (defun t--engrave-fontify-code (code lang)
   "Fontify CODE (a string) in LANG, returning bare fontified HTML.
@@ -4893,6 +5005,8 @@ single `<code class=\"src-inline src-LANG\">' (no nesting)."
     (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
 
 ;;;; Special Block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; FIXME
 ;; See (info "(org)HTML doctypes")
 (defconst t-html5-elements
@@ -4928,6 +5042,8 @@ holding contextual information."
         (format "<div%s>\n%s\n</div>" str contents)))))
 
 ;;; Filter Functions
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-final-function (contents _backend info)
   "Filter to indent the HTML and convert HTML entities."
   (with-temp-buffer
@@ -4939,6 +5055,8 @@ holding contextual information."
 
 
 ;;; End-user functions
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;;;###autoload
 (defun t-export-as-html
     (&optional async subtreep visible-only body-only ext-plist)
@@ -4998,6 +5116,8 @@ Return output file name."
                         plist pub-dir)))
 
 ;;; Shortdoc
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 
 (define-short-documentation-group ox-w3ctr
   "Helper"

@@ -130,6 +130,13 @@ one function at a time — docstring, `declare`, `important-return-value`/
 (larger), rather than a plan of its own.  There is no fixed task list and
 no "underway" moment: those two lists *are* the plan.
 
+Every section below `;;;; OINFO oclosure` is marked in the source with
+`;; REFINE: this section is pending the mainline fine pass.`  Take them in
+source order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass —
+docstring, `declare`, `important-return-value`/`pure`, helper use, tests —
+and remove the marker when the section is done.  What a pass turns up goes
+to `## Tasks` or `## TODO`.
+
 Its one **precondition**: the two local skills
 (`.agents/skills/ox-w3ctr-verify`, `.agents/skills/elisp-docstring`) get
 refactored until they are actually usable — the owner reads their code
