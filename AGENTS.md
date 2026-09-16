@@ -58,13 +58,15 @@ Two gotchas:
 - `system-time-locale` must be C/en; otherwise `%a` localizes day names and
   6 timestamp tests fail (e.g. `Fri` becomes a GBK-encoded Chinese string).
 
-Expected baseline: **163 tests, 161 pass, 2 skipped** (`org-w3ctr-headline`,
+Expected baseline: **172 tests, 170 pass, 2 skipped** (`org-w3ctr-headline`,
 and `org-w3ctr--oinfo-plain-flavor`, which only runs in a build with
-`org-w3ctr-oinfo-enabled' nil — see the OINFO note).  Without the source
-files, `org-w3ctr--oinfo-props-are-looked-up` also skips (160 pass, 3
-skipped): it reads `ox-w3ctr.el' next to the loaded file.  A build with
-`org-w3ctr-oinfo-enabled' nil skips all four OINFO cache tests instead
-(158 pass, 5 skipped).
+`org-w3ctr-oinfo-enabled' nil — see the OINFO note).  A build with that
+switch nil skips the nine cache-path tests instead (162 pass, 10 skipped).
+
+Two tests read `ox-w3ctr.el' next to the loaded file and skip without it
+(`org-w3ctr--oinfo-props-are-looked-up' and
+`org-w3ctr--oinfo-props-go-through-pget'); `org-w3ctr--load-file' reads
+it too but fails rather than skipping.
 
 ## Conventions
 
@@ -356,6 +358,18 @@ other two follow it.
   FIXME-marked, was removed — its ordinal purpose is long gone.)
 - `t--link-to-file`, `t--link-broken` and `t--link-coderef` still have no
   tests.
+- **Unnamed elements get a fresh random id on every export.**  When a datum
+  has no explicit label, `t--reference' falls back to
+  `org-export-get-reference', which mints an `orgXXXXXXX' id; Org seeds that
+  counter randomly, so two exports of the same document differ.  Measured on
+  the corpus: 3 of 57 documents (`2024-04-27-emacsql-sqlite',
+  `2025-01-19-monads', `2026-06-08-org-sblock-extra') differ between two
+  runs of *one* build, and an anchor into such a document is not stable
+  across exports.  Their raw export hash is therefore not a baseline:
+  compare normalised dumps (`dump-export' normalises the timestamp and
+  these ids).  Either the author gives every referenced element an explicit
+  `CUSTOM_ID' (explicit over implicit), or the back-end derives a stable id
+  (a content hash) — the crossref/anchor work in Non-goals.
 
 ## TODO
 
