@@ -1123,41 +1123,49 @@ This affects IDs that are determined from the ID property.")
 ;; (`org-w3ctr--oinfo-cleanup'); `org-w3ctr-oinfo-cleanup-before-export'
 ;; does the same at the start of an export, for those who add it as a hook.
 
-;; It's a development/performance option rather than part of the export
-;; semantics: with `org-w3ctr-oinfo-enabled' nil, the two getter/setter
-;; functions below compile into plain `plist-get' / `plist-put'.
+;; OINFO is a development/performance option, not part of the export
+;; semantics (see `org-w3ctr-oinfo-enabled' for what on and off mean).
+;;
+;; Reading order: `org-w3ctr--oinfo-cache-props' first — it lists the keys
+;; the cache knows and the read/write discipline they require — then
+;; `org-w3ctr--pget' / `org-w3ctr--pput', then the pieces they lean on.
 
 (eval-and-compile
-  ;; Read while compiling, or on each evaluation of the buffer when the
-  ;; file is interpreted.  To switch, set this and recompile, or
-  ;; re-evaluate the whole buffer.
+  ;; The switch is read at definition time — when the file is compiled,
+  ;; or on every evaluation of the buffer if it is interpreted — so change
+  ;; it and recompile, or re-evaluate the whole buffer.
   (defvar t-oinfo-enabled t
-    "Whether the OINFO option cache is used.")
+    "Non-nil means use the OINFO cache for property lookups.
 
-  ;; Frozen at definition time: a plain init would be re-evaluated when the
-  ;; .elc loads, i.e. with the load-time flag, and could then disagree with
-  ;; the `static-if's that were fixed at compile time.
+Nil makes `org-w3ctr--pget' and `org-w3ctr--pput' plain `plist-get'
+and `plist-put' calls, with no cache and no oclosures; either way a
+read returns the same value, only a write to a cached key differs.")
+
+  ;; Decided once, when the file is compiled or evaluated; it cannot
+  ;; change at run time.
   (defconst t--oinfo-cache-p (eval-when-compile (and t-oinfo-enabled t))
-    "Whether this build routes property lookups through the OINFO cache.")
+    "Non-nil if this build of ox-w3ctr uses the OINFO cache.")
 
   (oclosure-define t--oinfo
-    "Cache oclosure for org export INFO property lookups.
+    "Caching oclosure for one property of an export INFO plist.
 
-PID - The last INFO object the oclosure was applied to.
-KEY - The property keyword passed to lookup function.
-VAL - The cached property value associated with the last INFO.
-CNT - How many times this key was looked up."
+PID - The INFO plist the other slots were filled from.
+KEY - The property keyword this oclosure caches.
+VAL - The value of KEY in PID, or nil if it is absent.
+CNT - How many times this oclosure has been called."
     (pid :mutable t :type list)
     (key :type symbol)
     (val :mutable t)
     (cnt :mutable t :type integer))
 
   (defun t--make-cache-oclosure (keyword)
-    "Return a caching oclosure for property KEYWORD.
+    "Return a fresh caching oclosure for the property KEYWORD.
 
-The oclosure takes an INFO plist and returns KEYWORD's value in it,
-remembering the last INFO it saw.  `org-w3ctr--pput' fills it in,
-`org-w3ctr--oinfo-cleanup' empties it."
+Call the oclosure with an INFO plist to get the value of KEYWORD in it;
+it remembers the plist it last saw, so further calls with the same plist
+skip the lookup.  It is only used while `org-w3ctr--oinfo-cache-p' is
+non-nil: `org-w3ctr--pput' fills it in and `org-w3ctr--oinfo-cleanup'
+empties it."
     (declare (ftype (function (symbol) function))
              (important-return-value t))
     (oclosure-lambda (t--oinfo (pid nil) (key keyword)
@@ -1168,10 +1176,12 @@ remembering the last INFO it saw.  `org-w3ctr--pput' fills it in,
         (setq pid info val (plist-get info key)))))
 
   (defun t--oinfo-oclosure (key)
-    "Return the name of the caching oclosure for property KEY.
+    "Return the symbol whose function cell holds KEY's caching oclosure.
 
-KEY's oclosure is stored in the function cell of this symbol, which is
-how `org-w3ctr--pget' finds it from `org-w3ctr--oinfo-cache-alist'."
+`org-w3ctr--oinfo-cache-alist' pairs each cached property with the name
+this function returns for it, so that `org-w3ctr--pget' — which is
+inlined, and may run compiled — can reach the oclosure through that
+symbol.  KEY is a property keyword."
     (declare (ftype (function (symbol) symbol))
              (important-return-value t))
     (intern (concat "org-w3ctr--oinfo" (symbol-name key))))
@@ -1200,12 +1210,15 @@ how `org-w3ctr--pget' finds it from `org-w3ctr--oinfo-cache-alist'."
        :html-inline-images :html-inline-image-rules
        :html-equation-reference-format
        )
-    "The property keys the OINFO cache has a closure for.
+    "List of property keys the OINFO cache keeps an oclosure for.
 
-Reading and writing one of them must go through `org-w3ctr--pget' /
-`org-w3ctr--pput': a later `plist-put' is invisible to the cache, and a
-key Org itself reads with `plist-get' (`:with-latex', `:time-stamp-file',
-`:with-tags') must never be written with `org-w3ctr--pput'.")
+Read and write every one of them through `org-w3ctr--pget' and
+`org-w3ctr--pput', never `plist-get' or `plist-put': `plist-put' keeps
+the plist object identical, so a write that bypasses the cache is
+invisible to it.  A key that Org reads with `plist-get'
+(`:with-latex', `:time-stamp-file', `:with-tags') must in particular
+never be written with `org-w3ctr--pput'.  The test suite checks that every
+key here is read through `org-w3ctr--pget'.")
 
   (defconst t--oinfo-cache-alist
     (static-when t--oinfo-cache-p
@@ -1214,19 +1227,24 @@ key Org itself reads with `plist-get' (`:with-latex', `:time-stamp-file',
           (let ((fname (t--oinfo-oclosure a)))
             (fset fname (t--make-cache-oclosure a))
             (push (cons a fname) alist)))))
-    "Alist of cached property keys to their oclosure, or nil if disabled.
+    "Alist of cached property keys to the names of their oclosures.
 
-Built at load time from `org-w3ctr--oinfo-cache-props'; each key maps
-to the name `org-w3ctr--oinfo-oclosure' returns for it, and
-`org-w3ctr--pget' uses that to find the oclosure.")
+The cdr is a symbol, not the oclosure: `org-w3ctr--pget' inlines that
+symbol into compiled code and reaches the oclosure through its function
+cell.  Built at load time from `org-w3ctr--oinfo-cache-props', with the
+names that `org-w3ctr--oinfo-oclosure' returns.
+
+Nil when the cache is off, which makes every OINFO helper a no-op.")
 
   (define-inline t--pget (info prop)
-    "Get a property value from an Org export INFO plist.
+    "Return the value of property PROP in the export INFO plist.
 
-A `plist-get' with the OINFO cache in front of the keys listed in
-`org-w3ctr--oinfo-cache-props' (see `org-w3ctr-oinfo-enabled').  A key
-`org-w3ctr--pput' wrote while the cache is on reads back from the cache,
-so it may differ from what `plist-get' returns for that key."
+Like `plist-get', except that the keys listed in
+`org-w3ctr--oinfo-cache-props' are read through a cache when
+`org-w3ctr-oinfo-enabled' says there is one.  Nil means PROP is absent.
+
+A key that `org-w3ctr--pput' wrote while the cache is on is read back from
+the cache, so it can differ from what `plist-get' returns for that key."
     (static-if t--oinfo-cache-p
         (if-let* ((f (alist-get (inline-const-val prop)
                                 t--oinfo-cache-alist)))
@@ -1235,12 +1253,14 @@ so it may differ from what `plist-get' returns for that key."
       (inline-quote (plist-get ,info ,prop))))
 
   (define-inline t--pput (info prop value)
-    "Set the property PROP to VALUE in INFO and return VALUE.
+    "Set property PROP to VALUE in the export INFO plist and return VALUE.
 
-With the cache on and PROP in `org-w3ctr--oinfo-cache-props', the value
-goes into that key's oclosure only and the INFO plist is left alone (so
-`org-w3ctr--pget' disagrees with `plist-get' about it).  Otherwise a
-`plist-put' on INFO, returning VALUE rather than the plist."
+For a key in `org-w3ctr--oinfo-cache-props' with the cache on, the
+value goes into that key's oclosure and INFO is left untouched:
+later `org-w3ctr--pget' calls return it, while Org and `plist-get'
+still see the old value.  Any other PROP is written with `plist-put'.
+
+Unlike `plist-put', return VALUE rather than the plist."
     (static-if t--oinfo-cache-p
         (if-let* ((f (alist-get (inline-const-val prop)
                                 t--oinfo-cache-alist)))
@@ -1253,10 +1273,16 @@ goes into that key's oclosure only and the INFO plist is left alone (so
         (inline-quote (prog1 ,value (plist-put ,info ,prop ,value)))))))
 
 (defun t--oinfo-cleanup ()
-  "Reset every OINFO oclosure's `pid' and `val' slots to nil.
+  "Clear the value every OINFO oclosure caches, releasing its INFO plist.
 
-Called at the end of a full export (`org-w3ctr-template'); the lookup
-count is left alone (see `org-w3ctr-clear-oinfo-statistics')."
+A finished export should not stay reachable through the oclosures that
+cached it.  This is a memory measure, not an invalidation: an oclosure
+compares the plist it is handed with the one it cached, so correctness
+does not depend on being called.
+
+Called at the end of a full export from `org-w3ctr-template'; the lookup
+counters are left alone (see `org-w3ctr-clear-oinfo-statistics'), and with
+the cache off this does nothing."
   (declare (ftype (function () null)))
   (map-do
    (lambda (_k v)
@@ -1265,14 +1291,19 @@ count is left alone (see `org-w3ctr-clear-oinfo-statistics')."
    t--oinfo-cache-alist))
 
 (defun t-oinfo-cleanup-before-export (&rest _)
-  "Reset the OINFO caches when an export starts.
+  "Clear the OINFO caches at the start of an export.
 
-`org-w3ctr-template' clears them only after a full transcode, so an
-aborted export (or a body-only one, which never reaches the template)
-would otherwise keep the dead INFO plist and its parse tree reachable
-from every oclosure until the next export.  Not installed by default —
-the cache is a development option — so add it yourself if you want
-this; the backend symbol it would be called with is ignored."
+Add this function to `org-export-before-processing-functions' to have
+every export start clean; it is not installed by default, the cache being
+a development option.  `org-export-as' runs that hook before it transcodes
+anything, so the caches are already empty when the first
+`org-w3ctr--pget' runs.  Any arguments it is called with (the backend
+symbol) are ignored.
+
+`org-w3ctr--oinfo-cleanup' runs only after a full transcode, so an export
+aborted by an error — or a body-only export, which never reaches
+`org-w3ctr-template' — would otherwise leave every oclosure holding the
+dead INFO plist and its parse tree."
   (declare (ftype (function (&rest t) null)))
   (t--oinfo-cleanup))
 
@@ -1284,12 +1315,16 @@ this; the backend symbol it would be called with is ignored."
 ;;             #'org-w3ctr-oinfo-cleanup-before-export)
 
 (defun t-collect-oinfo-statistics ()
-  "Display how often each cached OINFO key was looked up.
+  "Display how often each cached OINFO key has been looked up.
 
-Reads the `cnt' slot of every oclosure in `org-w3ctr--oinfo-cache-alist',
-sorts the keys by lookup count and pretty-prints (KEY CNT) into the
-buffer *ox-w3ctr-oinfo*, which is then displayed.  Interactive, for
-debugging and for judging which keys are worth caching at all."
+Read the `cnt' slot of every oclosure in `org-w3ctr--oinfo-cache-alist',
+sort the keys by lookup count, print them as (KEY CNT) in the buffer
+*ox-w3ctr-oinfo* and display that buffer.
+
+The counts begin when the file is loaded and keep growing across
+exports; `org-w3ctr-clear-oinfo-statistics' zeroes them.
+
+Interactive; useful for judging which keys are worth caching at all."
   (interactive)
   (let* ((buf (get-buffer-create "*ox-w3ctr-oinfo*"))
          (ls (mapcar
@@ -1303,9 +1338,12 @@ debugging and for judging which keys are worth caching at all."
     (switch-to-buffer-other-window buf)))
 
 (defun t-clear-oinfo-statistics ()
-  "Reset every OINFO oclosure's cached value and its lookup count.
+  "Clear the OINFO caches and reset their lookup counters.
 
-Like `org-w3ctr--oinfo-cleanup', and additionally zeroes `cnt'.
+Like `org-w3ctr--oinfo-cleanup', and additionally zero the
+`cnt' slot of every oclosure, so that the figures from
+`org-w3ctr-collect-oinfo-statistics' start again from zero.
+
 Interactive; useful before a benchmark or a test run."
   (interactive)
   (map-do
