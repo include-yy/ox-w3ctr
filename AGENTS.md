@@ -39,9 +39,8 @@ Shell: MSYS2 bash (MINGW64); paths and commands below are bash-style.
   SourceHut is over SSH and needs no proxy.
 - Releases: bump `Package-Version` (header) and `t-version` together,
   commit, then tag `vX.Y.Z` (lightweight, matching `v0.2.5`) and push the
-  branch and the tag to both remotes.  For a release, set
-  `org-w3ctr-oinfo-enabled' to nil first: the OINFO cache is then compiled
-  out of the shipped byte code (see the OINFO note).
+  branch and the tag to both remotes.  The OINFO cache ships on: do **not**
+  turn `org-w3ctr-oinfo-enabled' off for a release (see the OINFO note).
 
 ## Running the tests
 
@@ -191,7 +190,15 @@ special-block Web Component follows.
   export does not, which is why `org-w3ctr-oinfo-cleanup-before-export'
   exists — it is **not** installed by default; add it to
   `org-export-before-processing-functions' yourself if that matters.
-  Keep-or-drop OINFO is deferred until the refactor is otherwise complete.
+  **Decided (2026-09): OINFO stays, and stays on.**  `t-oinfo-enabled' is a
+  build-time switch for measuring and for checking the cache against the
+  plain path, not a release knob; the plain path is what a nil build gets,
+  and both are tested (see "Running the tests").  What that makes permanent:
+  the read/write discipline for the 40 keys is load-bearing (the literal-key
+  lint in the test suite is what guards it, and it has already caught one
+  slip), a value written with `t--pput' lives only in the cache and so is
+  shipped behaviour, and the cache flavour is the one the corpus checks run
+  by default.
 - **Compile-time switches and conditionals.**  Four measured facts, learned
   while building `org-w3ctr-oinfo-enabled`:
   - a top-level `defvar`/`defconst`/`defun` is *not* visible to compile-time
@@ -362,14 +369,15 @@ other two follow it.
   has no explicit label, `t--reference' falls back to
   `org-export-get-reference', which mints an `orgXXXXXXX' id; Org seeds that
   counter randomly, so two exports of the same document differ.  Measured on
-  the corpus: 3 of 57 documents (`2024-04-27-emacsql-sqlite',
-  `2025-01-19-monads', `2026-06-08-org-sblock-extra') differ between two
-  runs of *one* build, and an anchor into such a document is not stable
-  across exports.  Their raw export hash is therefore not a baseline:
-  compare normalised dumps (`dump-export' normalises the timestamp and
-  these ids).  Either the author gives every referenced element an explicit
-  `CUSTOM_ID' (explicit over implicit), or the back-end derives a stable id
-  (a content hash) — the crossref/anchor work in Non-goals.
+  the corpus: 4 of the 57 documents hold such ids (`verify-corpus' reports
+  the count in its `refs=' column, and which documents they are is not stable
+  — any of them can differ between two runs of *one* build), and an anchor
+  into such a document is not stable across exports.  A raw export hash is
+  therefore not a baseline: compare the normalized `norm=' hash (`dump-export'
+  normalizes the timestamp and these ids).  Either the author gives every
+  referenced element an explicit `CUSTOM_ID' (explicit over implicit), or the
+  back-end derives a stable id (a content hash) — the crossref/anchor work in
+  Non-goals.
 
 ## TODO
 

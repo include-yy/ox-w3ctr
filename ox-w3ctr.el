@@ -1123,8 +1123,10 @@ This affects IDs that are determined from the ID property.")
 ;; (`org-w3ctr--oinfo-cleanup'); `org-w3ctr-oinfo-cleanup-before-export'
 ;; does the same at the start of an export, for those who add it as a hook.
 
-;; OINFO is a development/performance option, not part of the export
-;; semantics (see `org-w3ctr-oinfo-enabled' for what on and off mean).
+;; OINFO ships on: `org-w3ctr-oinfo-enabled' (see there) is a build-time
+;; switch for measuring and for checking the cache against the plain path,
+;; not a release knob.  It is not part of the export semantics: both
+;; builds must produce the same output.
 ;;
 ;; Reading order: `org-w3ctr--oinfo-cache-props' first — it lists the keys
 ;; the cache knows and the read/write discipline they require — then
@@ -1144,7 +1146,9 @@ and `plist-put' calls, with no cache and no oclosures; either way a
 read returns the same value, only a write to a cached key differs.
 
 It is t by default; the value this build actually uses is
-`org-w3ctr--oinfo-cache-p'.")
+`org-w3ctr--oinfo-cache-p'.  It stays on in releases too: the switch is
+for measuring, and for comparing the cache against the plain path, not a
+release knob.")
 
   ;; Decided once, when the file is compiled or evaluated; it cannot
   ;; change at run time.
@@ -1305,9 +1309,10 @@ the cache off this does nothing."
   "Clear the OINFO caches at the start of an export.
 
 Add this function to `org-export-before-processing-functions' to have
-every export start clean; it is not installed by default, the cache being
-a development option.  `org-export-as' runs that hook before it transcodes
-anything, so the caches are already empty when the first
+every export start clean; it is not installed by default: a full export
+clears the caches at its end, and it is the aborted or body-only export
+that would leave them populated.  `org-export-as' runs that hook before it
+transcodes anything, so the caches are already empty when the first
 `org-w3ctr--pget' runs.  Any arguments it is called with (the backend
 symbol) are ignored.
 
