@@ -1224,7 +1224,8 @@ the plist object identical, so a write that bypasses the cache is
 invisible to it.  A key that Org reads with `plist-get'
 (`:with-latex', `:time-stamp-file', `:with-tags') must in particular
 never be written with `org-w3ctr--pput'.  The test suite checks that every
-key here is read through `org-w3ctr--pget'.
+key here is read through `org-w3ctr--pget', and that neither `plist-get'
+nor `plist-put' reaches one of them by a literal key.
 
 The cache notices a different plist object, not a change inside one: a
 `plist-put' that keeps the plist's identity cannot invalidate it.")
@@ -3882,7 +3883,7 @@ paragraph for the subtitle. It only produces output if
   (declare (ftype (function (list) string))
            (important-return-value t))
   (when (plist-get info :with-title)
-    (let ((title (plist-get info :title))
+    (let ((title (t--pget info :title))
           (subtitle (plist-get info :subtitle)))
       (concat
        "<h1 id=\"title\">"
