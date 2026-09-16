@@ -13,8 +13,9 @@ style.  Version 0.2.7; requires Emacs 31.
 - `ox-w3ctr-tests.el` — ERT test suite
 - `assets/`           — CSS / SVG / JS
 - `jstools/`          — Node.js MathJax RPC helper
-- `tools/`            — local check/reorder scripts (gitignored)
+- `tools/`            — local build dirs and outputs (gitignored)
 - `zhua.el`           — scratch file for refactor proposals (gitignored)
+- `.agents/`          — local skills (untracked; see Mainline)
 
 ## Environment
 
@@ -40,7 +41,8 @@ Shell: MSYS2 bash (MINGW64); paths and commands below are bash-style.
 - Releases: bump `Package-Version` (header) and `t-version` together,
   commit, then tag `vX.Y.Z` (lightweight, matching `v0.2.5`) and push the
   branch and the tag to both remotes.  The OINFO cache ships on: do **not**
-  turn `org-w3ctr-oinfo-enabled' off for a release (see the OINFO note).
+  turn `org-w3ctr-oinfo-enabled' off for a release (`t-oinfo-enabled' says
+  why).
 
 ## Running the tests
 
@@ -59,13 +61,15 @@ Two gotchas:
 
 Expected baseline: **172 tests, 170 pass, 2 skipped** (`org-w3ctr-headline`,
 and `org-w3ctr--oinfo-plain-flavor`, which only runs in a build with
-`org-w3ctr-oinfo-enabled' nil — see the OINFO note).  A build with that
-switch nil skips the nine cache-path tests instead (162 pass, 10 skipped).
+`org-w3ctr-oinfo-enabled' nil).  Run the cache build — the one that ships;
+a nil build is for measuring, not a configuration to maintain.  (For
+reference if you build one anyway: it skips the nine cache-path tests,
+162 pass, 10 skipped.)
 
 Two tests read `ox-w3ctr.el' next to the loaded file and skip without it
-(`org-w3ctr--oinfo-props-are-looked-up' and
-`org-w3ctr--oinfo-props-go-through-pget'); `org-w3ctr--load-file' reads
-it too but fails rather than skipping.
+(`org-w3ctr--oinfo-props-are-looked-up',
+`org-w3ctr--oinfo-props-go-through-pget'); `org-w3ctr--load-file' reads it
+too but fails rather than skipping.
 
 ## Conventions
 
@@ -74,8 +78,8 @@ it too but fails rather than skipping.
   its symbols will not shadow the package ones.
 - A refactored function has: a full docstring, `(declare (ftype ...))`,
   `(important-return-value t)` / `(pure t)` where applicable, uses the
-  `t--*` helpers and the OINFO cache (`t--pget` / `t--pput`), and has ERT
-  tests.
+  `t--*` helpers, reads and writes INFO through `t--pget` / `t--pput`
+  (never `plist-get` / `plist-put` for a cached key), and has ERT tests.
 - Workflow: write proposals to `zhua.el`, review in Emacs, then merge into
   `ox-w3ctr.el`.  `zhua.el` is gitignored — do not commit it.
 - **LF line endings.**  Any script or tool that rewrites a source file
@@ -117,90 +121,48 @@ beats implicit, and the back-end should trust explicit input.
   an AI can — prefer explicitness wherever drift is catchable by a
   test or lint.
 
-## Refactoring status
+## Mainline: incremental refinement
 
-Done (refactored): center-block, drawer, dynamic-block, item, plain-list,
-quote-block, example-block, export-block, fixed-width, horizontal-rule,
-keyword, paragraph, verse-block, entity, export-snippet, line-break, target,
-radio-target, statistics-cookie, subscript, superscript, bold, italic,
-underline, verbatim, code, strike-through, plain-text, timestamp, section,
-headline, inner-template, template, table (`table`/`table-row`/`table-cell`),
-latex (`latex-fragment`/`latex-environment` + `t--format-latex`/
-`t--normalize-latex`), link (the `t--link-*` helpers plus `t-inline-image-p`,
-`t-standalone-image-p`, `t-image-link-filter`), footnote
-(`footnote-reference` + `t-footnote-section`), and the whole `<head>` / CSS /
-MathJax / navbar / license / preamble / TOC layer, src-block
-(`inline-src-block` + the `t--engrave-*` subset, `t-fontify-code` and the
-`t--src-*` transcoders; rough — see the `<code>` line-break note).
+The per-element round is complete; from here the work is top-down.  Refine
+one function at a time — docstring, `declare`, `important-return-value`/
+`pure`, helper use, tests — and each problem found becomes an entry in
+`## Tasks` (small, usually done in the same session) or `## TODO`
+(larger), rather than a plan of its own.  There is no fixed task list and
+no "underway" moment: those two lists *are* the plan.
 
-The first phase — per-element refactoring — is complete.  Its wrap-up
-is reordering the whole document; see "Docstring & code layout tidy".
+Its one **precondition**: the two local skills
+(`.agents/skills/ox-w3ctr-verify`, `.agents/skills/elisp-docstring`) get
+refactored until they are actually usable — the owner reads their code
+and takes part, so this is a dialogue, not a batch job.  They are
+untracked (`.agents/` is), so what a round settles goes into this file
+rather than into a commit.  "Usable" means:
 
-Not done (still ported from ox-html, no `(declare ...)`, no tests):
+- **The documented recipe covers a routine run.**  Needing a wrapper
+  written somewhere else is a missing step in the recipe (2026-09: five
+  such wrappers, three extra corpus passes, and a baseline that could not
+  work).
+- **Numbers, not adjectives** — hashes, counts, seconds, and the command
+  that produced them — and **one** place for them (this file), referred
+  to rather than copied, so the copies cannot drift.
+- **A checker can disagree, and is itself checked**: a differential or a
+  third-party parser over the corpus, a self-check (one build, twice), and
+  its false alarms written down in `references/checker-design.md` instead
+  of quietly fixed.
+- **Costs are stated**: what each script exports, how long a pass takes,
+  and which cross-checks a routine run skips (the nil flavour: OINFO
+  changes only).
 
-- `special-block` — deferred to phase 2 (see Non-goals)
+A skill round is done when the next run can follow it without asking a
+question the files do not answer.
 
-## Refactoring order (dependency-based)
-
-0. shared helpers — round 1 done (`t--void-element`; `t--has-caption-p`
-   was later inlined and removed)
-   further proposals live in `zhua.el`
-1. table — done (tests in `ox-w3ctr-tests.el`)
-2. latex — done
-3. link & image — done (tests in `ox-w3ctr-tests.el`)
-4. footnote — done (tests in `ox-w3ctr-tests.el`)
-5. src-block (largest, includes the engrave-faces port) — done (rough)
-6. options — tidy the whole `:options-alist` (see the Options note)
-   — partially done: entries reordered and `;; Options:` annotations
-   added; the `*-function` replacement and the ox-html compatibility
-   chart become the first phase-2 task
-7. docstring & code layout tidy — done: three passes (defcustom /
-   options-alist / helpers) plus section-header cleanup.  Three
-   mechanical leftovers are deferred (see TODO).
-
-## Phase 2 (incremental polish) — preparation
-
-Phase 2 is currently in its preparation (discovery) phase: no fixed
-task list yet.  Refine functions one at a time (docstring, `declare`,
-`important-return-value`/`pure`, helper use, tests), and each problem
-found while refining becomes a new phase-2 task.  Expect a long
-discovery period before phase 2 is "officially" underway.
-
-First phase-2 task: the options leftover — replace cumbersome string
-options with `*-function` ones and chart ox-html compatibility.  The
-special-block Web Component follows.
+The first tasks, then: the options tidy-up in `## TODO` (the `*-function`
+replacement and the ox-html compatibility chart), and the special-block
+Web Component after it.
 
 ## Notes
 
-- **OINFO is instrumentation, not a speedup.**  `t--pget`/`t--pput` is best
-  treated as a centralized, instrumented option-access layer.  Measured on a
-  compiled build: a cache hit is ~2.5-4x faster than `plist-get`, but a real
-  150-headline export makes only ~10k cached lookups against a ~356-entry
-  INFO plist, saving on the order of 1-2 ms out of ~1 s (~0.1%).  A
-  100-document build with ~500 lookups each saves single-digit milliseconds.
-  `plist-get` is a C subr and is not the bottleneck; string building, tree
-  walking, regexp replacement, and fontification are.  The layer is also
-  optional and off-switchable: `org-w3ctr-oinfo-enabled` is a
-  *definition-time* switch — with it nil, `t--pget`/`t--pput` compile into
-  plain `plist-get`/`plist-put` (no oclosure, no cache-only writes, no INFO
-  held between exports), and changing it means recompiling or re-evaluating
-  the whole buffer.  `org-w3ctr-collect-oinfo-statistics' shows how often
-  each cached key was looked up (the `cnt' slot).  A full export clears the
-  caches at its end (`org-w3ctr--oinfo-cleanup'); an aborted or body-only
-  export does not, which is why `org-w3ctr-oinfo-cleanup-before-export'
-  exists — it is **not** installed by default; add it to
-  `org-export-before-processing-functions' yourself if that matters.
-  **Decided (2026-09): OINFO stays, and stays on.**  `t-oinfo-enabled' is a
-  build-time switch for measuring and for checking the cache against the
-  plain path, not a release knob; the plain path is what a nil build gets,
-  and both are tested (see "Running the tests").  What that makes permanent:
-  the read/write discipline for the 40 keys is load-bearing (the literal-key
-  lint in the test suite is what guards it, and it has already caught one
-  slip), a value written with `t--pput' lives only in the cache and so is
-  shipped behaviour, and the cache flavour is the one the corpus checks run
-  by default.
-- **Compile-time switches and conditionals.**  Four measured facts, learned
-  while building `org-w3ctr-oinfo-enabled`:
+- **Compile-time switches and conditionals.**  Four measured facts,
+  learned while building `org-w3ctr-oinfo-enabled`:
   - a top-level `defvar`/`defconst`/`defun` is *not* visible to compile-time
     evaluation later in the same file (it fails with a "void" error), so
     anything read at macro-expansion time has to be defined inside an
@@ -214,10 +176,6 @@ special-block Web Component follows.
   - inside a `define-inline`, a flag test must sit *outside* the
     `inline-quote`: inside it is a runtime branch, and the whole machinery
     is expanded into every call site.
-- Do **not** "optimize" by turning INFO into a hashtable: INFO is owned by
-  Org's export engine and is a plist by contract (all of `ox.el`,
-  `org-export-data`, and filters read it as a plist).
-
 - **Table column groups.**  Org's `/`-row (`<`/`>`/`<>`) only marks group
   boundaries; it cannot carry attributes, because its cells must be exactly
   those markers or Org's own colgroup detection (`org-export-table-cell-borders`)
@@ -249,12 +207,9 @@ special-block Web Component follows.
   The helper loads `ui/safe`, without which the auto-loaded `html' TeX
   extension lets `\href{javascript:...}`, `\style` and `\class` through.
 
-## Docstring & code layout tidy
+## Code layout rules
 
-The first-phase wrap-up (refactoring order item 7): reorder the whole
-document — section headers, function order, docstrings.  Rules first,
-then the current inventory.  Mechanical work; follow the rules, no
-redesign.
+What the docstring & code layout tidy settled; follow them for new code.
 
 ### Rules
 
@@ -276,79 +231,8 @@ redesign.
   mix.
 - **Ordering**: within a section, bottom-up (helper before its user)
   or top-down by call layer — pick one per section and keep it.
-- **Header hygiene**: correct spelling ("Fundamental"), no author
-  names, no arithmetic comments that drift out of date.
-
-### Inventory (as of the src-block round)
-
-- 231 `defun`/`defsubst` total.
-- **No docstring (13)** — all in the jstools RPC area:
-  `t--rpc-make-json`, `t--rpc-send`, `t--rpc-call`, `t--rpc-filter`,
-  `t--rpc-sentinel`, `t--rpc-start`, `t--rpc-request-sync`,
-  `t--rpc-request!`, `t-toggle-jstools-debug`, `t--start-jstools`,
-  `t--restart-jstools`, `t-launch-jstools`, `t--jstools-call`.
-- **Docstring but no `declare` (22)** — `t-update-css-js`,
-  `t-collect-oinfo-statistics`,
-  `t-clear-oinfo-statistics`, `t--normalize-string`, `t--reference`,
-  `t--get-headline-reference`, `t--format-checkbox`,
-  `t--call-with-invalid-time-spec-handler`, `t--build-normal-headline`,
-  `t-headline`, `t-clear-css`, `t-preamble-default-function`,
-  `t--build-toc`, `t--textarea-block`, `t-special-block`,
-  `t-final-function`, `t-export-as-html`, `t-convert-region-to-html`,
-  `t-export-to-html`, `t-publish-to-html`, `t--trim`, `t--nw-trim`.
-  (The last two are `defsubst`; the `t-export-*`/`t-publish-*`/
-  `t-convert-*` ones are end-user commands — exempt per the rules.)
-- **Section headers**:
-  - `;;;; Fundmental utilities` → "Fundamental".
-  - `;;;; Some options added by include-yy` → rename, drop the author.
-  - `;;;; Legacy home and up` → fold into `;;;; Navbar` or rename.
-  - The refactored elements `;;;; Table` / `;;;; LaTeX` / `;;;; Link` /
-    `;;;; Footnote` / `;;;; Engrave-faces subset` / `;;;; Source block` /
-    `;;;; Special Block` are flat `;;;;` blocks after
-    `;;; Template and Inner Template`; either group them under one
-    `;;;` part (e.g. `;;; Refactored elements`) or add a note that
-    they are intentionally flat.
-  - `;;; Greater elements (11 - 3 - 2 = 6).` and its Lesser/Objects/
-    Smallest siblings: the arithmetic has drifted; drop the numbers or
-    recompute.
-
-### Execution plan (defcustom order is primary)
-
-Three passes; the defcustom order below is the primary one, and the
-other two follow it.
-
-1. **defcustom reorder** — group the defcustoms by the element/object
-   they serve, in this order:
-   1. Headline & section — todo / priority / tags,
-      `format-headline-function`, `toplevel-hlevel`,
-      `honor-ox-headline-levels`, `container-element`,
-      `self-link-headlines`, `headline-cnt`,
-      `zeroth-section-tocname`.
-   2. Markup texts — `text-markup-alist`.
-   3. Item & plain lists — `checkbox-type`.
-   4. Table — `table-use-header-tags-for-first-column`.
-   5. LaTeX & math — `with-latex`, mathjax config, math-head
-      function, `equation-reference-format`.
-   6. Link & images — `link-org-files-as-html`, `inline-images`,
-      image rules, `link-home`/`link-up`, navbar.
-   7. Footnote — `footnotes-section`, `footnote-format`,
-      `footnote-separator`, `footnote-section-function`.
-   8. Src block — `fontify-method`, `example-default-class`.
-   9. Timestamp — timezone, formats, option, wrapper,
-      format-function.
-   10. Head & template — head / style / viewport / meta-tags /
-       coding-system / `toc-element` / `back-to-top` / fixup-js /
-       `extension`.
-   11. Preamble & license — license, cc-budget, preamble, postamble,
-       creator, validation-link.
-   12. Misc — `indent`, `use-babel`.
-   Merge the "Some options added by include-yy" group into its proper
-   places and drop the author name.
-2. **`:options-alist` reorder** — order the option entries to follow
-   the defcustom order above; keep the `;;` group comments in sync.
-3. **Internal functions & helpers reorder** — move misplaced helpers
-   (e.g. `t--textarea-block`) next to their element and sort the
-   helper sections to follow the same element order.
+- **Header hygiene**: correct spelling, no author names, no arithmetic
+  comments that drift out of date.
 
 ## Known issues
 
@@ -365,28 +249,31 @@ other two follow it.
   FIXME-marked, was removed — its ordinal purpose is long gone.)
 - `t--link-to-file`, `t--link-broken` and `t--link-coderef` still have no
   tests.
-- **Unnamed elements get a fresh random id on every export.**  When a datum
-  has no explicit label, `t--reference' falls back to
-  `org-export-get-reference', which mints an `orgXXXXXXX' id; Org seeds that
-  counter randomly, so two exports of the same document differ.  Measured on
-  the corpus: 4 of the 57 documents hold such ids (`verify-corpus' reports
-  the count in its `refs=' column, and which documents they are is not stable
-  — any of them can differ between two runs of *one* build), and an anchor
-  into such a document is not stable across exports.  A raw export hash is
-  therefore not a baseline: compare the normalized `norm=' hash (`dump-export'
-  normalizes the timestamp and these ids).  Either the author gives every
-  referenced element an explicit `CUSTOM_ID' (explicit over implicit), or the
-  back-end derives a stable id (a content hash) — the crossref/anchor work in
+- **Unnamed elements get a fresh random id on every export.**  With no
+  explicit label, `t--reference' falls back to `org-export-get-reference',
+  which mints an `orgXXXXXXX' id from a randomly seeded counter.  Four of
+  the 57 corpus documents hold such ids (`verify-corpus' counts them in
+  `refs='), and an anchor into one is not stable across exports.  Never diff
+  raw export hashes — compare the normalized `norm=' (see the verification
+  skill).  Either the author gives every referenced element an explicit
+  `CUSTOM_ID', or the back-end derives a stable id — the crossref work in
   Non-goals.
 
-## TODO
+## Tasks
 
-- **Docstring & layout leftovers (deferred from the tidy pass).**
+Small items, found while refining a function and usually finished in the
+same session; the mainline adds them here as it goes.  Larger or planned
+work goes in `## TODO` below.
+
+- **Docstring & layout leftovers (from the tidy pass).**
   - Add docstrings to the 13 jstools RPC functions
     (`t--rpc-make-json` … `t--jstools-call`).
   - Add `(declare (ftype …))` to the ~18 functions that still lack it
     (excluding `defsubst` and end-user commands).
   - Rename `;;;; Legacy home and up` (fold into Navbar or rename).
+
+## TODO
+
 - **Options tidy-up.**  The `:options-alist` is a grab-bag: a few
   entries are grouped (`;; Link`, `;; Footnote`), most are not, and a
   couple carry inline `;; Options:` comments.  Order every entry, add a
@@ -397,9 +284,10 @@ other two follow it.
   same name and semantics, a different one, or none, and quantify the
   result (e.g. "N of M options shared").  Keep the `:html-*` keyword
   names compatible where cheap.
-- **Src-block feature gaps vs ox-html.**  Dropped when forking and out
-  of scope for this refactor round (judged low-value for W3C TR
-  output).  Revisit later; each should slot in *between*
+- **Src-block feature gaps vs ox-html.**  Its transcoders are the rough
+  part of the refactor.  Dropped when forking and out of scope for now
+  (judged low-value for W3C TR output).  Revisit later; each should slot in
+  *between*
   `t-fontify-code` and the transcoders (a layout layer), not back into
   fontify.
   - Line numbers (`-n`/`+n` via `org-export-get-loc`), coderef
@@ -461,10 +349,12 @@ other two follow it.
 
 ## Non-goals
 
-Explicitly out of scope until the refactor is otherwise complete.  Do not
-start these now.
+Explicitly out of scope for now — do not start them: the mainline work
+(the skills precondition, the options leftover, the special-block Web
+Component) comes first.
 
-- **special-block (Web Component).**  Deferred to the start of phase 2.
+- **special-block (Web Component).**  Deferred to the mainline, after the
+  options tidy-up.
   The unfinished `t-special-block` lives in `zhua.el` and still needs
   `ox-w3ctr-component-registry` and `ox-w3ctr-collect-dependency`.
 - **Dependency analysis.**  Charting how far ox-w3ctr leans on Org (which
@@ -481,18 +371,20 @@ start these now.
   re-exports (and can be pre-assigned when a link points at a file that has
   not been exported yet).  This is Org's `org-export-get-reference` +
   `:crossrefs` + `org-publish-resolve-external-link` machinery; ox-w3ctr's
-  `t--reference` currently only returns explicit CUSTOM_ID / ID / NAME, and
-  `t--link-path` delegates to `org-publish-resolve-external-link`.  Planned
+  `t--reference` prefers an explicit `CUSTOM_ID` / `#+NAME` / `ID` and
+  otherwise falls back to `org-export-get-reference` (the random ids in
+  Known issues); `t--link-path` delegates to
+  `org-publish-resolve-external-link`.  Planned
   to ride on `yynt`'s project-local SQLite (an `XREF(path, cell, anchor)`
   table with resolve / record / forget), behind a pluggable `t-xref-backend`
   so ox-w3ctr still works without it.  Not now.
-- **Drop the `ox-publish` dependency.**  ox-w3ctr currently requires
-  `ox-publish` (`ox-w3ctr.el:48`) and calls `org-publish-file-relative-name`
-  and `org-publish-resolve-external-link` from `t--link-path` (4283, 4296),
-  plus `org-publish-org-to` from `t-publish-to-html` (4834).  Replace them
-  with local implementations: the first two belong with the planned crossref
-  backend (`t-xref-backend`), the last with yynt's publish flow.  Related to
-  the crossref non-goal above.  Not now.
+- **Drop the `ox-publish` dependency.**  ox-w3ctr requires `ox-publish` and
+  calls `org-publish-file-relative-name` and
+  `org-publish-resolve-external-link` from `t--link-path`, plus
+  `org-publish-org-to` from `t-publish-to-html`.  Replace them with local
+  implementations: the first two belong with the planned crossref backend
+  (`t-xref-backend`), the last with yynt's publish flow.  Related to the
+  crossref non-goal above.  Not now.
 - **Distributed shortdoc.**  `define-short-documentation-group`
   overwrites a same-named group (it does `delq` then `push`), so shortdoc
   entries cannot be spread across modules by repeated calls to the same
