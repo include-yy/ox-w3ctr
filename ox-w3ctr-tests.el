@@ -397,6 +397,55 @@ the OINFO cache is off."
     ($l (plist-get info :a) 2)
     ($l (eval '(t--pget info :a)) 2)))
 
+(ert-deftest t--nw-p ()
+  "Tests for `org-w3ctr--nw-p'."
+  ($l (t--nw-p "123") "123")
+  ($l (t--nw-p " 1") " 1")
+  ($l (t--nw-p "\t\r\n2") "\t\r\n2")
+  ($n (t--nw-p ""))
+  ($n (t--nw-p "\t\s\r\n"))
+  ($n (t--nw-p nil))
+  ($n (t--nw-p 0))
+  ;; \f and NBSP are content, not whitespace
+  ($l (t--nw-p "\f") "\f")
+  ($l (t--nw-p "\u00a0") "\u00a0"))
+
+(ert-deftest t--2str ()
+  "Tests for `org-w3ctr--2str'."
+  ($q (t--2str nil) nil)
+  ($l (t--2str 1) "1")
+  ($l (t--2str 114.514) "114.514")
+  ($l (t--2str ?a) "97")
+  ($l (t--2str 'hello) "hello")
+  ($l (t--2str :foo) ":foo")
+  ($l (t--2str 'has\ space) "has space")
+  ($l (t--2str 'has\#) "has#")
+  ($l (t--2str "string") "string")
+  ($n (t--2str [1]))
+  ($n (t--2str (make-char-table 'sub)))
+  ($n (t--2str (make-bool-vector 3 t)))
+  ($n (t--2str (make-hash-table)))
+  ($n (t--2str (lambda (x) x))))
+
+(ert-deftest t--trim ()
+  "Tests for `org-w3ctr--trim'."
+  ($l (t--trim "123") "123")
+  ($l (t--trim " 123") "123")
+  ($l (t--trim " 123 ") "123")
+  ($l (t--trim "  123  ") "123")
+  ($l (t--trim "  123\n 456\n") "123\n 456")
+  ($l (t--trim "\n 123" t) " 123")
+  ($l (t--trim "\n\n  123\n" t) "  123"))
+
+(ert-deftest t--nw-trim ()
+  "Tests for `org-w3ctr--nw-trim'."
+  ($l (t--nw-trim " ") nil)
+  ($l (t--nw-trim " 1 ") "1")
+  ($l (t--nw-trim "234\n") "234")
+  ($l (t--nw-trim 1) nil)
+  ($l (t--nw-trim 'hello) nil)
+  ($l (t--nw-trim nil) nil))
+
 (ert-deftest t--prepend-newline ()
   "Tests for `org-w3ctr--prepend-newline'."
   ($it t--prepend-newline
@@ -406,29 +455,17 @@ the OINFO cache is off."
     ($l (it 123) "")
     ($l (it '(1 2)) "")))
 
-(ert-deftest t--nw-p ()
-  "Tests for `org-w3ctr--nw-p'."
-  ($l (t--nw-p "123") "123")
-  ($l (t--nw-p " 1") " 1")
-  ($l (t--nw-p "\t\r\n2") "\t\r\n2")
-  ($n (t--nw-p ""))
-  ($n (t--nw-p "\t\s\r\n")))
-
-(ert-deftest t--2str ()
-  "Tests for `org-w3ctr--2str'."
-  ($q (t--2str nil) nil)
-  ($l (t--2str 1) "1")
-  ($l (t--2str 114.514) "114.514")
-  ($l (t--2str ?a) "97")
-  ($l (t--2str 'hello) "hello")
-  ($l (t--2str 'has\ space) "has space")
-  ($l (t--2str 'has\#) "has#")
-  ($l (t--2str "string") "string")
-  ($n (t--2str [1]))
-  ($n (t--2str (make-char-table 'sub)))
-  ($n (t--2str (make-bool-vector 3 t)))
-  ($n (t--2str (make-hash-table)))
-  ($n (t--2str (lambda (x) x))))
+(ert-deftest t--make-string ()
+  "Tests for `org-w3ctr--make-string'."
+  ($l (t--make-string 1 "a") "a")
+  ($l (t--make-string 2 "a") "aa")
+  ($l (t--make-string 3 "a") "aaa")
+  ($l (t--make-string 2 "ab") "abab")
+  ($l (t--make-string 0 "a") "")
+  ($l (t--make-string -1 "a") "")
+  ($l (t--make-string 100 "") "")
+  ($e! (t--make-string 3 [?a ?b]))
+  ($e! (t--make-string "a" "a")))
 
 (ert-deftest t--read-attr ()
   "Tests for `org-w3ctr--read-attr'."
@@ -592,24 +629,6 @@ the OINFO cache is off."
       " id=\"2\"")
      ("#+name: 1\n#+attr_html: :id 3\ntest" " id=\"3\""))))
 
-(ert-deftest t--trim ()
-  "Tests for `org-w3ctr--trim'."
-  ($l (t--trim "123") "123")
-  ($l (t--trim " 123") "123")
-  ($l (t--trim " 123 ") "123")
-  ($l (t--trim "  123  ") "123")
-  ($l (t--trim "  123\n 456\n") "123\n 456")
-  ($l (t--trim "\n 123" t) " 123")
-  ($l (t--trim "\n\n  123\n" t) "  123"))
-
-(ert-deftest t--nw-trim ()
-  "Tests for `org-w3ctr--nw-trim'."
-  ($l (t--nw-trim " ") nil)
-  ($l (t--nw-trim " 1 ") "1")
-  ($l (t--nw-trim "234\n") "234")
-  ($l (t--nw-trim 1) nil)
-  ($l (t--nw-trim 'hello) nil))
-
 (ert-deftest t--sexp2html ()
   "Tests for `org-w3ctr--sexp2html'."
   ($l (t--sexp2html nil) "")
@@ -656,25 +675,6 @@ the OINFO cache is off."
   ;; Escape
   ($l (t--sexp2html '(p () "123<456>")) "<p>123&lt;456&gt;</p>")
   ($l (t--sexp2html '(p () (b () "a&b"))) "<p><b>a&amp;b</b></p>"))
-
-(ert-deftest t--make-string ()
-  "Tests for `org-w3ctr--make-string'."
-  ($l (t--make-string 1 "a") "a")
-  ($l (t--make-string 2 "a") "aa")
-  ($l (t--make-string 3 "a") "aaa")
-  ($l (t--make-string 2 "ab") "abab")
-  ($l (t--make-string 0 "a") "")
-  ($l (t--make-string -1 "a") "")
-  ($l (t--make-string 100 "") "")
-  ($e! (t--make-string 3 [?a ?b]))
-  ($e! (t--make-string "a" "a")))
-
-(ert-deftest t--normalize-string ()
-  "Tests for `org-w3ctr--normalize-string'."
-  ($n (t--normalize-string nil))
-  ($l "" (t--normalize-string ""))
-  ($l "a\n" (t--normalize-string "a"))
-  ($l "a  \n" (t--normalize-string "a  \n\n\n")))
 
 (ert-deftest t--load-file ()
   "Tests for `org-w3ctr--load-file'."

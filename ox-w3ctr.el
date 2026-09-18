@@ -1367,7 +1367,6 @@ Interactive; useful before a benchmark or a test run."
 
 ;;;; String helpers
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defsubst t--nw-p (s)
   "Return S if it is a string that has non-whitespace characters.
 Otherwise, return nil."
@@ -1377,12 +1376,7 @@ Otherwise, return nil."
   (and (stringp s) (string-match-p "[^ \r\t\n]" s) s))
 
 (defsubst t--2str (s)
-  "Convert S to a string representation if possible.
-
-This function handles symbols, numbers, and existing strings.
-If S is one of these types, its string representation is returned.
-For any other type, or if S is nil, this function returns nil
-to indicate a conversion failure."
+  "Return S as a string, or nil if S is not a symbol, number, or string."
   (declare (ftype (function (t) (or null string)))
            (pure t) (important-return-value t))
   (cl-typecase s
@@ -1404,14 +1398,7 @@ indentation of the first line of content."
 
 (defsubst t--nw-trim (s)
   "Trim S only if it is a non-empty, non-whitespace string.
-
-This function combines `org-w3ctr--nw-p' and `org-w3ctr--trim'.
-It first checks if S is a string containing at least one
-non-whitespace character.  If the check passes, it returns
-a trimmed version of S.
-
-Otherwise (if S is nil, not a string, empty, or contains only
-whitespace characters), this function returns nil."
+Return nil otherwise."
   (and (t--nw-p s) (t--trim s)))
 
 (defun t--prepend-newline (contents)
@@ -1421,29 +1408,12 @@ Otherwise, return an empty string."
            (pure t) (important-return-value t))
   (if (stringp contents) (concat "\n" contents) ""))
 
-(defsubst t--normalize-string (s)
-  "Ensure string S ends with exactly one newline character.
-
-This function processes string S to ensure it ends with a single
-`\\n'.  It removes any existing trailing newlines and whitespace,
-then appends one newline.
-
-If S is not a string, or is an empty string, it is returned unchanged."
-  (cond
-   ((not (stringp s)) s)
-   ((string= "" s) "")
-   (t (and (string-match "\\(\n[ \t]*\\)*\\'" s)
-           (replace-match "\n" nil nil s)))))
-
 (defun t--make-string (n string)
   "Return a new string by repeating STRING N times."
-  (declare (ftype (function (fixnum string) string))
+  (declare (ftype (function (integer string) string))
            (pure t) (important-return-value t))
-  (cond
-   ((<= n 0) "")
-   ((string= string "") "")
-   (t (let (out) (dotimes (_ n (or out ""))
-                   (setq out (concat string out)))))))
+  (if (and (> n 0) (not (string= string "")))
+      (mapconcat #'identity (make-list n string)) ""))
 
 ;;;; HTML escaping
 
@@ -3319,7 +3289,7 @@ The loaded CSS will be wrapped in HTML <style> tags when non-empty."
   (or (t--nw-p t-style)
       (when t-style-file
         (let* ((str (t--load-file t-style-file))
-               (str* (t--normalize-string str))
+               (str* (org-element-normalize-string str))
                (css (format "<style>\n%s</style>\n" str*)))
           (setq t-style css)))))
 
@@ -3405,8 +3375,8 @@ for `svg-by-mathjax' mode, nothing otherwise."
    ;; Mathjax or MathML config.
    (when (t--has-math-p info) (t--build-math-config info))
    ;; User defined <head> contents
-   (t--normalize-string (t--pget info :html-head))
-   (t--normalize-string (t--pget info :html-head-extra))
+   (org-element-normalize-string (t--pget info :html-head))
+   (org-element-normalize-string (t--pget info :html-head-extra))
    "</head>\n"))
 
 ;;;; Legacy home and up
@@ -3712,7 +3682,7 @@ or `postamble'."
                  type (symbol-value section))))
      ;; not nil, string or symbol
      (t (t-error "Invalid %s: %s" type section)))
-    (or (and (t--nw-p it) (t--normalize-string it)) "")))
+    (or (and (t--nw-p it) (org-element-normalize-string it)) "")))
 
 ;; Copied from `org-export-get-date'.
 (defun t--get-info-date (info)
@@ -4022,7 +3992,7 @@ navbar, title, preamble, postamble, and other standard page elements."
    (t--build-pre/postamble 'postamble info)
    ;; fixup.js here
    (when-let* ((js (t--nw-p (plist-get info :html-fixup-js))))
-     (t--normalize-string js))
+     (org-element-normalize-string js))
    ;; Closing document.
    "</body>\n</html>"))
 
