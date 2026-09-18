@@ -21,6 +21,56 @@
   `(cl-letf (((symbol-function 'it) ',f))
      ,@body))
 
+(defvar t-test-values nil
+  "A list to store return values during testing.")
+(defun t-advice-return-value (result)
+  "Advice function to save and return RESULT.
+Pushes RESULT onto `org-w3ctr-test-values' and returns RESULT.
+Text properties are stripped from string results."
+  (prog1 result
+    (push (if (not (stringp result)) result
+            (substring-no-properties result))
+          t-test-values)))
+(defun t-check-element-values (fn pairs &optional body-only plist)
+  "Check that FN returns the expected values when exporting.
+
+FN is a function to advice.  PAIRS is a list of the form
+((INPUT . EXPECTED) ...).  INPUT is a string of Org markup to be
+exported.  EXPECTED is a list of expected return values from FN.
+BODY-ONLY and PLIST are optional arguments passed to
+`org-export-string-as'.
+
+Advice is installed on FN and removed in an `unwind-protect',
+so a `signal' or `should-error' in any test case will not leak
+the advice onto subsequent tests."
+  (advice-add fn :filter-return #'t-advice-return-value)
+  (unwind-protect
+      (dolist (test pairs t)
+        (let (t-test-values)
+          (ignore (org-export-string-as
+                   (car test) 'w3ctr body-only plist))
+          (unless (equal t-test-values (cdr test))
+            (ert-fail (list :input (car test)
+                            :expected (cdr test)
+                            :actual t-test-values)))))
+    (advice-remove fn #'t-advice-return-value)))
+
+(defun t-get-parsed-elements (str type)
+  "Parse STR as an Org buffer and return a list of elements of TYPE.
+
+STR is a string containing Org content.  TYPE is an Org element type
+symbol (such as \\='headline, \\='paragraph, etc)."
+  (thread-first
+    (with-temp-buffer
+      (save-excursion (insert str))
+      (org-element-parse-buffer))
+    (org-element-map type #'identity)))
+
+(ert-deftest t-error ()
+  "Tests for `org-w3ctr-error'."
+  ($e!l (t-error "Hello world") '(org-w3ctr-error "Hello world"))
+  ($e!l (signal '(t-error 1)) '(t-error 1)))
+
 (defun t--oinfo-oget (prop)
   "Get the oclosure object corresponeds to PROP."
   (when-let* ((f (alist-get prop t--oinfo-cache-alist)))
@@ -54,47 +104,21 @@ when BODY exits: `fset' is not undone by `dlet'."
          (dolist (name names)
            (when (fboundp name) (fmakunbound name)))))))
 
-(defvar t-test-values nil
-  "A list to store return values during testing.")
-(defun t-advice-return-value (result)
-  "Advice function to save and return RESULT.
-Pushes RESULT onto `org-w3ctr-test-values' and returns RESULT."
-  (prog1 result
-    (push (if (not (stringp result)) result
-            (substring-no-properties result))
-          t-test-values)))
-(defun t-check-element-values (fn pairs &optional body-only plist)
-  "Check that FN returns the expected values when exporting.
-
-FN is a function to advice.  PAIRS is a list of the form
-((INPUT . EXPECTED) ...).  INPUT is a string of Org markup to be
-exported.  EXPECTED is a list of expected return values from FN.
-BODY-ONLY and PLIST are optional arguments passed to
-`org-export-string-as'."
-  (advice-add fn :filter-return #'t-advice-return-value)
-  (unwind-protect
-      (dolist (test pairs t)
-        (let (t-test-values)
-          (ignore (org-export-string-as
-                   (car test) 'w3ctr body-only plist))
-          (should (equal t-test-values (cdr test)))))
-    (advice-remove fn #'t-advice-return-value)))
-
-(defun t-get-parsed-elements (str type)
-  "Parse STR as an Org buffer and return a list of elements of TYPE.
-
-STR is a string containing Org content.  TYPE is an Org element type
-symbol (such as \\='headline, \\='paragraph, etc)."
-  (thread-first
-    (with-temp-buffer
-      (save-excursion (insert str))
-      (org-element-parse-buffer))
-    (org-element-map type #'identity)))
-
-(ert-deftest t-error ()
-  "Tests for `org-w3ctr-error'."
-  ($e!l (t-error "Hello world") '(org-w3ctr-error "Hello world"))
-  ($e!l (signal '(t-error 1)) '(t-error 1)))
+(ert-deftest $oinfo-cache-macro ()
+  "Smoke test for the `$oinfo-cache' test helper macro.
+Verifies setup, body evaluation, and cleanup of throwaway closures."
+  (skip-unless t--oinfo-cache-p)
+  (let ((sym ($oinfo-oclosure :test-x)))
+    ;; Before: the symbol must not be a function.
+    ($n (fboundp sym))
+    ($oinfo-cache '(:test-x)
+      ;; Inside: cache alist is populated and callable.
+      ($l (mapcar #'car t--oinfo-cache-alist) '(:test-x))
+      ($q (cdr (assq :test-x t--oinfo-cache-alist)) sym)
+      ($s (fboundp sym))
+      ($l (eval '(t--pget (list :test-x 42) :test-x)) 42))
+    ;; After: the symbol is unbound again.
+    ($n (fboundp sym))))
 
 (ert-deftest t--make-cache-oclosure ()
   "Tests for `org-w3ctr--make-cache-oclosure'."
@@ -158,7 +182,7 @@ symbol (such as \\='headline, \\='paragraph, etc)."
     ($l (eval '(t--pget info :a)) 2)))
 
 (ert-deftest t--oinfo-props-are-looked-up ()
-  "Every key of `org-w3ctr--oinfo-cache-props' is read through `t--pget'."
+  "Every key of `org-w3ctr--oinfo-cache-props' is read through `org-w3ctr--pget'."
   (let* ((build (symbol-file 'org-w3ctr--pget 'defun))
          (source (and build (concat (file-name-sans-extension build) ".el"))))
     (skip-unless (and source (file-readable-p source)))
@@ -228,11 +252,11 @@ symbol (such as \\='headline, \\='paragraph, etc)."
       ($q (t--oinfo--cnt (t--oinfo-oget :b)) 1)
       (t--oinfo-cleanup)
       ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
-      ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
+      ($l (t--oinfo--pid (t--oinfo-oget :b)) nil)
       ($l (t--oinfo--val (t--oinfo-oget :a)) nil)
-      ($l (t--oinfo--val (t--oinfo-oget :a)) nil)
+      ($l (t--oinfo--val (t--oinfo-oget :b)) nil)
       ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)
-      ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1))))
+      ($q (t--oinfo--cnt (t--oinfo-oget :b)) 1))))
 
 (ert-deftest t--oinfo-test-namespace ()
   "The names the tests generate can never replace a production closure."
@@ -287,7 +311,7 @@ symbol (such as \\='headline, \\='paragraph, etc)."
       ($l (eval '(t--pget info :a)) 1))))            ; and the write is displaced
 
 (ert-deftest t--oinfo-clear-statistics ()
-  "`t-clear-oinfo-statistics' empties the caches and zeroes the counters."
+  "`org-w3ctr-clear-oinfo-statistics' empties the caches and zeroes the counters."
   (skip-unless t--oinfo-cache-p)
   ($oinfo-cache '(:a :b)
     (dlet ((info '(:a 1 :b 2)))
@@ -304,7 +328,7 @@ symbol (such as \\='headline, \\='paragraph, etc)."
       ($l (t--oinfo--cnt (t--oinfo-oget :a)) 1))))
 
 (ert-deftest t--oinfo-collect-statistics ()
-  "`t-collect-oinfo-statistics' reports the keys by lookup count."
+  "`org-w3ctr-collect-oinfo-statistics' reports the keys by lookup count."
   (skip-unless t--oinfo-cache-p)
   (unwind-protect
       ($oinfo-cache '(:a :b)
@@ -314,9 +338,10 @@ symbol (such as \\='headline, \\='paragraph, etc)."
           ($l (eval '(t--pget info :a)) 1)
           (t-collect-oinfo-statistics)
           (with-current-buffer "*ox-w3ctr-oinfo*"
-            (let ((s (buffer-string)))
-              ($n (null (string-match-p "(:b . 2)" s)))
-              (should (< (string-match ":b" s) (string-match ":a" s)))))))
+            (let* ((s (buffer-string))
+                 (ls (car (read-from-string s))))
+              ($l (car ls) '(:b . 2))
+              ($l (cadr ls) '(:a . 1))))))
     (when (get-buffer "*ox-w3ctr-oinfo*")
       (kill-buffer "*ox-w3ctr-oinfo*"))))
 
@@ -3174,7 +3199,7 @@ int a = 1;</code></p>\n</details>")
      ("A[fn:name].\n\n[fn:name] The definition." "[<a href=\"#fn-name\">name</a>]")
      ("A[fn::text]." "[<a href=\"#fn-1\">1</a>]")
      ;; Two footnotes in a row are separated (values are in reverse
-     ;; call order, as in the other `t-check-element-values' tests).
+     ;; call order, as in the other `org-w3ctr-check-element-values' tests).
      ("A[fn:1][fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
       ", [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
    t '(:with-latex verbatim)))

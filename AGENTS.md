@@ -76,6 +76,9 @@ too but fails rather than skipping.
 - Symbols in `ox-w3ctr.el` use the shorthand `t-` for `org-w3ctr-`
   (`read-symbol-shorthands`).  `zhua.el` must declare the same shorthand or
   its symbols will not shadow the package ones.
+- **Docstrings and comments are string literals**, not read as Lisp, so
+  `read-symbol-shorthands` does not apply.  Write every `t-*` / `t--*`
+  symbol in them as its full `org-w3ctr-*` / `org-w3ctr--*` name.
 - A refactored function has: a full docstring, `(declare (ftype ...))`,
   `(important-return-value t)` / `(pure t)` where applicable, uses the
   `t--*` helpers, reads and writes INFO through `t--pget` / `t--pput`
