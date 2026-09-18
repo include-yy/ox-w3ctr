@@ -1470,50 +1470,6 @@ values, such as in alt=\"...\" or class=\"...\"."
     (setq text (replace-regexp-in-string
                 (car pair) (cdr pair) text t t))))
 
-;;;; References
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-(defun t--get-headline-reference (datum info)
-  "Return a reference id for headline.
-if DATUM's type is not headline, return nil"
-  (when (eq 'headline (org-element-type datum))
-    (let ((cache (plist-get info :internal-references)))
-      (or (car (rassq datum cache))
-          (let ((newid
-                 (if-let* ((numbers (org-export-get-headline-number datum info)))
-                     (concat "orgnh-" (mapconcat #'number-to-string numbers "."))
-                   (format "orguh-%s" (incf (plist-get info :html-headline-cnt))))))
-            (push (cons newid datum) cache)
-            (plist-put info :internal-references cache)
-            newid)))))
-
-(defun t--reference (datum info &optional named-only)
-  "Return an appropriate reference for DATUM.
-
-DATUM is an element or a `target' type object.  INFO is the
-current export state, as a plist.
-
-When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
-nil.  This doesn't apply to headlines, inline tasks, radio
-targets and targets."
-  (let* ((type (org-element-type datum))
-         (custom-id (and (eq type 'headline)
-                         (org-element-property :CUSTOM_ID datum)))
-         (user-label
-          (or custom-id
-              (and (memq type '(radio-target target))
-                   (let ((val (org-element-property :value datum)))
-                     (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val) val)))
-              (org-element-property :name datum)
-              (when-let* ((id (org-element-property :ID datum)))
-                (concat t--id-attr-prefix id))
-              (t--get-headline-reference datum info))))
-    (cond (user-label user-label)
-          ((and named-only ; no #+NAME: and not headline
-                (not (memq type '(headline radio-target target))))
-           nil)
-          (t (org-export-get-reference datum info)))))
-
 ;;;; HTML attributes
 
 ;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
@@ -1777,6 +1733,50 @@ function returns nil."
         (push (match-string 0 str) matches)
         (setq pos (match-end 0)))
       (nreverse matches))))
+
+;;;; References
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+(defun t--get-headline-reference (datum info)
+  "Return a reference id for headline.
+if DATUM's type is not headline, return nil"
+  (when (eq 'headline (org-element-type datum))
+    (let ((cache (plist-get info :internal-references)))
+      (or (car (rassq datum cache))
+          (let ((newid
+                 (if-let* ((numbers (org-export-get-headline-number datum info)))
+                     (concat "orgnh-" (mapconcat #'number-to-string numbers "."))
+                   (format "orguh-%s" (incf (plist-get info :html-headline-cnt))))))
+            (push (cons newid datum) cache)
+            (plist-put info :internal-references cache)
+            newid)))))
+
+(defun t--reference (datum info &optional named-only)
+  "Return an appropriate reference for DATUM.
+
+DATUM is an element or a `target' type object.  INFO is the
+current export state, as a plist.
+
+When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
+nil.  This doesn't apply to headlines, inline tasks, radio
+targets and targets."
+  (let* ((type (org-element-type datum))
+         (custom-id (and (eq type 'headline)
+                         (org-element-property :CUSTOM_ID datum)))
+         (user-label
+          (or custom-id
+              (and (memq type '(radio-target target))
+                   (let ((val (org-element-property :value datum)))
+                     (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val) val)))
+              (org-element-property :name datum)
+              (when-let* ((id (org-element-property :ID datum)))
+                (concat t--id-attr-prefix id))
+              (t--get-headline-reference datum info))))
+    (cond (user-label user-label)
+          ((and named-only ; no #+NAME: and not headline
+                (not (memq type '(headline radio-target target))))
+           nil)
+          (t (org-export-get-reference datum info)))))
 
 ;;; Greater elements
 ;; special-block and table are not here.
@@ -4965,8 +4965,8 @@ single `<code class=\"src-inline src-LANG\">' (no nesting)."
                 (org-element-property :value inline-src-block)
                 lang))
          (label (if-let* ((lbl (t--reference inline-src-block info t)))
-                   (format " id=\"%s\"" lbl)
-                 "")))
+                    (format " id=\"%s\"" lbl)
+                  "")))
     (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
 
 ;;;; Special Block
