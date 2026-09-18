@@ -1452,8 +1452,8 @@ Used by `org-w3ctr--encode-plain-text*'.")
 ;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t--read-attr (attribute element)
   "Read the property ATTRIBUTE from ELEMENT as a list of Lisp objects.
-Return nil if the property does not exist or is empty.
-Signal an error if the property value is not a valid Lisp s-expression."
+Return nil if the property does not exist, is empty, or whitespace-only.
+Signal `org-w3ctr-error' if the value is not a valid Lisp s-expression."
   (declare (ftype (function (symbol t) list))
            (important-return-value t))
   (when-let* ((value (org-element-property attribute element))
@@ -1464,13 +1464,13 @@ Signal an error if the property value is not a valid Lisp s-expression."
 
 (defun t--read-attr__ (element)
   "Parse the `:attr__' (#+attr__:) property from ELEMENT.
-
-A vector in the property value, such as [class1 class2], is
-converted into the list (\"class\" \"class1 class2\")."
+A vector such as [class1 class2] becomes (\"class\" \"class1 class2\");
+an empty vector [] becomes nil.  Return nil if the property is absent."
   (declare (ftype (function (t) list))
            (important-return-value t))
   (when-let* ((attrs (t--read-attr :attr__ element)))
     (mapcar (lambda (x)
+              ;; [] means "no class" — skip rather than emit class=""
               (cond ((not (vectorp x)) x)
                     ((equal x []) nil)
                     (t (list "class" (mapconcat #'t--2str x " ")))))

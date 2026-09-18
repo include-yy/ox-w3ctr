@@ -467,6 +467,31 @@ the OINFO cache is off."
   ($e! (t--make-string 3 [?a ?b]))
   ($e! (t--make-string "a" "a")))
 
+(ert-deftest t--encode-plain-text ()
+  "Tests for `org-w3ctr--encode-plain-text'."
+  ($l (t--encode-plain-text "") "")
+  ($l (t--encode-plain-text "123") "123")
+  ($l (t--encode-plain-text "hello world") "hello world")
+  ($l (t--encode-plain-text "&") "&amp;")
+  ($l (t--encode-plain-text "<") "&lt;")
+  ($l (t--encode-plain-text ">") "&gt;")
+  ($l (t--encode-plain-text "<&>") "&lt;&amp;&gt;")
+  (dolist (a '(("a&b&c" . "a&amp;b&amp;c")
+               ("<div>" . "&lt;div&gt;")
+               ("<span>" . "&lt;span&gt;")))
+    ($l (t--encode-plain-text (car a)) (cdr a))))
+
+(ert-deftest t--encode-plain-text* ()
+  "Tests for `org-w3ctr--encode-plain-text*'."
+  ($l (t--encode-plain-text* "&") "&amp;")
+  ($l (t--encode-plain-text* "<") "&lt;")
+  ($l (t--encode-plain-text* ">") "&gt;")
+  ($l (t--encode-plain-text* "<&>") "&lt;&amp;&gt;")
+  ($l (t--encode-plain-text* "'") "&apos;")
+  ($l (t--encode-plain-text* "\"") "&quot;")
+  ($l (t--encode-plain-text* "\"'&\"")
+      "&quot;&apos;&amp;&quot;"))
+
 (ert-deftest t--read-attr ()
   "Tests for `org-w3ctr--read-attr'."
   ;; `org-element-property' use `org-element--property'
@@ -479,7 +504,9 @@ the OINFO cache is off."
     ($l (t--read-attr nil '("1 2 3" "4 5 6")) '(1 2 3 4 5 6))
     ($l (t--read-attr nil '("(class data) [hello] (id ui)"))
         '((class data) [hello] (id ui)))
-    ($l (t--read-attr nil '("\"123\"")) '("123")))
+    ($l (t--read-attr nil '("\"123\"")) '("123"))
+    ($e!l (t--read-attr nil '("(invalid"))
+          '(org-w3ctr-error "Invalid attribute #+nil: (invalid")))
   (t-check-element-values
    #'t--read-attr
    '(("#+attr__: 1 2 3\n#+attr__: 4 5 6\nhello world"
@@ -511,31 +538,6 @@ the OINFO cache is off."
      ("#+attr__:\n#+attr__:\ntest" nil)
      ("#+attr__: []\ntest" (nil))
      ("#+attr__: [][][]\ntest" (nil nil nil)))))
-
-(ert-deftest t--encode-plain-text ()
-  "Tests for `org-w3ctr--encode-plain-text'."
-  ($l (t--encode-plain-text "") "")
-  ($l (t--encode-plain-text "123") "123")
-  ($l (t--encode-plain-text "hello world") "hello world")
-  ($l (t--encode-plain-text "&") "&amp;")
-  ($l (t--encode-plain-text "<") "&lt;")
-  ($l (t--encode-plain-text ">") "&gt;")
-  ($l (t--encode-plain-text "<&>") "&lt;&amp;&gt;")
-  (dolist (a '(("a&b&c" . "a&amp;b&amp;c")
-               ("<div>" . "&lt;div&gt;")
-               ("<span>" . "&lt;span&gt;")))
-    ($l (t--encode-plain-text (car a)) (cdr a))))
-
-(ert-deftest t--encode-plain-text* ()
-  "Tests for `org-w3ctr--encode-plain-text*'."
-  ($l (t--encode-plain-text* "&") "&amp;")
-  ($l (t--encode-plain-text* "<") "&lt;")
-  ($l (t--encode-plain-text* ">") "&gt;")
-  ($l (t--encode-plain-text* "<&>") "&lt;&amp;&gt;")
-  ($l (t--encode-plain-text* "'") "&apos;")
-  ($l (t--encode-plain-text* "\"") "&quot;")
-  ($l (t--encode-plain-text* "\"'&\"")
-      "&quot;&apos;&amp;&quot;"))
 
 (ert-deftest t--make-attr ()
   "Tests for `org-w3ctr--make-attr'."
