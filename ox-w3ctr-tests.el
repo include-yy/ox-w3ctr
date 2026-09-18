@@ -72,7 +72,7 @@ symbol (such as \\='headline, \\='paragraph, etc)."
   ($e!l (signal '(t-error 1)) '(t-error 1)))
 
 (defun t--oinfo-oget (prop)
-  "Get the oclosure object corresponeds to PROP."
+  "Get the oclosure object corresponds to PROP."
   (when-let* ((f (alist-get prop t--oinfo-cache-alist)))
     (symbol-function f)))
 
@@ -103,6 +103,10 @@ when BODY exits: `fset' is not undone by `dlet'."
              ,@body)
          (dolist (name names)
            (when (fboundp name) (fmakunbound name)))))))
+
+;; TODO: t--oinfo-cache-props invariants — all keywords, no duplicates.
+;; TODO: t--oinfo-pget/t--oinfo-pput on nil INFO plist.
+;; TODO: $oinfo-cache unwind-protect cleanup on signal.
 
 (ert-deftest t--oinfo-switch-is-compile-time ()
   "Tests for `org-w3ctr-oinfo-enabled'.
@@ -173,9 +177,9 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
 (ert-deftest t--oinfo-test-namespace ()
   "The names the tests generate can never replace a production closure."
   (dolist (key t--oinfo-cache-props)
-    (should-not (eq ($oinfo-oclosure key) (t--oinfo-oclosure key))))
-  (should-not (memq ($oinfo-oclosure :a)
-                    (mapcar #'cdr t--oinfo-cache-alist))))
+    ($n (eq ($oinfo-oclosure key) (t--oinfo-oclosure key))))
+  ($n (memq ($oinfo-oclosure :a)
+            (mapcar #'cdr t--oinfo-cache-alist))))
 
 (ert-deftest t--make-cache-oclosure ()
   "Tests for `org-w3ctr--make-cache-oclosure'."
@@ -263,8 +267,7 @@ oclosure with the correct key."
       ($l (eval '(t--pget info :a)) 2)
       ($l (t--oinfo--val (t--oinfo-oget :a)) 2)
       ($l (plist-get info :a) 1)
-      ;; cached key with value expression: VALUE returned,
-      ;; oclosure updated
+      ;; cached key with value expression
       ($l (eval '(t--pput info :a (incf val))) 2)
       ($l (eval '(t--pget info :a)) 2)
       ($l (plist-get info :a) 1)
@@ -378,7 +381,7 @@ uses object identity, so an equal but distinct plist is a miss."
           (t-collect-oinfo-statistics)
           (with-current-buffer "*ox-w3ctr-oinfo*"
             (let* ((s (buffer-string))
-                 (ls (car (read-from-string s))))
+                   (ls (car (read-from-string s))))
               ($l (car ls) '(:b . 2))
               ($l (cadr ls) '(:a . 1))))))
     (when (get-buffer "*ox-w3ctr-oinfo*")
@@ -2372,8 +2375,8 @@ int a = 1;</code></p>\n</details>")
       (t-check-element-values
        #'t--build-low-level-headline
        `((,($c "* a\n** b\n*** c\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n"
-              "*** d\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\nabc\n"
-              "*** e\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n")
+               "*** d\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\nabc\n"
+               "*** e\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n")
           "<li><span id=\"3\"></span>e</li>\n</ul>\n"
           "<li><span id=\"2\"></span>d<br>\n<p>abc</p>\n</li>\n"
           "<ul>\n<li><span id=\"1\"></span>c</li>\n"))
@@ -2445,8 +2448,8 @@ int a = 1;</code></p>\n</details>")
    #'t--headline-hN
    '(("* a\n** b\n*** c\n**** d\n***** e\n****** f\n"
       "h2" "h3" "h4" "h5" "h6"))
-     t '( :html-honor-ox-headline-levels nil
-          :html-toplevel-hlevel 2)))
+   t '( :html-honor-ox-headline-levels nil
+        :html-toplevel-hlevel 2)))
 
 (ert-deftest t--build-normal-headline ()
   "Tests for `org-w3ctr--build-normal-headline'."
@@ -3096,13 +3099,13 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr-inline-image-p'."
   (let* ((info '(:html-inline-image-rules (("file" . "\\.png\\'"))))
          (p (lambda (s)
-             (with-temp-buffer
-               (org-mode)
-               (insert s)
-               (org-w3ctr-inline-image-p
-                (car (org-element-map (org-element-parse-buffer)
-                         'link #'identity))
-                info)))))
+              (with-temp-buffer
+                (org-mode)
+                (insert s)
+                (org-w3ctr-inline-image-p
+                 (car (org-element-map (org-element-parse-buffer)
+                          'link #'identity))
+                 info)))))
     ($s (funcall p "[[file:img.png]]"))
     ($n (funcall p "[[https://example.com][ ]]"))
     ($n (funcall p "[[https://example.com][  x  ]]"))

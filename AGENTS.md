@@ -22,6 +22,8 @@ style.  Version 0.2.7; requires Emacs 31.
 Shell: MSYS2 bash (MINGW64); paths and commands below are bash-style.
 
 - Emacs executable: `/d/emacs-build/bin/emacs.exe`
+- Python: use `python` (3.14), not `python3` — `python3` resolves to
+  the Windows Store stub (exit code 49) and is broken.
 - Upstream Org sources (reference for ports):
   - `/d/org-mode/lisp/`  (the real Org source tree)
   - especially `ox-html.el`, `ox.el`, `org-element.el`

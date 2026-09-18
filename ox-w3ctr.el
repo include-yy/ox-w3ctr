@@ -1133,6 +1133,8 @@ This affects IDs that are determined from the ID property.")
 ;; `org-w3ctr--pget' / `org-w3ctr--pput', and finally
 ;; `org-w3ctr--oinfo-cache-alist', `org-w3ctr--oinfo-oclosure' and
 ;; `org-w3ctr--make-cache-oclosure'.
+;; Statistics helpers (`org-w3ctr-collect-oinfo-statistics',
+;; `org-w3ctr-clear-oinfo-statistics') at the end.
 
 (eval-and-compile
   ;; The switch is read at definition time — when the file is compiled,
@@ -1288,7 +1290,7 @@ Unlike `plist-put', return VALUE rather than the plist."
         (inline-quote (prog1 ,value (plist-put ,info ,prop ,value)))))))
 
 (defun t--oinfo-cleanup ()
-  "Clear the value every OINFO oclosure caches, releasing its INFO plist.
+  "Clear the cached value of every OINFO oclosure, releasing its INFO plist.
 
 A finished export should not stay reachable through the oclosures that
 cached it.  This is a memory measure, not an invalidation: an oclosure
@@ -1322,13 +1324,6 @@ aborted by an error — or a body-only export, which never reaches
 dead INFO plist and its parse tree."
   (declare (ftype (function (&rest t) null)))
   (t--oinfo-cleanup))
-
-;; To have every export start with the caches cleared — the hook runs
-;; before the first `org-w3ctr--pget' of an export, since
-;; `org-export-as' calls it before transcoding:
-;;
-;;   (add-hook 'org-export-before-processing-functions
-;;             #'org-w3ctr-oinfo-cleanup-before-export)
 
 (defun t-collect-oinfo-statistics ()
   "Display how often each cached OINFO key has been looked up.
