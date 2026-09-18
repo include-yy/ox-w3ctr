@@ -65,12 +65,12 @@ symbol (such as \\='headline, \\='paragraph, etc)."
       (save-excursion (insert str))
       (org-element-parse-buffer))
     (org-element-map type #'identity)))
-
+
 (ert-deftest t-error ()
   "Tests for `org-w3ctr-error'."
   ($e!l (t-error "Hello world") '(org-w3ctr-error "Hello world"))
   ($e!l (signal '(t-error 1)) '(t-error 1)))
-
+
 (defun t--oinfo-oget (prop)
   "Get the oclosure object corresponeds to PROP."
   (when-let* ((f (alist-get prop t--oinfo-cache-alist)))
@@ -157,7 +157,7 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
     ($l (t--oinfo--cnt od) 2)))
 
 (ert-deftest t-oinfo-cleanup-before-export ()
-  "The opt-in export-start hook clears what a previous export left behind."
+  "Tests for `org-w3ctr-oinfo-cleanup-before-export'."
   (skip-unless t--oinfo-cache-p)
   ($oinfo-cache '(:a)
     (dlet ((info (list :a 1)))
@@ -168,8 +168,9 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
       ($l (t--oinfo--val (t--oinfo-oget :a)) nil))))
 
 (ert-deftest t--oinfo-plain-flavor ()
-  "A build without the cache is plain `plist-get'/`plist-put'."
-  (skip-unless (not t--oinfo-cache-p))
+  "Tests for `org-w3ctr--pget' and `org-w3ctr--pput' when
+the OINFO cache is off."
+  (skip-when t--oinfo-cache-p)
   (dlet ((info (list :a 1)))
     ($l (eval '(t--pget info :a)) 1)
     ($l (eval '(t--pput info :a 2)) 2)
@@ -177,7 +178,8 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
     ($l (eval '(t--pget info :a)) 2)))
 
 (ert-deftest t--oinfo-props-are-looked-up ()
-  "Every key of `org-w3ctr--oinfo-cache-props' is read through `org-w3ctr--pget'."
+  "Static check: every `org-w3ctr--oinfo-cache-props' key appears as
+a literal second argument to `org-w3ctr--pget' in the source file."
   (let* ((build (symbol-file 'org-w3ctr--pget 'defun))
          (source (and build (concat (file-name-sans-extension build) ".el"))))
     (skip-unless (and source (file-readable-p source)))
@@ -200,36 +202,36 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
       ($l (eval '(t--pget info :b)) 2)
       ($l (t--oinfo--cnt (t--oinfo-oget :b)) 1)
       ($l (eval '(t--pget info :c)) 3)
-      ($n (alist-get :c t--oinfo-cache-alist)))))
+      ($n (alist-get :c t--oinfo-cache-alist))
+      ;; cached key absent from plist: nil, cnt increments
+      ($l (eval '(t--pget (list :x 1) :a)) nil)
+      ($l (t--oinfo--cnt (t--oinfo-oget :a)) 2)
+      ;; non-cached key absent from plist: nil
+      ($l (eval '(t--pget (list :x 1) :d)) nil))))
 
 (ert-deftest t--oinfo-pput ()
   "Tests for `org-w3ctr--pput'."
   (skip-unless t--oinfo-cache-p)
-  ($oinfo-cache '(:a :b)
-    (dlet ((info '(:a 1 :b 2 :c 3))
+  ($oinfo-cache '(:a)
+    (dlet ((info '(:a 1 :c 3))
            (val 1))
-      ;; a
+      ;; cached key: write to oclosure, plist untouched
       ($l (eval '(t--pput info :a 2)) 2)
       ($l (eval '(t--pget info :a)) 2)
       ($l (t--oinfo--val (t--oinfo-oget :a)) 2)
       ($l (plist-get info :a) 1)
-      ;; b
-      ($l (eval '(t--pput info :b 3)) 3)
-      ($l (eval '(t--pget info :b)) 3)
-      ($l (t--oinfo--val (t--oinfo-oget :b)) 3)
-      ($l (plist-get info :b) 2)
-      ;; c
+      ;; cached key with value expression: VALUE returned,
+      ;; oclosure updated
+      ($l (eval '(t--pput info :a (incf val))) 2)
+      ($l (eval '(t--pget info :a)) 2)
+      ($l (plist-get info :a) 1)
+      ;; non-cached key: plist-put, returns VALUE
       ($l (eval '(t--pput info :c 4)) 4)
       ($l (eval '(t--pget info :c)) 4)
       ($l (plist-get info :c) 4)
-      ;; test side effect c
-      ($l (eval '(t--pput info :c (incf val))) 2)
-      ($l (eval '(t--pget info :c)) 2)
-      ($l (plist-get info :c) 2)
-      ;; test side effect b
-      ($l (eval '(t--pput info :b (incf val))) 3)
-      ($l (eval '(t--pget info :b)) 3)
-      ($l (plist-get info :b) 2))))
+      ;; non-cached key with value expression
+      ($l (eval '(t--pput info :c (incf val))) 3)
+      ($l (plist-get info :c) 3))))
 
 (ert-deftest t--oinfo-cleanup ()
   "Tests for `org-w3ctr--oinfo-cleanup'."
