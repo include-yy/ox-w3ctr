@@ -1417,26 +1417,13 @@ Otherwise, return an empty string."
 
 ;;;; HTML escaping
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defconst t--protect-char-alist
   '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;"))
-  "An alist mapping special HTML characters to their entities.
-
-Each element is a cons cell of the form (CHAR . ENTITY), where
-CHAR is a character with special meaning in HTML, and ENTITY is
-its corresponding safe representation.
-
-This is used by `org-w3ctr--encode-plain-text' to sanitize plain text.")
+  "Alist mapping HTML special characters to their entity strings.
+Used by `org-w3ctr--encode-plain-text'.")
 
 (defun t--encode-plain-text (text)
-  "Escape special characters in TEXT for safe embedding in HTML.
-
-This function iterates through the pairs defined in the alist
-`org-w3ctr--protect-char-alist' and replaces each special character
-(such as \"&\", \"<\", and \">\") with its corresponding HTML entity.
-
-This is the primary function for sanitizing plain text before it
-is placed inside an HTML tag's content."
+  "Escape `&', `<', `>' in TEXT for safe embedding in HTML content."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
   (dolist (pair t--protect-char-alist text)
@@ -1447,23 +1434,13 @@ is placed inside an HTML tag's content."
   '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;")
     ;; https://stackoverflow.com/a/2428595
     ("'" . "&apos;") ("\"" . "&quot;"))
-  "An extended alist mapping special HTML characters to their entities.
+  "Alist mapping HTML special characters to their entity strings,
+including single and double quotes.
 
-This version includes all conversions from
-`org-w3ctr--protect-char-alist' plus additional conversions
-for single and double quotes (`\\='' `\"').  It is used by
-`org-w3ctr--encode-plain-text*' to escape text for safe inclusion
-within HTML attribute values.")
+Used by `org-w3ctr--encode-plain-text*'.")
 
 (defun t--encode-plain-text* (text)
-  "Escape special HTML characters in TEXT, including quotes.
-
-This is an extended version of `org-w3ctr--encode-plain-text'
-that also converts single and double quotes.  It uses the mapping
-defined in `org-w3ctr--protect-char-alist*'.
-
-Use this for sanitizing text to be embedded within HTML attribute
-values, such as in alt=\"...\" or class=\"...\"."
+  "Escape `&', `<', `>', `\=', `\"' in TEXT for safe use in HTML attributes."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
   (dolist (pair t--protect-char-alist* text)
