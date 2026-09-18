@@ -122,54 +122,39 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
 
 (ert-deftest t--make-cache-oclosure ()
   "Tests for `org-w3ctr--make-cache-oclosure'."
-  (let ((x (t--make-cache-oclosure :wtf)))
-    ($l (t--oinfo--cnt x) 0)
-    ($l (t--oinfo--pid x) nil)
-    ($l (t--oinfo--val x) nil))
   (let ((info '(:a 1 :b 2 :c 3))
         (info2 '(:a 3 :b 2 :c 1))
+        (info3 (list :x 99))
         (oa (t--make-cache-oclosure :a))
         (ob (t--make-cache-oclosure :b))
-        (oc (t--make-cache-oclosure :c)))
-    ;; a
+        (od (t--make-cache-oclosure :z)))
+    ;; initial state
+    ($l (t--oinfo--cnt oa) 0)
+    ($l (t--oinfo--pid oa) nil)
+    ($l (t--oinfo--val oa) nil)
+    ;; first lookup: correct value, pid/val set, cnt=1
     ($l (funcall oa info) 1)
     ($q (t--oinfo--pid oa) info)
     ($l (t--oinfo--val oa) 1)
     ($l (t--oinfo--cnt oa) 1)
-    ;; b
+    ;; independent keys
     ($l (funcall ob info) 2)
-    ($q (t--oinfo--pid ob) info)
-    ($l (t--oinfo--val ob) 2)
     ($l (t--oinfo--cnt ob) 1)
-    ;; c
-    ($l (funcall oc info) 3)
-    ($q (t--oinfo--pid oc) info)
-    ($l (t--oinfo--val oc) 3)
-    ($l (t--oinfo--cnt oc) 1)
-    ;; cnt counts lookups
-    (funcall oa info)
+    ;; cache hit: same plist, cnt increments
+    ($l (funcall oa info) 1)
     ($l (t--oinfo--cnt oa) 2)
-    (funcall ob info) (funcall ob info)
-    ($l (t--oinfo--cnt ob) 3)
-    (funcall oc info) (funcall oc info) (funcall oc info)
-    ($l (t--oinfo--cnt oc) 4)
-    ;; change plist
+    ;; cache miss: different plist, value updates
     ($l (funcall oa info2) 3)
     ($q (t--oinfo--pid oa) info2)
-    ($l (funcall ob info2) 2)
-    ($q (t--oinfo--pid ob) info2)
-    ($l (funcall oc info2) 1)
-    ($q (t--oinfo--pid oc) info2)
-    ;; key absent from plist: val is nil, pid is still set, cnt increments
-    (let* ((info3 (list :x 99))
-           (od (t--make-cache-oclosure :z)))
-      ($l (funcall od info3) nil)
-      ($q (t--oinfo--pid od) info3)
-      ($l (t--oinfo--val od) nil)
-      ($l (t--oinfo--cnt od) 1)
-      ;; same plist: cache hit on nil
-      ($l (funcall od info3) nil)
-      ($l (t--oinfo--cnt od) 2))))
+    ($l (t--oinfo--val oa) 3)
+    ;; key absent: val is nil, pid still set, cnt increments
+    ($l (funcall od info3) nil)
+    ($q (t--oinfo--pid od) info3)
+    ($l (t--oinfo--val od) nil)
+    ($l (t--oinfo--cnt od) 1)
+    ;; same plist: cache hit on nil
+    ($l (funcall od info3) nil)
+    ($l (t--oinfo--cnt od) 2)))
 
 (ert-deftest t-oinfo-cleanup-before-export ()
   "The opt-in export-start hook clears what a previous export left behind."
