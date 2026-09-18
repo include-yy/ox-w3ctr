@@ -159,7 +159,17 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
     ($l (funcall ob info2) 2)
     ($q (t--oinfo--pid ob) info2)
     ($l (funcall oc info2) 1)
-    ($q (t--oinfo--pid oc) info2)))
+    ($q (t--oinfo--pid oc) info2)
+    ;; key absent from plist: val is nil, pid is still set, cnt increments
+    (let* ((info3 (list :x 99))
+           (od (t--make-cache-oclosure :z)))
+      ($l (funcall od info3) nil)
+      ($q (t--oinfo--pid od) info3)
+      ($l (t--oinfo--val od) nil)
+      ($l (t--oinfo--cnt od) 1)
+      ;; same plist: cache hit on nil
+      ($l (funcall od info3) nil)
+      ($l (t--oinfo--cnt od) 2))))
 
 (ert-deftest t-oinfo-cleanup-before-export ()
   "The opt-in export-start hook clears what a previous export left behind."
