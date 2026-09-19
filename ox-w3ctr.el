@@ -1517,7 +1517,7 @@ without spaces.  All values are escaped for safety using
   "Convert a list of attribute specifications into a single string.
 
 This function takes a list, ATTRIBUTES, where each element
-specifies one HTML attribute. It calls `org-w3ctr--make-attr'
+specifies one HTML attribute.  It calls `org-w3ctr--make-attr'
 on each element and concatenates the results.
 
 Each element in ATTRIBUTES can be an atom for a boolean attribute
@@ -1671,7 +1671,7 @@ function returns nil."
 
 Void elements, also known as self-closing or empty tags, are
 elements in HTML that cannot have any child nodes.  Therefore,
-they do not require a closing tag. This regexp is used to
+they do not require a closing tag.  This regexp is used to
 identify such tags during HTML generation.")
 
 (defun t--void-element (tag attrs)
