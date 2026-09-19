@@ -1596,15 +1596,13 @@ standard `:attr_html' property using `org-w3ctr--make-attr_html'."
 
 ;;;; File and regexp
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t--load-file (file)
   "Read the entire contents of FILE into a string.
 
 This function returns the full content of the file at path FILE
 as a single string.  It signals a `org-w3ctr-error' if FILE does not
 exist or is a directory."
-  (declare (ftype (function (string) string))
-           (important-return-value t))
+  (declare (ftype (function (string) string)))
   (unless (and (file-exists-p file) (not (file-directory-p file)))
     (t-error "Bad File: %s" file))
   (with-temp-buffer
@@ -1646,7 +1644,6 @@ function returns nil."
         (push (match-string 0 str) matches)
         (setq pos (match-end 0)))
       (nreverse matches))))
-
 
 ;;;; S-exp rendering
 
@@ -1707,7 +1704,7 @@ sanitizes string content using `org-w3ctr--encode-plain-text'."
      (let* ((tag (downcase (t--2str (nth 0 data))))
             (attr-ls (nth 1 data))
             (attrs (if (booleanp attr-ls) ""
-                     (mapconcat #'t--make-attr (nth 1 data)))))
+                     (mapconcat #'t--make-attr attr-ls))))
        (if (string-match-p t--void-element-regexp tag)
            (t--void-element tag attrs)
          (let ((children (mapconcat #'t--sexp2html (cddr data))))

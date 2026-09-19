@@ -633,6 +633,34 @@ the OINFO cache is off."
       " id=\"2\"")
      ("#+name: 1\n#+attr_html: :id 3\ntest" " id=\"3\""))))
 
+(ert-deftest t--load-file ()
+  "Tests for `org-w3ctr--load-file'."
+  (let ((ox (with-temp-buffer
+              (insert-file-contents "ox-w3ctr.el")
+              (buffer-substring-no-properties
+               (point-min) (point-max)))))
+    ($l ox (t--load-file "ox-w3ctr.el")))
+  ($e! (t--load-file "not-exist")))
+
+(ert-deftest t--insert-file ()
+  "Tests for `org-w3ctr--insert-file'."
+  ($e! (t--insert-file default-directory))
+  ($e! (t--insert-file "no-exist")))
+
+(ert-deftest t--find-all ()
+  "Tests for `org-w3ctr--find-all."
+  ($l (t--find-all "[0-9]" "114514") '("1" "1" "4" "5" "1" "4"))
+  ($l (t--find-all "[0-9]\\{2\\}" "191981") '("19" "19" "81"))
+  ($l (t--find-all "" "123") nil)
+  ($l (t--find-all "1" "") nil)
+  ($l (t--find-all org-ts-regexp-both "[2000-01-02]") '("[2000-01-02]"))
+  ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-02]")
+      '("[2000-01-02]" "[2000-01-02]"))
+  ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-03]" 1)
+      '("[2000-01-03]"))
+  ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-03]" -1)
+      '("[2000-01-02]" "[2000-01-03]")))
+
 (ert-deftest t--sexp2html ()
   "Tests for `org-w3ctr--sexp2html'."
   ($l (t--sexp2html nil) "")
@@ -679,34 +707,6 @@ the OINFO cache is off."
   ;; Escape
   ($l (t--sexp2html '(p () "123<456>")) "<p>123&lt;456&gt;</p>")
   ($l (t--sexp2html '(p () (b () "a&b"))) "<p><b>a&amp;b</b></p>"))
-
-(ert-deftest t--load-file ()
-  "Tests for `org-w3ctr--load-file'."
-  (let ((ox (with-temp-buffer
-              (insert-file-contents "ox-w3ctr.el")
-              (buffer-substring-no-properties
-               (point-min) (point-max)))))
-    ($l ox (t--load-file "ox-w3ctr.el")))
-  ($e! (t--load-file "not-exist")))
-
-(ert-deftest t--insert-file ()
-  "Tests for `org-w3ctr--insert-file'."
-  ($e! (t--insert-file default-directory))
-  ($e! (t--insert-file "no-exist")))
-
-(ert-deftest t--find-all ()
-  "Tests for `org-w3ctr--find-all."
-  ($l (t--find-all "[0-9]" "114514") '("1" "1" "4" "5" "1" "4"))
-  ($l (t--find-all "[0-9]\\{2\\}" "191981") '("19" "19" "81"))
-  ($l (t--find-all "" "123") nil)
-  ($l (t--find-all "1" "") nil)
-  ($l (t--find-all org-ts-regexp-both "[2000-01-02]") '("[2000-01-02]"))
-  ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-02]")
-      '("[2000-01-02]" "[2000-01-02]"))
-  ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-03]" 1)
-      '("[2000-01-03]"))
-  ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-03]" -1)
-      '("[2000-01-02]" "[2000-01-03]")))
 
 (ert-deftest t-center-block ()
   "Tests for `org-w3ctr-center-block'."
