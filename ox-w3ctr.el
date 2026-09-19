@@ -1234,8 +1234,6 @@ oclosure through that symbol.  KEY is a property keyword."
        :html-extension :html-link-org-files-as-html
        :html-inline-images :html-inline-image-rules
        :html-equation-reference-format
-       ;; references
-       :internal-references :crossrefs
        )
     "List of property keys the OINFO cache keeps an oclosure for.
 
@@ -1729,114 +1727,6 @@ sanitizes string content using `org-w3ctr--encode-plain-text'."
 
 ;;;; References
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-
-(defun t--search-cells (datum)
-  "List search cells for element or object DATUM.
-
-A search cell follows the pattern (TYPE . SEARCH) where
-
-  TYPE is a symbol among `headline', `custom-id', `target' and
-  `other'.
-
-  SEARCH is the string a link is expected to match.  More
-  accurately, it is
-
-    - headline's title, as a list of strings, if TYPE is
-      `headline'.
-
-    - CUSTOM_ID value, as a string, if TYPE is `custom-id'.
-
-    - target's or radio-target's name as a list of strings if
-      TYPE is `target'.
-
-    - NAME or RESULTS affiliated keyword if TYPE is `other'.
-
-A search cell is the internal representation of a fuzzy link.  It
-ignores case, white spaces, and statistics cookies, if applicable."
-  (declare (ftype (function (t) list))
-           (pure t) (important-return-value t))
-  (pcase (org-element-type datum)
-    (`headline
-     (let ((title (mapcar #'upcase
-                          (split-string
-	                   (replace-regexp-in-string
-	                    "\\[[0-9]*\\(?:%\\|/[0-9]*\\)\\]" " "
-	                    (org-element-property :raw-value datum))))))
-       (delq nil
-	     (list
-	      (cons 'headline title)
-	      (cons 'other title)
-	      (let ((custom-id (org-element-property :custom-id datum)))
-		(and custom-id (cons 'custom-id custom-id)))))))
-    (`target
-     (list (cons 'target
-                 (mapcar #'upcase
-                         (split-string (org-element-property :value datum))))))
-    ((and (let name (or (org-element-property :name datum)
-                        (car (org-element-property :results datum))))
-	  (guard name))
-     (list (cons 'other (split-string name))))
-    (_ nil)))
-
-(defun t--new-reference (references)
-  "Return a unique reference number, not already in REFERENCES.
-REFERENCES is an alist whose values are in-use references, as
-numbers.  Returns a number, which is the internal representation
-of a reference.  See also `org-w3ctr--format-reference'."
-  (declare (ftype (function (list) integer))
-           (important-return-value t))
-  (let ((new (random #x10000000)))
-    (while (rassq new references) (setq new (random #x10000000)))
-    new))
-
-(defun t--format-reference (reference)
-  "Format REFERENCE into a string.
-REFERENCE is a number representing a reference, as returned by
-`org-w3ctr--new-reference', which see."
-  (declare (ftype (function (integer) string))
-           (pure t) (important-return-value t))
-  (format "org%07x" reference))
-
-(defun t--get-reference (datum info)
-  "Return a unique reference for DATUM, as a string.
-
-DATUM is either an element or an object.  INFO is the current
-export state, as a plist.
-
-References for the current document are stored in
-`:internal-references' property.  Its value is an alist with
-associations of the following types:
-
-  (REFERENCE . DATUM) and (SEARCH-CELL . ID)
-
-REFERENCE is the reference string to be used for object or
-element DATUM.  SEARCH-CELL is a search cell, as returned by
-`org-w3ctr--search-cells'.  ID is a number or a string uniquely
-identifying DATUM within the document.
-
-This function also checks `:crossrefs' property for search cells
-matching DATUM before creating a new reference."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (let ((cache (t--pget info :internal-references)))
-    (or (car (rassq datum cache))
-	(let* ((crossrefs (t--pget info :crossrefs))
-	       (cells (t--search-cells datum))
-	       (new (or (cl-some
-			 (lambda (cell)
-			   (let ((stored (cdr (assoc cell crossrefs))))
-			     (when stored
-			       (let ((old (t--format-reference stored)))
-				 (and (not (assoc old cache)) stored)))))
-			 cells)
-			(t--new-reference cache)))
-	       (reference-string (t--format-reference new)))
-	  (dolist (cell cells) (push (cons cell new) cache))
-	  (push (cons reference-string datum) cache)
-	  (t--pput info :internal-references cache)
-	  reference-string))))
-
 (defun t--target-reference (datum)
   "Return the value of a target or radio-target as a reference string.
 Return nil if DATUM is not a target type, or if the value does
@@ -1876,7 +1766,7 @@ nil.  This doesn't apply to radio targets and targets."
            (not (memq type '(radio-target target))))
       nil)
      ;; Fallback: random orgXXXXXXX.
-     (t (t--get-reference datum info)))))
+     (t (org-export-get-reference datum info)))))
 
 ;;; Greater elements
 ;; special-block and table are not here.

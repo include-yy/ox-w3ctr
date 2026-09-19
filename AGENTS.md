@@ -268,8 +268,7 @@ What the docstring & code layout tidy settled; follow them for new code.
   `refs='), and an anchor into one is not stable across exports.  Never diff
   raw export hashes — compare the normalized `norm=' (see the verification
   skill).  Either the author gives every referenced element an explicit
-  `CUSTOM_ID', or the back-end derives a stable id — the crossref work in
-  TODO.
+  `CUSTOM_ID', or the back-end derives a stable id — see Non-goals.
 
 ## Tasks
 
@@ -286,22 +285,6 @@ work goes in `## TODO` below.
 
 ## TODO
 
-- **Cross-file link resolution (crossrefs).**  Resolving
-  `[[file:other.org::*Heading]]` / `::#custom-id` to an anchor in the target
-  document, with a project-scoped persistent cache so the anchor survives
-  re-exports.  Currently `t--get-reference` ports the
-  `org-export-get-reference` machinery (random `orgXXXXXXX` ids,
-  `:crossrefs` / `:internal-references` alist, search cells).
-  Design issues to address:
-  - Mixed alist (`(ref . datum)` and `(cell . number)` in one list) —
-    split into `datum→ref` map + `number` occupancy pool.
-  - Crossref format coupled to random id scheme — decouple
-    reference generation from reference resolution.
-  - Crossref numbers not in occupancy pool — random generation
-    can collide with unused crossref numbers.
-  Planned to ride on `yynt`'s project-local SQLite (an
-  `XREF(path, cell, anchor)` table), behind a pluggable
-  `t-xref-backend` so ox-w3ctr still works without it.
 - **Options tidy-up.**  The `:options-alist` is a grab-bag: a few
   entries are grouped (`;; Link`, `;; Footnote`), most are not, and a
   couple carry inline `;; Options:` comments.  Order every entry, add a
@@ -393,13 +376,17 @@ Component) comes first.
   false positives, and report the dynamic edges (`funcall`, `apply`,
   `:translate-alist` / `:options-alist` dispatch) separately instead of
   silently dropping them.
+- **Cross-file link resolution (crossrefs).**  Resolving
+  `[[file:other.org::*Heading]]` / `::#custom-id` to an anchor in the target
+  document, with a project-scoped persistent cache so the anchor survives
+  re-exports.  Currently using `org-export-get-reference' as fallback.
+  Not now.
 - **Drop the `ox-publish` dependency.**  ox-w3ctr requires `ox-publish` and
   calls `org-publish-file-relative-name` and
   `org-publish-resolve-external-link` from `t--link-path`, plus
   `org-publish-org-to` from `t-publish-to-html`.  Replace them with local
   implementations: the first two belong with the planned crossref backend
-  (`t-xref-backend`), the last with yynt's publish flow.  Related to the
-  crossref TODO above.  Not now.
+  (`t-xref-backend`), the last with yynt's publish flow.  Not now.
 - **Distributed shortdoc.**  `define-short-documentation-group`
   overwrites a same-named group (it does `delq` then `push`), so shortdoc
   entries cannot be spread across modules by repeated calls to the same
