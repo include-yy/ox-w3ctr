@@ -1449,7 +1449,6 @@ Used by `org-w3ctr--encode-plain-text*'.")
 
 ;;;; HTML attributes
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t--read-attr (attribute element)
   "Read the property ATTRIBUTE from ELEMENT as a list of Lisp objects.
 Return nil if the property does not exist, is empty, or whitespace-only.
@@ -1495,7 +1494,7 @@ without spaces.  All values are escaped for safety using
   (when-let* (((not (null list)))
               (name (t--2str (car list))))
     (if-let* ((rest (cdr list)))
-        ;; use lowercase prop name.
+        ;; use lowercase prop name; leading space for HTML tag separator.
         (concat
          " " (downcase name) "=\""
          (t--encode-plain-text* (mapconcat #'t--2str rest)) "\"")
@@ -1538,7 +1537,6 @@ omitted from the result."
                 (value (t--encode-plain-text* item)))
             (setcar output (format "%s=\"%s\"" key value))))))))
 
-;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
 (defun t--make-attr__id (element info &optional named-only)
   "Format `:attr__' attributes, adding an `id' attribute if needed.
 
@@ -1590,6 +1588,8 @@ If `:attr__' is not found, it falls back to processing the
 standard `:attr_html' property using `org-w3ctr--make-attr_html'."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
+  ;; `#+attr__:' takes priority even when empty — its presence alone
+  ;; means "use ox-w3ctr syntax", so `#+attr_html:' is ignored.
   (if (org-element-property :attr__ element)
       (t--make-attr__id element info named-only)
     (t--make-attr_html element info named-only)))
@@ -1649,6 +1649,8 @@ function returns nil."
 
 
 ;;;; S-exp rendering
+
+;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
 (defconst t--void-element-regexp
   (rx string-start
       (or "area" "base" "br" "col" "embed" "hr"

@@ -604,7 +604,9 @@ the OINFO cache is off."
      ("#+name:1\n#+attr__:(data-test \"test double quote\")\nh"
       " id=\"1\" data-test=\"test double quote\"")
      ("#+name:1\n#+attr__:(something <=>)\nt"
-      " id=\"1\" something=\"&lt;=&gt;\""))))
+      " id=\"1\" something=\"&lt;=&gt;\"")
+     ;; explicit id in attr__ overrides auto-generated reference
+     ("#+name:auto\n#+attr__:(id \"custom\")\ntest" " id=\"custom\""))))
 
 (ert-deftest t--make-attr_html ()
   "Tests for `org-w3ctr--make-attr_html'."
