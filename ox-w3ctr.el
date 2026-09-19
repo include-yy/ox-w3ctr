@@ -1539,70 +1539,6 @@ omitted from the result."
             (setcar output (format "%s=\"%s\"" key value))))))))
 
 ;; https://developer.mozilla.org/en-US/docs/Glossary/Void_element
-(defconst t--void-element-regexp
-  (rx string-start
-      (or "area" "base" "br" "col" "embed" "hr"
-          "img" "input" "link" "meta" "param"
-          "source" "track" "wbr")
-      string-end)
-  "A regular expression that matches HTML void elements.
-
-Void elements, also known as self-closing or empty tags, are
-elements in HTML that cannot have any child nodes.  Therefore,
-they do not require a closing tag. This regexp is used to
-identify such tags during HTML generation.")
-
-(defun t--void-element (tag attrs)
-  "Return a void element string for TAG with ATTRS.
-
-TAG is the element name, as a string.  ATTRS is a string of
-pre-formatted attributes, with or without surrounding whitespace,
-or nil.  Void elements have no closing tag, so the result has the
-form \"<TAG ...>\"."
-  (declare (ftype (function (string (or null string)) string))
-           (pure t) (important-return-value t))
-  (let ((attrs (t--trim (or attrs ""))))
-    (format "<%s%s>" tag (if (t--nw-p attrs) (concat " " attrs) ""))))
-
-(defun t--sexp2html (data)
-  "Recursively convert an S-expression, DATA, into an HTML string.
-
-This function translates a Lisp S-expression into its HTML
-representation.  The expected format is:
-
-  (TAG-SYMBOL ATTRIBUTE-LIST ...CHILDREN)
-
-- TAG-SYMBOL: A symbol for the HTML tag (for example, `p', `div').
-  It is automatically converted to lowercase.
-- ATTRIBUTE-LIST: A list of attribute specifications suitable for
-  `org-w3ctr--make-attr__'.  Use nil or an empty list for no attributes.
-- CHILDREN: Zero or more child elements, which are recursively
-  converted.  Children can be other S-expressions, strings, or numbers.
-
-For example, the expression (p ((class \"foo\")) \"Hello\") is
-converted to \"<p class=\\\"foo\\\">Hello</p>\".
-
-The function correctly handles void elements (like `br') and
-sanitizes string content using `org-w3ctr--encode-plain-text'."
-  (declare (ftype (function (t) string))
-           (pure t) (important-return-value t))
-  (cl-typecase data
-    (null "")
-    ((or symbol string number)
-     (t--encode-plain-text (t--2str data)))
-    (list
-     ;; always use lowercase tagname.
-     (let* ((tag (downcase (t--2str (nth 0 data))))
-            (attr-ls (nth 1 data))
-            (attrs (if (booleanp attr-ls) ""
-                     (mapconcat #'t--make-attr (nth 1 data)))))
-       (if (string-match-p t--void-element-regexp tag)
-           (t--void-element tag attrs)
-         (let ((children (mapconcat #'t--sexp2html (cddr data))))
-           (format "<%s%s>%s</%s>"
-                   tag attrs children tag)))))
-    (otherwise "")))
-
 (defun t--make-attr__id (element info &optional named-only)
   "Format `:attr__' attributes, adding an `id' attribute if needed.
 
@@ -1710,6 +1646,72 @@ function returns nil."
         (push (match-string 0 str) matches)
         (setq pos (match-end 0)))
       (nreverse matches))))
+
+
+;;;; S-exp rendering
+(defconst t--void-element-regexp
+  (rx string-start
+      (or "area" "base" "br" "col" "embed" "hr"
+          "img" "input" "link" "meta" "param"
+          "source" "track" "wbr")
+      string-end)
+  "A regular expression that matches HTML void elements.
+
+Void elements, also known as self-closing or empty tags, are
+elements in HTML that cannot have any child nodes.  Therefore,
+they do not require a closing tag. This regexp is used to
+identify such tags during HTML generation.")
+
+(defun t--void-element (tag attrs)
+  "Return a void element string for TAG with ATTRS.
+
+TAG is the element name, as a string.  ATTRS is a string of
+pre-formatted attributes, with or without surrounding whitespace,
+or nil.  Void elements have no closing tag, so the result has the
+form \"<TAG ...>\"."
+  (declare (ftype (function (string (or null string)) string))
+           (pure t) (important-return-value t))
+  (let ((attrs (t--trim (or attrs ""))))
+    (format "<%s%s>" tag (if (t--nw-p attrs) (concat " " attrs) ""))))
+
+(defun t--sexp2html (data)
+  "Recursively convert an S-expression, DATA, into an HTML string.
+
+This function translates a Lisp S-expression into its HTML
+representation.  The expected format is:
+
+  (TAG-SYMBOL ATTRIBUTE-LIST ...CHILDREN)
+
+- TAG-SYMBOL: A symbol for the HTML tag (for example, `p', `div').
+  It is automatically converted to lowercase.
+- ATTRIBUTE-LIST: A list of attribute specifications suitable for
+  `org-w3ctr--make-attr__'.  Use nil or an empty list for no attributes.
+- CHILDREN: Zero or more child elements, which are recursively
+  converted.  Children can be other S-expressions, strings, or numbers.
+
+For example, the expression (p ((class \"foo\")) \"Hello\") is
+converted to \"<p class=\\\"foo\\\">Hello</p>\".
+
+The function correctly handles void elements (like `br') and
+sanitizes string content using `org-w3ctr--encode-plain-text'."
+  (declare (ftype (function (t) string))
+           (pure t) (important-return-value t))
+  (cl-typecase data
+    (null "")
+    ((or symbol string number)
+     (t--encode-plain-text (t--2str data)))
+    (list
+     ;; always use lowercase tagname.
+     (let* ((tag (downcase (t--2str (nth 0 data))))
+            (attr-ls (nth 1 data))
+            (attrs (if (booleanp attr-ls) ""
+                     (mapconcat #'t--make-attr (nth 1 data)))))
+       (if (string-match-p t--void-element-regexp tag)
+           (t--void-element tag attrs)
+         (let ((children (mapconcat #'t--sexp2html (cddr data))))
+           (format "<%s%s>%s</%s>"
+                   tag attrs children tag)))))
+    (otherwise "")))
 
 ;;;; References
 

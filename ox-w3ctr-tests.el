@@ -570,22 +570,6 @@ the OINFO cache is off."
   ($l (t--make-attr__ '((test this th&t <=>)))
       " test=\"thisth&amp;t&lt;=&gt;\""))
 
-(ert-deftest t--make-attr__id ()
-  "Tests for `org-w3ctr--make-attr__id'."
-  (t-check-element-values
-   #'t--make-attr__id
-   '(("#+attr__:\ntest" "")
-     ("#+name:test\n#+attr__: hello\ntest" " id=\"test\" hello")
-     ("#+name:1\n#+attr__:[data] (style {a:b})\ntest"
-      " id=\"1\" class=\"data\" style=\"{a:b}\"")
-     ("#+name:1\n#+attr__:[hello world]\ntest"
-      " id=\"1\" class=\"hello world\"")
-     ("#+name:1\n#+attr__:[]\ntest" " id=\"1\"")
-     ("#+name:1\n#+attr__:(data-test \"test double quote\")\nh"
-      " id=\"1\" data-test=\"test double quote\"")
-     ("#+name:1\n#+attr__:(something <=>)\nt"
-      " id=\"1\" something=\"&lt;=&gt;\""))))
-
 (ert-deftest t--make-attribute-string ()
   "Tests for `org-w3ctr--make-attribute-string'."
   ($l (t--make-attribute-string '(:a "1" :b "2"))
@@ -605,6 +589,22 @@ the OINFO cache is off."
      ("#+attr_html: :id wo-1 :two\ntest" "id=\"wo-1\"")
      ("#+attr_html: :id :idd hhh\ntest" "idd=\"hhh\"")
      ("#+attr_html: :null nil :this test\ntest" "this=\"test\""))))
+
+(ert-deftest t--make-attr__id ()
+  "Tests for `org-w3ctr--make-attr__id'."
+  (t-check-element-values
+   #'t--make-attr__id
+   '(("#+attr__:\ntest" "")
+     ("#+name:test\n#+attr__: hello\ntest" " id=\"test\" hello")
+     ("#+name:1\n#+attr__:[data] (style {a:b})\ntest"
+      " id=\"1\" class=\"data\" style=\"{a:b}\"")
+     ("#+name:1\n#+attr__:[hello world]\ntest"
+      " id=\"1\" class=\"hello world\"")
+     ("#+name:1\n#+attr__:[]\ntest" " id=\"1\"")
+     ("#+name:1\n#+attr__:(data-test \"test double quote\")\nh"
+      " id=\"1\" data-test=\"test double quote\"")
+     ("#+name:1\n#+attr__:(something <=>)\nt"
+      " id=\"1\" something=\"&lt;=&gt;\""))))
 
 (ert-deftest t--make-attr_html ()
   "Tests for `org-w3ctr--make-attr_html'."
