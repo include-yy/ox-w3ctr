@@ -396,7 +396,7 @@ the OINFO cache is off."
     ($l (eval '(t--pput info :a 2)) 2)
     ($l (plist-get info :a) 2)
     ($l (eval '(t--pget info :a)) 2)))
-
+
 (ert-deftest t--nw-p ()
   "Tests for `org-w3ctr--nw-p'."
   ($l (t--nw-p "123") "123")
