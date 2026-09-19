@@ -709,6 +709,39 @@ the OINFO cache is off."
   ;; Escape
   ($l (t--sexp2html '(p () "123<456>")) "<p>123&lt;456&gt;</p>")
   ($l (t--sexp2html '(p () (b () "a&b"))) "<p><b>a&amp;b</b></p>"))
+
+(ert-deftest t--target-reference ()
+  "Tests for `org-w3ctr--target-reference'."
+  (let ((get-target (lambda (val)
+                      (with-temp-buffer
+                        (insert (format "<<%s>>" val))
+                        (car (org-element-map (org-element-parse-buffer)
+                                 'target #'identity))))))
+    ;; valid target
+    ($l (t--target-reference (funcall get-target "foo")) "foo")
+    ;; valid radio-target
+    ($l (t--target-reference
+         (with-temp-buffer
+           (insert "<<<bar>>>")
+           (car (org-element-map (org-element-parse-buffer)
+                    'radio-target #'identity))))
+        "bar")
+    ;; hyphens and underscores allowed
+    ($l (t--target-reference (funcall get-target "my-tag_1")) "my-tag_1")
+    ;; non-target element → nil
+    ($n (t--target-reference
+         (with-temp-buffer
+           (insert "hello")
+           (car (org-element-map (org-element-parse-buffer)
+                    'paragraph #'identity)))))
+    ;; space in value → nil
+    ($n (t--target-reference (funcall get-target "my target")))
+    ;; starts with digit → nil
+    ($n (t--target-reference (funcall get-target "123")))
+    ;; dot in value → nil
+    ($n (t--target-reference (funcall get-target "foo.bar")))
+    ;; empty value → nil
+    ($n (t--target-reference (funcall get-target "")))))
 
 (ert-deftest t-center-block ()
   "Tests for `org-w3ctr-center-block'."
@@ -3164,9 +3197,6 @@ int a = 1;</code></p>\n</details>")
       "<a href=\"other.html\">other</a>")
      ("[[file:img.png]]"
       "<img src=\"img.png\" alt=\"img.png\">")
-     ;; Fuzzy link to a headline.
-     ("* Head\n\nSee [[*Head]]."
-      "<a href=\"#orgnh-1\">1</a>")
      ;; Custom ID link to a headline.
      ("* Head\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n\nSee [[#custom]]."
       "<a href=\"#custom\">1</a>")

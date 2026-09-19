@@ -169,7 +169,6 @@
     (:html-container nil nil t-container-element)
     (:html-self-link-headlines nil nil t-self-link-headlines)
     (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
-    (:html-headline-cnt nil nil 0)
     (:headline-levels nil "H" org-export-headline-levels)
     ;; Markup texts
     (:html-text-markup-alist nil nil t-text-markup-alist)
@@ -1729,19 +1728,17 @@ sanitizes string content using `org-w3ctr--encode-plain-text'."
 ;;;; References
 
 ;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-(defun t--get-headline-reference (datum info)
-  "Return a reference id for headline.
-if DATUM's type is not headline, return nil"
-  (when (eq 'headline (org-element-type datum))
-    (let ((cache (plist-get info :internal-references)))
-      (or (car (rassq datum cache))
-          (let ((newid
-                 (if-let* ((numbers (org-export-get-headline-number datum info)))
-                     (concat "orgnh-" (mapconcat #'number-to-string numbers "."))
-                   (format "orguh-%s" (incf (plist-get info :html-headline-cnt))))))
-            (push (cons newid datum) cache)
-            (plist-put info :internal-references cache)
-            newid)))))
+
+(defun t--target-reference (datum)
+  "Return the value of a target or radio-target as a reference string.
+Return nil if DATUM is not a target type, or if the value does
+not look like a valid HTML identifier."
+  (declare (ftype (function (t) (or null string)))
+           (pure t) (important-return-value t))
+  (when (memq (org-element-type datum) '(radio-target target))
+    (let ((val (org-element-property :value datum)))
+      (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val)
+        val))))
 
 (defun t--reference (datum info &optional named-only)
   "Return an appropriate reference for DATUM.
@@ -1750,28 +1747,28 @@ DATUM is an element or a `target' type object.  INFO is the
 current export state, as a plist.
 
 When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
-nil.  This doesn't apply to headlines, inline tasks, radio
-targets and targets."
-  (let* ((type (org-element-type datum))
-         (custom-id (and (eq type 'headline)
-                         (org-element-property :CUSTOM_ID datum)))
-         (user-label
-          (or custom-id
-              (and (memq type '(radio-target target))
-                   (let ((val (org-element-property :value datum)))
-                     (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val) val)))
-              (org-element-property :name datum)
-              (when-let* ((id (org-element-property :ID datum)))
-                (concat t--id-attr-prefix id))
-              (t--get-headline-reference datum info))))
-    (cond ((and user-label
-                (or (t--pget info :html-prefer-user-labels)
-                    custom-id))
-           user-label)
-          ((and named-only ; no #+NAME: and not headline
-                (not (memq type '(headline radio-target target))))
-           nil)
-          (t (org-export-get-reference datum info)))))
+nil.  This doesn't apply to radio targets and targets."
+  (let ((type (org-element-type datum)))
+    (cond
+     ;; CUSTOM_ID always wins.
+     ((and (eq type 'headline)
+           (org-element-property :CUSTOM_ID datum)))
+     ;; Radio/target value (if it looks like a valid identifier).
+     ((t--target-reference datum))
+     ;; NAME keyword — only when prefer-user-labels is on.
+     ((and (t--pget info :html-prefer-user-labels)
+           (org-element-property :name datum)))
+     ;; ID property — only when prefer-user-labels is on.
+     ;; In practice `:ID' comes from `org-id' on headlines.
+     ((and (t--pget info :html-prefer-user-labels)
+           (when-let* ((id (org-element-property :ID datum)))
+             (concat t--id-attr-prefix id))))
+     ;; No #+NAME: and not a target → skip.
+     ((and named-only
+           (not (memq type '(radio-target target))))
+      nil)
+     ;; Fallback: random orgXXXXXXX.
+     (t (org-export-get-reference datum info)))))
 
 ;;; Greater elements
 ;; special-block and table are not here.
