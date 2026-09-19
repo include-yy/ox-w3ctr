@@ -606,7 +606,8 @@ the OINFO cache is off."
      ("#+name:1\n#+attr__:(something <=>)\nt"
       " id=\"1\" something=\"&lt;=&gt;\"")
      ;; explicit id in attr__ overrides auto-generated reference
-     ("#+name:auto\n#+attr__:(id \"custom\")\ntest" " id=\"custom\""))))
+     ("#+name:auto\n#+attr__:(id \"custom\")\ntest" " id=\"custom\""))
+     nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t--make-attr_html ()
   "Tests for `org-w3ctr--make-attr_html'."
@@ -621,7 +622,8 @@ the OINFO cache is off."
      ("#+name: 1\n#+attr_html: :id 2 :class data two\ntest"
       " id=\"2\" class=\"data two\"")
      ("#+attr_html: :data-id < > ? 2 =\ntest"
-      " data-id=\"&lt; &gt; ? 2 =\""))))
+      " data-id=\"&lt; &gt; ? 2 =\""))
+      nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t--make-attr__id* ()
   "Tests for `org-w3ctr--make-attr__id*'."
@@ -742,7 +744,8 @@ int a = 1;</code></p>\n</details>")
      ("#+caption: \n:test:\n:end:"
       "<details><summary>test</summary></details>")
      ("#+caption:         \t\n:test:\n:end:"
-      "<details><summary>test</summary></details>"))))
+      "<details><summary>test</summary></details>"))
+      nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-dynamic-block ()
   "Tests for `org-w3ctr-dynamic-block'."
@@ -962,7 +965,8 @@ int a = 1;</code></p>\n</details>")
       "<ul id=\"test\" data-test=\"a joke\">\n<li>x</li>\n</ul>")
      ("1. 123\n   - 2 3 4"
       "<ol>\n<li>123\n<ul>\n<li>2 3 4</li>\n</ul></li>\n</ol>"
-      "<ul>\n<li>2 3 4</li>\n</ul>")))
+      "<ul>\n<li>2 3 4</li>\n</ul>"))
+      nil '(:html-prefer-user-labels t))
   ($e! (t-plain-list nil "123" nil)))
 
 (ert-deftest t-quote-block ()
@@ -992,7 +996,8 @@ int a = 1;</code></p>\n</details>")
      ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
       "<div id=\"t\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
      ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
-      "<div id=\"t\">\n<pre>\n\n\n\n</pre>\n</div>"))))
+      "<div id=\"t\">\n<pre>\n\n\n\n</pre>\n</div>"))
+      nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-export-block ()
   "Tests for `org-w3ctr-export-block'."
@@ -1047,7 +1052,8 @@ int a = 1;</code></p>\n</details>")
      (": 1\n: \n" "<pre>\n1\n\n</pre>")
      ("#+name: t\n#+attr__: [test]\n: 1\n : 2\n: 3"
       "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>")
-     (":\n:\n:\n:\n" "<pre>\n\n\n</pre>"))))
+     (":\n:\n:\n:\n" "<pre>\n\n\n</pre>"))
+     nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-horizontal-rule ()
   "Tests for `org-w3ctr-horizontal-rule'."
@@ -1154,7 +1160,8 @@ int a = 1;</code></p>\n</details>")
       "<p class=\"foo\"><img src=\"./1.png\" alt=\"1.png\"> <img src=\"./2.png\" alt=\"2.png\"></p>")
      ;; `:attr__' applies to the figure
      ("#+attr__: [bar]\n[[https://example.com/1.jpg][file:1.jpg]]"
-      "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))))
+      "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
+      nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-paragraph-filter ()
   "Tests for `org-w3ctr-paragraph-filter'."
@@ -1174,7 +1181,8 @@ int a = 1;</code></p>\n</details>")
      ("#+name: this\n#+begin_verse\n#+end_verse"
       "<p id=\"this\">\n</p>")
      ("#+attr__:[hi]\n#+begin_verse\n\n\n#+end_verse"
-      "<p class=\"hi\">\n<br>\n<br>\n</p>"))))
+      "<p class=\"hi\">\n<br>\n<br>\n</p>"))
+      nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-entity ()
   "Tests for `org-w3ctr-entity'."
@@ -3076,7 +3084,8 @@ int a = 1;</code></p>\n</details>")
      ("#+attr_html: :class data\n| a |"
       "<table class=\"data\">\n\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
      ("| / | < | > | < | > |\n|   | a | b | c | d |"
-      "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>"))))
+      "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>"))
+      nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t--table-cell-align ()
   "Tests for `org-w3ctr--table-cell-align'."
@@ -3170,7 +3179,7 @@ int a = 1;</code></p>\n</details>")
      ;; Radio target link.
      ("<<<radio>>>\n\nSee radio here."
       "<a href=\"#radio\">radio</a>"))
-   t '(:with-latex verbatim)))
+   t '(:with-latex verbatim :html-prefer-user-labels t)))
 
 (ert-deftest t--link-equation ()
   "Tests for `org-w3ctr--link-equation'."
@@ -3178,7 +3187,7 @@ int a = 1;</code></p>\n</details>")
    #'t-link
    '(("#+name: eq\n\\begin{equation}\nx=1\n\\end{equation}\n\nSee [[eq]]."
       "\\eqref{eq}"))
-   t '(:with-latex mathjax)))
+   t '(:with-latex mathjax :html-prefer-user-labels t)))
 
 (ert-deftest t-inline-image-path-regexp ()
   "Tests for `org-w3ctr-inline-image-path-regexp'."
@@ -3214,7 +3223,7 @@ int a = 1;</code></p>\n</details>")
      ;; call order, as in the other `org-w3ctr-check-element-values' tests).
      ("A[fn:1][fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
       ", [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
-   t '(:with-latex verbatim)))
+   t '(:with-latex verbatim :html-prefer-user-labels t)))
 
 (ert-deftest t-footnote-section ()
   "Tests for `org-w3ctr-footnote-section'."
@@ -3339,7 +3348,8 @@ int a = 1;</code></p>\n</details>")
      ("#+attr__: [foo]\n#+begin_src emacs-lisp\nx\n#+end_src"
       " class=\"foo\"")
      ("#+name: nm\n#+begin_src emacs-lisp\nx\n#+end_src"
-      " id=\"nm\""))))
+      " id=\"nm\""))
+      nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-src-block ()
   "Tests for `org-w3ctr-src-block'."

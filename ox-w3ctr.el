@@ -165,6 +165,7 @@
     (:html-format-headline-function nil nil t-format-headline-function)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)
+    (:html-prefer-user-labels nil nil t-prefer-user-labels)
     (:html-container nil nil t-container-element)
     (:html-self-link-headlines nil nil t-self-link-headlines)
     (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
@@ -299,6 +300,19 @@ Common values are \"section\" or \"div\".  If nil, \"div\" is used."
 
 (defcustom t-self-link-headlines t
   "When non-nil, the headlines contain a hyperlink to themselves."
+  :group 'org-export-w3ctr
+  :type 'boolean
+  :safe #'booleanp)
+
+(defcustom t-prefer-user-labels nil
+  "When non-nil, use user-defined NAME and ID over internal references.
+
+By default, `org-w3ctr--reference' generates internal ID values
+during export.  When this variable is non-nil, the NAME keyword
+or the real name of a target is used as the ID attribute instead.
+
+Regardless of this variable, CUSTOM_ID is always used as a
+reference."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
@@ -1750,7 +1764,10 @@ targets and targets."
               (when-let* ((id (org-element-property :ID datum)))
                 (concat t--id-attr-prefix id))
               (t--get-headline-reference datum info))))
-    (cond (user-label user-label)
+    (cond ((and user-label
+                (or (t--pget info :html-prefer-user-labels)
+                    custom-id))
+           user-label)
           ((and named-only ; no #+NAME: and not headline
                 (not (memq type '(headline radio-target target))))
            nil)
