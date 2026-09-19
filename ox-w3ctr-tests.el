@@ -742,6 +742,33 @@ the OINFO cache is off."
     ($n (t--target-reference (funcall get-target "foo.bar")))
     ;; empty value → nil
     ($n (t--target-reference (funcall get-target "")))))
+
+(ert-deftest t--reference ()
+  "Tests for `org-w3ctr--reference'."
+  (let ((no-labels nil)
+        (with-labels '(:html-prefer-user-labels t)))
+    ;; CUSTOM_ID always wins.
+    (let ((h (with-temp-buffer
+               (insert "* H\n:PROPERTIES:\n:CUSTOM_ID: my-id\n:END:")
+               (car (org-element-map (org-element-parse-buffer)
+                        'headline #'identity)))))
+      ($l (t--reference h no-labels) "my-id")
+      ($l (t--reference h with-labels) "my-id"))
+    ;; NAME with prefer-user-labels=t (paragraph, since #+name: does not
+    ;; set :name on headlines).
+    (let ((para (with-temp-buffer
+                  (insert "#+name: my-name\nhello")
+                  (car (org-element-map (org-element-parse-buffer)
+                           'paragraph #'identity)))))
+      ($l (t--reference para with-labels) "my-name")
+      ;; NAME with prefer-user-labels=nil → falls through to random.
+      ($s (string-match-p "org[0-9a-f]+" (t--reference para no-labels))))
+    ;; named-only + no name + not headline → nil.
+    (let ((para (with-temp-buffer
+                  (insert "hello")
+                  (car (org-element-map (org-element-parse-buffer)
+                           'paragraph #'identity)))))
+      ($n (t--reference para (list :html-prefer-user-labels nil) t)))))
 
 (ert-deftest t-center-block ()
   "Tests for `org-w3ctr-center-block'."
