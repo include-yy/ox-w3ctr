@@ -774,14 +774,25 @@ the OINFO cache is off."
   "Tests for `org-w3ctr-center-block'."
   (t-check-element-values
    #'t-center-block
-   '(("#+begin_center\n#+end_center"
+   '(;; default: centering style
+     ("#+begin_center\n#+end_center"
       "<div style=\"text-align:center;\"></div>")
      ("#+begin_center\n123\n#+end_center"
       "<div style=\"text-align:center;\">\n<p>123</p>\n</div>")
      ("#+BEGIN_CENTER\n\n\n#+END_CENTER"
       "<div style=\"text-align:center;\">\n\n</div>")
      ("#+BEGIN_CENTER\n\n\n\n\n\n#+END_CENTER"
-      "<div style=\"text-align:center;\">\n\n</div>"))))
+      "<div style=\"text-align:center;\">\n\n</div>")
+     ;; with attr__: generic div, no centering
+     ("#+attr__: [my-class]\n#+begin_center\nhello\n#+end_center"
+      "<div class=\"my-class\">\n<p>hello</p>\n</div>")
+     ;; with attr__: explicit style overrides centering
+     ("#+attr__:(style \"text-align:right\")\n#+begin_center\nhello\n#+end_center"
+      "<div style=\"text-align:right\">\n<p>hello</p>\n</div>")
+     ;; #+name: without attr__: keeps centering (name does not add id by
+     ;; #default)
+     ("#+name: my-block\n#+begin_center\nhello\n#+end_center"
+      "<div style=\"text-align:center;\">\n<p>hello</p>\n</div>"))))
 
 (ert-deftest t-drawer ()
   "Tests for `org-w3ctr-drawer'."
@@ -792,8 +803,7 @@ the OINFO cache is off."
      ("#+caption: what can i say\n:test:\n:end:"
       "<details><summary>what can i say</summary></details>")
      ("#+name: id\n#+attr__: [example]\n:h:\n:end:"
-      "<details id=\"id\" class=\"example\"><summary>\
-h</summary></details>")
+      "<details id=\"id\" class=\"example\"><summary>h</summary></details>")
      ("#+attr__: (open)\n:h:\n:end:"
       "<details open><summary>h</summary></details>")
      (":try-this:\n=int a = 1;=\n:end:"

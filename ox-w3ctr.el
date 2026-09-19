@@ -1773,16 +1773,27 @@ nil.  This doesn't apply to radio targets and targets."
 
 ;;;; Center Block
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Paragraphs")
-;; Fixed export. Not customizable.
-(defun t-center-block (_center-block contents _info)
+;; `<center>' was deprecated in HTML5; use `<div>' with inline style.
+;; When the user provides `#+attr__:' or `#+attr_html:', the block
+;; becomes a generic `<div>' -- the centering style is dropped and
+;; the user takes full control of attributes.
+(defun t-center-block (center-block contents info)
   "Transcode a CENTER-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block."
+CONTENTS holds the contents of the block.
+
+With no `:attr__' or `:attr_html:', the block centers its contents.
+With user attributes, it becomes a generic `<div>' -- the centering
+style is dropped and the user controls all attributes."
   (declare (ftype (function (t (or null string) t) string))
-           (pure t) (important-return-value t))
-  (format "<div style=\"text-align:center;\">%s</div>"
-          (t--prepend-newline contents)))
+           (important-return-value t))
+  (let* ((has-user-attrs (or (org-element-property :attr__ center-block)
+                             (org-element-property :attr_html center-block)))
+         (attrs (t--make-attr__id* center-block info t)))
+    (format "<div%s%s>%s</div>"
+            (if (t--nw-p attrs) attrs "")
+            (if has-user-attrs "" " style=\"text-align:center;\"")
+            (t--prepend-newline contents))))
 
 ;;;; Drawer
 
