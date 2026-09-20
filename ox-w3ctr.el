@@ -2850,8 +2850,7 @@ is the info plist.  Return the formatted timestamp string."
 
 ;;;; Section
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; Fixed export. Not customizable.
+;; See (info "(org)Structural markup elements")
 
 (defvar t--zeroth-section-output nil
   "Internal variable storing zeroth section's HTML output.
@@ -2860,7 +2859,7 @@ This is used to override the default ox-html behavior where TOC comes
 first, allowing zeroth section's content to appear before the TOC while
 the TOC remains near the beginning of the document.")
 
-;; FIXME: consider consider malformed headline(e.g., ** before first *)
+;; FIXME: consider malformed headline (e.g., ** before first *)
 (defun t-section (section contents info)
   "Transcode a SECTION element from Org to HTML.
 CONTENTS holds the contents of the section.  INFO is a plist
