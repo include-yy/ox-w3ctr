@@ -2590,15 +2590,15 @@ formatted datetime string."
            (important-return-value t))
   (let* ((offset0 (t--get-info-timezone-offset info))
          (offset1 (t--get-info-export-timezone-offset info offset0))
-         (delta (t--get-info-timezone-delta info offset0 offset1)))
-    (if-let* ((option (t--pget info :html-datetime-option))
+         (delta (t--get-info-timezone-delta info offset0 offset1))
+         (option (t--pget info :html-datetime-option)))
+    (if-let* (option
               (fmt (t--get-datetime-format offset1 option notime))
               (time (if notime time (time-add time delta))))
         (condition-case nil
             (format-time-string fmt time)
           (error (t-error "Time may be out of range: %s" time)))
-      (let ((opt (t--pget info :html-datetime-option)))
-        (t-error ":html-datetime-option is invalid: %s" opt)))))
+      (t-error ":html-datetime-option is invalid: %s" option))))
 
 (defun t--call-with-invalid-time-spec-handler (fn timestamp &rest args)
   "Wrap FN call with clearer error messages for invalid timestamps.
