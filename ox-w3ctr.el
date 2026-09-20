@@ -2698,8 +2698,8 @@ formatted timestamp string."
          (1 (format str (t--format-ts-datetime timestamp info)))
          (2 (format str (t--format-ts-datetime timestamp info)
                     (t--format-ts-datetime timestamp info t)))
-         (_ (error "Abnormal timestamp: %s" raw)))))
-    (w (error "Unknown timestamp wrapper: %s" w))))
+         (_ (t-error "Abnormal timestamp: %s" raw)))))
+    (w (t-error "Unknown timestamp wrapper: %s" w))))
 
 (defun t--format-timestamp-raw (timestamp info)
   "Format TIMESTAMP without altering its string content.

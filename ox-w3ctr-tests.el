@@ -1925,7 +1925,7 @@ int a = 1;</code></p>\n</details>")
              (p (w) `( :html-timestamp-wrapper ,w))
              (c (&rest args) (apply #'concat args)))
     ($e!l (g "[2000-01-01]" "[0000-00-00]"(p 'wtf))
-          '(error "Unknown timestamp wrapper: wtf"))
+          '(org-w3ctr-error "Unknown timestamp wrapper: wtf"))
     ;; test none
     (let ((ts "[2000-01-01]"))
       ($l (g ts "[2000-01-01 test]" (p 'none)) "[2000-01-01 test]")
