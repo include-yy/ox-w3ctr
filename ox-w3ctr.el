@@ -2485,8 +2485,8 @@ invalid, signal an error."
        ((eq zone 'local) 'local)
        (t (if-let* ((time (t--timezone-to-offset zone)))
               (t--pput info :html-timezone time)
-            (t-error "Timezone format not correct: %s" zone))))
-    (t-error ":html-timezone is deliberately set to nil")))
+            (t-error "Invalid timezone format: %s" zone))))
+    (t-error ":html-timezone is nil")))
 
 (defun t--get-info-export-timezone-offset (info &optional zone1-offset)
   "Return export timezone offset from INFO plist.
