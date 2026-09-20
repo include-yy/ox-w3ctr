@@ -6,7 +6,7 @@
 ;; Maintainer: include-yy <yy@egh0bww1.com>
 ;; Created: 2024-03-18 04:51:00+0900
 
-;; Package-Version: 0.2.9
+;; Package-Version: 0.2.10
 ;; Package-Requires: ((emacs "31"))
 ;; Keywords: tools, html
 ;; URL: https://github.com/include-yy/ox-w3ctr
@@ -50,7 +50,7 @@
 (require 'table)
 
 ;;;; Fundamental utilities
-(defconst t-version "0.2.9"
+(defconst t-version "0.2.10"
   "The current version string of the ox-w3ctr package.")
 
 (defconst t--dir
@@ -5118,12 +5118,9 @@ Return output file name."
                                     "html"))
                         plist pub-dir)))
 
-
 (provide 'ox-w3ctr)
 
 ;; Local variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
 ;; coding: utf-8-unix
 ;; End:
-
-;;; ox-w3ctr.el ends here
