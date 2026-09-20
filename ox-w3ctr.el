@@ -1949,17 +1949,17 @@ the info plist.  Return the formatted item as a string."
 
 ;;;; Plain List
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Plain Lists")
-;; Fixed export. Not customizable.
 (defun t-plain-list (plain-list contents info)
   "Transcode a PLAIN-LIST element from Org to HTML.
-CONTENTS is the contents of the list."
+
+CONTENTS is the contents of the list.  INFO is the info plist.
+Return the formatted <ol>, <ul>, or <dl> element as a string."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((type (pcase (org-element-property :type plain-list)
                  (`ordered "ol") (`unordered "ul") (`descriptive "dl")
-                 (other (error "Unknown HTML list type: %s" other))))
+                 (other (t-error "Unknown HTML list type: %s" other))))
          (attributes (t--make-attr__id* plain-list info t)))
     (format "<%s%s>\n%s</%s>" type attributes contents type)))
 
