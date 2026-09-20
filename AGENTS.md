@@ -61,9 +61,9 @@ Two gotchas:
 - `system-time-locale` must be C/en; otherwise `%a` localizes day names and
   6 timestamp tests fail (e.g. `Fri` becomes a GBK-encoded Chinese string).
 
-Expected baseline: **172 tests, 170 pass, 2 skipped** (`org-w3ctr-headline`,
+Expected baseline: **174 tests, 172 pass, 2 skipped** (`org-w3ctr-headline`,
 and `org-w3ctr--oinfo-plain-flavor`, which only runs in a build with
-`org-w3ctr-oinfo-enabled' nil).  Run the cache build — the one that ships;
+`org-w3ctr-oinfo-enabled` nil).  Run the cache build — the one that ships;
 a nil build is for measuring, not a configuration to maintain.  (For
 reference if you build one anyway: it skips the nine cache-path tests,
 162 pass, 10 skipped.)
@@ -101,6 +101,26 @@ too but fails rather than skipping.
   reports the line count for *any* file (a pure-LF 4937-line
   `ox-w3ctr.el` gives 4937), so it always looks like a failure.
 - Do not commit changes unless explicitly asked.
+- **Docstring**: every `defun`/`defsubst` gets a full docstring — a
+  one-line summary first, then parameter / return-value notes where
+  they are non-obvious.
+- **Declarations**: refactored functions carry
+  `(declare (ftype (function (ARGS) RET)))`; add
+  `(important-return-value t)` where the caller must use the result;
+  add `(pure t)` where the function is side-effect free and its result
+  depends only on its arguments.  Exemptions: `defsubst`, end-user
+  commands (`t-export-*`, `t-publish-*`, `t-convert-*`), interactive
+  commands whose return value is incidental.
+- **Naming**: internal helpers `t--*`, public API `t-*`.  No third
+  scheme (`org-w3ctr-faces-*` is gone; keep it that way).
+- **Headers**: `;;;` for major parts, `;;;;` for sections.  No
+  `;;;;`-under-`;;;;` that pretends to be a third level.  A refactored
+  element is either under a `;;;` part or a flat `;;;;` block — not a
+  mix.
+- **Ordering**: within a section, bottom-up (helper before its user)
+  or top-down by call layer — pick one per section and keep it.
+- **Header hygiene**: correct spelling, no author names, no arithmetic
+  comments that drift out of date.
 
 ## Methodology
 
@@ -131,16 +151,17 @@ beats implicit, and the back-end should trust explicit input.
 The per-element round is complete; from here the work is top-down.  Refine
 one function at a time — docstring, `declare`, `important-return-value`/
 `pure`, helper use, tests — and each problem found becomes an entry in
-`## Tasks` (small, usually done in the same session) or `## TODO`
-(larger), rather than a plan of its own.  There is no fixed task list and
-no "underway" moment: those two lists *are* the plan.
+`## Tasks` (small, usually done in the same session) or the `Roadmap`
+section of `README.org` (larger), rather than a plan of its own.  There
+is no fixed task list and no "underway" moment: those two lists *are*
+the plan.
 
-Every section below `;;;; OINFO oclosure` is marked in the source with
-`;; REFINE: this section is pending the mainline fine pass.`  Take them in
-source order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass —
-docstring, `declare`, `important-return-value`/`pure`, helper use, tests —
-and remove the marker when the section is done.  What a pass turns up goes
-to `## Tasks` or `## TODO`.
+Sections below `;;;; OINFO oclosure` that are not yet refined carry
+`;; REFINE: this section is pending the mainline fine pass.` in the
+source.  Take them in source order (`grep -n 'REFINE:' ox-w3ctr.el`),
+one section per pass — docstring, `declare`, `important-return-value`/
+`pure`, helper use, tests — and remove the marker when the section is
+done.  What a pass turns up goes to `## Tasks` or `README.org` Roadmap.
 
 Its one **precondition**: the two local skills
 (`.agents/skills/ox-w3ctr-verify`, `.agents/skills/elisp-docstring`) get
@@ -167,8 +188,9 @@ rather than into a commit.  "Usable" means:
 A skill round is done when the next run can follow it without asking a
 question the files do not answer.
 
-The first tasks, then: the options tidy-up in `## TODO` (the `*-function`
-replacement and the ox-html compatibility chart), and the special-block
+The first tasks, then: the options tidy-up in `README.org` Roadmap (the
+`*-function` replacement and the ox-html compatibility chart), and the
+special-block
 Web Component after it.
 
 ## Notes
@@ -236,33 +258,6 @@ Web Component after it.
   preserves `eq` equality of the error descriptor.  Prefer it in
   `condition-case` handlers.
 
-## Code layout rules
-
-What the docstring & code layout tidy settled; follow them for new code.
-
-### Rules
-
-- **Docstring**: every `defun`/`defsubst` gets a full docstring — a
-  one-line summary first, then parameter / return-value notes where
-  they are non-obvious.
-- **Declarations**: refactored functions carry
-  `(declare (ftype (function (ARGS) RET)))`; add
-  `(important-return-value t)` where the caller must use the result;
-  add `(pure t)` where the function is side-effect free and its result
-  depends only on its arguments.  Exemptions: `defsubst`, end-user
-  commands (`t-export-*`, `t-publish-*`, `t-convert-*`), interactive
-  commands whose return value is incidental.
-- **Naming**: internal helpers `t--*`, public API `t-*`.  No third
-  scheme (`org-w3ctr-faces-*` is gone; keep it that way).
-- **Headers**: `;;;` for major parts, `;;;;` for sections.  No
-  `;;;;`-under-`;;;;` that pretends to be a third level.  A refactored
-  element is either under a `;;;` part or a flat `;;;;` block — not a
-  mix.
-- **Ordering**: within a section, bottom-up (helper before its user)
-  or top-down by call layer — pick one per section and keep it.
-- **Header hygiene**: correct spelling, no author names, no arithmetic
-  comments that drift out of date.
-
 ## Known issues
 
 - **Link leftovers.**  The refactor is done, but a few spots are still weak
@@ -290,8 +285,8 @@ What the docstring & code layout tidy settled; follow them for new code.
 ## Tasks
 
 Small items, found while refining a function and usually finished in the
-same session; the mainline adds them here as it goes.  Larger or planned
-work goes in `## TODO` below.
+same session.  Larger or planned work is in the =Roadmap= section of
+=README.org=.
 
 - **Docstring & layout leftovers (from the tidy pass).**
   - Add docstrings to the 13 jstools RPC functions
@@ -299,115 +294,3 @@ work goes in `## TODO` below.
   - Add `(declare (ftype …))` to the ~18 functions that still lack it
     (excluding `defsubst` and end-user commands).
   - Rename `;;;; Legacy home and up` (fold into Navbar or rename).
-
-## TODO
-
-- **Options tidy-up.**  The `:options-alist` is a grab-bag: a few
-  entries are grouped (`;; Link`, `;; Footnote`), most are not, and a
-  couple carry inline `;; Options:` comments.  Order every entry, add a
-  `;; Options:` comment wherever the semantics are not obvious, and
-  consider replacing the cumbersome string options with `*-function`
-  ones (as `t-footnote-section-function` does).  Also chart
-  compatibility with ox-html: for each option, whether ox-html has the
-  same name and semantics, a different one, or none, and quantify the
-  result (e.g. "N of M options shared").  Keep the `:html-*` keyword
-  names compatible where cheap.
-- **Src-block feature gaps vs ox-html.**  Its transcoders are the rough
-  part of the refactor.  Dropped when forking and out of scope for now
-  (judged low-value for W3C TR output).  Revisit later; each should slot in
-  *between*
-  `t-fontify-code` and the transcoders (a layout layer), not back into
-  fontify.
-  - Line numbers (`-n`/`+n` via `org-export-get-loc`), coderef
-    (`(ref:label)` via `org-export-format-code`) and `retain-labels`:
-    a bound trio in ox-html's `org-html-do-format-code`.
-  - `:html-wrap-src-lines` (per-line `<code>`) and `:html-klipsify-src`.
-  - Listing number in captions (`org-export-get-ordinal` +
-    `org-html--translate "Listing %d:"`).
-  - example-block fontification / line numbers: ox-html routes
-    example-block through `org-html-format-code`; `t-example-block` is
-    plain text.
-  - Highlight engine is a *replacement*, not a gap: htmlize +
-    `org-html-htmlize-output-type` / `-font-prefix` versus
-    `t-fontify-method` + fixed `ef-` slugs.
-- **Attr-reading machinery.**  The attribute helpers have grown several
-  layers: `t--read-attr__`, `t--make-attr__`, `t--make-attr__id`,
-  `t--make-attr__id*`, `t--make-attr_html`, `t--make-attribute-string`,
-  plus the src-block-specific `t--src-block-attrs`.  Two syntaxes
-  coexist (Lisp s-exprs for `#+attr__`, plists for `#+attr_html`), and
-  the "add an id unless one is present" logic is duplicated across four
-  functions.  Candidates: a single intermediate representation read
-  from both syntaxes, or one canonical syntax with the other as a thin
-  compatibility shim.
-- **SVG global font cache.**  `svg-by-mathjax` currently uses MathJax's
-  default `fontCache: 'local'`, which embeds every formula's glyph paths in
-  every formula; a formula-heavy document reaches the megabyte range.
-  MathJax's `fontCache: 'global'` shares one `<defs>` per document (measured
-  ~1.9x smaller end-to-end on a 100-formula sample).  It needs a
-  `svg-font-cache` RPC returning `output.fontCache.getCache()` wrapped in a
-  hidden `<svg>` and then clearing it (the Node process outlives a single
-  export), injected once in `t-inner-template` — not `<head>`, which may not
-  contain `<svg>` and which is built after the body anyway.  Tried and
-  reverted; revisit if SVG output is kept.
-- **CSS cleanup in `assets/style.css`.**  Not urgent; note for later.
-  - `assets/style.min.css` (stale, 24KB vs 49KB, June vs July) was
-    deleted; do not regenerate a minified copy — the back-end reads
-    `style.css` via `t-style-file`.
-  - Dead rules: `#home-and-up` (superseded by `#navbar`, which
-    `t-format-navbar-default-function` emits) and `.org-center` (never
-    emitted).  Both violate the object-theming contract; remove them.
-  - `.ef-*` highlight colours are global (outside the dark block) and
-    lean dark-theme (`#b2b2b2` comments etc.); on a light background the
-    low-contrast ones wash out.  Provide a light/dark pair (or vars).
-  - `pre > code.src` uses `background: rgba(0,0,0,.03)`, invisible in the
-    dark theme; add a dark-block override.
-  - Inline src (`t-inline-src-block` emits `class="src-inline src-LANG"`)
-    has no CSS: no `.src-inline`/`.src-*` rules.  Give it a style or drop
-    the dead class from the back-end (src-block refactor decides).
-- **Src-block highlight backends.**  Today `t-fontify-method` is
-  `engrave` or nil (server-side).  Planned directions, either or both:
-  add further server-side backends, or hand colouring to the client
-  (e.g. highlight.js) by emitting bare
-  `<code class="language-LANG">` and letting the front-end script
-  highlight it.  The extension points are the dispatch in
-  `t-fontify-code` and the class generation in `t--src-code-tag`
-  (`src src-LANG` today, `language-LANG` for highlight.js).  When the
-  client does the work, the `.ef-*` CSS in `style.css` becomes optional
-  and the engrave engine is only needed for server-side output.
-
-## Non-goals
-
-Explicitly out of scope for now — do not start them: the mainline work
-(the skills precondition, the options leftover, the special-block Web
-Component) comes first.
-
-- **special-block (Web Component).**  Deferred to the mainline, after the
-  options tidy-up.
-  The unfinished `t-special-block` lives in `zhua.el` and still needs
-  `ox-w3ctr-component-registry` and `ox-w3ctr-collect-dependency`.
-- **Dependency analysis.**  Charting how far ox-w3ctr leans on Org (which
-  `org-*` symbols it calls, how many are private `org-*--*` API, and which
-  Org file each comes from) and mapping the internal `t-*` call graph is a
-  final global-optimization and cleanup task.  Do it by parsing the source
-  with Emacs rather than grep, so comments and docstrings do not create
-  false positives, and report the dynamic edges (`funcall`, `apply`,
-  `:translate-alist` / `:options-alist` dispatch) separately instead of
-  silently dropping them.
-- **Cross-file link resolution (crossrefs).**  Resolving
-  `[[file:other.org::*Heading]]` / `::#custom-id` to an anchor in the target
-  document, with a project-scoped persistent cache so the anchor survives
-  re-exports.  Currently using `org-export-get-reference' as fallback.
-  Not now.
-- **Drop the `ox-publish` dependency.**  ox-w3ctr requires `ox-publish` and
-  calls `org-publish-file-relative-name` and
-  `org-publish-resolve-external-link` from `t--link-path`, plus
-  `org-publish-org-to` from `t-publish-to-html`.  Replace them with local
-  implementations: the first two belong with the planned crossref backend
-  (`t-xref-backend`), the last with yynt's publish flow.  Not now.
-- **Distributed shortdoc.**  `define-short-documentation-group`
-  overwrites a same-named group (it does `delq` then `push`), so shortdoc
-  entries cannot be spread across modules by repeated calls to the same
-  group.  If the shortdoc grows, use "data distributed, definition
-  centralized": each module keeps a `t--shortdoc-*' list, and the single
-  `define-short-documentation-group' at the end splices them with `,@'.
-  Far-future; not now.

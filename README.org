@@ -38,3 +38,57 @@ now).
 2. [ ] Fully detailed documentation.
 3. [ ] A friendly introductive video.
 4. [ ] CI/CD support.
+
+** Roadmap
+
+*** TODO
+
+- *Options tidy-up.*  The =:options-alist= is a grab-bag: a few
+  entries are grouped, most are not.  Order every entry, consider
+  replacing cumbersome string options with =*-function= ones.  Chart
+  compatibility with ox-html for each option.
+- *Src-block feature gaps vs ox-html.*  Dropped when forking (judged
+  low-value for W3C TR output).  Revisit later:
+  - Line numbers, coderef, =retain-labels=.
+  - =:html-wrap-src-lines= and =:html-klipsify-src=.
+  - Listing number in captions.
+  - example-block fontification / line numbers.
+  - Highlight engine: htmlize vs =t-fontify-method= + =ef-= slugs.
+- *Attr-reading machinery.*  The attribute helpers have grown several
+  layers (=t--read-attr__=, =t--make-attr__=, =t--make-attr__id=,
+  =t--make-attr__id*=, =t--make-attr_html=, =t--make-attribute-string=,
+  =t--src-block-attrs=).  Two syntaxes coexist (Lisp s-exprs for
+  =#+attr__=, plists for =#+attr_html=).  Candidates: a single
+  intermediate representation or one canonical syntax.
+- *SVG global font cache.*  =svg-by-mathjax= uses =fontCache: 'local'=.
+  MathJax's =fontCache: 'global'= shares one =<defs>= per document
+  (~1.9x smaller on a 100-formula sample).  Tried and reverted;
+  revisit if SVG output is kept.
+- *CSS cleanup in =assets/style.css=.*  Not urgent.
+  - Dead rules: =#home-and-up= and =.org-center= (never emitted).
+  - =.ef-*= highlight colours lean dark-theme; provide light/dark pair.
+  - =pre > code.src= invisible in dark theme; add dark-block override.
+  - Inline src (=t-inline-src-block=) has no CSS; give it a style or
+    drop the dead class.
+- *Src-block highlight backends.*  Today =t-fontify-method= is =engrave=
+  or nil (server-side).  Planned: further server-side backends, or
+  client-side (e.g. highlight.js) by emitting bare
+  =<code class="language-LANG">=.
+
+*** Non-goals
+
+Explicitly out of scope for now.
+
+- *special-block (Web Component).*  Deferred to the mainline, after
+  the options tidy-up.  The unfinished =t-special-block= lives in
+  =zhua.el= and still needs =ox-w3ctr-component-registry= and
+  =ox-w3ctr-collect-dependency=.
+- *Dependency analysis.*  Charting how far ox-w3ctr leans on Org and
+  mapping the internal =t-*= call graph.  Final global-optimization
+  and cleanup task.
+- *Cross-file link resolution (crossrefs).*  Resolving
+  =[[file:other.org::*Heading]]= / =::#custom-id= to an anchor in the
+  target document, with a project-scoped persistent cache.  Not now.
+- *Drop the =ox-publish= dependency.*  Replace =org-publish-file-relative-name=,
+  =org-publish-resolve-external-link=, and =org-publish-org-to= with
+  local implementations.  Not now.
