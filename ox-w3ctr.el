@@ -2161,12 +2161,13 @@ wrapped in <figure>."
 
 ;;;; Verse Block
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Paragraphs")
-;; Fixed export. Not customizable.
 (defun t-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
-CONTENTS is verse block contents."
+
+CONTENTS is the verse block contents.  INFO is the info plist.
+Return the formatted <p> element as a string.  Leading whitespace
+is converted to non-breaking spaces; newlines become <br>."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format
