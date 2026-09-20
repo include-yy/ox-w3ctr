@@ -2605,13 +2605,16 @@ formatted datetime string."
 
 Call FN with TIMESTAMP and ARGS.  If FN signals an error with the
 message \"Invalid time specification\", re-signal as `org-w3ctr-error'
-with the raw value of TIMESTAMP."
+with the raw value of TIMESTAMP.  Other errors are re-signaled as-is."
+  (declare (ftype (function (function t &rest t) t))
+           (important-return-value t))
   (condition-case e
       (apply fn timestamp args)
     (error
-     (when (equal e '(error "Invalid time specification"))
-       (t-error "Timestamp %s encode failed"
-                (org-element-property :raw-value timestamp))))))
+     (if (equal e '(error "Invalid time specification"))
+         (t-error "Timestamp %s encode failed"
+                  (org-element-property :raw-value timestamp))
+       (signal (car e) (cdr e))))))
 
 (defun t--format-ts-datetime (timestamp info &optional end)
   "Format TIMESTAMP to its datetime attribute string.
