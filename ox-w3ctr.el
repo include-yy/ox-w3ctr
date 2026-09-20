@@ -2313,36 +2313,44 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 
 ;;;; Bold
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-bold (_bold contents info)
-  "Transcode BOLD from Org to HTML."
+  "Transcode BOLD from Org to HTML.
+
+CONTENTS is the bold text.  INFO is the info plist.  Return the
+formatted text."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (format (t--get-markup-format 'bold info) contents))
 
 ;;;; Italic
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-italic (_italic contents info)
-  "Transcode ITALIC from Org to HTML."
+  "Transcode ITALIC from Org to HTML.
+
+CONTENTS is the italic text.  INFO is the info plist.  Return the
+formatted text."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (format (t--get-markup-format 'italic info) contents))
 
 ;;;; Underline
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-underline (_underline contents info)
-  "Transcode UNDERLINE from Org to HTML."
+  "Transcode UNDERLINE from Org to HTML.
+
+CONTENTS is the underlined text.  INFO is the info plist.  Return
+the formatted text."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (format (t--get-markup-format 'underline info) contents))
 
 ;;;; Verbatim
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-verbatim (verbatim _contents info)
-  "Transcode VERBATIM from Org to HTML."
+  "Transcode VERBATIM from Org to HTML.
+
+CONTENTS is unused; the value comes from the element's `:value'
+property.  INFO is the info plist.  Return the formatted text."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (format (t--get-markup-format 'verbatim info)
@@ -2351,9 +2359,11 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 
 ;;;; Code
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-code (code _contents info)
-  "Transcode CODE from Org to HTML."
+  "Transcode CODE from Org to HTML.
+
+CONTENTS is unused; the value comes from the element's `:value'
+property.  INFO is the info plist.  Return the formatted text."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (format (t--get-markup-format 'code info)
@@ -2362,9 +2372,11 @@ NAME is a symbol (like \\='bold), INFO is Org export info plist."
 
 ;;;; Strike-Through
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 (defun t-strike-through (_strike-through contents info)
-  "Transcode STRIKE-THROUGH from Org to HTML."
+  "Transcode STRIKE-THROUGH from Org to HTML.
+
+CONTENTS is the struck-through text.  INFO is the info plist.
+Return the formatted text."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (format (t--get-markup-format 'strike-through info) contents))
