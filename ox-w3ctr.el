@@ -2732,7 +2732,7 @@ Return the formatted timestamp string."
             (org-timestamp-formats fmt)
             (raw (t--interpret-timestamp timestamp)))
       (t--format-timestamp-raw-1 timestamp raw info)
-    (error ":html-timestamp-formats not valid: %s"
+    (t-error ":html-timestamp-formats not valid: %s"
            (t--pget info :html-timestamp-formats))))
 
 (defun t--format-timestamp-fix (timestamp fmt info)

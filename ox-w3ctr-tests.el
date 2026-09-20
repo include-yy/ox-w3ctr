@@ -2116,7 +2116,7 @@ int a = 1;</code></p>\n</details>")
           "&lt;2011-11-18 06:54&gt;--&lt;2011-11-18 14:54&gt;")
       ($l (g t4 '(nil . "%M")) "&lt;54&gt;--&lt;54&gt;"))
     ($e!l (t--format-timestamp-fmt (f "[2000-01-01]") nil)
-          '(error ":html-timestamp-formats not valid: nil"))))
+          '(org-w3ctr-error ":html-timestamp-formats not valid: nil"))))
 
 (ert-deftest t--format-timestamp-fix ()
   "Tests for `org-w3ctr--format-timestamp-fix'."
