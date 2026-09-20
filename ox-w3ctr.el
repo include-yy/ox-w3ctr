@@ -708,7 +708,15 @@ These format strings follow the conventions of `format-time-string'.
   :type '(cons string string))
 
 (defcustom t-timestamp-format-function #'t-ts-default-format-function
-  "Custom timestamp format function."
+  "Custom function for formatting timestamps.
+
+The function must accept two arguments: a TIMESTAMP object and an
+INFO plist.  It must return a string.  The default is
+`org-w3ctr-ts-default-format-function', which returns the raw
+value of TIMESTAMP.
+
+This option only takes effect when `org-w3ctr-timestamp-option'
+is set to `fun'."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -2811,7 +2819,7 @@ timestamp string."
 (defun t-ts-default-format-function (timestamp _info)
   "The default custom TIMESTAMP format function.
 
-TIMESTAMP is an Org timestamp object.  _INFO is unused.  Return
+TIMESTAMP is an Org timestamp object.  INFO is unused.  Return
 the raw value of TIMESTAMP."
   (declare (ftype (function (t list) string))
            (pure t) (important-return-value t))
@@ -2828,7 +2836,7 @@ the raw value of TIMESTAMP."
 (defun t-timestamp (timestamp _contents info)
   "Transcode a TIMESTAMP object from Org to HTML.
 
-TIMESTAMP is an Org timestamp object.  _CONTENTS is unused.  INFO
+TIMESTAMP is an Org timestamp object.  CONTENTS is unused.  INFO
 is the info plist.  Return the formatted timestamp string."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
@@ -2861,7 +2869,7 @@ first, allowing zeroth section's content to appear before the TOC while
 the TOC remains near the beginning of the document.")
 
 ;; FIXME: consider consider malformed headline(e.g., ** before first *)
-(defun t-section (section contents _info)
+(defun t-section (section contents info)
   "Transcode a SECTION element from Org to HTML.
 CONTENTS holds the contents of the section.  INFO is a plist
 holding contextual information."
