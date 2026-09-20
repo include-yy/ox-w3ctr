@@ -1987,7 +1987,7 @@ Return the formatted <blockquote> element as a string."
 ;; `::before' pseudo-elements; the class is added automatically unless
 ;; the user provides `#+attr__:' or `#+attr_html:', in which case the
 ;; user controls all attributes.  A bare `<pre>' without a wrapper is
-;; available via `t-fixed-width'.
+;; available via `org-w3ctr-fixed-width'.
 (defun t-example-block (example-block _contents info)
   "Transcode an EXAMPLE-BLOCK element from Org to HTML.
 
@@ -2003,7 +2003,7 @@ attributes, the user controls all attributes on the <div>."
          (content (org-remove-indentation
                    (org-element-property :value example-block))))
     (format "<div%s%s>\n<pre>\n%s</pre>\n</div>"
-            (if (t--nw-p attrs) (concat " " attrs) "")
+            (if (t--nw-p attrs) attrs "")
             (if has-user-attrs "" " class=\"example\"")
             content)))
 
