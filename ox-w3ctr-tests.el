@@ -1384,37 +1384,37 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr-bold'."
   (t-check-element-values
    #'t-bold
-   '(("*abc*" "<strong>abc</strong>")
+   '(("*abc*" "<b>abc</b>")
      ("**abc**"
-      "<strong><strong>abc</strong></strong>"
-      "<strong>abc</strong>")
+      "<b><b>abc</b></b>"
+      "<b>abc</b>")
      ("**" . nil)
-     ("***" "<strong>*</strong>")
-     ("****" "<strong>**</strong>")
+     ("***" "<b>*</b>")
+     ("****" "<b>**</b>")
      ("*****"
-      "<strong><strong>*</strong></strong>"
-      "<strong>*</strong>")
-     ("*\\star\\star\\star*" "<strong>***</strong>")
+      "<b><b>*</b></b>"
+      "<b>*</b>")
+     ("*\\star\\star\\star*" "<b>***</b>")
      ("*hello world this world*"
-      "<strong>hello world this world</strong>")
-     ("*hello\nworld*" "<strong>hello\nworld</strong>"))))
+      "<b>hello world this world</b>")
+     ("*hello\nworld*" "<b>hello\nworld</b>"))))
 
 (ert-deftest t-italic ()
   "Tests for `org-w3ctr-italic'."
   (t-check-element-values
    #'t-italic
-   '(("/abc/" "<em>abc</em>")
+   '(("/abc/" "<i>abc</i>")
      ("//abc//"
-      "<em><em>abc</em></em>" "<em>abc</em>")
+      "<i><i>abc</i></i>" "<i>abc</i>")
      ("//" . nil)
-     ("///" "<em>/</em>")
-     ("////" "<em>//</em>")
+     ("///" "<i>/</i>")
+     ("////" "<i>//</i>")
      ("/////"
-      "<em><em>/</em></em>" "<em>/</em>")
-     ("/\\slash\\slash\\slash/" "<em>///</em>")
+      "<i><i>/</i></i>" "<i>/</i>")
+     ("/\\slash\\slash\\slash/" "<i>///</i>")
      ("/hello world this world/"
-      "<em>hello world this world</em>")
-     ("/hello\nworld/" "<em>hello\nworld</em>"))))
+      "<i>hello world this world</i>")
+     ("/hello\nworld/" "<i>hello\nworld</i>"))))
 
 (ert-deftest t-underline ()
   "Tests for `org-w3ctr-underline'."
@@ -2966,7 +2966,7 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr--get-info-author'."
   (t-check-element-values
    #'t--get-info-author
-   '(("#+AUTHOR: /hello/" "<em>hello</em>")
+   '(("#+AUTHOR: /hello/" "<i>hello</i>")
      ("#+AUTHOR: " nil))
    nil '( :with-author t :html-format-license-function
           t-format-license-default-function)))

@@ -323,9 +323,9 @@ reference."
 ;;;; Markup texts
 (defcustom t-text-markup-alist
   ;; See also `org-html-text-markup-alist'.
-  '((bold . "<strong>%s</strong>")
+  '((bold . "<b>%s</b>")
     (code . "<code>%s</code>")
-    (italic . "<em>%s</em>")
+    (italic . "<i>%s</i>")
     (strike-through . "<s>%s</s>")
     (underline . "<u>%s</u>")
     (verbatim . "<code>%s</code>"))
