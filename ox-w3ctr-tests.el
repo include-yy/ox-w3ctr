@@ -1744,7 +1744,7 @@ int a = 1;</code></p>\n</details>")
   ;; time out of range
   (let ((info8 '(:html-timezone 0 :html-datetime-option s-none)))
     ($e!l (t--format-datetime -65536 info8)
-          '(error "Time may be out of range: -65536"))))
+          '(org-w3ctr-error "Time may be out of range: -65536"))))
 
 (ert-deftest t--call-with-invalid-time-spec-handler ()
   "Tests for `org-w3ctr--call-with-invalid-time-spec-handler'."
@@ -1754,13 +1754,13 @@ int a = 1;</code></p>\n</details>")
     ($e!l (t--call-with-invalid-time-spec-handler
            (lambda (_ts) (error "Invalid time specification"))
            (nth 0 ts))
-          '(error "Timestamp [2000-01-01] encode failed"))
+          '(org-w3ctr-error "Timestamp [2000-01-01] encode failed"))
     ($e!l (t--call-with-invalid-time-spec-handler
            #'org-timestamp-to-time (nth 1 ts))
-          '(error "Timestamp [1945-08-15] encode failed"))
+          '(org-w3ctr-error "Timestamp [1945-08-15] encode failed"))
     ($e!l (t--call-with-invalid-time-spec-handler
            #'org-element-timestamp-interpreter (nth 2 ts) nil)
-          '(error "Timestamp [1145-05-14]--[1919-08-10] encode failed")))
+          '(org-w3ctr-error "Timestamp [1145-05-14]--[1919-08-10] encode failed")))
   (let ((ts (t-get-parsed-elements
              "[2038-01-19 03:14:07] [2025-06-17 16:40]" 'timestamp)))
     ($s (t--call-with-invalid-time-spec-handler
@@ -1784,7 +1784,7 @@ int a = 1;</code></p>\n</details>")
          (ts6 (t-get-parsed-elements
                "[2022-06-07 09:00]--[2022-06-08]" 'timestamp)))
     ($e!l (t--format-ts-datetime (nth 0 ts0) info)
-          '(error "Timestamp [1900-01-01] encode failed"))
+          '(org-w3ctr-error "Timestamp [1900-01-01] encode failed"))
     ($l (t--format-ts-datetime (nth 0 ts1) info)
         " datetime=\"2025-06-17T08:49Z\"")
     ($l (t--format-ts-datetime (nth 0 ts2) info)
@@ -1858,7 +1858,7 @@ int a = 1;</code></p>\n</details>")
   (cl-flet ((f (s) (car (t-get-parsed-elements s 'timestamp)))
             (g (x) (t--interpret-timestamp x)))
     ($e!l (g (f "[1949-10-01]"))
-          '(error "Timestamp [1949-10-01] encode failed"))
+          '(org-w3ctr-error "Timestamp [1949-10-01] encode failed"))
     ($e! (let ((ts (f "[2000-01-01]")))
            (setf (org-element-property :year-start ts) nil)
            (g ts))))

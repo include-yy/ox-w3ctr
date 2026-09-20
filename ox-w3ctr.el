@@ -2433,7 +2433,6 @@ Return the transcoded string."
 
 ;;;; Timestamp
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Timestamps")
 ;; Options:
 ;; - :html-timezone          (`org-w3ctr-timezone')
@@ -2478,7 +2477,7 @@ offset using `org-w3ctr--timezone-to-offset'.
 On successful parsing, the numeric offset will be stored back into INFO
 to avoid repeated parsing.  If timezone is `nil' or timezone format is
 invalid, signal an error."
-  (declare (ftype (function (list) fixnum))
+  (declare (ftype (function (list) (or fixnum symbol)))
            (important-return-value t))
   (if-let* ((zone (t--pget info :html-timezone)))
       (cond
@@ -2486,8 +2485,8 @@ invalid, signal an error."
        ((eq zone 'local) 'local)
        (t (if-let* ((time (t--timezone-to-offset zone)))
               (t--pput info :html-timezone time)
-            (error "timezone format not correct: %s" zone))))
-    (error ":html-timezone is deliberately set to nil")))
+            (t-error "Timezone format not correct: %s" zone))))
+    (t-error ":html-timezone is deliberately set to nil")))
 
 (defun t--get-info-export-timezone-offset (info &optional zone1-offset)
   "Return export timezone offset from INFO plist.
@@ -2513,7 +2512,7 @@ when the caller already knows the default timezone offset."
      ((fixnump zone2) zone2)
      (t (if-let* ((time (t--timezone-to-offset zone2)))
             (t--pput info :html-export-timezone time)
-          (error "export timezone format not correct: %s" zone2))))))
+          (t-error "Export timezone format not correct: %s" zone2))))))
 
 (defun t--get-info-timezone-delta (info &optional z1 z2)
   "Return the offset difference of export timezone(Z2) and timezone(Z1).
@@ -2582,7 +2581,11 @@ rule, and returns a full datetime format string suitable for use in HTML
           (format "%%F%s%%R%s" (nth 0 ls) zone))))))
 
 (defun t--format-datetime (time info &optional notime)
-  "Format TIME into a datetime string."
+  "Format TIME into a datetime string.
+
+TIME is an Emacs internal time value.  INFO is the info plist.
+NOTIME, when non-nil, returns only the date format.  Return the
+formatted datetime string."
   (declare (ftype (function (list list &optional boolean) string))
            (important-return-value t))
   (let* ((offset0 (t--get-info-timezone-offset info))
@@ -2593,33 +2596,29 @@ rule, and returns a full datetime format string suitable for use in HTML
               (time (if notime time (time-add time delta))))
         (condition-case nil
             (format-time-string fmt time)
-          (error (error "Time may be out of range: %s" time)))
+          (error (t-error "Time may be out of range: %s" time)))
       (let ((opt (t--pget info :html-datetime-option)))
-        (error ":html-datetime-option is invalid: %s" opt)))))
+        (t-error ":html-datetime-option is invalid: %s" opt)))))
 
 (defun t--call-with-invalid-time-spec-handler (fn timestamp &rest args)
-  "Call FN with TIMESTAMP and ARGS, providing a clearer error message
-for invalid timestamps.
+  "Wrap FN call with clearer error messages for invalid timestamps.
 
-If FN signals an error with the message \"Invalid time specification\",
-signal a more informative error including the raw value of TIMESTAMP.
-
-Intended for wrapping functions like `org-timestamp-to-time' or
-`org-element-timestamp-interpreter' to make error messages clearer when
-encountering out-of-range or malformed timestamps."
+Call FN with TIMESTAMP and ARGS.  If FN signals an error with the
+message \"Invalid time specification\", re-signal as `org-w3ctr-error'
+with the raw value of TIMESTAMP."
   (condition-case e
       (apply fn timestamp args)
     (error
      (when (equal e '(error "Invalid time specification"))
-       (error "Timestamp %s encode failed"
-              (org-element-property :raw-value timestamp))))))
+       (t-error "Timestamp %s encode failed"
+                (org-element-property :raw-value timestamp))))))
 
 (defun t--format-ts-datetime (timestamp info &optional end)
-  "Format Org timestamp object to its datetime string.
+  "Format TIMESTAMP to its datetime attribute string.
 
-For time ranges, whether the timestamp is considered to have a time part
-depends on whether the starting timestamp of the range includes an hour
-and minute specification, as determined by `org-timestamp-has-time-p'."
+TIMESTAMP is an Org timestamp object.  INFO is the info plist.
+END, when non-nil, format the end of a range.  Return a string
+suitable for an HTML <time> datetime attribute."
   (declare (ftype (function (t list &optional t) string))
            (important-return-value t))
   (format " datetime=\"%s\""
@@ -2644,11 +2643,12 @@ inserts trailing spaces when the timestamp is followed by space."
       (error "Bad start date: %s" timestamp)))
 
 (defun t--format-timestamp-diary (timestamp info)
-  "Format a diary-like TIMESTAMP object.
+  "Format a diary TIMESTAMP object.
 
-If `:html-timestamp-option' is `raw', use the `:raw-value' property of
-TIMESTAMP. Otherwise, use `org-w3ctr--interpret-timestamp' or signal an
-error if the option is unknown."
+TIMESTAMP is an Org timestamp object.  INFO is the info plist.
+If `:html-timestamp-option' is `raw', use the `:raw-value'
+property.  Otherwise, interpret TIMESTAMP via
+`org-w3ctr--interpret-timestamp'.  Return the formatted string."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let* ((option  (t--pget info :html-timestamp-option))
@@ -2658,9 +2658,13 @@ error if the option is unknown."
     (t-plain-text text info)))
 
 (defun t--format-ts-span-time (str info &optional time)
-  "Format timestamp string STR using <span> or <time>."
+  "Format timestamp string STR using <span> or <time>.
+
+STR is the timestamp text.  INFO is the info plist.  TIME, when
+non-nil, use <time> tag; otherwise use <span>.  Return the
+formatted string."
   (declare (ftype (function (string list &optional boolean) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (if (not time)
       ;; taken from `org-html-timestamp'.
       (concat "<span class=\"timestamp-wrapper\">"
@@ -2669,9 +2673,11 @@ error if the option is unknown."
     (concat "<time%s>" (t-plain-text str info) "</time>")))
 
 (defun t--format-timestamp-raw-1 (timestamp raw info)
-  "Format a TIMESTAMP with its RAW string.
+  "Format TIMESTAMP with its RAW string.
 
-RAW is a string matching `org-ts-regexp-both'."
+TIMESTAMP is an Org timestamp object.  RAW is a string matching
+`org-ts-regexp-both'.  INFO is the info plist.  Return the
+formatted timestamp string."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (pcase (t--pget info :html-timestamp-wrapper)
@@ -2692,21 +2698,30 @@ RAW is a string matching `org-ts-regexp-both'."
     (w (error "Unknown timestamp wrapper: %s" w))))
 
 (defun t--format-timestamp-raw (timestamp info)
-  "Format TIMESTAMP without altering its string content."
+  "Format TIMESTAMP without altering its string content.
+
+TIMESTAMP is an Org timestamp object.  INFO is the info plist.
+Return the formatted timestamp string."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((raw (org-element-property :raw-value timestamp)))
     (t--format-timestamp-raw-1 timestamp raw info)))
 
 (defun t--format-timestamp-int (timestamp info)
-  "Format TIMESTAMP with `org-timestamp-formats'."
+  "Format TIMESTAMP with `org-timestamp-formats'.
+
+TIMESTAMP is an Org timestamp object.  INFO is the info plist.
+Return the formatted timestamp string."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((raw (t--interpret-timestamp timestamp)))
     (t--format-timestamp-raw-1 timestamp raw info)))
 
 (defun t--format-timestamp-fmt (timestamp info)
-  "Format TIMESTAMP with `org-w3ctr-timestamp-formats'."
+  "Format TIMESTAMP with `org-w3ctr-timestamp-formats'.
+
+TIMESTAMP is an Org timestamp object.  INFO is the info plist.
+Return the formatted timestamp string."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (if-let* ((fmt (t--pget info :html-timestamp-formats))
@@ -2717,9 +2732,11 @@ RAW is a string matching `org-ts-regexp-both'."
            (t--pget info :html-timestamp-formats))))
 
 (defun t--format-timestamp-fix (timestamp fmt info)
-  "Internal function used for formatting `org' and `cus' option.
+  "Format TIMESTAMP with a fixed format string FMT.
 
-Fix means not influenced by timestamp's range type."
+TIMESTAMP is an Org timestamp object.  FMT is a format string.
+INFO is the info plist.  Used internally for `org' and `cus'
+options.  Return the formatted timestamp string."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (let* ((wrap (t--pget info :html-timestamp-wrapper))
@@ -2753,9 +2770,9 @@ Fix means not influenced by timestamp's range type."
 (defun t--format-timestamp-org (timestamp info)
   "Format TIMESTAMP like `org-timestamp-translate'.
 
-When `org-display-custom-times' is nil, fall back to `int' formatting.
-Otherwise, format TIMESTAMP using custom formats defined in
-`org-timestamp-custom-formats'."
+TIMESTAMP is an Org timestamp object.  INFO is the info plist.
+When `org-display-custom-times' is nil, fall back to `int'
+formatting.  Return the formatted timestamp string."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (if (not org-display-custom-times)
@@ -2768,9 +2785,10 @@ Otherwise, format TIMESTAMP using custom formats defined in
 (defun t--format-timestamp-cus (timestamp info)
   "Format TIMESTAMP according to custom formats.
 
-The format string accepted by this function must be enclosed in one of
-three types of brackets: [], <>, or {}. When using curly braces ({}), it
-indicates that no enclosing brackets should be applied."
+TIMESTAMP is an Org timestamp object.  INFO is the info plist.
+The format string must be enclosed in [], <>, or {}; curly
+braces indicate no enclosing brackets.  Return the formatted
+timestamp string."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let* ((re (rx string-start
@@ -2787,7 +2805,10 @@ indicates that no enclosing brackets should be applied."
       (t--format-timestamp-fix timestamp fmt info))))
 
 (defun t-ts-default-format-function (timestamp _info)
-  "The default custom timestamp format function."
+  "The default custom TIMESTAMP format function.
+
+TIMESTAMP is an Org timestamp object.  _INFO is unused.  Return
+the raw value of TIMESTAMP."
   (declare (ftype (function (t list) string))
            (pure t) (important-return-value t))
   (org-element-property :raw-value timestamp))
@@ -2801,7 +2822,10 @@ indicates that no enclosing brackets should be applied."
     (error ":html-timestamp-format-function is nil")))
 
 (defun t-timestamp (timestamp _contents info)
-  "Transcode a TIMESTAMP object from Org to HTML."
+  "Transcode a TIMESTAMP object from Org to HTML.
+
+TIMESTAMP is an Org timestamp object.  _CONTENTS is unused.  INFO
+is the info plist.  Return the formatted timestamp string."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let ((type (org-element-property :type timestamp)))
