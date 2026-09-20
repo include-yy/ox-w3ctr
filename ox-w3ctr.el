@@ -2512,7 +2512,7 @@ when the caller already knows the default timezone offset."
      ((fixnump zone2) zone2)
      (t (if-let* ((time (t--timezone-to-offset zone2)))
             (t--pput info :html-export-timezone time)
-          (t-error "Export timezone format not correct: %s" zone2))))))
+          (t-error "Invalid export timezone format: %s" zone2))))))
 
 (defun t--get-info-timezone-delta (info &optional z1 z2)
   "Return the offset difference of export timezone(Z2) and timezone(Z1).
