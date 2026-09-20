@@ -2060,15 +2060,15 @@ CONTENTS is nil.  INFO is the info plist.  Return the formatted
 
 ;;;; Horizontal Rule
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org) Horizontal Rules")
-;; Fixed export. Not customizable.
-(defun t-horizontal-rule (_horizontal-rule _contents _info)
-  "Transcode an HORIZONTAL-RULE object from Org to HTML.
-CONTENTS is nil."
-  (declare (ftype (function (t t t) string))
-           (pure t) (important-return-value t))
-  "<hr>")
+(defun t-horizontal-rule (horizontal-rule _contents info)
+  "Transcode a HORIZONTAL-RULE element from Org to HTML.
+
+CONTENTS is nil.  INFO is the info plist.  Return the formatted
+<hr> element as a string."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (t--void-element "hr" (t--make-attr__id* horizontal-rule info t)))
 
 ;; FIXME: Consider add support for custom keywords
 ;;;; Keyword
