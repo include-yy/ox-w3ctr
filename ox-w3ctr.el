@@ -1770,7 +1770,7 @@ nil.  This doesn't apply to radio targets and targets."
       nil)
      ;; Fallback: random orgXXXXXXX.
      (t (org-export-get-reference datum info)))))
-
+
 ;;; Greater elements
 ;; special-block and table are not here.
 
