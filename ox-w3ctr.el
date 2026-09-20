@@ -2205,9 +2205,7 @@ for ENTITY (e.g. `&alpha;')."
 
 ;;;; Export Snippet
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Quoting HTML tags")
-;; Fixed export. Not customizable.
 (defun t-export-snippet (export-snippet _contents info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
 
@@ -2227,11 +2225,11 @@ value as a string, or an empty string for unsupported backends."
 
 ;;;; Line Break
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Paragraphs")
-;; Fixed export. Not customizable.
 (defun t-line-break (_line-break _contents _info)
-  "Transcode a LINE-BREAK object from Org to HTML."
+  "Transcode a LINE-BREAK object from Org to HTML.
+
+CONTENTS and INFO are unused.  Return the HTML line break string."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
   "<br>\n")
