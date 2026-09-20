@@ -2043,12 +2043,12 @@ content as a string, or an empty string for unsupported types."
 
 ;;;; Fixed Width
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org) Literal Examples")
-;; Fixed export. Not customizable.
 (defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML.
-CONTENTS is nil."
+
+CONTENTS is nil.  INFO is the info plist.  Return the formatted
+<pre> element as a string."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format "<pre%s>%s</pre>"
