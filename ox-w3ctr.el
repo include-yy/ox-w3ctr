@@ -2541,13 +2541,13 @@ This value can be used to convert timestamps between timezones:
      (t (- offset2 offset1)))))
 
 (defconst t--timestamp-datetime-options
-  '((s-none . (" " "" "+0000"))
-    (s-none-zulu . (" " "" "Z"))
-    (s-colon . (" " ":" "+00:00"))
+  '((s-none       . (" " ""  "+0000"))
+    (s-none-zulu  . (" " ""  "Z"))
+    (s-colon      . (" " ":" "+00:00"))
     (s-colon-zulu . (" " ":" "Z"))
-    (T-none . ("T" "" "+0000"))
-    (T-none-zulu . ("T" "" "Z"))
-    (T-colon . ("T" ":" "+00:00"))
+    (T-none       . ("T" ""  "+0000"))
+    (T-none-zulu  . ("T" ""  "Z"))
+    (T-colon      . ("T" ":" "+00:00"))
     (T-colon-zulu . ("T" ":" "Z")))
   "HTML <time>'s datetime format options.
 
@@ -2564,7 +2564,7 @@ If NOTIME is nil, this function looks up the formatting option and
 builds the timezone string based on OFFSET and the selected formatting
 rule, and returns a full datetime format string suitable for use in HTML
 <time> tag's `datetime' attributes."
-  (declare (ftype (function (fixnum t &optional boolean)
+  (declare (ftype (function ((or fixnum symbol) t &optional boolean)
                             (or string null)))
            (pure t) (important-return-value t))
   (if notime "%F"
