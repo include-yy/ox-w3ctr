@@ -2383,7 +2383,6 @@ Return the formatted text."
 
 ;;;; Plain Text
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; :with-smart-quotes    (`org-export-with-smart-quotes')
 ;; :with-special-strings (`org-export-with-special-strings')
@@ -2405,7 +2404,12 @@ Return the formatted text."
       (setq string (replace-regexp-in-string re rpl string t)))))
 
 (defun t-plain-text (text info)
-  "Transcode a TEXT string from Org to HTML."
+  "Transcode a TEXT string from Org to HTML.
+
+TEXT is the plain text content.  INFO is the info plist.  Encode
+HTML entities, activate smart quotes when enabled, convert special
+strings when enabled, and preserve line breaks when enabled.
+Return the transcoded string."
   (declare (ftype (function (string list) string))
            (important-return-value t))
   (let ((output text))
