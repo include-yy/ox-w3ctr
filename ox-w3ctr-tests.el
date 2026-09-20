@@ -949,7 +949,7 @@ int a = 1;</code></p>\n</details>")
        ("- [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>")))))
 
 (ert-deftest t-item-ordered ()
-  "Tests for `org-w3ctr-item' unordered item."
+  "Tests for `org-w3ctr-item' ordered item."
   (let ((t-checkbox-type 'unicode))
     (t-check-element-values
      #'t-item
