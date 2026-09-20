@@ -998,7 +998,8 @@ This affects IDs that are determined from the ID property.")
         (let ((fname (file-name-concat t--dir "assets/fixup.js")))
           (format "<script>\n%s\n</script>\n"
                   (with-temp-buffer
-                    (insert-file-contents fname)
+                    (let ((coding-system-for-read 'utf-8))
+                      (insert-file-contents fname))
                     (buffer-string))))))
 ;; do update
 (t-update-css-js)
@@ -1614,12 +1615,16 @@ standard `:attr_html' property using `org-w3ctr--make-attr_html'."
 
 This function returns the full content of the file at path FILE
 as a single string.  It signals a `org-w3ctr-error' if FILE does not
-exist or is a directory."
+exist or is a directory.
+
+FILE is decoded as UTF-8 regardless of the locale coding system,
+so the same file reads identically on every machine."
   (declare (ftype (function (string) string)))
   (unless (and (file-exists-p file) (not (file-directory-p file)))
     (t-error "Bad File: %s" file))
   (with-temp-buffer
-    (insert-file-contents file)
+    (let ((coding-system-for-read 'utf-8))
+      (insert-file-contents file))
     (buffer-substring-no-properties
      (point-min) (point-max))))
 
