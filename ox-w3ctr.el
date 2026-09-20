@@ -1830,7 +1830,7 @@ CONTENTS holds the contents of the block."
            (pure t) (important-return-value t))
   (or contents ""))
 
-;;;; Item and Plain Lists
+;;;; Item and Plain Lists helper functions
 
 ;; See (info "(org)Plain lists")
 ;; Options:
@@ -1868,16 +1868,24 @@ See `org-w3ctr-checkbox-types' for customization options."
                         t-checkbox-types)))))
 
 (defsubst t--format-checkbox (checkbox info)
-  "Format a CHECKBOX option to string.
+  "Format CHECKBOX into HTML, followed by a space.
 
-CHECKBOX can be `on', `off', `trans', or anything else.
-Returns an empty string if CHECKBOX is not one of the these three."
+CHECKBOX is nil or one of the symbols `on', `off', or `trans'.
+INFO is the info plist.  Return an empty string when CHECKBOX does
+not match one of those three; otherwise return the checkbox HTML
+with a trailing space."
   (let ((a (t--checkbox checkbox info)))
     (concat a (and a " "))))
 
 (defun t--format-ordered-item (contents checkbox info cnt)
-  "Format a ORDERED list item into HTML."
-  (declare (ftype (function ((or null string) t list t) string))
+  "Format an ordered list item into HTML.
+
+CONTENTS is the item contents, nil or a string.  CHECKBOX is nil or
+one of the symbols `on', `off', or `trans'.  INFO is the info plist.
+CNT is the list item counter, an integer or nil; when non-nil, the
+<li> element carries a value attribute with that number.  Return the
+formatted <li> element as a string."
+  (declare (ftype (function ((or null string) t list (or null integer)) string))
            (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (counter (if (not cnt) "" (format " value=\"%s\"" cnt))))
@@ -1885,15 +1893,25 @@ Returns an empty string if CHECKBOX is not one of the these three."
             (t--nw-trim contents) "</li>")))
 
 (defun t--format-unordered-item (contents checkbox info)
-  "Format a UNORDERED list item into HTML."
+  "Format an unordered list item into HTML.
+
+CONTENTS is the item contents, nil or a string.  CHECKBOX is nil or
+one of the symbols `on', `off', or `trans'.  INFO is the info plist.
+Return the formatted <li> element as a string."
   (declare (ftype (function ((or null string) t list) string))
            (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info)))
     (concat "<li>" checkbox (t--nw-trim contents) "</li>")))
 
 (defun t--format-descriptive-item (contents checkbox info term)
-  "Format a DESCRIPTIVE list item into HTML."
-  (declare (ftype (function ((or null string) t list t) string))
+  "Format a descriptive list item into HTML.
+
+CONTENTS is the item contents, nil or a string.  CHECKBOX is nil or
+one of the symbols `on', `off', or `trans'.  INFO is the info plist.
+TERM is the item tag, nil or an exported string; it becomes the
+<dt> content, possibly prefixed by the checkbox.  Return the
+formatted <dt>...</dt><dd>...</dd> pair as a string."
+  (declare (ftype (function ((or null string) t list (or null string)) string))
            (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (term (or term "")))
@@ -1905,7 +1923,9 @@ Returns an empty string if CHECKBOX is not one of the these three."
 ;; See (info "(org)Plain Lists")
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML.
-CONTENTS holds the contents of the item."
+
+CONTENTS holds the contents of the item, nil or a string.  INFO is
+the info plist.  Return the formatted item as a string."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((plain-list (org-export-get-parent item))
@@ -1920,8 +1940,6 @@ CONTENTS holds the contents of the item."
       ('descriptive
        (let ((term (when-let* ((a (org-element-property :tag item)))
                      (org-export-data a info))))
-         ;;(t--format-descriptive-item-ex
-         ;; contents item checkbox info term)))
          (t--format-descriptive-item contents checkbox info term)))
       (_ (error "Unrecognized list item type: %s" type)))))
 
