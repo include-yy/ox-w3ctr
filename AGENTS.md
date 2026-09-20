@@ -43,7 +43,7 @@ Shell: MSYS2 bash (MINGW64); paths and commands below are bash-style.
 - Releases: bump `Package-Version` (header) and `t-version` together,
   commit, then tag `vX.Y.Z` (lightweight, matching `v0.2.5`) and push the
   branch and the tag to both remotes.  The OINFO cache ships on: do **not**
-  turn `org-w3ctr-oinfo-enabled' off for a release (`t-oinfo-enabled' says
+  turn `org-w3ctr-oinfo-enabled` off for a release (`t-oinfo-enabled` says
   why).
 
 ## Running the tests
@@ -68,9 +68,9 @@ a nil build is for measuring, not a configuration to maintain.  (For
 reference if you build one anyway: it skips the nine cache-path tests,
 162 pass, 10 skipped.)
 
-Two tests read `ox-w3ctr.el' next to the loaded file and skip without it
-(`org-w3ctr--oinfo-props-are-looked-up',
-`org-w3ctr--oinfo-props-go-through-pget'); `org-w3ctr--load-file' reads it
+Two tests read `ox-w3ctr.el` next to the loaded file and skip without it
+(`org-w3ctr--oinfo-props-are-looked-up`,
+`org-w3ctr--oinfo-props-go-through-pget`); `org-w3ctr--load-file` reads it
 too but fails rather than skipping.
 
 ## Conventions
@@ -280,12 +280,12 @@ What the docstring & code layout tidy settled; follow them for new code.
   tests.
 - **Unnamed elements get a fresh random id on every export.**  With no
   explicit label, `t--reference' falls back to `org-export-get-reference',
-  which mints an `orgXXXXXXX' id from a randomly seeded counter.  Four of
-  the 57 corpus documents hold such ids (`verify-corpus' counts them in
-  `refs='), and an anchor into one is not stable across exports.  Never diff
-  raw export hashes — compare the normalized `norm=' (see the verification
+  which mints an `orgXXXXXXX` id from a randomly seeded counter.  Four of
+  the 57 corpus documents hold such ids (`verify-corpus` counts them in
+  `refs=`), and an anchor into one is not stable across exports.  Never diff
+  raw export hashes — compare the normalized `norm=` (see the verification
   skill).  Either the author gives every referenced element an explicit
-  `CUSTOM_ID', or the back-end derives a stable id — see Non-goals.
+  `CUSTOM_ID`, or the back-end derives a stable id — see Non-goals.
 
 ## Tasks
 
