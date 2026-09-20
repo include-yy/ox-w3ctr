@@ -2024,9 +2024,21 @@ content as a string, or an empty string for unsupported types."
       ("CSS" (format "<style>%s</style>" (t--prepend-newline value)))
       ((or "JS" "JAVASCRIPT")
        (format "<script>%s</script>" (t--prepend-newline value)))
-      ((or "EMACS-LISP" "ELISP")
-       (format "%s" (eval (read (or (t--nw-p value) "\"\"")))))
-      ("LISP-DATA" (t--sexp2html (read (or (t--nw-p value) "\"\""))))
+      ((or "EMACS-LISP" "ELISP" "LISP-DATA")
+       (or (handler-bind
+               ((error
+                 (lambda (err)
+                   (t-error "%s block at line %d: %s"
+                            type
+                            (line-number-at-pos
+                             (org-element-property :begin export-block))
+                            (error-message-string err)))))
+             (pcase type
+               ((or "EMACS-LISP" "ELISP")
+                (t--2str (eval (read (or (t--nw-p value) "\"\"")))))
+               ("LISP-DATA"
+                (t--sexp2html (read (or (t--nw-p value) "\"\""))))))
+           ""))
       (_ ""))))
 
 ;;;; Fixed Width

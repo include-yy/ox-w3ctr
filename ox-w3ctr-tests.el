@@ -1105,7 +1105,15 @@ int a = 1;</code></p>\n</details>")
      ;; Unsupported type
      ("#+begin_export wtf\n no exported\n#+end_export" "")
      ("#+begin_export\n not exported\n#+end_export" ""))
-   t))
+   t)
+  ;; Error handling: malformed Lisp signals t-error with line number.
+  ($e!l (org-export-string-as
+         "#+begin_export emacs-lisp\n(broken\n#+end_export\n"
+                              'w3ctr t)
+         '(org-w3ctr-error "EMACS-LISP block at line 1: End of file during parsing"))
+  ($e!l (org-export-string-as "text\n#+begin_export lisp-data\n(broken\n#+end_export\n"
+                              'w3ctr t)
+         '(org-w3ctr-error "LISP-DATA block at line 2: End of file during parsing")))
 
 (ert-deftest t-fixed-width ()
   "Tests for `org-w3ctr-fixed-width'."
