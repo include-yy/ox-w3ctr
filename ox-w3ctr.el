@@ -1832,7 +1832,6 @@ CONTENTS holds the contents of the block."
 
 ;;;; Item and Plain Lists
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Plain lists")
 ;; Options:
 ;; - :html-checkbox-type (`org-w3ctr-checkbox-type')
@@ -1897,44 +1896,13 @@ Returns an empty string if CHECKBOX is not one of the these three."
   (declare (ftype (function ((or null string) t list t) string))
            (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
-        (term (or term "(no term)")))
+        (term (or term "")))
     (concat (format "<dt>%s</dt>" (concat checkbox term))
             "<dd>" (t--nw-trim contents) "</dd>")))
 
-;; Not used and not tested.
-;; Allow 1-x, x-1, x-x <dt> and <dd> map.
-(defun t--format-descriptive-item-ex (contents item checkbox info term)
-  "Format a DESCRIPTION list item into HTML."
-  (declare (ftype (function ((or null string) t t list t) string))
-           (important-return-value t))
-  (let ((checkbox (t--format-checkbox checkbox info))
-        (contents (let ((c (t--nw-trim contents)))
-                    (if (equal c "") nil c))))
-    (cond
-     ;; first item
-     ;; not need actually.
-     ((not (org-export-get-previous-element item info))
-      (let ((term (or term "(no term)")))
-        (concat (format "<dt>%s</dt>" (concat checkbox term))
-                (when contents (format "<dd>%s</dd>" contents)))))
-     ;; last item
-     ((not (org-export-get-next-element item info))
-      (let ((term (let ((c (concat checkbox term)))
-                    (if (string= c "") nil c))))
-        (concat
-         (when term (format "<dt>%s</dt>" term))
-         "<dd>" contents "</dd>")))
-     ;; normal item
-     (t (let ((term (let ((c (concat checkbox term)))
-                      (if (string= c "") nil c))))
-          (concat (when term (format "<dt>%s</dt>" term))
-                  (when contents (format "<dd>%s</dd>" contents))))))))
-
 ;;;; Item
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Plain Lists")
-;; Fixed export. Not customizable.
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML.
 CONTENTS holds the contents of the item."
