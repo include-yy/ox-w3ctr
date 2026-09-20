@@ -2208,21 +2208,21 @@ for ENTITY (e.g. `&alpha;')."
 ;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Quoting HTML tags")
 ;; Fixed export. Not customizable.
-(defun t-export-snippet (export-snippet _contents _info)
-  "Transcode a EXPORT-SNIPPET object from Org to HTML."
-  (declare (ftype (function (t t t) string))
+(defun t-export-snippet (export-snippet _contents info)
+  "Transcode an EXPORT-SNIPPET object from Org to HTML.
+
+CONTENTS is nil.  INFO is the info plist.  Return the snippet
+value as a string, or an empty string for unsupported backends."
+  (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
          (value (org-element-property :value export-snippet)))
     (pcase backend
-      ;; plain html text.
       ((or 'h 'html) value)
-      ;; Read, Evaluate, Print, no Loop :p
-      ('e (format "%s" (eval (read (or (t--nw-p value) "\"\"")))))
-      ;; sexp-style html data.
-      ('d (t--sexp2html (read (or (t--nw-p value) "\"\""))))
-      ;; sexp-style html data list.
-      ('l (mapconcat #'t--sexp2html (read (format "(%s)" value))))
+      ('e (t--eval-lisp export-snippet value 'eval "\"\""
+                        "@@e snippet"))
+      ('d (t--eval-lisp export-snippet value 'sexp "()"
+                        "@@d snippet"))
       (_ ""))))
 
 ;;;; Line Break
