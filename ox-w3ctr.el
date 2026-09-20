@@ -578,14 +578,6 @@ There was a support for highlight.js, but has been abandoned."
   :group 'org-export-w3ctr
   :type '(choice (const engrave) (const nil)))
 
-;; FIXME: Unused — t-example-block hardcodes the "example" class and
-;; never consults this defcustom.  Decide whether to wire it in or drop
-;; it.
-(defcustom t-example-default-class "example"
-  "Default CSS class for example block, nil means no default class."
-  :group 'org-export-w3ctr
-  :type 'sexp)
-
 ;;;; Timestamp
 (defconst t-timezone-regex
   (rx string-start
@@ -2438,7 +2430,7 @@ Return the transcoded string."
              "<br>\n" output)))
     ;; Return value.
     output))
-
+
 ;;;; Timestamp
 
 ;; See (info "(org)Timestamps")
@@ -2741,7 +2733,7 @@ Return the formatted timestamp string."
             (raw (t--interpret-timestamp timestamp)))
       (t--format-timestamp-raw-1 timestamp raw info)
     (t-error ":html-timestamp-formats not valid: %s"
-           (t--pget info :html-timestamp-formats))))
+             (t--pget info :html-timestamp-formats))))
 
 (defun t--format-timestamp-fix (timestamp fmt info)
   "Format TIMESTAMP with a fixed format string FMT.
