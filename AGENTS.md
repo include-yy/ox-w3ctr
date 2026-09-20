@@ -7,7 +7,7 @@ Guidance for AI agents working in this repository.
 `ox-w3ctr` is an Emacs Lisp package: an Org export back-end that emits HTML
 styled for W3C Technical Reports.  It is a "parasitic implementation" of
 Org's `ox-html.el`, being progressively reimplemented (refactored) in its own
-style.  Version 0.2.7; requires Emacs 31.
+style.  Version 0.2.11; requires Emacs 31.
 
 - `ox-w3ctr.el`       — the back-end (main source)
 - `ox-w3ctr-tests.el` — ERT test suite
@@ -218,6 +218,23 @@ Web Component after it.
   `svg-by-mathjax` are therefore thin one-line RPC calls on the Emacs side.
   The helper loads `ui/safe`, without which the auto-loaded `html' TeX
   extension lets `\href{javascript:...}`, `\style` and `\class` through.
+- **Error signaling: `t-error` over `error`.**  All transcoder error
+  paths use `t-error` (the package's custom error type), not the generic
+  `error`.  Inside a `condition-case` handler, re-signal with `(signal e)`
+  (Emacs 31 syntax) instead of `(signal (car e) (cdr e))`.
+- **`pure t` and the OINFO cache.**  A function that reads a cached OINFO
+  key via `t--pget` is *not* pure: the oclosure increments `cnt` (and on
+  a miss, sets `pid`/`val`).  `t-collect-oinfo-statistics` reads those
+  counters, so the mutation is observable.  Before marking a function
+  `pure t`, check whether its call chain reaches `t--pget` on any key in
+  `t--oinfo-cache-props`.
+- **Docstring parameter references.**  Unused parameters carry a `_`
+  prefix in the function signature (e.g., `_info`), but docstrings
+  reference them without the prefix (write INFO, not _INFO).
+- **`(signal err)` (Emacs 31+).**  The one-argument form `(signal err)`
+  is equivalent to `(signal (car err) (cdr err))`, more concise, and
+  preserves `eq` equality of the error descriptor.  Prefer it in
+  `condition-case` handlers.
 
 ## Code layout rules
 
