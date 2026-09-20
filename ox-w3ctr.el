@@ -2823,7 +2823,7 @@ the raw value of TIMESTAMP."
            (important-return-value t))
   (if-let* ((fun (t--pget info :html-timestamp-format-function)))
       (funcall fun timestamp info)
-    (error ":html-timestamp-format-function is nil")))
+    (t-error ":html-timestamp-format-function is nil")))
 
 (defun t-timestamp (timestamp _contents info)
   "Transcode a TIMESTAMP object from Org to HTML.
