@@ -1167,14 +1167,14 @@ int a = 1;</code></p>\n</details>")
      ("#+d: " "")
      ("#+d: (br)" "<br>")
      ("#+d: (p((data-x \"1\"))123)" "<p data-x=\"1\">123</p>")
-     ;; L
-     ("#+l: " "")
-     ("#+l: (br) (br)" "<br><br>")
-     ("#+l: (br) \" \" (br)" "<br> <br>")
-     ("#+l: (p() 123) (p() 234)" "<p>123</p><p>234</p>")
      ;; Otherwise
      ("#+hello: world" nil))
-   t))
+   t)
+  ;; Error handling: malformed Lisp signals t-error.
+  ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
+         '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
+  ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)
+         '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing")))
 
 (ert-deftest t--wrap-image ()
   "Tests for `org-w3ctr--wrap-image'."

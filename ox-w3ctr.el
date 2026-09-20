@@ -2009,8 +2009,34 @@ attributes, the user controls all attributes on the <div>."
 
 ;;;; Export Block
 
+(defun t--eval-lisp (element value type default context)
+  "Read VALUE as Lisp and return the result as a string.
+
+TYPE is \\='eval to read, eval, and convert via `org-w3ctr--2str',
+or \\='sexp to read and convert via `org-w3ctr--sexp2html'.  When
+VALUE is empty or whitespace-only, DEFAULT is used instead.
+Signal `org-w3ctr-error' with the line number from ELEMENT on
+read or eval failure; CONTEXT labels the error message."
+  (declare (ftype (function (t string symbol string string) string))
+           (important-return-value t))
+  (if (not (t--nw-p value)) ""
+    (let ((proc (pcase type ('eval #'eval) ('sexp nil)))
+          (s (or (t--nw-p value) default))
+          (line (line-number-at-pos
+                 (org-element-property :begin element))))
+      (or (handler-bind
+              ((error (lambda (err)
+                        (t-error "%s at line %d: %s"
+                                 context line
+                                 (error-message-string err)))))
+            (let ((data (read s)))
+              (if proc (t--2str (funcall proc data))
+                (t--sexp2html data))))
+          ""))))
+
+
 ;; See (info "(org) Quoting HTML tags")
-(defun t-export-block (export-block _contents info)
+(defun t-export-block (export-block _contents _info)
   "Transcode an EXPORT-BLOCK element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the exported
@@ -2024,21 +2050,12 @@ content as a string, or an empty string for unsupported types."
       ("CSS" (format "<style>%s</style>" (t--prepend-newline value)))
       ((or "JS" "JAVASCRIPT")
        (format "<script>%s</script>" (t--prepend-newline value)))
-      ((or "EMACS-LISP" "ELISP" "LISP-DATA")
-       (or (handler-bind
-               ((error
-                 (lambda (err)
-                   (t-error "%s block at line %d: %s"
-                            type
-                            (line-number-at-pos
-                             (org-element-property :begin export-block))
-                            (error-message-string err)))))
-             (pcase type
-               ((or "EMACS-LISP" "ELISP")
-                (t--2str (eval (read (or (t--nw-p value) "\"\"")))))
-               ("LISP-DATA"
-                (t--sexp2html (read (or (t--nw-p value) "\"\""))))))
-           ""))
+      ((or "EMACS-LISP" "ELISP")
+       (t--eval-lisp export-block value 'eval "\"\""
+                     "EMACS-LISP block"))
+      ("LISP-DATA"
+       (t--eval-lisp export-block value 'sexp "()"
+                     "LISP-DATA block"))
       (_ ""))))
 
 ;;;; Fixed Width
@@ -2070,27 +2087,21 @@ CONTENTS is nil.  INFO is the info plist.  Return the formatted
            (important-return-value t))
   (t--void-element "hr" (t--make-attr__id* horizontal-rule info t)))
 
-;; FIXME: Consider add support for custom keywords
 ;;;; Keyword
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; See (info "(org) Quoting HTML tags")
-;; Fixed export. Not customizable.
 (defun t-keyword (keyword _contents info)
   "Transcode a KEYWORD element from Org to HTML.
-CONTENTS is nil."
-  (declare (ftype (function (t t list) string))
+
+CONTENTS is nil.  INFO is the info plist.  Return the keyword
+value as a string, or nil for unsupported keywords."
+  (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (let ((key (org-element-property :key keyword))
         (value (org-element-property :value keyword)))
     (pcase key
       ((or "H" "HTML") value)
-      ("E" (format "%s" (eval (read (or (t--nw-p value) "\"\"")))))
-      ("D" (t--sexp2html (read (or (t--nw-p value) "\"\""))))
-      ("L" (mapconcat #'t--sexp2html
-                      (read (format "(%s)" value))))
-      ;; Implemented in Tables of Contents Section
-      ;; Try C-s ;;;; Table of Contents
+      ("E" (t--eval-lisp keyword value 'eval "\"\"" "#+E keyword"))
+      ("D" (t--eval-lisp keyword value 'sexp "()" "#+D keyword"))
       ("TOC" (t--keyword-toc keyword value info))
       (_ nil))))
 
