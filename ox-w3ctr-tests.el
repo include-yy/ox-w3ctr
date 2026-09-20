@@ -1058,15 +1058,15 @@ int a = 1;</code></p>\n</details>")
   (t-check-element-values
    #'t-example-block
    '(("#+name: t\n#+begin_example\n#+end_example"
-      "<div id=\"t\">\n<pre>\n</pre>\n</div>")
+      "<div id=\"t\" class=\"example\">\n<pre>\n</pre>\n</div>")
      ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
-      "<div id=\"t\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
+      "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
      ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
       "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
      ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
-      "<div id=\"t\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
+      "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
      ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
-      "<div id=\"t\">\n<pre>\n\n\n\n</pre>\n</div>"))
+      "<div id=\"t\" class=\"example\">\n<pre>\n\n\n\n</pre>\n</div>"))
       nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-export-block ()

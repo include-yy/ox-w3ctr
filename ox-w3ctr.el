@@ -1982,18 +1982,30 @@ Return the formatted <blockquote> element as a string."
 
 ;;;; Example Block
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Literal Examples")
-;; Fixed export. Not customizable.
+;; The W3C stylesheet uses `.example' for numbered example boxes with
+;; `::before' pseudo-elements; the class is added automatically unless
+;; the user provides `#+attr__:' or `#+attr_html:', in which case the
+;; user controls all attributes.  A bare `<pre>' without a wrapper is
+;; available via `t-fixed-width'.
 (defun t-example-block (example-block _contents info)
-  "Transcode a EXAMPLE-BLOCK element from Org to HTML.
-CONTENTS is nil."
+  "Transcode an EXAMPLE-BLOCK element from Org to HTML.
+
+CONTENTS is nil.  INFO is the info plist.  Return the formatted
+<div><pre>...</pre></div> element as a string.  Without user
+attributes, the <div> carries class=\"example\"; with user
+attributes, the user controls all attributes on the <div>."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
-  (format "<div%s>\n<pre>\n%s</pre>\n</div>"
-          (t--make-attr__id* example-block info)
-          (org-remove-indentation
-           (org-element-property :value example-block))))
+  (let* ((has-user-attrs (or (org-element-property :attr__ example-block)
+                             (org-element-property :attr_html example-block)))
+         (attrs (t--make-attr__id* example-block info t))
+         (content (org-remove-indentation
+                   (org-element-property :value example-block))))
+    (format "<div%s%s>\n<pre>\n%s</pre>\n</div>"
+            (if (t--nw-p attrs) (concat " " attrs) "")
+            (if has-user-attrs "" " class=\"example\"")
+            content)))
 
 ;;;; Export Block
 
