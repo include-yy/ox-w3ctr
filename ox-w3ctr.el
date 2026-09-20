@@ -2009,7 +2009,6 @@ attributes, the user controls all attributes on the <div>."
 
 ;;;; Export Block
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org) Quoting HTML tags")
 (defun t-export-block (export-block _contents info)
   "Transcode an EXPORT-BLOCK element from Org to HTML.
