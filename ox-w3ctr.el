@@ -2754,7 +2754,7 @@ options.  Return the formatted timestamp string."
            (`time
             (format (t--format-ts-span-time time info t)
                     (t--format-ts-datetime timestamp info)))
-           (_ (error "Unknown timestamp wrap: %s" wrap)))))
+           (_ (t-error "Unknown timestamp wrap: %s" wrap)))))
       ((or `active-range `inactive-range)
        (let* ((t1 (org-format-timestamp timestamp fmt))
               (t2 (org-format-timestamp timestamp fmt t)))
@@ -2768,8 +2768,8 @@ options.  Return the formatted timestamp string."
                                (t--format-ts-span-time t2 info t))))
               (format tt (t--format-ts-datetime timestamp info)
                       (t--format-ts-datetime timestamp info t))))
-           (_ (error "Unknown timestamp wrap: %s" wrap)))))
-      (_ (error "Unknown timestamp type: %s" type)))))
+           (_ (t-error "Unknown timestamp wrap: %s" wrap)))))
+      (_ (t-error "Unknown timestamp type: %s" type)))))
 
 (defun t--format-timestamp-org (timestamp info)
   "Format TIMESTAMP like `org-timestamp-translate'.

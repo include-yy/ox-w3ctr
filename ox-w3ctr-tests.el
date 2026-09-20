@@ -2139,11 +2139,11 @@ int a = 1;</code></p>\n</details>")
           ($c "<time datetime=\"2011-11-18T14:54Z\">"
               "2011-11-18 Fri</time>"))
       ($e!l (g t2 "%F" 'wtf)
-            '(error "Unknown timestamp wrap: wtf"))
+            '(org-w3ctr-error "Unknown timestamp wrap: wtf"))
       ($l (g t3 "{%F%a%R}" 'none)
           "{2011-11-18Fri06:54}--{2011-11-18Fri14:54}")
       ($e!l (g t3 "%a" 'abc)
-            '(error "Unknown timestamp wrap: abc"))
+            '(org-w3ctr-error "Unknown timestamp wrap: abc"))
       ($l (g t3 "[%F%R]" 'span)
           ($c "<span class=\"timestamp-wrapper\">"
               "<span class=\"timestamp\">"
