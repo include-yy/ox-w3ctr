@@ -2236,24 +2236,25 @@ CONTENTS and INFO are unused.  Return the HTML line break string."
 
 ;;;; Target
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Internal Links")
-;; Fixed export. Not customizable.
 (defun t-target (target _contents info)
   "Transcode a TARGET object from Org to HTML.
-CONTENTS is nil.  INFO is a list holding contextual
-information."
+
+CONTENTS is nil.  INFO is the info plist.  Return a <span> element
+with the target's reference as its id."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format "<span id=\"%s\"></span>" (t--reference target info)))
 
 ;;;; Radio Target
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Radio Targets")
-;; Fixed export. Not customizable.
 (defun t-radio-target (radio-target text info)
-  "Transcode a RADIO-TARGET object from Org to HTML."
+  "Transcode a RADIO-TARGET object from Org to HTML.
+
+TEXT is the target text, nil or a string.  INFO is the info plist.
+Return a <span> element with the target's reference as its id and
+TEXT as its content."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format "<span id=\"%s\">%s</span>"
