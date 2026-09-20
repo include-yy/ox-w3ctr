@@ -1849,7 +1849,7 @@ CONTENTS holds the contents of the block."
        (off . "<input type=\"checkbox\">")
        (trans . "<input type=\"checkbox\">"))))
   "Alist of checkbox types.
-The cdr of each entry is an alist list three checkbox types for
+The cdr of each entry is an alist of three checkbox states for
 HTML export: `on', `off' and `trans'.
 
 Choices are:
@@ -1860,7 +1860,11 @@ Choices are:
 ;; See (info "(org)Checkboxes")
 (defun t--checkbox (checkbox info)
   "Format CHECKBOX into HTML.
-See `org-w3ctr-checkbox-types' for customization options."
+
+CHECKBOX is nil or one of the symbols `on', `off', or `trans'.
+INFO is the info plist.  See `org-w3ctr-checkbox-types' for the
+customization options.  Return nil when CHECKBOX does not match one
+of those three."
   (declare (ftype (function (t list) (or null string)))
            (important-return-value t))
   (cdr (assq checkbox
@@ -1928,7 +1932,7 @@ CONTENTS holds the contents of the item, nil or a string.  INFO is
 the info plist.  Return the formatted item as a string."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (let* ((plain-list (org-export-get-parent item))
+  (let* ((plain-list (org-element-parent item))
          (type (org-element-property :type plain-list))
          (checkbox (org-element-property :checkbox item)))
     (pcase type
@@ -2094,7 +2098,7 @@ Also check attributes and caption of paragraph."
 CONTENTS is the contents of the paragraph, as a string."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
-  (let* ((parent (org-export-get-parent paragraph))
+  (let* ((parent (org-element-parent paragraph))
          (parent-type (org-element-type parent))
          (attrs (t--make-attr__id* paragraph info t)))
     (cond
@@ -4038,7 +4042,7 @@ used.  Results are memoized per table in INFO under
 was computed and has no cookie)."
   (declare (ftype (function (t list) (or null symbol)))
            (important-return-value t))
-  (let* ((row (org-export-get-parent cell))
+  (let* ((row (org-element-parent cell))
          (table (org-export-get-parent-table cell))
          (cells (org-element-contents row))
          (column (- (length cells) (length (memq cell cells))))
@@ -4115,7 +4119,7 @@ CONTENTS is the cell's contents.  INFO is a plist used as a
 communication channel."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (let* ((row (org-export-get-parent table-cell))
+  (let* ((row (org-element-parent table-cell))
          (table (org-export-get-parent-table table-cell))
          (attrs (t--table-cell-attrs table-cell info))
          (contents (if (or (not contents) (string= "" (org-trim contents)))
@@ -4345,7 +4349,7 @@ An element or object is a standalone image when
            (important-return-value t))
   (let ((paragraph (pcase (org-element-type element)
                      (`paragraph element)
-                     (`link (org-export-get-parent element)))))
+                     (`link (org-element-parent element)))))
     (and (eq (org-element-type paragraph) 'paragraph)
          (or (not predicate) (funcall predicate paragraph))
          (t--sole-image-link-p
