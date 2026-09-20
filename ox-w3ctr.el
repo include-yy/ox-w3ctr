@@ -2037,7 +2037,6 @@ read or eval failure; CONTEXT labels the error message."
                 (t--sexp2html data))))
           ""))))
 
-
 ;; See (info "(org) Quoting HTML tags")
 (defun t-export-block (export-block _contents _info)
   "Transcode an EXPORT-BLOCK element from Org to HTML.
@@ -2194,11 +2193,12 @@ is converted to non-breaking spaces; newlines become <br>."
 
 ;;;; Entity
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Special Symbols")
-;; Fixed export. Not customizable.
 (defun t-entity (entity _contents _info)
-  "Transcode an ENTITY object from Org to HTML."
+  "Transcode an ENTITY object from Org to HTML.
+
+CONTENTS and INFO are unused.  Return the HTML entity string
+for ENTITY (e.g. `&alpha;')."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
   (org-element-property :html entity))
