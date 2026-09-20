@@ -48,7 +48,6 @@
 (require 'ox-publish)
 (require 'ox-html)
 (require 'table)
-(require 'shortdoc)
 
 ;;;; Fundamental utilities
 (defconst t-version "0.2.9"
@@ -5119,27 +5118,6 @@ Return output file name."
                                     "html"))
                         plist pub-dir)))
 
-;;; Shortdoc
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-
-(define-short-documentation-group ox-w3ctr
-  "Helper"
-  (t--prepend-newline
-   :eval (t--prepend-newline nil)
-   :eval (t--prepend-newline "")
-   :eval (t--prepend-newline "123"))
-  (t--nw-p
-   :eval (t--nw-p nil)
-   :eval (t--nw-p "\n\t")
-   :eval (t--nw-p "  1  "))
-  (t--2str
-   :eval (t--2str nil)
-   :eval (t--2str 'foo)
-   :eval (t--2str 123)
-   :eval (t--2str "bar")
-   :eval (t--2str '(1 2 3)))
-  )
 
 (provide 'ox-w3ctr)
 
