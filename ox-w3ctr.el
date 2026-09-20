@@ -1784,11 +1784,12 @@ nil.  This doesn't apply to radio targets and targets."
 ;; the user takes full control of attributes.
 (defun t-center-block (center-block contents info)
   "Transcode a CENTER-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.
 
-With no `:attr__' or `:attr_html:', the block centers its contents.
-With user attributes, it becomes a generic `<div>' -- the centering
-style is dropped and the user controls all attributes."
+CONTENTS holds the contents of the block.  INFO is the info plist.
+Without user attributes, center the contents with an inline style.
+With user attributes, drop the centering style and let the user
+control all attributes.  Return the formatted <div> element as a
+string."
   (declare (ftype (function (t (or null string) t) string))
            (important-return-value t))
   (let* ((has-user-attrs (or (org-element-property :attr__ center-block)
@@ -1807,7 +1808,10 @@ style is dropped and the user controls all attributes."
 ;; Caption becomes the `<summary>' text; falls back to drawer name.
 (defun t-drawer (drawer contents info)
   "Transcode a DRAWER element from Org to HTML.
-CONTENTS holds the contents of the block."
+
+CONTENTS holds the contents of the block.  INFO is the info plist.
+Return the formatted <details> element as a string.  The caption
+becomes the <summary> text; falls back to the drawer name."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((name (org-element-property :drawer-name drawer))
