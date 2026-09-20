@@ -1797,9 +1797,10 @@ style is dropped and the user controls all attributes."
 
 ;;;; Drawer
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Drawers")
-;; Fixed export. Not customizable.
+;; `<details>' is the semantic HTML5 element for collapsible content.
+;; Supports `#+attr__:' / `#+attr_html:' for custom attributes.
+;; Caption becomes the `<summary>' text; falls back to drawer name.
 (defun t-drawer (drawer contents info)
   "Transcode a DRAWER element from Org to HTML.
 CONTENTS holds the contents of the block."
@@ -1815,9 +1816,8 @@ CONTENTS holds the contents of the block."
 
 ;;;; Dynamic Block
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Dynamic Blocks")
-;; Fixed export. Not customizable.
+;; Org-internal extension mechanism; exported as-is.
 (defun t-dynamic-block (_dynamic-block contents _info)
   "Transcode a DYNAMIC-BLOCK element from Org to HTML.
 CONTENTS holds the contents of the block."
