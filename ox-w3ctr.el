@@ -2262,11 +2262,10 @@ TEXT as its content."
 
 ;;;; Statistics Cookie
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Checkboxes")
-;; Fixed export. Not customizable.
 (defun t-statistics-cookie (statistics-cookie _contents _info)
-  "Transcode a STATISTICS-COOKIE object from Org to HTML."
+  "Transcode a STATISTICS-COOKIE object from Org to HTML.
+CONTENTS and INFO are unused.  Return the cookie value wrapped in <code>."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
   (format "<code>%s</code>"
@@ -2274,22 +2273,24 @@ TEXT as its content."
 
 ;;;; Subscript
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Subscripts and Superscripts")
-;; Fixed export. Not customizable.
 (defun t-subscript (_subscript contents _info)
-  "Transcode a SUBSCRIPT object from Org to HTML."
+  "Transcode a SUBSCRIPT object from Org to HTML.
+CONTENTS is the subscript content.  INFO is unused.
+
+Return a <sub> element."
   (declare (ftype (function (t string t) string))
            (pure t) (important-return-value t))
   (format "<sub>%s</sub>" contents))
 
 ;;;; Superscript
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Subscripts and Superscripts")
-;; Fixed export. Not customizable.
 (defun t-superscript (_superscript contents _info)
-  "Transcode a SUPERSCRIPT object from Org to HTML."
+  "Transcode a SUPERSCRIPT object from Org to HTML.
+CONTENTS is the superscript content.  INFO is unused.
+
+Return a <sup> element."
   (declare (ftype (function (t string t) string))
            (pure t) (important-return-value t))
   (format "<sup>%s</sup>" contents))
