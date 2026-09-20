@@ -2614,7 +2614,7 @@ with the raw value of TIMESTAMP.  Other errors are re-signaled as-is."
      (if (equal e '(error "Invalid time specification"))
          (t-error "Timestamp %s encode failed"
                   (org-element-property :raw-value timestamp))
-       (signal (car e) (cdr e))))))
+       (signal e)))))
 
 (defun t--format-ts-datetime (timestamp info &optional end)
   "Format TIMESTAMP to its datetime attribute string.
