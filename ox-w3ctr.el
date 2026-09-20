@@ -2654,7 +2654,7 @@ property.  Otherwise, interpret TIMESTAMP via
 `org-w3ctr--interpret-timestamp'.  Return the formatted string."
   (declare (ftype (function (t list) string))
            (important-return-value t))
-  (let* ((option  (t--pget info :html-timestamp-option))
+  (let* ((option (t--pget info :html-timestamp-option))
          (text (pcase option
                  (`raw (org-element-property :raw-value timestamp))
                  (_ (t--interpret-timestamp timestamp)))))
@@ -2664,8 +2664,9 @@ property.  Otherwise, interpret TIMESTAMP via
   "Format timestamp string STR using <span> or <time>.
 
 STR is the timestamp text.  INFO is the info plist.  TIME, when
-non-nil, use <time> tag; otherwise use <span>.  Return the
-formatted string."
+non-nil, use <time> tag and return a template string with a `%s'
+placeholder for the datetime attribute (caller fills it via
+`format'); otherwise use <span> and return a complete string."
   (declare (ftype (function (string list &optional boolean) string))
            (important-return-value t))
   (if (not time)

@@ -1898,6 +1898,26 @@ int a = 1;</code></p>\n</details>")
            (mk 'none 'org))
         "&lt;%%(diary-float t 4 2) 22:00&gt;")))
 
+(ert-deftest t--format-ts-span-time ()
+  "Tests for `org-w3ctr--format-ts-span-time'."
+  ;; <span> branch (time = nil)
+  ($l (t--format-ts-span-time "hello" nil)
+      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">hello</span></span>")
+  ($l (t--format-ts-span-time "a < b" nil)
+      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a &lt; b</span></span>")
+  ;; <time> branch (time = non-nil) — returns template with %s
+  ($l (t--format-ts-span-time "hello" nil t) "<time%s>hello</time>")
+  ($l (t--format-ts-span-time "2024-01-01" nil t) "<time%s>2024-01-01</time>")
+  ;; special strings via t-plain-text
+  ($l (t--format-ts-span-time "a -- b" '(:with-special-strings t))
+      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a &#x2013; b</span></span>")
+  ;; preserve breaks via t-plain-text
+  ($l (t--format-ts-span-time "a\nb" '(:preserve-breaks t))
+      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a<br>\nb</span></span>")
+  ;; template filled via format
+  ($l (format (t--format-ts-span-time "2024" nil t) " datetime=\"2024\"")
+      "<time datetime=\"2024\">2024</time>"))
+
 (ert-deftest t--format-timestamp-raw-1 ()
   "Tests for `org-w3ctr--format-timestamp-raw-1'."
   (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
