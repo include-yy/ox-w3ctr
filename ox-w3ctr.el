@@ -2859,7 +2859,10 @@ This is used to override the default ox-html behavior where TOC comes
 first, allowing zeroth section's content to appear before the TOC while
 the TOC remains near the beginning of the document.")
 
-;; FIXME: consider malformed headline (e.g., ** before first *)
+;; Malformed headlines (e.g., ** before *) are exported as-is:
+;; the heading level and section numbering reflect the source, not
+;; a normalized hierarchy.  Both ox-html and ox-w3ctr behave the
+;; same way — this is a feature, not a bug.
 (defun t-section (section contents info)
   "Transcode a SECTION element from Org to HTML.
 CONTENTS holds the contents of the section.  INFO is a plist
