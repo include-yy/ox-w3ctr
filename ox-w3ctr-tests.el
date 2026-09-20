@@ -1079,10 +1079,6 @@ int a = 1;</code></p>\n</details>")
      ("#+begin_export html\n\n#+end_export" "\n")
      ("#+begin_export html\n\n\n\n#+end_export" "\n\n\n")
      ("#+begin_export html\n\n\n\n\n\n\n#+end_export" "\n\n\n\n\n\n")
-     ;; MHTML
-     ("#+begin_export mhtml\nanythinghere\n#+end_export" "anythinghere\n")
-     ("#+begin_export mhtml\n#+end_export" "")
-     ("#+begin_export mhtml\n\n\n#+end_export" "\n\n")
      ;; CSS
      ("#+begin_export css\np {color: red;}\n#+end_export"
       "<style>\np {color: red;}\n</style>")

@@ -2011,26 +2011,22 @@ attributes, the user controls all attributes on the <div>."
 
 ;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org) Quoting HTML tags")
-;; Fixed export. Not customizable.
-(defun t-export-block (export-block _contents _info)
-  "Transcode a EXPORT-BLOCK element from Org to HTML.
-CONTENTS is nil."
-  (declare (ftype (function (t t t) string))
+(defun t-export-block (export-block _contents info)
+  "Transcode an EXPORT-BLOCK element from Org to HTML.
+
+CONTENTS is nil.  INFO is the info plist.  Return the exported
+content as a string, or an empty string for unsupported types."
+  (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type export-block))
-         (value (org-element-property :value export-block))
-         (text (org-remove-indentation value)))
+         (value (or (org-element-property :value export-block) "")))
     (pcase type
-      ;; Add mhtml-mode also.
-      ((or "HTML" "MHTML") text)
-      ;; CSS
+      ("HTML" value)
       ("CSS" (format "<style>%s</style>" (t--prepend-newline value)))
-      ;; JavaScript
-      ((or "JS" "JAVASCRIPT") (concat "<script>\n" text "</script>"))
-      ;; Expression that return HTML string.
+      ((or "JS" "JAVASCRIPT")
+       (format "<script>%s</script>" (t--prepend-newline value)))
       ((or "EMACS-LISP" "ELISP")
        (format "%s" (eval (read (or (t--nw-p value) "\"\"")))))
-      ;; SEXP-style HTML data.
       ("LISP-DATA" (t--sexp2html (read (or (t--nw-p value) "\"\""))))
       (_ ""))))
 
