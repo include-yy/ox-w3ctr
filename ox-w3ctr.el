@@ -1945,7 +1945,7 @@ the info plist.  Return the formatted item as a string."
        (let ((term (when-let* ((a (org-element-property :tag item)))
                      (org-export-data a info))))
          (t--format-descriptive-item contents checkbox info term)))
-      (_ (error "Unrecognized list item type: %s" type)))))
+      (_ (t-error "Unrecognized list item type: %s" type)))))
 
 ;;;; Plain List
 
