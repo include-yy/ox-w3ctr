@@ -2643,7 +2643,7 @@ inserts trailing spaces when the timestamp is followed by space."
            (important-return-value t))
   (or (t--call-with-invalid-time-spec-handler
        #'org-element-timestamp-interpreter timestamp :nothing)
-      (error "Bad start date: %s" timestamp)))
+      (t-error "Bad start date: %s" timestamp)))
 
 (defun t--format-timestamp-diary (timestamp info)
   "Format a diary TIMESTAMP object.
