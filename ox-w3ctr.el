@@ -2843,7 +2843,7 @@ is the info plist.  Return the formatted timestamp string."
                     (`cus #'t--format-timestamp-cus)
                     (`org #'t--format-timestamp-org)
                     (`fun #'t--format-timestamp-fun)
-                    (o (error "Unknown timestamp option: %s" o)))))
+                    (o (t-error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
 
 ;;; Headline and Section
