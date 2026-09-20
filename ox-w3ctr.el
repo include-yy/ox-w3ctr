@@ -2864,8 +2864,7 @@ the TOC remains near the beginning of the document.")
   "Transcode a SECTION element from Org to HTML.
 CONTENTS holds the contents of the section.  INFO is a plist
 holding contextual information."
-  (declare (ftype (function (t t t) string))
-           (important-return-value t))
+  (declare (ftype (function (t t t) (or null string))))
   ;; normal section
   (if (org-element-lineage section 'headline) contents
     (prog1 nil (setq t--zeroth-section-output contents))))
