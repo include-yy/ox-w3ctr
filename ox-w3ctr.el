@@ -1965,12 +1965,12 @@ Return the formatted <ol>, <ul>, or <dl> element as a string."
 
 ;;;; Quote Block
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; See (info "(org)Paragraphs")
-;; Fixed export. Not customizable.
 (defun t-quote-block (quote-block contents info)
   "Transcode a QUOTE-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block."
+
+CONTENTS holds the contents of the block.  INFO is the info plist.
+Return the formatted <blockquote> element as a string."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format "<blockquote%s>%s</blockquote>"
