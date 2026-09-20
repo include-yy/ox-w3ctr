@@ -2804,7 +2804,7 @@ timestamp string."
          (fmt (if (org-timestamp-has-time-p timestamp)
                   (cdr fmts) (car fmts))))
     (unless (and (stringp fmt) (string-match-p re fmt))
-      (error "FMT not fit in `cus': %s" fmts))
+      (t-error "FMT not fit in `cus': %s" fmts))
     (let ((fmt (if (/= (aref fmt 0) ?\{) fmt (substring fmt 1 -1))))
       (t--format-timestamp-fix timestamp fmt info))))
 
