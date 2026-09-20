@@ -146,7 +146,6 @@
     (strike-through . t-strike-through)         ; +a+
     (plain-text . t-plain-text))
   :filters-alist '((:filter-parse-tree . t-image-link-filter)
-                   (:filter-paragraph . t-paragraph-filter)
                    (:filter-final-output . t-final-function))
   :menu-entry
   '(?w "Export to W3C technical reports style html"
@@ -2105,27 +2104,31 @@ value as a string, or nil for unsupported keywords."
       ("TOC" (t--keyword-toc keyword value info))
       (_ nil))))
 
-;; FIXME: Consider add some tests after improve link's impl.
 ;;;; Paragraph
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; See (info "(org)Paragraphs")
-;; Fixed export. Not customizable.
 (defsubst t--wrap-image (contents _info caption attrs)
-  "Wrap CONTENTS string within <figure> tag for images.
-Also check attributes and caption of paragraph."
+  "Wrap CONTENTS in a <figure> element for standalone images.
+
+CONTENTS is the image HTML.  _INFO is unused.  CAPTION is the
+caption string (may be empty).  ATTRS is a pre-formatted attribute
+string for the <figure> tag.  Return the formatted <figure> element
+as a string."
   (declare (ftype (function (string t string string) string))
            (pure t) (important-return-value t))
   (format "<figure%s>\n%s%s</figure>"
-          ;; Attributes and contents.
           attrs contents
-          ;; Caption.
           (if-let* ((c (t--nw-trim caption)))
               (format "<figcaption>%s</figcaption>\n" c) "")))
 
+;; See (info "(org)Paragraphs")
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML.
-CONTENTS is the contents of the paragraph, as a string."
+
+CONTENTS is the contents of the paragraph, as a string.  INFO is
+the info plist.  Return the formatted paragraph as a string, or
+an empty string for empty paragraphs.  The first paragraph in a
+list item is rendered without a <p> tag; a standalone image is
+wrapped in <figure>."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (let* ((parent (org-element-parent paragraph))
@@ -2135,17 +2138,14 @@ CONTENTS is the contents of the paragraph, as a string."
      (;; Item's first line.
       (and (eq parent-type 'item)
            ;; In a <dd> list item, the text immediately following "::"
-           ;; is not enclosed in a <p> tag. If this part of the export
+           ;; is not enclosed in a <p> tag.  If this part of the export
            ;; lacks HTML elements, the next text block will become the
            ;; first-child of the dd element, which has a margin-top of
-           ;; 0 by default CSS. Inserting "\\" (rendered as <br>) can
-           ;; prevent the subsequent text block from becoming the first
-           ;; child.
-           ;; Of course, we could wrap this part directly in a <p> tag,
-           ;; but the current approach offers more flexibility.
+           ;; 0 by default CSS.  Not wrapping in <p> avoids that.
            (not (org-export-get-previous-element paragraph info)))
-      (if (string= attrs "") contents
-        (format "<span%s>%s</span>" attrs contents)))
+      (let ((c (t--trim contents)))
+        (if (string= attrs "") c
+          (format "<span%s>%s</span>" attrs c))))
      (;; Standalone image.  Only `:attr__' applies to the figure here;
       ;; `:attr_html' is reserved for the image element itself (see
       ;; `org-w3ctr--link-attributes').
@@ -2158,14 +2158,6 @@ CONTENTS is the contents of the paragraph, as a string."
      (t (let ((c (t--trim contents)))
           (if (string= c "") ""
             (format "<p%s>%s</p>" attrs c)))))))
-
-;; FIXME: Consider add an option to switch on/off this feature.
-;; Or totally disable it.
-(defun t-paragraph-filter (value _backend _info)
-  "Delete paragraph's trailing newlines."
-  (declare (ftype (function (string t t) string))
-           (pure t) (important-return-value t))
-  (concat (string-trim-right value) "\n"))
 
 ;;;; Verse Block
 
