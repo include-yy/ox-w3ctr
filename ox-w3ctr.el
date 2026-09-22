@@ -290,14 +290,15 @@ name.  For example, if a tag is \"a\", its class will be
   #'t-format-headline-default-function
   "Function to format headline text.
 
-This function will be called with six arguments:
+This function will be called with five arguments:
 - TODO      the todo keyword (string or nil).
 - PRIORITY  the priority of the headline (integer or nil)
 - TEXT      the main headline text (string).
 - TAGS      the tags (list of string).
 - INFO      the export options (plist).
 
-The function should return the formatted HTML string for the headline."
+The function should return the formatted HTML string for the headline.
+The default is `org-w3ctr-format-headline-default-function'."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -3042,7 +3043,7 @@ This function returns a list of tags associated with the HEADLINE
 element, but only if the export option `:with-tags` is enabled in the
 INFO plist. The tags are processed for export.  Returns nil if tags are
 disabled or not present."
-  (declare (ftype (function (t list) list))
+  (declare (ftype (function (t list) (or null list)))
            (important-return-value t))
   (and (t--pget info :with-tags)
        (org-export-get-tags headline info)))
@@ -3061,25 +3062,22 @@ description of TODO, PRIORITY, TEXT, TAGS, and INFO arguments."
             priority (and priority " ")
             text (and tags "&#xa0;&#xa0;&#xa0;") tags)))
 
-;; FIXME: Add tests
 (defun t--build-bare-headline (headline text info)
-  "Build the inner HTML content of a headline.
+  "Build the inner HTML content of HEADLINE from TEXT and INFO.
 
-This function extracts all components of a HEADLINE element (like TODO
-keyword, priority and tags) from the parse tree. It respects export
-options like `:with-todo-keywords' and `:with-tags'.
-
-Then, it passes these extracted components as arguments to the
-user-defined formatting function (from `:html-format-headline-function')
-to construct the final string."
+HEADLINE is the headline element and TEXT its already-exported title.
+Extract the TODO keyword, priority and tags from HEADLINE, then call
+the function in `:html-format-headline-function' with those values
+followed by TEXT and INFO: (TODO PRIORITY TEXT TAGS INFO).  Return the
+formatted HTML string that function returns."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (let* ((todo (t--headline-todo headline info))
          (priority (t--headline-priority headline info))
-         (tags (t--headline-tags headline info))
-         ;; FIXME: Check headline-function if valid
-         (f (t--pget info :html-format-headline-function)))
-    (funcall f todo priority text tags info)))
+         (tags (t--headline-tags headline info)))
+    (funcall (or (t--pget info :html-format-headline-function)
+                 #'t-format-headline-default-function)
+             todo priority text tags info)))
 
 ;; FIXME: Adjust tests
 (defun t--build-base-headline (headline info)

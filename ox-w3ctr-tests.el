@@ -2379,6 +2379,66 @@ int a = 1;</code></p>\n</details>")
                              (lambda (tags _i) (string-join tags ","))))
       "a,b"))
 
+(ert-deftest t--headline-todo ()
+  "Tests for `org-w3ctr--headline-todo'."
+  (t-check-element-values
+   #'t--headline-todo
+   '(("* TODO a" "TODO")
+     ("* DONE b" "DONE")
+     ("* c" nil)
+     ;; The keyword goes through `org-export-data', so HTML-significant
+     ;; characters in it are escaped.
+     ("#+TODO: TODO WAIT<SEEN | DONE\n* WAIT<SEEN d" "WAIT&lt;SEEN"))
+   t '(:with-todo-keywords t :with-toc nil))
+  (t-check-element-values
+   #'t--headline-todo
+   '(("* TODO a" nil))
+   t '(:with-todo-keywords nil :with-toc nil)))
+
+(ert-deftest t--headline-priority ()
+  "Tests for `org-w3ctr--headline-priority'."
+  (t-check-element-values
+   #'t--headline-priority
+   '(("* [#A] a" 65)
+     ("* [#1] b" 1)
+     ("* c" nil))
+   t '(:with-priority t :with-toc nil))
+  (t-check-element-values
+   #'t--headline-priority
+   '(("* [#A] a" nil))
+   t '(:with-priority nil :with-toc nil)))
+
+(ert-deftest t--headline-tags ()
+  "Tests for `org-w3ctr--headline-tags'."
+  (t-check-element-values
+   #'t--headline-tags
+   '(("* a :x:" ("x"))
+     ("* b :x:y:" ("x" "y"))
+     ("* c" nil))
+   t '(:with-tags t :with-toc nil))
+  (t-check-element-values
+   #'t--headline-tags
+   '(("* a :x:" nil))
+   t '(:with-tags nil :with-toc nil)))
+
+(ert-deftest t--build-bare-headline ()
+  "Tests for `org-w3ctr--build-bare-headline'."
+  (t-check-element-values
+   #'t--build-bare-headline
+   '(("* TODO [#A] text :x:" "TODO|65|text|(x)")
+     ("* text" "nil|nil|text|nil"))
+   t '(:with-todo-keywords t :with-priority t :with-tags t
+       :html-format-headline-function
+       (lambda (todo priority text tags _info)
+         (format "%s|%s|%s|%s" todo priority text tags))
+       :with-toc nil))
+  ;; A nil format function falls back to the default.
+  (t-check-element-values
+   #'t--build-bare-headline
+   '(("* TODO a" "<span class=\"todo TODO\">TODO</span> a"))
+   t '(:with-todo-keywords t :with-toc nil
+       :html-format-headline-function nil)))
+
 (ert-deftest t--build-base-headline ()
   "Tests for `org-w3ctr--build-base-headline'."
   (t-check-element-values
