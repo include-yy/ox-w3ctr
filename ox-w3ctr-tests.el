@@ -2341,7 +2341,16 @@ int a = 1;</code></p>\n</details>")
   (let ((org-done-keywords '("WTF")))
     ($l (t--todo "WTF" '( :html-todo-kwd-class-prefix "status-"
                           :html-todo-class "a b "))
-        "<span class=\"status-done a b\">WTF</span>")))
+        "<span class=\"status-done a b\">WTF</span>"))
+  ;; custom format function
+  ($l (t--todo "TODO" '( :html-todo-format-function
+                         (lambda (todo _info)
+                           (format "<b>%s</b>" todo))))
+      "<b>TODO</b>")
+  ($l (t--todo "DONE" '( :html-todo-format-function
+                         (lambda (todo _info)
+                           (format "<i class=\"done\">%s</i>" todo))))
+      "<i class=\"done\">DONE</i>"))
 
 (ert-deftest t--priority ()
   "Tests for `org-w3ctr--priority'."
