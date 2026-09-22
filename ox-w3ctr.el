@@ -3082,7 +3082,6 @@ INFO).  Return the formatted HTML string that function returns."
                  #'t-format-headline-default-function)
              todo todo-type priority text tags info)))
 
-;; FIXME: Adjust tests
 (defun t--build-base-headline (headline info)
   "Build a standard headline string for the document body.
 
@@ -3099,12 +3098,18 @@ be combined with other components like TODO keywords and tags."
 (defun t--build-toc-headline (headline info)
   "Build a headline string for the Table of Contents.
 
-This function retrieves the headline's alternative title, which is used
-for TOC entries. It ensures the title is formatted with the correct
-backend before passing it to `org-w3ctr--build-bare-headline' for final
-assembly."
+This function retrieves the headline's alternative title, falling back
+to the regular title when none is set, formats it for export with the
+TOC entry backend, and passes it to `org-w3ctr--build-bare-headline' for
+final assembly."
   (declare (ftype (function (t list) string))
            (important-return-value t))
+  ;; FIXME: The default TOC entry backend turns links into text, so an
+  ;; inline image in a headline title becomes its file name in the TOC.
+  ;; Upstream `org-html--format-toc-headline' (3ea1682731, "Generate
+  ;; images in TOC for HTML export") overrides the link transcoder to
+  ;; render such images with `org-html-link'.  Decide whether to follow
+  ;; it; for W3C TR output the text is likely preferable.
   (let ((text (org-export-data-with-backend
                (org-export-get-alt-title headline info)
                (org-export-toc-entry-backend 'w3ctr)
