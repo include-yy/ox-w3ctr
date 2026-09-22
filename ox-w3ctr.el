@@ -158,7 +158,7 @@
   '(;; Headline and Section
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     (:html-todo-format-function nil nil t-todo-format-function)
-    (:html-priority-class nil nil t-priority-class)
+    (:html-priority-format-function nil nil t-priority-format-function)
     (:html-tag-class nil nil t-tag-class)
     (:html-format-headline-function nil nil t-format-headline-function)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
@@ -256,10 +256,14 @@ the keyword in a <span> with status-based CSS classes."
   :group 'org-export-w3ctr
   :type 'function)
 
-(defcustom t-priority-class "org-priority"
-  "The CSS class for the \"<span>\" element wrapping a priority marker."
+(defcustom t-priority-format-function #'t-priority-default-format-function
+  "Custom function for formatting priority markers.
+
+The function must accept two arguments: a PRIORITY value (number
+or character) and an INFO plist.  It must return a string (HTML)
+or nil.  The default is `org-w3ctr-priority-default-format-function'."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'function)
 
 (defcustom t-tag-class "org-tag"
   "The CSS class for the \"<span>\" element wrapping all tags."
@@ -1224,7 +1228,7 @@ oclosure through that symbol.  KEY is a property keyword."
        ;; headline and section
        :html-todo-kwd-class-prefix :html-todo-format-function
        :with-todo-keywords
-       :html-priority-class :with-priority
+       :html-priority-format-function :with-priority
        :with-tags :html-tag-class
        :html-format-headline-function :html-toplevel-hlevel
        :html-honor-ox-headline-levels
@@ -2919,21 +2923,29 @@ Return the formatted HTML string, or nil when TODO is nil."
 ;; - `org-priority-default'(66)
 ;; - `org-priority-lowest' (67)
 
+(defun t-priority-default-format-function (priority info)
+  "Format PRIORITY as a <span> matching org-html--priority output.
+
+PRIORITY is the priority number or character, or nil.  INFO is the
+info plist (unused).  Return a <span> element with class="priority"."
+  (declare (ftype (function ((or null fixnum) list) (or null string)))
+           (important-return-value t))
+  (and priority
+       (format "<span class=\"priority\">[%s]</span>"
+               (org-priority-to-string priority))))
+
 (defun t--priority (priority info)
   "Format PRIORITY into HTML.
 
 PRIORITY is the priority number or character, or nil.  INFO is the
-info plist.  Return a <span> element with the priority, or nil when
-PRIORITY is nil."
+info plist.  Return the formatted HTML string, or nil when PRIORITY
+is nil."
   (declare (ftype (function ((or null fixnum) list) (or null string)))
            (important-return-value t))
   (when priority
-    (let ((class (t--pget info :html-priority-class)))
-      (format "<span%s>[%s]</span>"
-              (if-let* ((c (t--nw-trim class)))
-                  (format " class=\"%s\"" c) "")
-              (if (< 0 priority 65) priority
-                (string priority))))))
+    (funcall (or (t--pget info :html-priority-format-function)
+                 #'t-priority-default-format-function)
+             priority info)))
 
 ;;;; Tags
 

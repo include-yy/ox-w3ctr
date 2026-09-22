@@ -2351,13 +2351,17 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t--priority ()
   "Tests for `org-w3ctr--priority'."
   ($l (t--priority nil nil) nil)
-  ($l (t--priority 66 '(:html-priority-class "wtf"))
-      "<span class=\"wtf\">[B]</span>")
-  ($l (t--priority 65 '(:html-priority-class "org-priority"))
-      "<span class=\"org-priority\">[A]</span>")
-  ($l (t--priority 67 '(:html-priority-class "priority"))
+  ($l (t--priority 66 nil)
+      "<span class=\"priority\">[B]</span>")
+  ($l (t--priority 65 nil)
+      "<span class=\"priority\">[A]</span>")
+  ($l (t--priority 67 nil)
       "<span class=\"priority\">[C]</span>")
-  ($e!l (t--priority -1 nil) '(wrong-type-argument characterp -1)))
+  ($e!l (t--priority -1 nil) '(error "Invalid priority value `-1'"))
+  ;; custom format function
+  ($l (t--priority 66 '(:html-priority-format-function
+                        (lambda (p _i) (format "<i>%c</i>" p))))
+      "<i>B</i>"))
 
 (ert-deftest t--tags ()
   "Tests for `org-w3ctr--tags'."
@@ -2384,8 +2388,8 @@ int a = 1;</code></p>\n</details>")
                           "TODO</span> test1"))
      ("* DONE test2" ,($c "<span class=\"done org-status-DONE\">"
                           "DONE</span> test2"))
-     ("* [#1] test3" "<span class=\"org-priority\">[1]</span> test3")
-     ("* [#a] test4" "<span class=\"org-priority\">[a]</span> test4")
+     ("* [#1] test3" "<span class=\"priority\">[1]</span> test3")
+     ("* [#A] test4" "<span class=\"priority\">[A]</span> test4")
      ("* test5 :a:" ,($c "test5&#xa0;&#xa0;&#xa0;<span class="
                          "\"org-tag\"><span>a</span></span>"))
      ("* test6 :a:b" "test6 :a:b")
@@ -2394,7 +2398,7 @@ int a = 1;</code></p>\n</details>")
                            "<span>b</span></span>"))
      ("* TODO [#F] test7 :tag1:tag2:"
       ,($c "<span class=\"todo org-status-TODO\">TODO</span> "
-           "<span class=\"org-priority\">[F]</span> "
+           "<span class=\"priority\">[F]</span> "
            "test7&#xa0;&#xa0;&#xa0;<span class=\"org-tag\">"
            "<span>tag1</span>&#xa0;<span>tag2</span></span>")))
    t '(:html-format-headline-function
