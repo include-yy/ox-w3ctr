@@ -2850,8 +2850,6 @@ is the info plist.  Return the formatted timestamp string."
 
 ;;;; Section
 
-;; See (info "(org)Structural markup elements")
-
 (defvar t--zeroth-section-output nil
   "Internal variable storing zeroth section's HTML output.
 
@@ -2874,7 +2872,6 @@ holding contextual information."
 
 ;;;; Todo
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - `org-done-keywords'
 ;; - :with-todo-keywords (`org-export-with-todo-keywords')
@@ -2882,7 +2879,10 @@ holding contextual information."
 ;; - :html-todo-kwd-class-prefix (`org-w3ctr-todo-kwd-class-prefix')
 
 (defun t--todo (todo info)
-  "Format TODO keywords into HTML."
+  "Format TODO keyword into HTML.
+
+TODO is the keyword string, or nil.  INFO is the info plist.
+Return a <span> element with the keyword, or nil when TODO is nil."
   (declare (ftype (function ((or null string) list) (or null string)))
            (important-return-value t))
   (when todo
@@ -2897,7 +2897,6 @@ holding contextual information."
 
 ;;;; Priority
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :with-priority (`org-export-with-priority')
 ;; - :html-priority-class (`org-w3ctr-priority-class')
@@ -2906,7 +2905,11 @@ holding contextual information."
 ;; - `org-priority-lowest' (67)
 
 (defun t--priority (priority info)
-  "Format a priority into HTML."
+  "Format PRIORITY into HTML.
+
+PRIORITY is the priority number or character, or nil.  INFO is the
+info plist.  Return a <span> element with the priority, or nil when
+PRIORITY is nil."
   (declare (ftype (function ((or null fixnum) list) (or null string)))
            (important-return-value t))
   (when priority
@@ -2919,13 +2922,16 @@ holding contextual information."
 
 ;;;; Tags
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :with-tags (`org-export-with-tags')
 ;; - :html-tag-class (`org-w3ctr-tag-class')
 
 (defun t--tags (tags info)
-  "Format TAGS into HTML."
+  "Format TAGS into HTML.
+
+TAGS is a list of tag strings.  INFO is the info plist.
+Return a <span> element with the formatted tags, or nil when TAGS
+is empty."
   (declare (ftype (function (list list) (or null string)))
            (important-return-value t))
   (when-let* ((f (lambda (tag) (format "<span>%s</span>" tag)))
