@@ -2366,18 +2366,18 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t--tags ()
   "Tests for `org-w3ctr--tags'."
   ($l (t--tags nil nil) nil)
-  ($l (t--tags '("a") nil) "<span><span>a</span></span>")
-  ($l (t--tags '("a") '(:html-tag-class "tags"))
-      "<span class=\"tags\"><span>a</span></span>")
-  ($l (t--tags '("a" "b") '(:html-tag-class "org-tag"))
-      ($c "<span class=\"org-tag\"><span>a</span>&#xa0;"
-          "<span>b</span></span>"))
-  ($l (t--tags '("a" "b") '(:html-tag-class nil))
-      "<span><span>a</span>&#xa0;<span>b</span></span>")
-  ($l (t--tags '("a" "b") '(:html-tag-class ""))
-      "<span><span>a</span>&#xa0;<span>b</span></span>")
-  ($l (t--tags '("a" "b") '(:html-tag-class "   \t"))
-      "<span><span>a</span>&#xa0;<span>b</span></span>"))
+  ($l (t--tags '("a") nil)
+      "<span class=\"tag\"><span class=\"a\">a</span></span>")
+  ($l (t--tags '("a" "b") nil)
+      ($c "<span class=\"tag\"><span class=\"a\">a</span>&#xa0;"
+          "<span class=\"b\">b</span></span>"))
+  ($l (t--tags '("a" "b") '(:html-tag-class-prefix "org-tag-"))
+      ($c "<span class=\"tag\"><span class=\"org-tag-a\">a</span>&#xa0;"
+          "<span class=\"org-tag-b\">b</span></span>"))
+  ;; custom format function
+  ($l (t--tags '("a" "b") '(:html-tags-format-function
+                             (lambda (tags _i) (string-join tags ","))))
+      "a,b"))
 
 (ert-deftest t--build-base-headline ()
   "Tests for `org-w3ctr--build-base-headline'."
@@ -2390,23 +2390,22 @@ int a = 1;</code></p>\n</details>")
                           "DONE</span> test2"))
      ("* [#1] test3" "<span class=\"priority\">[1]</span> test3")
      ("* [#A] test4" "<span class=\"priority\">[A]</span> test4")
-     ("* test5 :a:" ,($c "test5&#xa0;&#xa0;&#xa0;<span class="
-                         "\"org-tag\"><span>a</span></span>"))
+     ("* test5 :a:" ,($c "test5&#xa0;&#xa0;&#xa0;<span class=\"tag\">"
+                         "<span class=\"a\">a</span></span>"))
      ("* test6 :a:b" "test6 :a:b")
      ("* test6 :a:b:" ,($c "test6&#xa0;&#xa0;&#xa0;<span class="
-                           "\"org-tag\"><span>a</span>&#xa0;"
-                           "<span>b</span></span>"))
+                           "\"tag\"><span class=\"a\">a</span>&#xa0;"
+                           "<span class=\"b\">b</span></span>"))
      ("* TODO [#F] test7 :tag1:tag2:"
       ,($c "<span class=\"todo org-status-TODO\">TODO</span> "
            "<span class=\"priority\">[F]</span> "
-           "test7&#xa0;&#xa0;&#xa0;<span class=\"org-tag\">"
-           "<span>tag1</span>&#xa0;<span>tag2</span></span>")))
+           "test7&#xa0;&#xa0;&#xa0;<span class=\"tag\">"
+           "<span class=\"tag1\">tag1</span>&#xa0;<span class=\"tag2\">tag2</span></span>")))
    t '(:html-format-headline-function
        t-format-headline-default-function
        :with-todo-keywords t :with-priority t :with-tags t
        :html-todo-kwd-class-prefix "org-status-"
-       :html-priority-class "org-priority"
-       :html-tag-class "org-tag")))
+       :html-tags-format-function t-tags-default-format-function)))
 
 (ert-deftest t--get-headline-hlevel ()
   "Tests for `org-w3ctr--get-headline-hlevel'."

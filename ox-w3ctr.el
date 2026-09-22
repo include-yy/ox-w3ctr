@@ -159,7 +159,8 @@
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     (:html-todo-format-function nil nil t-todo-format-function)
     (:html-priority-format-function nil nil t-priority-format-function)
-    (:html-tag-class nil nil t-tag-class)
+    (:html-tag-class-prefix nil nil t-tag-class-prefix)
+    (:html-tags-format-function nil nil t-tags-format-function)
     (:html-format-headline-function nil nil t-format-headline-function)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)
@@ -265,8 +266,23 @@ or nil.  The default is `org-w3ctr-priority-default-format-function'."
   :group 'org-export-w3ctr
   :type 'function)
 
-(defcustom t-tag-class "org-tag"
-  "The CSS class for the \"<span>\" element wrapping all tags."
+(defcustom t-tags-format-function #'t-tags-default-format-function
+  "Custom function for formatting tags.
+
+The function must accept two arguments: a TAGS list (list of
+strings) and an INFO plist.  It must return a string (HTML) or
+nil.  The default is `org-w3ctr-tags-default-format-function',
+which wraps each tag in a <span> with a class based on
+`:html-tag-class-prefix' and the tag name."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+(defcustom t-tag-class-prefix ""
+  "Prefix for CSS classes applied to individual tags.
+
+The final class will be this prefix followed by the fixed-up tag
+name.  For example, if a tag is \"a\", its class will be
+\"tag-a\" when the prefix is \"tag-\"."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -1229,7 +1245,7 @@ oclosure through that symbol.  KEY is a property keyword."
        :html-todo-kwd-class-prefix :html-todo-format-function
        :with-todo-keywords
        :html-priority-format-function :with-priority
-       :with-tags :html-tag-class
+       :with-tags :html-tag-class-prefix :html-tags-format-function
        :html-format-headline-function :html-toplevel-hlevel
        :html-honor-ox-headline-levels
        ;; inner-template and template
@@ -2951,22 +2967,37 @@ is nil."
 
 ;; Options:
 ;; - :with-tags (`org-export-with-tags')
-;; - :html-tag-class (`org-w3ctr-tag-class')
+;; - :html-tags-format-function (`org-w3ctr-tags-format-function')
+;; - :html-tag-class-prefix (`org-html-tag-class-prefix')
+
+(defun t-tags-default-format-function (tags info)
+  "Format TAGS matching `org-html--tags' output.
+
+TAGS is a list of tag strings.  INFO is the info plist.  Return a
+<span> element with class=\"tag\", wrapping each tag in a <span>
+with a class based on `:html-tag-class-prefix' and the tag name."
+  (declare (ftype (function (list list) (or null string)))
+           (important-return-value t))
+  (when tags
+    (let ((prefix (t--pget info :html-tag-class-prefix)))
+      (format "<span class=\"tag\">%s</span>"
+              (mapconcat
+               (lambda (tag)
+                 (format "<span class=\"%s\">%s</span>"
+                         (concat prefix (org-html-fix-class-name tag)) tag))
+                         tags "&#xa0;")))))
 
 (defun t--tags (tags info)
   "Format TAGS into HTML.
 
 TAGS is a list of tag strings.  INFO is the info plist.
-Return a <span> element with the formatted tags, or nil when TAGS
-is empty."
+Return the formatted HTML string, or nil when TAGS is empty."
   (declare (ftype (function (list list) (or null string)))
            (important-return-value t))
-  (when-let* ((f (lambda (tag) (format "<span>%s</span>" tag)))
-              (spans (t--nw-p (mapconcat f tags "&#xa0;"))))
-    (if-let* ((class (t--nw-trim (t--pget info :html-tag-class))))
-        (format "<span class=\"%s\">%s</span>"
-                class spans)
-      (format "<span>%s</span>" spans))))
+  (when tags
+    (funcall (or (t--pget info :html-tags-format-function)
+                 #'t-tags-default-format-function)
+             tags info)))
 
 ;;;; Headline
 
