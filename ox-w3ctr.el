@@ -156,7 +156,6 @@
                 (org-open-file (t-export-to-html nil s v b)))))))
   :options-alist
   '(;; Headline and Section
-    (:html-todo-class nil nil t-todo-class)
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     (:html-todo-format-function nil nil t-todo-format-function)
     (:html-priority-class nil nil t-priority-class)
@@ -238,17 +237,12 @@
   :group 'org-export)
 
 ;;;; Headline and Section
-(defcustom t-todo-class "org-todo"
-  "The CSS class for the `<span>' element wrapping a TODO keyword."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-(defcustom t-todo-kwd-class-prefix "org-status-"
+(defcustom t-todo-kwd-class-prefix ""
   "Prefix for CSS classes applied to TODO keywords.
 
-The final class will be this prefix followed by the status
-\(e.g., \"todo\" or \"done\").  For example, if a headline is a
-TODO item, its class will be \"org-status-todo\" by default."
+The final class will be this prefix followed by the fixed-up
+keyword name.  For example, if a headline is a TODO item, its
+class will be \"org-status-TODO\" by default."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -263,12 +257,12 @@ the keyword in a <span> with status-based CSS classes."
   :type 'function)
 
 (defcustom t-priority-class "org-priority"
-  "The CSS class for the `<span>' element wrapping a priority marker."
+  "The CSS class for the \"<span>\" element wrapping a priority marker."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-tag-class "org-tag"
-  "The CSS class for the `<span>' element wrapping all tags."
+  "The CSS class for the \"<span>\" element wrapping all tags."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -1228,7 +1222,7 @@ oclosure through that symbol.  KEY is a property keyword."
        :html-timestamp-option :html-timestamp-wrapper
        :html-timestamp-formats :html-timestamp-format-function
        ;; headline and section
-       :html-todo-kwd-class-prefix :html-todo-class :html-todo-format-function
+       :html-todo-kwd-class-prefix :html-todo-format-function
        :with-todo-keywords
        :html-priority-class :with-priority
        :with-tags :html-tag-class
@@ -2887,7 +2881,6 @@ holding contextual information."
 ;; Options:
 ;; - `org-done-keywords'
 ;; - :with-todo-keywords (`org-export-with-todo-keywords')
-;; - :html-todo-class (`org-w3ctr-todo-class')
 ;; - :html-todo-kwd-class-prefix (`org-w3ctr-todo-kwd-class-prefix')
 ;; - :html-todo-format-function (`org-w3ctr-todo-format-function')
 
@@ -2895,18 +2888,15 @@ holding contextual information."
   "Format TODO keyword as a <span> with status-based CSS class.
 
 TODO is the keyword string.  INFO is the info plist.  Return a
-<span> element with the keyword and CSS class based on its done/todo
-status."
+<span> element matching `org-html--todo' output format:
+class=\"status prefix+keyword\"."
   (declare (ftype (function (string list) string))
            (important-return-value t))
-  (let* ((prefix (t--pget info :html-todo-kwd-class-prefix))
-         (common (t--pget info :html-todo-class))
-         (status (if (member todo (cons "DONE" org-done-keywords))
-                     "done" "todo")))
-    (format "<span class=\"%s%s\">%s</span>"
-            (concat prefix status)
-            (if-let* ((c (t--nw-trim common))) (concat " " c) "")
-            todo)))
+  (format "<span class=\"%s %s%s\">%s</span>"
+          (if (member todo org-done-keywords) "done" "todo")
+          (or (t--pget info :html-todo-kwd-class-prefix) "")
+          (org-html-fix-class-name todo)
+          todo))
 
 (defun t--todo (todo info)
   "Format TODO keyword into HTML.

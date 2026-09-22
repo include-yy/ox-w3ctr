@@ -2326,22 +2326,18 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t--todo ()
   "Tests for `org-w3ctr--todo'."
   ($l (t--todo nil nil) nil)
-  ($l (t--todo "TODO" '( :html-todo-kwd-class-prefix nil
-                         :html-todo-class nil))
-      "<span class=\"todo\">TODO</span>")
-  ($l (t--todo "TODO" '( :html-todo-kwd-class-prefix "org1-"
-                         :html-todo-class "one two"))
-      "<span class=\"org1-todo one two\">TODO</span>")
-  ($l (t--todo "DONE" '( :html-todo-kwd-class-prefix "status-"
-                         :html-todo-class "a b "))
-      "<span class=\"status-done a b\">DONE</span>")
-  ($l (t--todo "TODO" '( :html-todo-kwd-class-prefix "org-status-"
-                         :html-todo-class "\t foo \t"))
-      "<span class=\"org-status-todo foo\">TODO</span>")
+  ($l (t--todo "TODO" nil)
+      "<span class=\"todo TODO\">TODO</span>")
+  ($l (t--todo "TODO" '(:html-todo-kwd-class-prefix "org1-"))
+      "<span class=\"todo org1-TODO\">TODO</span>")
+  (let ((org-done-keywords '("DONE")))
+    ($l (t--todo "DONE" '(:html-todo-kwd-class-prefix "status-"))
+        "<span class=\"done status-DONE\">DONE</span>"))
+  ($l (t--todo "TODO" '(:html-todo-kwd-class-prefix "org-status-"))
+      "<span class=\"todo org-status-TODO\">TODO</span>")
   (let ((org-done-keywords '("WTF")))
-    ($l (t--todo "WTF" '( :html-todo-kwd-class-prefix "status-"
-                          :html-todo-class "a b "))
-        "<span class=\"status-done a b\">WTF</span>"))
+    ($l (t--todo "WTF" '(:html-todo-kwd-class-prefix "status-"))
+        "<span class=\"done status-WTF\">WTF</span>"))
   ;; custom format function
   ($l (t--todo "TODO" '( :html-todo-format-function
                          (lambda (todo _info)
@@ -2384,9 +2380,9 @@ int a = 1;</code></p>\n</details>")
   (t-check-element-values
    #'t--build-base-headline
    `(("* test" "test")
-     ("* TODO test1" ,($c "<span class=\"org-status-todo org-todo\">"
+     ("* TODO test1" ,($c "<span class=\"todo org-status-TODO\">"
                           "TODO</span> test1"))
-     ("* DONE test2" ,($c "<span class=\"org-status-done org-todo\">"
+     ("* DONE test2" ,($c "<span class=\"done org-status-DONE\">"
                           "DONE</span> test2"))
      ("* [#1] test3" "<span class=\"org-priority\">[1]</span> test3")
      ("* [#a] test4" "<span class=\"org-priority\">[a]</span> test4")
@@ -2397,7 +2393,7 @@ int a = 1;</code></p>\n</details>")
                            "\"org-tag\"><span>a</span>&#xa0;"
                            "<span>b</span></span>"))
      ("* TODO [#F] test7 :tag1:tag2:"
-      ,($c "<span class=\"org-status-todo org-todo\">TODO</span> "
+      ,($c "<span class=\"todo org-status-TODO\">TODO</span> "
            "<span class=\"org-priority\">[F]</span> "
            "test7&#xa0;&#xa0;&#xa0;<span class=\"org-tag\">"
            "<span>tag1</span>&#xa0;<span>tag2</span></span>")))
@@ -2405,7 +2401,6 @@ int a = 1;</code></p>\n</details>")
        t-format-headline-default-function
        :with-todo-keywords t :with-priority t :with-tags t
        :html-todo-kwd-class-prefix "org-status-"
-       :html-todo-class "org-todo"
        :html-priority-class "org-priority"
        :html-tag-class "org-tag")))
 
