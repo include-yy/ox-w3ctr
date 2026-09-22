@@ -158,6 +158,7 @@
   '(;; Headline and Section
     (:html-todo-class nil nil t-todo-class)
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
+    (:html-todo-format-function nil nil t-todo-format-function)
     (:html-priority-class nil nil t-priority-class)
     (:html-tag-class nil nil t-tag-class)
     (:html-format-headline-function nil nil t-format-headline-function)
@@ -250,6 +251,16 @@ The final class will be this prefix followed by the status
 TODO item, its class will be \"org-status-todo\" by default."
   :group 'org-export-w3ctr
   :type 'string)
+
+(defcustom t-todo-format-function #'t-todo-default-format-function
+  "Custom function for formatting TODO keywords.
+
+The function must accept two arguments: a TODO keyword string and
+an INFO plist.  It must return a string (HTML) or nil.  The
+default is `org-w3ctr-todo-default-format-function', which wraps
+the keyword in a <span> with status-based CSS classes."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 (defcustom t-priority-class "org-priority"
   "The CSS class for the `<span>' element wrapping a priority marker."
@@ -1217,7 +1228,8 @@ oclosure through that symbol.  KEY is a property keyword."
        :html-timestamp-option :html-timestamp-wrapper
        :html-timestamp-formats :html-timestamp-format-function
        ;; headline and section
-       :html-todo-kwd-class-prefix :html-todo-class :with-todo-keywords
+       :html-todo-kwd-class-prefix :html-todo-class :html-todo-format-function
+       :with-todo-keywords
        :html-priority-class :with-priority
        :with-tags :html-tag-class
        :html-format-headline-function :html-toplevel-hlevel
@@ -2877,23 +2889,36 @@ holding contextual information."
 ;; - :with-todo-keywords (`org-export-with-todo-keywords')
 ;; - :html-todo-class (`org-w3ctr-todo-class')
 ;; - :html-todo-kwd-class-prefix (`org-w3ctr-todo-kwd-class-prefix')
+;; - :html-todo-format-function (`org-w3ctr-todo-format-function')
+
+(defun t-todo-default-format-function (todo info)
+  "Format TODO keyword as a <span> with status-based CSS class.
+
+TODO is the keyword string.  INFO is the info plist.  Return a
+<span> element with the keyword and CSS class based on its done/todo
+status."
+  (declare (ftype (function (string list) string))
+           (important-return-value t))
+  (let* ((prefix (t--pget info :html-todo-kwd-class-prefix))
+         (common (t--pget info :html-todo-class))
+         (status (if (member todo (cons "DONE" org-done-keywords))
+                     "done" "todo")))
+    (format "<span class=\"%s%s\">%s</span>"
+            (concat prefix status)
+            (if-let* ((c (t--nw-trim common))) (concat " " c) "")
+            todo)))
 
 (defun t--todo (todo info)
   "Format TODO keyword into HTML.
 
 TODO is the keyword string, or nil.  INFO is the info plist.
-Return a <span> element with the keyword, or nil when TODO is nil."
+Return the formatted HTML string, or nil when TODO is nil."
   (declare (ftype (function ((or null string) list) (or null string)))
            (important-return-value t))
   (when todo
-    (let* ((prefix (t--pget info :html-todo-kwd-class-prefix))
-           (common (t--pget info :html-todo-class))
-           (status (if (member todo (cons "DONE" org-done-keywords))
-                       "done" "todo")))
-      (format "<span class=\"%s%s\">%s</span>"
-              (concat prefix status)
-              (if-let* ((c (t--nw-trim common))) (concat " " c) "")
-              todo))))
+    (funcall (or (t--pget info :html-todo-format-function)
+                 #'t-todo-default-format-function)
+             todo info)))
 
 ;;;; Priority
 
