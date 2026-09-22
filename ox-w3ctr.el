@@ -2871,7 +2871,7 @@ is the info plist.  Return the formatted timestamp string."
                     (`fun #'t--format-timestamp-fun)
                     (o (t-error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
-
+
 ;;; Headline and Section
 
 ;;;; Section
@@ -2934,13 +2934,12 @@ Return the formatted HTML string, or nil when TODO is nil."
 
 ;; Options:
 ;; - :with-priority (`org-export-with-priority')
-;; - :html-priority-class (`org-w3ctr-priority-class')
 ;; - `org-priority-highest'(65)
 ;; - `org-priority-default'(66)
 ;; - `org-priority-lowest' (67)
 
 (defun t-priority-default-format-function (priority info)
-  "Format PRIORITY as a <span> matching org-html--priority output.
+  "Format PRIORITY as a <span> matching `org-html--priority' output.
 
 PRIORITY is the priority number or character, or nil.  INFO is the
 info plist (unused).  Return a <span> element with class="priority"."
@@ -2998,7 +2997,7 @@ Return the formatted HTML string, or nil when TAGS is empty."
     (funcall (or (t--pget info :html-tags-format-function)
                  #'t-tags-default-format-function)
              tags info)))
-
+
 ;;;; Headline
 
 ;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
