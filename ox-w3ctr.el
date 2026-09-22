@@ -3122,17 +3122,17 @@ final assembly."
 This function computes the final HTML heading level based on the
 headline's relative level within the Org document and the value
 of `:html-toplevel-hlevel'. The formula used is:
-  (relative-level + top-level - 1).
+  (relative + top-level - 1).
 
-It also validates that `:html-toplevel-hlevel' is an integer
-between 2 and 6, signaling an error if it is not."
+Signal `org-w3ctr-error' when `:html-toplevel-hlevel' is not an
+integer between 2 and 6."
   (declare (ftype (function (t list) fixnum))
            (important-return-value t))
   (let ((top-level (t--pget info :html-toplevel-hlevel))
-        (level (org-export-get-relative-level headline info)))
-    (unless (and (fixnump top-level) (<= 2 top-level 6))
+        (relative (org-export-get-relative-level headline info)))
+    (unless (and (integerp top-level) (<= 2 top-level 6))
       (t-error "Invalid HTML top level: %s" top-level))
-    (+ level top-level -1)))
+    (+ relative top-level -1)))
 
 (defun t--low-level-headline-p (headline info)
   "Check if HEADLINE should be rendered as a low-level list item.
