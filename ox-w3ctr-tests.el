@@ -2425,12 +2425,13 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr--build-bare-headline'."
   (t-check-element-values
    #'t--build-bare-headline
-   '(("* TODO [#A] text :x:" "TODO|65|text|(x)")
-     ("* text" "nil|nil|text|nil"))
+   '(("* TODO [#A] text :x:" "TODO|todo|65|text|(x)")
+     ("* DONE b" "DONE|done|nil|b|nil")
+     ("* text" "nil|nil|nil|text|nil"))
    t '(:with-todo-keywords t :with-priority t :with-tags t
        :html-format-headline-function
-       (lambda (todo priority text tags _info)
-         (format "%s|%s|%s|%s" todo priority text tags))
+       (lambda (todo todo-type priority text tags _info)
+         (format "%s|%s|%s|%s|%s" todo todo-type priority text tags))
        :with-toc nil))
   ;; A nil format function falls back to the default.
   (t-check-element-values
