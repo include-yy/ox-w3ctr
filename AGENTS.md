@@ -244,12 +244,13 @@ Web Component after it.
   paths use `t-error` (the package's custom error type), not the generic
   `error`.  Inside a `condition-case` handler, re-signal with `(signal e)`
   (Emacs 31 syntax) instead of `(signal (car e) (cdr e))`.
-- **`pure t` and the OINFO cache.**  A function that reads a cached OINFO
-  key via `t--pget` is *not* pure: the oclosure increments `cnt` (and on
-  a miss, sets `pid`/`val`).  `t-collect-oinfo-statistics` reads those
-  counters, so the mutation is observable.  Before marking a function
-  `pure t`, check whether its call chain reaches `t--pget` on any key in
-  `t--oinfo-cache-props`.
+- **`pure t` and the OINFO cache.**  Never mark a function `(pure t)` or
+  side-effect-free when its call chain reaches `t--pget` or `t--pput`,
+  even on a key outside `t--oinfo-cache-props`.  These are the cache
+  interface: a cached key's oclosure mutates `cnt`/`pid`/`val` (observed
+  by `t-collect-oinfo-statistics`), and a plain key may join the cache
+  later, silently breaking the declaration.  Rule out any
+  `t--pget`/`t--pput` use outright.
 - **Docstring parameter references.**  Unused parameters carry a `_`
   prefix in the function signature (e.g., `_info`), but docstrings
   reference them without the prefix (write INFO, not _INFO).
