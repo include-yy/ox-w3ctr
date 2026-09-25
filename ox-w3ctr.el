@@ -577,7 +577,7 @@ The first %s is for the `UP' link, and the second for `HOME'."
 
 This function is called with one argument: INFO plist.  It should
 return a string containing the complete HTML for the navigation bar
-\(e.g., inside `<nav>` tags).
+\(e.g., inside `<nav>' tags).
 
 See `org-w3ctr-format-navbar-default-function' for an example."
   :group 'org-export-w3ctr
@@ -3056,7 +3056,7 @@ otherwise."
   "Return the numerical priority of a headline.
 
 This function returns the priority number (e.g., 65 for [#A]) only if
-the export option `:with-priority` is non-nil in INFO and the HEADLINE
+the export option `:with-priority' is non-nil in INFO and the HEADLINE
 element has a priority cookie.  Returns nil otherwise."
   (declare (ftype (function (t list) (or null fixnum)))
            (important-return-value t))
@@ -3067,7 +3067,7 @@ element has a priority cookie.  Returns nil otherwise."
   "Return the list of tags for a headline.
 
 This function returns a list of tags associated with the HEADLINE
-element, but only if the export option `:with-tags` is enabled in the
+element, but only if the export option `:with-tags' is enabled in the
 INFO plist. The tags are processed for export.  Returns nil if tags are
 disabled or not present."
   (declare (ftype (function (t list) (or null list)))
@@ -3082,7 +3082,8 @@ description of TODO, TODO-TYPE, PRIORITY, TEXT, TAGS, and INFO
 arguments."
   (declare (ftype (function ((or null string) (or null symbol)
                              (or null fixnum) (or null string) list list)
-                            string)))
+                            string))
+           (important-return-value t))
   (let ((todo (t--todo todo info))
         (priority (t--priority priority info))
         (tags (t--tags tags info)))
@@ -3302,6 +3303,8 @@ by the function in `:html-heading-format-function'."
   "Transcode a HEADLINE element from Org to HTML.
 CONTENTS holds the contents of the headline.  INFO is a plist
 holding contextual information."
+  (declare (ftype (function (t (or null string) list) (or null string)))
+           (important-return-value t))
   (unless (org-element-property :footnote-section-p headline)
     (if (t--low-level-headline-p headline info)
         ;; This is a deep sub-tree: export it as a list item.
