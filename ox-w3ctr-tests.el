@@ -2593,7 +2593,12 @@ int a = 1;</code></p>\n</details>")
   (t-check-element-values
    #'t--headline-container
    '(("* abc\n:PROPERTIES:\n:HTML_CONTAINER: aside\n:END:\n" "aside"))
-   t '(:html-container nil)))
+   t '(:html-container nil))
+  ;; :HTML_CONTAINER: overrides :html-container.
+  (t-check-element-values
+   #'t--headline-container
+   '(("* abc\n:PROPERTIES:\n:HTML_CONTAINER: aside\n:END:\n" "aside"))
+   t '(:html-container "section")))
 
 ;; FIXME: Add more tests
 (ert-deftest t--headline-self-link ()

@@ -2896,6 +2896,9 @@ holding contextual information."
   (declare (ftype (function (t t t) (or null string))))
   ;; normal section
   (if (org-element-lineage section 'headline) contents
+    ;; FIXME: Use the topmost property drawer for the zeroth section's
+    ;; properties (it is lifted onto the org-data root); the template
+    ;; can then honor e.g. `:HTML_CONTAINER:' when wrapping this output.
     (prog1 nil (setq t--zeroth-section-output contents))))
 
 ;;;; Todo
@@ -3181,9 +3184,14 @@ the headline text is wrapped in a `<span>' with that class."
      (and (org-export-last-sibling-p headline info)
           (format "</%s>\n" tag)))))
 
-;; FIXME: Add container checker here.
 (defun t--headline-container (headline info)
-  "Return HTML container name for HEADLINE as a string."
+  "Return the HTML container tag name for HEADLINE.
+
+HEADLINE is the headline element, INFO the export plist.  Return
+HEADLINE's `:HTML_CONTAINER' property when set, else the
+`:html-container' option from INFO, else \"div\".  The result names
+the element (for example \"section\" or \"div\") wrapping the headline
+and its contents."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (or (org-element-property :HTML_CONTAINER headline)
