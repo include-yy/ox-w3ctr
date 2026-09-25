@@ -3234,9 +3234,13 @@ non-nil, else nil."
             id)))
 
 (defun t--headline-secno (headline info)
-  "Return section number for HEADLINE as an HTML span."
+  "Return the section number for HEADLINE as an HTML span.
+
+HEADLINE is the headline element, INFO the export plist.  When the
+headline is numbered, return `<span class=\"secno\">' holding its
+dotted section number (e.g. \"1.1. \"), else nil."
   (declare (ftype (function (t list) (or null string)))
-           (important-return-value t))
+           (pure t) (important-return-value t))
   (when-let* (((org-export-numbered-headline-p headline info))
               (numbers (org-export-get-headline-number headline info)))
     (format "<span class=\"secno\">%s. </span>"
