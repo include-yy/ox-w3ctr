@@ -3219,10 +3219,11 @@ and its contents."
       "div"))
 
 (defun t--headline-self-link (id info)
-  "Return the self-link for the headline with reference ID.
+  "Return the self-link for the headline identified by ID.
 
-Return an `<a class=\"self-link\">' element pointing to ID when
-`:html-self-link-headlines' is non-nil, else nil."
+INFO is the export plist.  Return an `<a class=\"self-link\">' element
+pointing to ID when the `:html-self-link-headlines' option in INFO is
+non-nil, else nil."
   (declare (ftype (function (string list) (or null string)))
            (important-return-value t))
   (when (t--pget info :html-self-link-headlines)
