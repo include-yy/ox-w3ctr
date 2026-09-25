@@ -3022,7 +3022,7 @@ Return the formatted HTML string, or nil when TAGS is empty."
     (funcall (or (t--pget info :html-tags-format-function)
                  #'t-tags-default-format-function)
              tags info)))
-
+
 ;;;; Headline
 
 ;; Options:
