@@ -2472,13 +2472,17 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr--get-headline-hlevel'."
   ($it t--get-headline-hlevel
     (cl-flet ((f (str) (t-get-parsed-elements str 'headline)))
+      ;; Bare plist: :headline-offset 0, so relative = absolute level.
+      ;; Inputs are rooted at level 1 to match real exports.
       (let* ((i '(:html-toplevel-hlevel 2))
              (g (lambda (h) (it h i))))
         ($l (mapcar g (f "* 123")) '(2))
         ($l (mapcar g (f "* a\n* b\n**** c\n***** d\n* e\n**** f"))
             (mapcar #'1+ '(1 1 4 5 1 4)))
-        ($l (mapcar g (f "** a\n** b\n")) '(3 3))
-        ($l (mapcar g (f "****** a")) '(7)))
+        ($l (mapcar g (f "* a\n** b\n*** c\n**** d\n***** e\n****** f"))
+            '(2 3 4 5 6 7)))
+      ;; Boundary: 6 is the last valid value; 1 and 7 are rejected.
+      ($l (it (car (f "* a")) '(:html-toplevel-hlevel 6)) 6)
       ($e!l (it (car (f "* a")) '(:html-toplevel-hlevel 1))
             '(org-w3ctr-error "Invalid HTML top level: 1"))
       ($e!l (it (car (f "* a")) '(:html-toplevel-hlevel 7))
