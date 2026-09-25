@@ -2500,7 +2500,8 @@ int a = 1;</code></p>\n</details>")
   ($it t--low-level-headline-p
     (let ((i1 '( :html-toplevel-hlevel 2
                  :html-honor-ox-headline-levels nil))
-          (i2 '( :html-honor-ox-headline-levels t
+          (i2 '( :html-toplevel-hlevel 2
+                 :html-honor-ox-headline-levels t
                  :headline-levels 4)))
       (cl-flet ((f (str) (car (t-get-parsed-elements str 'headline))))
         ;; i1
@@ -2515,12 +2516,12 @@ int a = 1;</code></p>\n</details>")
         ($l (it (f "** a") i2) nil)
         ($l (it (f "*** a") i2) nil)
         ($l (it (f "**** a") i2) nil)
-        ($l (it (f "***** a") i2) 1)
-        ($l (it (f "****** a") i2) 2))))
+        ($l (it (f "***** a") i2) t)
+        ($l (it (f "****** a") i2) t))))
   (t-check-element-values
    #'t--low-level-headline-p
-   '(("* a\n** b\n*** c\n**** d\n***** e\n" nil nil nil 1 2)
-     ("** a\n*** b\n**** c\n***** d\n****** e\n" nil nil nil 1 2))
+   '(("* a\n** b\n*** c\n**** d\n***** e\n" nil nil nil t t)
+     ("** a\n*** b\n**** c\n***** d\n****** e\n" nil nil nil t t))
    t '( :html-honor-ox-headline-levels t
         :headline-levels 3
         :with-toc nil)))

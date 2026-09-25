@@ -3137,19 +3137,19 @@ integer between 2 and 6."
 (defun t--low-level-headline-p (headline info)
   "Check if HEADLINE should be rendered as a low-level list item.
 
-This predicate determines if a headline's level exceeds the
-standard HTML heading range (i.e., <h6>).
-
-Its behavior depends on `:html-honor-ox-headline-levels':
-- If non-nil, it uses the default `org-export-low-level-p'.
-- If nil, it uses a custom check based on the calculated h-level
-  from `org-w3ctr--get-headline-hlevel'."
+A headline is low-level when its h-level exceeds 6, keeping the
+output within <h2>-<h6>.  When `:html-honor-ox-headline-levels' is
+non-nil, `org-export-low-level-p' also applies, so a headline whose
+relative level exceeds `:headline-levels' is low-level too: that
+option can move the cutoff earlier but never past h6.  Return t
+when HEADLINE is low-level."
   (declare (ftype (function (t list) boolean))
            (important-return-value t))
-  (if-let* ((honor (t--pget info :html-honor-ox-headline-levels)))
-      (org-export-low-level-p headline info)
-    (let ((level (t--get-headline-hlevel headline info)))
-      (> level 6))))
+  (let ((hlevel (t--get-headline-hlevel headline info)))
+    (if (or (> hlevel 6)
+            (and (t--pget info :html-honor-ox-headline-levels)
+                 (org-export-low-level-p headline info)))
+        t)))
 
 (defun t--build-low-level-headline (headline contents info)
   "Transcode a low-level headline into an HTML list item (`<li>').
