@@ -3249,8 +3249,8 @@ dotted section number (e.g. \"1.1. \"), else nil."
 (defun t--headline-hN (headline info)
   "Return the HTML heading tag name (e.g., \"h2\") for HEADLINE.
 
-The level is capped at 6, so this function always returns a
-string from \"h1\" to \"h6\"."
+HEADLINE is the headline element, INFO the export plist.  The
+h-level is capped at 6, so the tag is always at most \"h6\"."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let* ((level (min 6 (t--get-headline-hlevel headline info))))
