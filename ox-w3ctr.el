@@ -3159,18 +3159,24 @@ This function renders headlines that are too deep to become standard
 low-level headlines becomes a single `<ol>' or `<ul>'.
 
 The list type (`<ol>' vs. `<ul>') is determined by whether section
-numbering is active."
+numbering is active.  The reference id and `:HTML_CONTAINER_CLASS:'
+become attributes of the `<li>'; when `:HTML_HEADLINE_CLASS:' is set,
+the headline text is wrapped in a `<span>' with that class."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((numberedp (org-export-numbered-headline-p headline info))
          (tag (if numberedp "ol" "ul"))
          (text (t--build-base-headline headline info))
-         (id (t--reference headline info)))
+         (id (t--reference headline info))
+         (c-cls (org-element-property :HTML_CONTAINER_CLASS headline))
+         (h-cls (org-element-property :HTML_HEADLINE_CLASS headline)))
     (concat
      (and (org-export-first-sibling-p headline info)
           (format "<%s>\n" tag))
-     "<li>" (format "<span id=\"%s\"></span>" id) text
-     (when-let* ((c (t--nw-p contents))) (concat "<br>\n" c))
+     (format "<li id=\"%s\"%s>" id
+             (or (and c-cls (format " class=\"%s\"" c-cls)) ""))
+     (if h-cls (format "<span class=\"%s\">%s</span>" h-cls text) text)
+     (when-let* ((c (t--nw-trim contents))) (concat "<br>\n" c "\n"))
      "</li>\n"
      (and (org-export-last-sibling-p headline info)
           (format "</%s>\n" tag)))))

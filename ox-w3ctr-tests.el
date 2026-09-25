@@ -2526,7 +2526,6 @@ int a = 1;</code></p>\n</details>")
         :headline-levels 3
         :with-toc nil)))
 
-;; FIXME: Consider improve it
 (ert-deftest t--build-low-level-headline ()
   "Tests for `org-w3ctr--build-low-level-headline'."
   ($it t--build-low-level-headline
@@ -2541,10 +2540,15 @@ int a = 1;</code></p>\n</details>")
                ((symbol-function 'org-export-last-sibling-p)
                 (lambda (_h _i) t)))
       ($l (it nil nil nil)
-          "<ol>\n<li><span id=\"0\"></span>test</li>\n</ol>\n")
+          "<ol>\n<li id=\"0\">test</li>\n</ol>\n")
       ($l (it nil "a" nil)
-          ($c "<ol>\n<li><span id=\"0\"></span>test<br>"
-              "\na</li>\n</ol>\n"))))
+          ($c "<ol>\n<li id=\"0\">test<br>"
+              "\na\n</li>\n</ol>\n"))
+      (let ((h (car (t-get-parsed-elements
+                     "* x\n:PROPERTIES:\n:HTML_CONTAINER_CLASS: cc\n:HTML_HEADLINE_CLASS: hc\n:END:\n"
+                     'headline))))
+        ($l (it h nil nil)
+            "<ol>\n<li id=\"0\" class=\"cc\"><span class=\"hc\">test</span></li>\n</ol>\n"))))
   (let ((counter 0))
     (cl-letf (((symbol-function 't--reference)
                (lambda (n i &optional b)
@@ -2555,9 +2559,9 @@ int a = 1;</code></p>\n</details>")
        `((,($c "* a\n** b\n*** c\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n"
                "*** d\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\nabc\n"
                "*** e\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n")
-          "<li><span id=\"3\"></span>e</li>\n</ul>\n"
-          "<li><span id=\"2\"></span>d<br>\n<p>abc</p>\n</li>\n"
-          "<ul>\n<li><span id=\"1\"></span>c</li>\n"))
+          "<li id=\"3\">e</li>\n</ul>\n"
+          "<li id=\"2\">d<br>\n<p>abc</p>\n</li>\n"
+          "<ul>\n<li id=\"1\">c</li>\n"))
        t '( :html-honor-ox-headline-levels t
             :headline-levels 2
             :html-format-headline-function
