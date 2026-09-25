@@ -2579,6 +2579,30 @@ int a = 1;</code></p>\n</details>")
             :html-format-headline-function
             t-format-headline-default-function)))))
 
+(ert-deftest t-heading-default-format-function ()
+  "Tests for `org-w3ctr-heading-default-format-function'."
+  ;; Full: secno + title in <hN>, self-link beside, class on <hN>.
+  (cl-letf* (((symbol-function 't--headline-secno)
+              (lambda (_h _i) "<span class=\"secno\">1. </span>"))
+             ((symbol-function 't--headline-self-link)
+              (lambda (_h _id _i) "<a class=\"self-link\"></a>\n")))
+    ($l (t-heading-default-format-function
+         'hl "title" "h2" "id" "cls" nil)
+        ($c "<div class=\"header-wrapper\">\n"
+            "<h2 class=\"cls\">"
+            "<span class=\"secno\">1. </span>title</h2>\n"
+            "<a class=\"self-link\"></a>\n"
+            "</div>\n")))
+  ;; Minimal: no secno, no self-link, no class.
+  (cl-letf* (((symbol-function 't--headline-secno) (lambda (_h _i) nil))
+             ((symbol-function 't--headline-self-link)
+              (lambda (_h _id _i) nil)))
+    ($l (t-heading-default-format-function
+         'hl "title" "h3" "id" nil nil)
+        ($c "<div class=\"header-wrapper\">\n"
+            "<h3>title</h3>\n"
+            "</div>\n"))))
+
 (ert-deftest t--headline-container ()
   "Tests for `org-w3ctr--headline-container'."
   (t-check-element-values
@@ -2672,22 +2696,22 @@ int a = 1;</code></p>\n</details>")
              (lambda (_h _id _info) "<a href=\"#x\"></a>\n")))
     ($l (t--build-normal-headline nil nil nil)
         ($c "<section id=\"pid\">\n<div class=\"header-wrapper\">\n"
-            "<h2 id=\"x-pid\">1. text</h2>\n<a href=\"#x\"></a>\n"
+            "<h2>1. text</h2>\n<a href=\"#x\"></a>\n"
             "</div>\n</section>\n"))
     ($l (t--build-normal-headline nil "<p>hello world</p>\n" nil)
         ($c "<section id=\"pid\">\n<div class=\"header-wrapper\">\n"
-            "<h2 id=\"x-pid\">1. text</h2>\n<a href=\"#x\"></a>\n"
+            "<h2>1. text</h2>\n<a href=\"#x\"></a>\n"
             "</div>\n<p>hello world</p>\n</section>\n")))
   ;; :PROPERTIES:\n:UNNUMBERED:t\n:CUSTOM_ID:1\n:END:\n
   (t-check-element-values
    #'t--build-normal-headline
    `(("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:CUSTOM_ID: 1\n:END:\n"
       ,($c "<section id=\"1\">\n<div class=\"header-wrapper\">\n"
-           "<h2 id=\"x-1\">a</h2>\n<a class=\"self-link\" href=\"#1\" "
+           "<h2>a</h2>\n<a class=\"self-link\" href=\"#1\" "
            "aria-label=\"Link to this section\"></a>\n</div>\n</section>\n"))
      ("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:CUSTOM_ID: 1\n:END:\n123456"
       ,($c "<section id=\"1\">\n<div class=\"header-wrapper\">\n"
-           "<h2 id=\"x-1\">a</h2>\n<a class=\"self-link\" href=\"#1\" "
+           "<h2>a</h2>\n<a class=\"self-link\" href=\"#1\" "
            "aria-label=\"Link to this section\"></a>\n</div>\n"
            "<p>123456</p>\n</section>\n")))))
 

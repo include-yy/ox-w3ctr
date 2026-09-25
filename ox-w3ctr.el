@@ -162,6 +162,7 @@
     (:html-tag-class-prefix nil nil t-tag-class-prefix)
     (:html-tags-format-function nil nil t-tags-format-function)
     (:html-format-headline-function nil nil t-format-headline-function)
+    (:html-heading-format-function nil nil t-heading-format-function)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)
     (:html-prefer-user-labels nil nil t-prefer-user-labels)
@@ -300,6 +301,25 @@ This function will be called with six arguments:
 
 The function should return the formatted HTML string for the headline.
 The default is `org-w3ctr-format-headline-default-function'."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+(defcustom t-heading-format-function
+  #'t-heading-default-format-function
+  "Function to format the heading block.
+
+The function is called with six arguments:
+- HEADLINE the headline element.
+- TITLE    the headline title HTML (string).
+- H        the heading tag name (e.g. \"h2\").
+- ID       the reference id (string).
+- CLASS    the `:HTML_HEADLINE_CLASS:' value (string or nil).
+- INFO     the export options (plist).
+
+It returns the HTML for the heading block (e.g. the `.header-wrapper'
+div).  The default builds the section number and self-link from
+`org-w3ctr--headline-secno' and `org-w3ctr--headline-self-link'.
+The default is `org-w3ctr-heading-default-format-function'."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -1248,8 +1268,8 @@ oclosure through that symbol.  KEY is a property keyword."
        :with-todo-keywords
        :html-priority-format-function :with-priority
        :with-tags :html-tag-class-prefix :html-tags-format-function
-       :html-format-headline-function :html-toplevel-hlevel
-       :html-honor-ox-headline-levels
+       :html-format-headline-function :html-heading-format-function
+       :html-toplevel-hlevel :html-honor-ox-headline-levels
        ;; inner-template and template
        :with-author :author :title
        :time-stamp-file :html-file-timestamp-function :html-viewport
@@ -3229,31 +3249,43 @@ string from \"h1\" to \"h6\"."
   (let* ((level (min 6 (t--get-headline-hlevel headline info))))
     (format "h%s" level)))
 
+(defun t-heading-default-format-function (headline title h id class info)
+  "Default format function for the heading block.
+
+See `org-w3ctr-heading-format-function' for the argument
+descriptions.  Return the `.header-wrapper' div holding the heading
+and its self-link."
+  (declare (ftype (function (t string string string (or null string) list)
+                            string))
+           (important-return-value t))
+  (let ((secno (t--headline-secno headline info))
+        (self-link (t--headline-self-link headline id info)))
+    (format (concat "<div class=\"header-wrapper\">\n"
+                    "<%s%s>%s</%s>\n"
+                    "%s</div>\n")
+            h (or (and class (format " class=\"%s\"" class)) "")
+            (concat secno title) h (or self-link ""))))
+
 (defun t--build-normal-headline (headline contents info)
   "Build HTML for a standard headline and its section.
 
-This function formats a regular headline, which is not a footnote
-or a low-level headline treated as a list item."
-  (let* ((secno (t--headline-secno headline info))
-         (h (t--headline-hN headline info))
+This function formats a regular headline, which is not a footnote or a
+low-level headline treated as a list item.  The heading block is built
+by the function in `:html-heading-format-function'."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (let* ((h (t--headline-hN headline info))
          (text (t--build-base-headline headline info))
-         (full-text (concat secno text))
          (id (t--reference headline info))
          (c (t--headline-container headline info))
          (c-cls (org-element-property :HTML_CONTAINER_CLASS headline))
-         (h-cls (org-element-property :HTML_HEADLINE_CLASS headline)))
-    ;; <C>, id, class, header, contents, </C>
+         (h-cls (org-element-property :HTML_HEADLINE_CLASS headline))
+         (heading (funcall (or (t--pget info :html-heading-format-function)
+                               #'t-heading-default-format-function)
+                           headline text h id h-cls info)))
     (format "<%s id=\"%s\"%s>\n%s%s</%s>\n"
             c id (or (and c-cls (format " class=\"%s\"" c-cls)) "")
-            (format
-             ;; <H>, id, class, headline, </H>
-             ;; FIXME: is x-id necessary?
-             (concat "<div class=\"header-wrapper\">\n"
-                     "<%s id=\"x-%s\"%s>%s</%s>\n"
-                     (t--headline-self-link headline id info)
-                     "</div>\n")
-             h id (or (and h-cls (format " class=\"%s\"" h-cls)) "")
-             full-text h)
+            heading
             (or contents "") c)))
 
 (defun t-headline (headline contents info)
