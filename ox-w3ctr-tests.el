@@ -2719,7 +2719,31 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-headline ()
   "Tests for `org-w3ctr-headline'."
-  (ert-skip "Skip now"))
+  ($it t-headline
+    ;; Low-level headline is rendered as a list item.
+    (cl-letf* (((symbol-function 't--low-level-headline-p)
+                (lambda (_h _i) t))
+               ((symbol-function 't--build-low-level-headline)
+                (lambda (_h _c _i) "LOW"))
+               ((symbol-function 't--build-normal-headline)
+                (lambda (_h _c _i) "NORMAL")))
+      ($l (it '(headline nil) "contents" 'info) "LOW"))
+    ;; Normal headline is rendered as a section.
+    (cl-letf* (((symbol-function 't--low-level-headline-p)
+                (lambda (_h _i) nil))
+               ((symbol-function 't--build-low-level-headline)
+                (lambda (_h _c _i) "LOW"))
+               ((symbol-function 't--build-normal-headline)
+                (lambda (_h _c _i) "NORMAL")))
+      ($l (it '(headline nil) "contents" 'info) "NORMAL"))
+    ;; A footnote section yields nil without reaching the builders.
+    (cl-letf* (((symbol-function 't--low-level-headline-p)
+                (lambda (&rest _) (error "unexpected")))
+               ((symbol-function 't--build-low-level-headline)
+                (lambda (&rest _) (error "unexpected")))
+               ((symbol-function 't--build-normal-headline)
+                (lambda (&rest _) (error "unexpected"))))
+      ($l (it '(headline (:footnote-section-p t)) "contents" 'info) nil))))
 
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
