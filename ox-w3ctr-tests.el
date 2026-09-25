@@ -2539,16 +2539,28 @@ int a = 1;</code></p>\n</details>")
                 (lambda (_h _i) t))
                ((symbol-function 'org-export-last-sibling-p)
                 (lambda (_h _i) t)))
+      ;; Bare item: id on the <li>, text unwrapped.
       ($l (it nil nil nil)
           "<ol>\n<li id=\"0\">test</li>\n</ol>\n")
+      ;; With contents: trimmed, after a <br>, </li> on its own line.
       ($l (it nil "a" nil)
-          ($c "<ol>\n<li id=\"0\">test<br>"
-              "\na\n</li>\n</ol>\n"))
-      (let ((h (car (t-get-parsed-elements
-                     "* x\n:PROPERTIES:\n:HTML_CONTAINER_CLASS: cc\n:HTML_HEADLINE_CLASS: hc\n:END:\n"
-                     'headline))))
-        ($l (it h nil nil)
-            "<ol>\n<li id=\"0\" class=\"cc\"><span class=\"hc\">test</span></li>\n</ol>\n"))))
+          "<ol>\n<li id=\"0\">test<br>\na\n</li>\n</ol>\n")
+      ;; Classes: :HTML_CONTAINER_CLASS: on the <li>, :HTML_HEADLINE_CLASS:
+      ;; wrapping the text in a <span>.
+      (cl-flet ((hl (props)
+                  (car (t-get-parsed-elements
+                        (concat "* x\n:PROPERTIES:\n" props ":END:\n")
+                        'headline))))
+        ($l (it (hl ":HTML_CONTAINER_CLASS: cc\n") nil nil)
+            "<ol>\n<li id=\"0\" class=\"cc\">test</li>\n</ol>\n")
+        ($l (it (hl ":HTML_HEADLINE_CLASS: hc\n") nil nil)
+            "<ol>\n<li id=\"0\"><span class=\"hc\">test</span></li>\n</ol>\n")
+        ($l (it (hl ":HTML_CONTAINER_CLASS: cc\n:HTML_HEADLINE_CLASS: hc\n") nil nil)
+            ($c "<ol>\n<li id=\"0\" class=\"cc\">"
+                "<span class=\"hc\">test</span></li>\n</ol>\n"))
+        ($l (it (hl ":HTML_CONTAINER_CLASS: cc\n:HTML_HEADLINE_CLASS: hc\n") "cont" nil)
+            ($c "<ol>\n<li id=\"0\" class=\"cc\">"
+                "<span class=\"hc\">test</span><br>\ncont\n</li>\n</ol>\n")))))
   (let ((counter 0))
     (cl-letf (((symbol-function 't--reference)
                (lambda (n i &optional b)
