@@ -3025,13 +3025,16 @@ Return the formatted HTML string, or nil when TAGS is empty."
 
 ;;;; Headline
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
+;; - :with-todo-keywords (`org-export-with-todo-keywords')
+;; - :with-priority (`org-export-with-priority')
+;; - :with-tags (`org-export-with-tags')
 ;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
 ;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
 ;; - :html-honor-ox-headline-levels (`org-w3ctr-honor-ox-headline-levels')
 ;; - :html-container (`org-w3ctr-container-element')
 ;; - :html-self-link-headlines (`org-w3ctr-self-link-headlines')
+;; - :html-heading-format-function (`org-w3ctr-heading-format-function')
 ;; - :headline-levels (`org-export-headline-levels')
 ;; - :headline-offset (internal)
 ;; - :section-numbers (`org-export-with-section-numbers')
