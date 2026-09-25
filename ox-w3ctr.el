@@ -3218,17 +3218,19 @@ and its contents."
       (t--pget info :html-container)
       "div"))
 
-(defun t--headline-self-link (headline id info)
-  "Build a self-link for a headline."
-  (declare (ftype (function (t string list) (or null string)))
+(defun t--headline-self-link (id info)
+  "Return the self-link for the headline with reference ID.
+
+Return an `<a class=\"self-link\">' element pointing to ID when
+`:html-self-link-headlines' is non-nil, else nil."
+  (declare (ftype (function (string list) (or null string)))
            (important-return-value t))
-  (let ((opt (org-element-property :HTML_SELF_LINK headline))
-        (global-opt (t--pget info :html-self-link-headlines)))
-    (when (or (and (null opt) global-opt)
-              (and (stringp opt) (not (string= opt "noref"))))
-      (format (concat "<a class=\"self-link\" href=\"#%s\""
-                      " aria-label=\"Link to this section\"></a>\n")
-              id))))
+  (when (t--pget info :html-self-link-headlines)
+    ;; The <a> is empty, so aria-label gives it an accessible
+    ;; name for screen readers (WCAG 2.4.4/4.1.2).
+    (format (concat "<a class=\"self-link\" href=\"#%s\""
+                    " aria-label=\"Link to this section\"></a>\n")
+            id)))
 
 (defun t--headline-secno (headline info)
   "Return section number for HEADLINE as an HTML span."
@@ -3259,7 +3261,7 @@ and its self-link."
                             string))
            (important-return-value t))
   (let ((secno (t--headline-secno headline info))
-        (self-link (t--headline-self-link headline id info)))
+        (self-link (t--headline-self-link id info)))
     (format (concat "<div class=\"header-wrapper\">\n"
                     "<%s%s>%s</%s>\n"
                     "%s</div>\n")

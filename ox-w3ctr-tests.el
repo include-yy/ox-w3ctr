@@ -2585,7 +2585,7 @@ int a = 1;</code></p>\n</details>")
   (cl-letf* (((symbol-function 't--headline-secno)
               (lambda (_h _i) "<span class=\"secno\">1. </span>"))
              ((symbol-function 't--headline-self-link)
-              (lambda (_h _id _i) "<a class=\"self-link\"></a>\n")))
+              (lambda (_id _i) "<a class=\"self-link\"></a>\n")))
     ($l (t-heading-default-format-function
          'hl "title" "h2" "id" "cls" nil)
         ($c "<div class=\"header-wrapper\">\n"
@@ -2596,7 +2596,7 @@ int a = 1;</code></p>\n</details>")
   ;; Minimal: no secno, no self-link, no class.
   (cl-letf* (((symbol-function 't--headline-secno) (lambda (_h _i) nil))
              ((symbol-function 't--headline-self-link)
-              (lambda (_h _id _i) nil)))
+              (lambda (_id _i) nil)))
     ($l (t-heading-default-format-function
          'hl "title" "h3" "id" nil nil)
         ($c "<div class=\"header-wrapper\">\n"
@@ -2630,9 +2630,9 @@ int a = 1;</code></p>\n</details>")
   ($it t--headline-self-link
     (let ((i1 '(:html-self-link-headlines t))
           (i2 '(:html-self-link-headlines nil)))
-      ($l (it nil 0 i1) ($c "<a class=\"self-link\" href=\"#0\" "
-                            "aria-label=\"Link to this section\"></a>\n"))
-      ($l (it nil 0 i2) nil))))
+      ($l (it "0" i1) ($c "<a class=\"self-link\" href=\"#0\" "
+                          "aria-label=\"Link to this section\"></a>\n"))
+      ($l (it "0" i2) nil))))
 
 (ert-deftest t--headline-secno ()
   "Tests for `org-w3ctr--headline-secno'."
@@ -2693,7 +2693,7 @@ int a = 1;</code></p>\n</details>")
                  (`:HTML_HEADLINE_CLASS "c2")
                  (_ "xx"))))
             ((symbol-function 't--headline-self-link)
-             (lambda (_h _id _info) "<a href=\"#x\"></a>\n")))
+             (lambda (_id _info) "<a href=\"#x\"></a>\n")))
     ($l (t--build-normal-headline nil nil nil)
         ($c "<section id=\"pid\">\n<div class=\"header-wrapper\">\n"
             "<h2>1. text</h2>\n<a href=\"#x\"></a>\n"
