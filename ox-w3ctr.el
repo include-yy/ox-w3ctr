@@ -3361,7 +3361,7 @@ holding contextual information."
 
 ;;; Template and Inner Template
 
-;;;; <head> tags export.
+;;;; <meta> tags export.
 
 ;; Options:
 ;; - :time-stamp-file (`org-export-timestamp-file')
