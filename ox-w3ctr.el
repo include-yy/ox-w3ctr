@@ -852,16 +852,18 @@ When non-nil, the styles defined by `t-style' or loaded from
   :group 'org-export-w3ctr
   :type 'boolean)
 
+(defvar t--style-cache nil
+  "Cached CSS loaded from `org-w3ctr-style-file'.
+
+`org-w3ctr--load-css' stores the wrapped file contents here so that
+repeated exports do not re-read the file; `org-w3ctr-clear-css' resets
+it.")
+
 (defcustom t-style nil
   "CSS rules to be embedded directly into the exported HTML.
 
 When this string is not empty, it *takes precedence* over
-`org-w3ctr-style-file'.
-
-This variable is also used as a *cache* for styles loaded from
-`org-w3ctr-style-file'.  If you modify the source file, you must clear
-this cache (e.g., via the `org-w3ctr-clear-css' command) to see your
-changes."
+`org-w3ctr-style-file'."
   :group 'org-export-w3ctr
   :type '(choice string (const nil)))
 
@@ -871,9 +873,8 @@ changes."
 This path must be *absolute*.  This option is used as a fallback when
 `org-w3ctr-style' is empty.
 
-When you set a new file path here, the `org-w3ctr-style' cache is
-automatically cleared to ensure the new file is loaded on the next
-export.
+When you set a new file path here, the cached CSS is automatically
+cleared to ensure the new file is loaded on the next export.
 
 The default value points to a `style.css' file inside the package's
 `assets' directory."
@@ -885,8 +886,8 @@ The default value points to a `style.css' file inside the package's
                       (file-name-absolute-p value))
            (error "Not a valid default CSS file: %s" value))
          (set symbol value)
-         ;; Refresh cached CSS string.
-         (setq t-style ""))
+         ;; Refresh the cached CSS.
+         (setq t--style-cache nil))
   :type '(choice (const nil) file))
 
 (defcustom t-head ""
@@ -3535,9 +3536,7 @@ INFO is the info plist.  Return the export-timestamp comment (when
 
 ;;;; Default CSS export.
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
-;; - :html-head-include-style (`org-w3ctr-head-include-style')
 ;; - `org-w3ctr-style'
 ;; - `org-w3ctr-style-file'
 
@@ -3545,28 +3544,29 @@ INFO is the info plist.  Return the export-timestamp comment (when
   "Return the CSS for HTML export.
 
 INFO is unused.  Return `org-w3ctr-style' when it is a non-whitespace
-string.  Otherwise, when `org-w3ctr-style-file' is non-nil, load it,
-wrap its contents in a <style> element, cache the result in
-`org-w3ctr-style', and return it.  Return nil when neither is set."
+string, else the cached `org-w3ctr--style-cache'.  Otherwise, when
+`org-w3ctr-style-file' is non-nil, load it, wrap its contents in a
+<style> element, store the result in `org-w3ctr--style-cache', and
+return it.  Return nil when neither is set."
   (declare (ftype (function (t) (or null string)))
            (important-return-value t))
   (or (t--nw-p t-style)
+      (t--nw-p t--style-cache)
       (when t-style-file
         (let* ((str (t--load-file t-style-file))
                (str* (org-element-normalize-string str))
                (css (format "<style>\n%s</style>\n" str*)))
-          (setq t-style css)))))
+          (setq t--style-cache css)))))
 
 (defun t-clear-css ()
-  "Set `org-w3ctr-style' to empty string \"\".
+  "Clear the cached CSS loaded from `org-w3ctr-style-file'.
 
-When CSS is loaded from `org-w3ctr-style-file', its content is cached in
-`org-w3ctr-style' to improve performance.  If you modify the external
-CSS file and want the changes to take effect on the next export, run
-this command to clear the cache.  This forces the exporter to re-read
-the file."
+When CSS is loaded from `org-w3ctr-style-file', its content is cached
+to improve performance.  If you modify the external CSS file and want
+the changes to take effect on the next export, run this command to
+clear the cache.  This forces the exporter to re-read the file."
   (interactive)
-  (setq t-style ""))
+  (setq t--style-cache nil))
 
 ;;;; Mathjax config
 
