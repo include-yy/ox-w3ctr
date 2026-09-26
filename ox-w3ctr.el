@@ -3420,15 +3420,17 @@ is not a function."
                (t--pget info :html-file-timestamp-function)))))
 
 (defun t--ensure-charset-utf8 ()
-  "Validate `org-w3ctr-coding-system' and ensure its MIME is UTF-8.
-Signal an error if `org-w3ctr-coding-system' is invalid or not UTF-8."
+  "Return \"utf-8\" after validating `org-w3ctr-coding-system'.
+
+Signal an error when `org-w3ctr-coding-system' is not a symbol, names
+no coding system, or names one whose MIME charset is not UTF-8."
   (declare (ftype (function () string))
            (important-return-value t))
   (let* ((c t-coding-system)
          (h (lambda (_) (t-error "Invalid coding system: %s" c))))
     (unless (symbolp c) (funcall h c))
     (handler-bind ((coding-system-error h))
-      (let* ((uc (coding-system-get c :mime-charset)))
+      (let ((uc (coding-system-get c :mime-charset)))
         (if (eq uc 'utf-8) "utf-8" (funcall h c))))))
 
 (defun t--build-viewport-options (info)

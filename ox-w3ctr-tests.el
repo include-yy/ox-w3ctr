@@ -2764,6 +2764,8 @@ int a = 1;</code></p>\n</details>")
         "<meta name=\"description\" content=\"Version 1.0\">\n")
     ($l (it "name" "quote" "He said \"Hello\"")
         "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n")
+    ($l (it "name" "chars" "a & b < c > d")
+        "<meta name=\"chars\" content=\"a &amp; b &lt; c &gt; d\">\n")
     ($l (it "name" "version" "v%s.%s" "1" "2")
         "<meta name=\"version\" content=\"v1.2\">\n")
     ($l (it "name" "version" "'%s'" "v1.2")
@@ -2776,6 +2778,10 @@ int a = 1;</code></p>\n</details>")
    (t--get-info-file-timestamp '( :time-stamp-file t
                                   :html-file-timestamp-function nil))
    '(org-w3ctr-error "Invalid file timestamp function: nil"))
+  ($e!l
+   (t--get-info-file-timestamp '( :time-stamp-file t
+                                  :html-file-timestamp-function "bad"))
+   '(org-w3ctr-error "Invalid file timestamp function: bad"))
   (t-check-element-values
    #'t--get-info-file-timestamp
    `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
@@ -2786,7 +2792,7 @@ int a = 1;</code></p>\n</details>")
       :time-stamp-file t)))
 
 (ert-deftest t--ensure-charset-utf8 ()
-  "Tests for `org-w3ctr--get-charset'."
+  "Tests for `org-w3ctr--ensure-charset-utf8'."
   (cl-labels ((test (x) (let ((org-w3ctr-coding-system x))
                           (t--ensure-charset-utf8))))
     ($e!l (test nil) '(t-error "Invalid coding system: nil"))
@@ -2832,7 +2838,7 @@ int a = 1;</code></p>\n</details>")
                          (user-scalable "")))))
 
 (ert-deftest t--get-info-title-raw ()
-  "Tests for `org-w3ctr--get-info-title'."
+  "Tests for `org-w3ctr--get-info-title-raw'."
   (t-check-element-values
    #'t--get-info-title-raw
    '(("#+title: he" "he")
@@ -2845,7 +2851,7 @@ int a = 1;</code></p>\n</details>")
      ("#+TITLE: hello\sworld" "hello world"))))
 
 (ert-deftest t--get-info-author-raw ()
-  "Tests for `org-w3ctr--get-author-raw'."
+  "Tests for `org-w3ctr--get-info-author-raw'."
   ($it t--get-info-author-raw
     ($n (it nil))
     (let ((info '(:with-author nil)))
