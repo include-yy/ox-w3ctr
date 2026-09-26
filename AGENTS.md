@@ -61,12 +61,13 @@ Two gotchas:
 - `system-time-locale` must be C/en; otherwise `%a` localizes day names and
   6 timestamp tests fail (e.g. `Fri` becomes a GBK-encoded Chinese string).
 
-Expected baseline: **174 tests, 172 pass, 2 skipped** (`org-w3ctr-headline`,
-and `org-w3ctr--oinfo-plain-flavor`, which only runs in a build with
-`org-w3ctr-oinfo-enabled` nil).  Run the cache build — the one that ships;
-a nil build is for measuring, not a configuration to maintain.  (For
-reference if you build one anyway: it skips the nine cache-path tests,
-162 pass, 10 skipped.)
+The acceptance criterion is **zero unexpected failures**, not a fixed
+pass count — the suite keeps growing, so a pinned number only drifts.
+In the shipped (cache) build the only skip is
+`org-w3ctr--oinfo-plain-flavor`, which runs only when
+`org-w3ctr-oinfo-enabled` is nil.  Run the cache build; a nil build is
+for measuring, not a configuration to maintain (it skips the cache-path
+tests and runs the plain-flavor test instead).
 
 Two tests read `ox-w3ctr.el` next to the loaded file and skip without it
 (`org-w3ctr--oinfo-props-are-looked-up`,
