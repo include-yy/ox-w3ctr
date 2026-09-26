@@ -242,9 +242,10 @@
 (defcustom t-todo-kwd-class-prefix ""
   "Prefix for CSS classes applied to TODO keywords.
 
-The final class will be this prefix followed by the fixed-up
-keyword name.  For example, if a headline is a TODO item, its
-class will be \"org-status-TODO\" by default."
+The class of a TODO keyword is its status (\"todo\" or \"done\"),
+followed by a space, this prefix, and the fixed-up keyword name.
+With the default empty prefix, a TODO item therefore has the class
+\"todo TODO\"."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -311,12 +312,12 @@ The default is `org-w3ctr-format-headline-default-function'."
 The function is called with six arguments:
 - HEADLINE the headline element.
 - TITLE    the headline title HTML (string).
-- H        the heading tag name (e.g. \"h2\").
+- H        the heading tag name (for example, \"h2\").
 - ID       the reference id (string).
 - CLASS    the `:HTML_HEADLINE_CLASS:' value (string or nil).
 - INFO     the export options (plist).
 
-It returns the HTML for the heading block (e.g. the `.header-wrapper'
+It returns the HTML for the heading block (for example, the `.header-wrapper'
 div).  The default builds the section number and self-link from
 `org-w3ctr--headline-secno' and `org-w3ctr--headline-self-link'.
 The default is `org-w3ctr-heading-default-format-function'."
@@ -326,14 +327,23 @@ The default is `org-w3ctr-heading-default-format-function'."
 ;; See `org-html-toplevel-hlevel' for more information.
 
 (defcustom t-toplevel-hlevel 2
-  "The <H> level for level 1 headings in HTML export."
+  "The <H> level for level 1 headings in HTML export.
+
+Must be an integer between 2 and 6, inclusive; other values signal
+`org-w3ctr-error' during export."
   :group 'org-export-w3ctr
-  :type 'integer)
+  :type '(integer 2 6))
 
 (defcustom t-honor-ox-headline-levels nil
-  "Honor `org-export-headline-levels' or not."
+  "Non-nil means honor `org-export-headline-levels' when exporting.
+
+When non-nil, a headline whose relative level exceeds
+`org-export-headline-levels' is exported as a low-level list item,
+as ox-html does.  When nil, only headlines deeper than <h6> are
+exported as list items."
   :group 'org-export-w3ctr
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defcustom t-container-element "section"
   "The HTML tag name for the element that contains a headline.
@@ -352,8 +362,9 @@ Common values are \"section\" or \"div\".  If nil, \"div\" is used."
   "When non-nil, use user-defined NAME and ID over internal references.
 
 By default, `org-w3ctr--reference' generates internal ID values
-during export.  When this variable is non-nil, the NAME keyword
-or the real name of a target is used as the ID attribute instead.
+during export.  When this variable is non-nil, the NAME keyword,
+the ID property, or the real name of a target is used as the ID
+attribute instead.
 
 Regardless of this variable, CUSTOM_ID is always used as a
 reference."
@@ -362,9 +373,9 @@ reference."
   :safe #'booleanp)
 
 (defcustom t-zeroth-section-tocname "Abstract"
-  "Default toc name of the zeroth section."
+  "Default TOC name of the zeroth section."
   :group 'org-export-w3ctr
-  :type 'sexp)
+  :type 'string)
 
 ;;;; Markup texts
 (defcustom t-text-markup-alist
@@ -689,13 +700,13 @@ follow the same format rules as the option `org-w3ctr-timezone'."
   :type '(choice (const nil) string))
 
 (defcustom t-datetime-format-choice 'T-none-zulu
-  "Option for datetime attribute's format.
+  "Control the format of datetime attributes for <time> elements.
 
 This option controls how timestamps are formatted when exporting
 datetime attributes, with variations in:
 
-Separator : Use `\s' or `T' between date and time.
-Timezone  : Use `:' in zone offset or not (`+08:00' and `+0800').
+Separator : Use a space or `T' between date and time.
+Timezone  : Use `:' in the zone offset or not (`+08:00' and `+0800').
 UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
   :group 'org-export-w3ctr
   :type '(radio (const s-none) (const s-none-zulu)
@@ -704,7 +715,7 @@ UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
                 (const T-colon) (const T-colon-zulu)))
 
 (defcustom t-timestamp-option 'org
-  "Option for ox-w3ctr timestamp export.
+  "Control how timestamps are exported.
 
 Possible values:
 
@@ -736,12 +747,12 @@ Possible values:
   "Format specification used for exporting timestamps.
 
 This option accepts a cons cell (DATE . DATE-TIME), where:
-- DATE: format string for year/month/day (e.g., \"%Y-%m-%d\")
-- DATE-TIME: date plus hours and minutes (e.g., \"%F %H:%M\")
+- DATE: format string for year/month/day (for example, \"%Y-%m-%d\")
+- DATE-TIME: date plus hours and minutes (for example, \"%F %H:%M\")
 
 These format strings follow the conventions of `format-time-string'.
 
-*Note*: This option only takes effect when
+Note: This option only takes effect when
 `org-w3ctr-timestamp-option' is set to `fmt' or `cus'."
   :group 'org-export-w3ctr
   :type '(cons string string))
@@ -1780,6 +1791,9 @@ sanitizes string content using `org-w3ctr--encode-plain-text'."
     (otherwise "")))
 
 ;;;; References
+
+;; Options:
+;; - :html-prefer-user-labels (`org-w3ctr-prefer-user-labels')
 
 (defun t--target-reference (datum)
   "Return the value of a target or radio-target as a reference string.
@@ -3003,7 +3017,7 @@ is nil."
 ;; Options:
 ;; - :with-tags (`org-export-with-tags')
 ;; - :html-tags-format-function (`org-w3ctr-tags-format-function')
-;; - :html-tag-class-prefix (`org-html-tag-class-prefix')
+;; - :html-tag-class-prefix (`org-w3ctr-tag-class-prefix')
 
 (defun t-tags-default-format-function (tags info)
   "Format TAGS matching `org-html--tags' output.
