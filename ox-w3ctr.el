@@ -1299,7 +1299,7 @@ Read and write every one of them through `org-w3ctr--pget' and
 `org-w3ctr--pput', never `plist-get' or `plist-put': `plist-put' keeps
 the plist object identical, so a write that bypasses the cache is
 invisible to it.  A key that Org reads with `plist-get'
-(`:with-latex', `:time-stamp-file', `:with-tags') must in particular
+\(`:with-latex', `:time-stamp-file', `:with-tags') must in particular
 never be written with `org-w3ctr--pput'.  The test suite checks that every
 key here is read through `org-w3ctr--pget', and that neither `plist-get'
 nor `plist-put' reaches one of them by a literal key.
@@ -1463,6 +1463,8 @@ This is a local, inlined copy of `org-trim'.
 When the optional argument KEEP-LEAD is non-nil, removing blank
 lines from the beginning of S will not affect the leading
 indentation of the first line of content."
+  (declare (ftype (function (string &optional boolean) string))
+           (pure t) (important-return-value t))
   (replace-regexp-in-string
    (if keep-lead "\\`\\([ \t]*\n\\)+" "\\`[ \t\n\r]+") ""
    (replace-regexp-in-string "[ \t\n\r]+\\'" "" s)))
@@ -1470,6 +1472,8 @@ indentation of the first line of content."
 (defsubst t--nw-trim (s)
   "Trim S only if it is a non-empty, non-whitespace string.
 Return nil otherwise."
+  (declare (ftype (function (t) (or null string)))
+           (pure t) (important-return-value t))
   (and (t--nw-p s) (t--trim s)))
 
 (defun t--prepend-newline (contents)
@@ -1506,10 +1510,10 @@ Used by `org-w3ctr--encode-plain-text'.")
     ;; Single and double quotes also need escaping inside attribute
     ;; values; see https://stackoverflow.com/a/2428595.
     ("'" . "&apos;") ("\"" . "&quot;"))
-  "Alist mapping HTML special characters to their entity strings,
-including single and double quotes.
+  "Alist mapping HTML special characters to their entity strings.
 
-Used by `org-w3ctr--encode-plain-text*'.")
+Single and double quotes are escaped too.  Used by
+`org-w3ctr--encode-plain-text*'.")
 
 (defun t--encode-plain-text* (text)
   "Escape `&', `<', `>', `\=', `\"' in TEXT for safe use in HTML attributes."
@@ -1581,7 +1585,7 @@ specifies one HTML attribute.  It calls `org-w3ctr--make-attr'
 on each element and concatenates the results.
 
 Each element in ATTRIBUTES can be an atom for a boolean attribute
-(for example, `disabled') or a list for an attribute with a
+\(for example, `disabled') or a list for an attribute with a
 value (for example, (id \"foo\") )."
   (declare (ftype (function (list) string))
            (pure t) (important-return-value t))
@@ -1612,10 +1616,11 @@ omitted from the result."
 (defun t--make-attr__id (element info &optional named-only)
   "Format `:attr__' attributes, adding an `id' attribute if needed.
 
-This function first reads and parses the `:attr__' property from
-ELEMENT.  Its main purpose is to add an `id' attribute based on the
-element's reference, unless an `id' is already explicitly defined in
-the property.
+ELEMENT is the element, INFO the info plist, and NAMED-ONLY, when
+non-nil, restricts the id to elements with an explicit name.  Read and
+parse the `:attr__' property from ELEMENT, then add an `id' attribute
+based on the element's reference, unless an `id' is already explicitly
+defined in the property.
 
 `org-w3ctr--make-attr__' formats the final, combined list of
 attributes into a single string."
@@ -1633,10 +1638,11 @@ attributes into a single string."
 (defun t--make-attr_html (element info &optional named-only)
   "Format attributes from `:attr_html', adding an `id' if needed.
 
-This function processes the standard Org `:attr_html' property from
-ELEMENT.  Its main purpose is to add an `id' attribute based on the
-element's reference, unless an `id' is already present in the property
-list.
+ELEMENT is the element, INFO the info plist, and NAMED-ONLY, when
+non-nil, restricts the id to elements with an explicit name.  Process
+the standard Org `:attr_html' property from ELEMENT, then add an `id'
+attribute based on the element's reference, unless an `id' is already
+present in the property list.
 
 `org-w3ctr--make-attribute-string' formats the final property list
 into a single string."
@@ -1652,9 +1658,11 @@ into a single string."
 (defun t--make-attr__id* (element info &optional named-only)
   "Format attributes, using `:attr__' with a fallback to `:attr_html'.
 
-This is the main function for generating an element's complete
-attribute string.  It first checks for the custom `:attr__'
-property and processes it with `org-w3ctr--make-attr__id'.
+ELEMENT is the element, INFO the info plist, and NAMED-ONLY, when
+non-nil, restricts the id to elements with an explicit name.  This is
+the main function for generating an element's complete attribute
+string.  It first checks for the custom `:attr__' property and
+processes it with `org-w3ctr--make-attr__id'.
 
 If `:attr__' is not found, it falls back to processing the
 standard `:attr_html' property using `org-w3ctr--make-attr_html'."
@@ -1949,6 +1957,8 @@ CHECKBOX is nil or one of the symbols `on', `off', or `trans'.
 INFO is the info plist.  Return an empty string when CHECKBOX does
 not match one of those three; otherwise return the checkbox HTML
 with a trailing space."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
   (let ((a (t--checkbox checkbox info)))
     (concat a (and a " "))))
 
@@ -2543,7 +2553,7 @@ return \\='local; if it is a string, attempt to parse it as a timezone
 offset using `org-w3ctr--timezone-to-offset'.
 
 On successful parsing, the numeric offset will be stored back into INFO
-to avoid repeated parsing.  If timezone is `nil' or timezone format is
+to avoid repeated parsing.  If timezone is nil or timezone format is
 invalid, signal an error."
   (declare (ftype (function (list) (or fixnum symbol)))
            (important-return-value t))
@@ -3144,9 +3154,10 @@ INFO).  Return the formatted HTML string that function returns."
 (defun t--build-base-headline (headline info)
   "Build a standard headline string for the document body.
 
-This function extracts the main title from the HEADLINE element, formats
-it for export, and then passes it to `org-w3ctr--build-bare-headline' to
-be combined with other components like TODO keywords and tags."
+HEADLINE is the headline element and INFO is the info plist.  Extract
+the main title from HEADLINE, format it for export, and pass it to
+`org-w3ctr--build-bare-headline' to be combined with other components
+like TODO keywords and tags."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((text (org-export-data
@@ -3157,10 +3168,10 @@ be combined with other components like TODO keywords and tags."
 (defun t--build-toc-headline (headline info)
   "Build a headline string for the Table of Contents.
 
-This function retrieves the headline's alternative title, falling back
-to the regular title when none is set, formats it for export with the
-TOC entry backend, and passes it to `org-w3ctr--build-bare-headline' for
-final assembly."
+HEADLINE is the headline element and INFO is the info plist.  Retrieve
+HEADLINE's alternative title, falling back to the regular title when
+none is set, format it for export with the TOC entry backend, and pass
+it to `org-w3ctr--build-bare-headline' for final assembly."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   ;; FIXME: The default TOC entry backend turns links into text, so an
@@ -3178,9 +3189,10 @@ final assembly."
 (defun t--get-headline-hlevel (headline info)
   "Calculate the absolute HTML heading level for a headline.
 
-This function computes the final HTML heading level based on the
-headline's relative level within the Org document and the value
-of `:html-toplevel-hlevel'.  The formula used is:
+HEADLINE is the headline element and INFO is the info plist.  Compute
+the final HTML heading level based on HEADLINE's relative level within
+the Org document and the value of `:html-toplevel-hlevel'.  The formula
+used is:
   (relative + top-level - 1).
 
 Signal `org-w3ctr-error' when `:html-toplevel-hlevel' is not an
@@ -3196,12 +3208,13 @@ integer between 2 and 6."
 (defun t--low-level-headline-p (headline info)
   "Check if HEADLINE should be rendered as a low-level list item.
 
-A headline is low-level when its h-level exceeds 6, keeping the
-output within <h2>-<h6>.  When `:html-honor-ox-headline-levels' is
-non-nil, `org-export-low-level-p' also applies, so a headline whose
-relative level exceeds `:headline-levels' is low-level too: that
-option can move the cutoff earlier but never past h6.  Return t
-when HEADLINE is low-level."
+HEADLINE is the headline element and INFO is the info plist.  A
+headline is low-level when its h-level exceeds 6, keeping the output
+within <h2>-<h6>.  When `:html-honor-ox-headline-levels' is non-nil,
+`org-export-low-level-p' also applies, so a headline whose relative
+level exceeds `:headline-levels' is low-level too: that option can move
+the cutoff earlier but never past h6.  Return t when HEADLINE is
+low-level."
   (declare (ftype (function (t list) boolean))
            (important-return-value t))
   (let ((hlevel (t--get-headline-hlevel headline info)))
@@ -3213,8 +3226,9 @@ when HEADLINE is low-level."
 (defun t--build-low-level-headline (headline contents info)
   "Transcode a low-level headline into an HTML list item (`<li>').
 
-This function renders headlines that are too deep to become standard
-<hN> tags.  It creates a list structure where a group of sibling
+HEADLINE is the headline element, CONTENTS its transcoded contents,
+and INFO the info plist.  Render headlines that are too deep to become
+standard <hN> tags.  Create a list structure where a group of sibling
 low-level headlines becomes a single `<ol>' or `<ul>'.
 
 The list type (`<ol>' vs. `<ul>') is determined by whether section
@@ -3295,7 +3309,8 @@ h-level is capped at 6, so the tag is always at most \"h6\"."
 (defun t-heading-default-format-function (headline title h id class info)
   "Return the `.header-wrapper' div holding the heading and its self-link.
 
-See `org-w3ctr-heading-format-function' for the argument descriptions."
+See `org-w3ctr-heading-format-function' for the descriptions of
+HEADLINE, TITLE, H, ID, CLASS, and INFO."
   (declare (ftype (function (t string string string (or null string) list)
                             string))
            (important-return-value t))
@@ -3310,9 +3325,10 @@ See `org-w3ctr-heading-format-function' for the argument descriptions."
 (defun t--build-normal-headline (headline contents info)
   "Build HTML for a standard headline and its section.
 
-This function formats a regular headline, which is not a footnote or a
-low-level headline treated as a list item.  The heading block is built
-by the function in `:html-heading-format-function'."
+HEADLINE is the headline element, CONTENTS its transcoded contents,
+and INFO the info plist.  Format a regular headline, which is not a
+footnote or a low-level headline treated as a list item.  The heading
+block is built by the function in `:html-heading-format-function'."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((h (t--headline-hN headline info))
