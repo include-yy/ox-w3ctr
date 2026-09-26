@@ -884,7 +884,7 @@ The default value points to a `style.css' file inside the package's
          (unless (and (stringp value)
                       (file-exists-p value)
                       (file-name-absolute-p value))
-           (error "Not a valid default CSS file: %s" value))
+           (error "Invalid style file: %s" value))
          (set symbol value)
          ;; Refresh the cached CSS.
          (setq t--style-cache nil))
