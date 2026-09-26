@@ -2274,11 +2274,11 @@ for ENTITY (for example, `&alpha;')."
 ;;;; Export Snippet
 
 ;; See (info "(org)Quoting HTML tags")
-(defun t-export-snippet (export-snippet _contents info)
+(defun t-export-snippet (export-snippet _contents _info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
 
-CONTENTS is nil.  INFO is the info plist.  Return the snippet
-value as a string, or an empty string for unsupported backends."
+CONTENTS and INFO are unused.  Return the snippet value as a
+string, or an empty string for unsupported backends."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
@@ -2513,9 +2513,9 @@ Return the transcoded string."
 (defun t--timezone-to-offset (zone)
   "Convert timezone string ZONE to offset in seconds.
 
-Valid formats are UTC/GMT[+-]XX (for example, UTC+8), [+-]HHMM (for example, -0500)
-or \"local\", which means use zero offset.  Return nil if ZONE doesn't
-match `org-w3ctr-timezone-regex'."
+Valid formats are UTC/GMT[+-]XX (for example, UTC+8), [+-]HHMM (for
+example, -0500) or \"local\", which means use zero offset.  Return nil
+if ZONE doesn't match `org-w3ctr-timezone-regex'."
   (declare (ftype (function (string) (or fixnum symbol)))
            (pure t) (important-return-value t))
   (let ((case-fold-search t)
@@ -2934,11 +2934,10 @@ the TOC remains near the beginning of the document.")
 ;; the heading level and section numbering reflect the source, not
 ;; a normalized hierarchy.  Both ox-html and ox-w3ctr behave the
 ;; same way — this is a feature, not a bug.
-(defun t-section (section contents info)
+(defun t-section (section contents _info)
   "Transcode a SECTION element from Org to HTML.
 
-CONTENTS holds the contents of the section.  INFO is a plist
-holding contextual information.
+CONTENTS holds the contents of the section.  INFO is unused.
 
 A section inside a headline returns CONTENTS as-is.  The zeroth
 section, the one outside any headline, returns nil and stores
@@ -2995,11 +2994,11 @@ Return the formatted HTML string, or nil when TODO is nil."
 ;; - `org-priority-default'(66)
 ;; - `org-priority-lowest' (67)
 
-(defun t-priority-default-format-function (priority info)
+(defun t-priority-default-format-function (priority _info)
   "Format PRIORITY as a <span> matching `org-html--priority' output.
 
 PRIORITY is the priority number or character, or nil.  INFO is the
-info plist (unused).  Return a <span> element with class="priority"."
+info plist (unused).  Return a <span> element with class=\"priority\"."
   (declare (ftype (function ((or null fixnum) list) (or null string)))
            (important-return-value t))
   (and priority
