@@ -3534,14 +3534,12 @@ charset, viewport, title, and the tags from `org-w3ctr-meta-tags'."
 ;; - `org-w3ctr-style-file'
 
 (defun t--load-css (_info)
-  "Load CSS for HTML export from configured sources.
+  "Return the CSS for HTML export.
 
-This function handles CSS loading in the following priority:
-  If `org-w3ctr-style' is non-empty string, use it directly.
-  If `org-w3ctr-style-file' is non-nil, load CSS from that file.
-  If both are empty/nil, return empty string (no styles).
-
-The loaded CSS will be wrapped in HTML <style> tags when non-empty."
+INFO is unused.  Return `org-w3ctr-style' when it is a non-whitespace
+string.  Otherwise, when `org-w3ctr-style-file' is non-nil, load it,
+wrap its contents in a <style> element, cache the result in
+`org-w3ctr-style', and return it.  Return nil when neither is set."
   (declare (ftype (function (t) (or null string)))
            (important-return-value t))
   (or (t--nw-p t-style)
