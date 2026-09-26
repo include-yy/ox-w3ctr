@@ -3362,7 +3362,6 @@ holding contextual information."
 
 ;;;; <head> tags export.
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :time-stamp-file (`org-export-timestamp-file')
 ;; - :html-file-timestamp-function (`org-w3ctr-file-timestamp-function')
@@ -3377,14 +3376,14 @@ holding contextual information."
 (defun t--build-meta-entry ( label identity
                              &optional content-format
                              &rest content-formatters)
-  "Build a meta tag using the provided information.
+  "Build a <meta> tag from LABEL and IDENTITY.
 
-Construct <meta> tag of form <meta LABEL=\"IDENTITY\">,
-or when CONTENT-FORMAT is present:
-<meta LABEL=\"IDENTITY\" content=\"{content}\">
+Construct a tag of the form <meta LABEL=\"IDENTITY\">, or, when
+CONTENT-FORMAT is present, <meta LABEL=\"IDENTITY\"
+content=\"{content}\">.
 
-Here {content} is determined by applying any CONTENT-FORMATTERS
-to the CONTENT-FORMAT and encoding the result as plain text."
+{content} is CONTENT-FORMAT, after any CONTENT-FORMATTERS are
+applied to it, encoded as plain text."
   (declare (ftype (function ( string string
                               &optional string &rest t)
                             string))
@@ -3399,14 +3398,19 @@ to the CONTENT-FORMAT and encoding the result as plain text."
    ">\n"))
 
 (defun t-file-timestamp-default-function (_info)
-  "Return current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+  "Return the current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   (declare (ftype (function (t) string))
            (side-effect-free t) (important-return-value t))
   (format-time-string "%FT%RZ" nil t))
 
 (defun t--get-info-file-timestamp (info)
-  "Get file timestamp from INFO plist."
-  (declare (ftype (function (list) string))
+  "Return the file timestamp string from the INFO plist.
+
+INFO is the info plist.  Return nil when `:time-stamp-file' is nil;
+otherwise call the function in `:html-file-timestamp-function' with
+INFO and return its result.  Signal `org-w3ctr-error' if that option
+is not a function."
+  (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when (t--pget info :time-stamp-file)
     (if-let* ((fun (t--pget info :html-file-timestamp-function))
@@ -3417,7 +3421,7 @@ to the CONTENT-FORMAT and encoding the result as plain text."
 
 (defun t--ensure-charset-utf8 ()
   "Validate `org-w3ctr-coding-system' and ensure its MIME is UTF-8.
-Signals an error if `org-w3ctr-coding-system' is invalid or not UTF-8."
+Signal an error if `org-w3ctr-coding-system' is invalid or not UTF-8."
   (declare (ftype (function () string))
            (important-return-value t))
   (let* ((c t-coding-system)
@@ -3428,7 +3432,11 @@ Signals an error if `org-w3ctr-coding-system' is invalid or not UTF-8."
         (if (eq uc 'utf-8) "utf-8" (funcall h c))))))
 
 (defun t--build-viewport-options (info)
-  "Build <meta> viewport tags."
+  "Build the viewport <meta> tag from `:html-viewport'.
+
+INFO is the info plist.  Keep the option's entries whose value is
+non-whitespace, format them as key=value pairs separated by commas,
+and return nil when nothing remains."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* ((opts (cl-remove-if-not
@@ -3446,7 +3454,7 @@ If title exists, is non-whitespace, and can be converted to plain text,
 return the text.  Otherwise return a left-to-right mark (invisible)."
   (declare (ftype (function (list) string))
            (important-return-value t))
-  ;; HTML always need <title>, so just ignore :with-title.
+  ;; HTML always needs <title>, so just ignore :with-title.
   (if-let* ((title (t--pget info :title))
             (str0 (org-element-interpret-data title))
             (str (t--nw-trim str0))
@@ -3456,7 +3464,10 @@ return the text.  Otherwise return a left-to-right mark (invisible)."
       text "&lrm;"))
 
 (defun t--get-info-author-raw (info)
-  "Get author from INFO if :with-author is non-nil."
+  "Return the author from the INFO plist, or nil.
+
+INFO is the info plist.  Return nil when `:with-author' or `:author'
+is nil; otherwise interpret `:author' as raw Org syntax and trim it."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* (((t--pget info :with-author))
@@ -3466,11 +3477,11 @@ return the text.  Otherwise return a left-to-right mark (invisible)."
     (t--nw-trim (org-element-interpret-data a))))
 
 (defun t-meta-tags-default (info)
-  "A default value for `org-w3ctr-meta-tags'.
+  "Return the default value for `org-w3ctr-meta-tags'.
 
-Generate a list items, each of which is a list of arguments
-that can be passed to `org-w3ctr--build-meta-entry', to generate meta
-tags to be included in the HTML head."
+INFO is the info plist.  Return a list of items, each a list of
+arguments suitable for `org-w3ctr--build-meta-entry', describing the
+author, description, keywords, and generator meta tags."
   (declare (ftype (function (list) list))
            (important-return-value t))
   (list
@@ -3483,7 +3494,10 @@ tags to be included in the HTML head."
    '("name" "generator" "Org Mode")))
 
 (defun t--build-meta-tags (info)
-  "Build HTML <meta> tags get from `org-w3ctr-meta-tags'."
+  "Build the HTML <meta> tags from `org-w3ctr-meta-tags'.
+
+INFO is the info plist.  Evaluate the option (calling it with INFO
+when it is a function) and build one <meta> tag per entry."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (mapconcat
@@ -3492,7 +3506,10 @@ tags to be included in the HTML head."
                (funcall t-meta-tags info)))))
 
 (defun t--build-meta-info (info)
-  "Return meta tags for exported document."
+  "Return the head meta block for the exported document.
+
+INFO is the info plist.  Return the export-timestamp comment, the
+charset, viewport, title, and the tags from `org-w3ctr-meta-tags'."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (concat

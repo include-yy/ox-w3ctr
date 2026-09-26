@@ -2881,6 +2881,17 @@ int a = 1;</code></p>\n</details>")
   (let ((t-meta-tags '(("a" "b" nil))))
     ($l (t--build-meta-tags nil) "<meta a=\"b\">\n")))
 
+(ert-deftest t--build-meta-info ()
+  "Tests for `org-w3ctr--build-meta-info'."
+  (let ((t-meta-tags '(("name" "generator" "Org Mode"))))
+    (cl-letf (((symbol-function 't--get-info-file-timestamp)
+               (lambda (_info) "2026-01-01T00:00Z")))
+      ($l (t--build-meta-info '(:title "Test"))
+          ($c "<!-- 2026-01-01T00:00Z -->\n"
+              "<meta charset=\"utf-8\">\n"
+              "<title>Test</title>\n"
+              "<meta name=\"generator\" content=\"Org Mode\">\n")))))
+
 (ert-deftest t--load-css ()
   "Tests for `org-w3ctr--load-css'."
   (let ((t-style nil) (t-style-file nil))
