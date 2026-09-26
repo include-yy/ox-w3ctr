@@ -3584,9 +3584,11 @@ clear the cache.  This forces the exporter to re-read the file."
   "Style for display math produced by `svg-by-mathjax'.")
 
 (defun t-math-head-default-function (info)
-  "Default value for `org-w3ctr-math-head-function'.
-Return the MathJax script for `mathjax' mode, the display-math style
-for `svg-by-mathjax' mode, nothing otherwise."
+  "Return the math setup for the <head>, by default.
+
+INFO is the info plist.  Return the MathJax configuration for
+`mathjax' mode, the display-math style for `svg-by-mathjax' mode, or an
+empty string otherwise."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (pcase (t--pget info :with-latex)
@@ -3595,10 +3597,15 @@ for `svg-by-mathjax' mode, nothing otherwise."
     (_ "")))
 
 (defun t--build-math-config (info)
-  "Return the math setup to insert into <head>."
+  "Return the math setup to insert into <head>.
+
+INFO is the info plist.  Call the function in `:html-math-head-function',
+or `org-w3ctr-math-head-default-function' when it is nil."
   (declare (ftype (function (list) string))
            (important-return-value t))
-  (funcall (t--pget info :html-math-head-function) info))
+  (funcall (or (t--pget info :html-math-head-function)
+               #'t-math-head-default-function)
+           info))
 
 ;;;; Rest of <head>
 

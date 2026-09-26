@@ -2987,7 +2987,10 @@ int a = 1;</code></p>\n</details>")
         "JX")
     ($l (t--build-math-config
          '(:with-latex custom :html-math-head-function (lambda (_i) "H")))
-        "H")))
+        "H")
+    ;; nil :html-math-head-function falls back to the default function
+    ($l (t--build-math-config '(:with-latex mathjax :html-mathjax-config "JX"))
+        "JX")))
 
 (ert-deftest t-latex-fragment ()
   "Tests for `org-w3ctr-latex-fragment'."
