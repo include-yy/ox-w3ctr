@@ -3371,6 +3371,8 @@ holding contextual information."
 ;; - :with-author (`org-export-with-author')
 ;; - :title #+TITLE:
 ;; - :with-title (`org-export-with-title')
+;; - :description #+DESCRIPTION:
+;; - :keywords #+KEYWORDS:
 ;; - `org-w3ctr-meta-tags'
 
 (defun t--build-meta-entry ( label identity
