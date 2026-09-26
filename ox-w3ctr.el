@@ -3450,10 +3450,11 @@ and return nil when nothing remains."
                 opts ", "))))
 
 (defun t--get-info-title-raw (info)
-  "Extract title from INFO plist and return as plain text.
+  "Return the title from the INFO plist as plain text.
 
-If title exists, is non-whitespace, and can be converted to plain text,
-return the text.  Otherwise return a left-to-right mark (invisible)."
+INFO is the info plist.  Return `:title' interpreted, trimmed, and
+escaped as plain text; return a left-to-right mark (invisible) when
+`:title' is absent, empty, or whitespace."
   (declare (ftype (function (list) string))
            (important-return-value t))
   ;; HTML always needs <title>, so just ignore :with-title.
@@ -3510,8 +3511,10 @@ when it is a function) and build one <meta> tag per entry."
 (defun t--build-meta-info (info)
   "Return the head meta block for the exported document.
 
-INFO is the info plist.  Return the export-timestamp comment, the
-charset, viewport, title, and the tags from `org-w3ctr-meta-tags'."
+INFO is the info plist.  Return the export-timestamp comment (when
+`:time-stamp-file' is set), the charset, the viewport (when
+`:html-viewport' is set), the title, and the tags from
+`org-w3ctr-meta-tags'."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (concat

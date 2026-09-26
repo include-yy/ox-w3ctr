@@ -2848,7 +2848,8 @@ int a = 1;</code></p>\n</details>")
      ("#+title:   3   " "3")
      ;; zero width space
      ("#+title:​" "​")
-     ("#+TITLE: hello\sworld" "hello world"))))
+     ("#+TITLE: hello\sworld" "hello world")
+     ("#+title: a & b" "a &amp; b"))))
 
 (ert-deftest t--get-info-author-raw ()
   "Tests for `org-w3ctr--get-info-author-raw'."
@@ -2859,7 +2860,11 @@ int a = 1;</code></p>\n</details>")
     (let ((info '(:with-author nil :author "test")))
       ($n (it info)))
     (let ((info '(:with-author t :author "test")))
-      ($l (it info) "test"))))
+      ($l (it info) "test"))
+    (let ((info '(:with-author t :author "  ")))
+      ($n (it info)))
+    (let ((info '(:with-author t :author "a & b")))
+      ($l (it info) "a & b"))))
 
 (ert-deftest t-meta-tags-default ()
   "Tests for `org-w3ctr-meta-tags-default'."
@@ -2885,7 +2890,15 @@ int a = 1;</code></p>\n</details>")
   (let ((t-meta-tags '(("a" "b" "test"))))
     ($l (t--build-meta-tags nil) "<meta a=\"b\" content=\"test\">\n"))
   (let ((t-meta-tags '(("a" "b" nil))))
-    ($l (t--build-meta-tags nil) "<meta a=\"b\">\n")))
+    ($l (t--build-meta-tags nil) "<meta a=\"b\">\n"))
+  (let ((t-meta-tags '(("a" "b" "c") nil ("d" "e" "f"))))
+    ($l (t--build-meta-tags nil)
+        ($c "<meta a=\"b\" content=\"c\">\n"
+            "<meta d=\"e\" content=\"f\">\n")))
+  (let ((t-meta-tags #'t-meta-tags-default))
+    ($l (t--build-meta-tags '(:with-author t :author "Alice"))
+        ($c "<meta name=\"author\" content=\"Alice\">\n"
+            "<meta name=\"generator\" content=\"Org Mode\">\n"))))
 
 (ert-deftest t--build-meta-info ()
   "Tests for `org-w3ctr--build-meta-info'."
@@ -2896,7 +2909,16 @@ int a = 1;</code></p>\n</details>")
           ($c "<!-- 2026-01-01T00:00Z -->\n"
               "<meta charset=\"utf-8\">\n"
               "<title>Test</title>\n"
-              "<meta name=\"generator\" content=\"Org Mode\">\n")))))
+              "<meta name=\"generator\" content=\"Org Mode\">\n")))
+    ($l (t--build-meta-info '(:title "Test"))
+        ($c "<meta charset=\"utf-8\">\n"
+            "<title>Test</title>\n"
+            "<meta name=\"generator\" content=\"Org Mode\">\n"))
+    ($l (t--build-meta-info '(:title "Test" :html-viewport (("a" "b"))))
+        ($c "<meta charset=\"utf-8\">\n"
+            "<meta name=\"viewport\" content=\"a=b\">\n"
+            "<title>Test</title>\n"
+            "<meta name=\"generator\" content=\"Org Mode\">\n"))))
 
 (ert-deftest t--load-css ()
   "Tests for `org-w3ctr--load-css'."
