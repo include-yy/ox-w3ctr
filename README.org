@@ -6,18 +6,16 @@ Based on Org-mode's ox-html.el and CSS of W3C Technical Report [[https://github.
 
 | Emacs Version   |         30.1 |         31.1 |  32.1 |
 |-----------------+--------------+--------------+-------|
-| Package Version |          0.2 |          0.3 |   1.0 |
+| Package Version |          0.2 |          0.3 |   0.4 |
 | Date            | [2025-02-23] | [2026-08-24] | 2027? |
 
 The current ox-w3ctr has not yet completed a full refactoring of the
 ox-html code, though it’s already largely usable. I plan to release
-version 1.0 when Emacs 32.1 comes out.
+version 0.4 when Emacs 32.1 comes out.
 
-When version 1.0 is released, the package should no longer introduce
+When version 0.4 is released, the package should no longer introduce
 breaking changes, and Emacs 32.1 will be the minimum supported
-version. In a sense, 1.0 will be the first official release. If more
-users and bug reports come in, this process from 0.4 to 1.0 might move
-faster.
+version. In a sense, 0.4 will be the first official release.
 
 ** Install and Use
 
