@@ -60,6 +60,10 @@ Two gotchas:
   `load` picks the compiled file over the source.
 - `system-time-locale` must be C/en; otherwise `%a` localizes day names and
   6 timestamp tests fail (e.g. `Fri` becomes a GBK-encoded Chinese string).
+- `text-quoting-style` must be `grave` (the test file sets it): Org's error
+  messages quote with backticks, and under `curve` (the interactive default)
+  they become curved quotes, so the tests that assert them (e.g.
+  `org-w3ctr--priority`) fail to match.
 
 The acceptance criterion is **zero unexpected failures**, not a fixed
 pass count — the suite keeps growing, so a pinned number only drifts.

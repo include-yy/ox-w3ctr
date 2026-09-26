@@ -3,6 +3,10 @@
 (require 'ert)
 (load "ox-w3ctr")
 
+;; Org's error messages quote with `...'; keep it as backticks so the
+;; tests match whether they run under --batch or an interactive Emacs.
+(setq text-quoting-style 'grave)
+
 ;;; Test helper functions
 (defun $c (&rest args) "concat" (apply #'concat args))
 (defun $s (a) "should" (should a))
