@@ -2747,6 +2747,25 @@ placeholder for the datetime attribute (caller fills it via
               (t-plain-text str info) "</span></span>")
     (concat "<time%s>" (t-plain-text str info) "</time>")))
 
+(defun t--format-ts-time (timestamp parts info)
+  "Format TIMESTAMP's PARTS as <time> elements.
+
+PARTS is a list of one or two timestamp strings: the start and,
+for a range, the end.  INFO is the info plist.  Each part is
+wrapped in a <time> element whose datetime attribute comes from
+TIMESTAMP.  Parts are joined with \"--\", or with an en dash when
+`:with-special-strings' is non-nil.  Return the formatted string."
+  (declare (ftype (function (t list list) string))
+           (important-return-value t))
+  (let* ((sep (if (t--pget info :with-special-strings) "&#x2013;" "--"))
+         (tt (mapconcat (lambda (s) (t--format-ts-span-time s info t))
+                        parts sep)))
+    (pcase (length parts)
+      (1 (format tt (t--format-ts-datetime timestamp info)))
+      (2 (format tt (t--format-ts-datetime timestamp info)
+                 (t--format-ts-datetime timestamp info t)))
+      (_ (t-error "Invalid timestamp range: %s" parts)))))
+
 (defun t--format-timestamp-raw-1 (timestamp raw info)
   "Format TIMESTAMP with its RAW string.
 
@@ -2759,17 +2778,8 @@ formatted timestamp string."
     (`none (t-plain-text raw info))
     (`span (t--format-ts-span-time raw info))
     (`time
-     (let* ((tss (t--find-all org-ts-regexp-both raw))
-            (len (length tss))
-            (str (mapconcat
-                  (lambda (s) (t--format-ts-span-time s info t))
-                  tss (if (t--pget info :with-special-strings)
-                          "&#x2013;" "--"))))
-       (pcase len
-         (1 (format str (t--format-ts-datetime timestamp info)))
-         (2 (format str (t--format-ts-datetime timestamp info)
-                    (t--format-ts-datetime timestamp info t)))
-         (_ (t-error "Invalid timestamp range: %s" raw)))))
+     (t--format-ts-time
+      timestamp (t--find-all org-ts-regexp-both raw) info))
     (w (t-error "Unknown timestamp wrapper: %s" w))))
 
 (defun t--format-timestamp-raw (timestamp info)
@@ -2822,9 +2832,7 @@ options.  Return the formatted timestamp string."
          (pcase wrap
            (`none (t-plain-text time info))
            (`span (t--format-ts-span-time time info))
-           (`time
-            (format (t--format-ts-span-time time info t)
-                    (t--format-ts-datetime timestamp info)))
+           (`time (t--format-ts-time timestamp (list time) info))
            (_ (t-error "Unknown timestamp wrapper: %s" wrap)))))
       ((or `active-range `inactive-range)
        (let* ((t1 (org-format-timestamp timestamp fmt))
@@ -2832,13 +2840,7 @@ options.  Return the formatted timestamp string."
          (pcase wrap
            (`none (t-plain-text (concat t1 "--" t2) info))
            (`span (t--format-ts-span-time (concat t1 "--" t2) info))
-           (`time
-            (let* ((de (if (t--pget info :with-special-strings)
-                           "&#x2013;" "--"))
-                   (tt (concat (t--format-ts-span-time t1 info t) de
-                               (t--format-ts-span-time t2 info t))))
-              (format tt (t--format-ts-datetime timestamp info)
-                      (t--format-ts-datetime timestamp info t))))
+           (`time (t--format-ts-time timestamp (list t1 t2) info))
            (_ (t-error "Unknown timestamp wrapper: %s" wrap)))))
       (_ (t-error "Unknown timestamp type: %s" type)))))
 
