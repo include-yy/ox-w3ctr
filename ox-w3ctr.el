@@ -894,24 +894,28 @@ The default value points to a `style.css' file inside the package's
   "Raw HTML content to insert into the <head> section.
 
 This variable can contain the full HTML structure to provide a style,
-including the surrounding HTML tags.  As the value of this option
-simply gets inserted into the HTML <head> header, you can use it to
-add any arbitrary text to the header.
+including the surrounding HTML tags.  It can be a string, or a function
+that accepts the INFO plist and returns a string.  As the value of this
+option simply gets inserted into the HTML <head> header, you can use it
+to add any arbitrary text to the header.
 
 You can set this on a per-file basis using #+HTML_HEAD:,
 or for publication projects using the :html-head property."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type '(choice string function))
 ;;;###autoload
 (put 't-head 'safe-local-variable 'stringp)
 
 (defcustom t-head-extra ""
   "More head information to add in the <head> section.
 
+It can be a string, or a function that accepts the INFO plist and
+returns a string.
+
 You can set this on a per-file basis using #+HTML_HEAD_EXTRA:,
 or for publication projects using the :html-head-extra property."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type '(choice string function))
 ;;;###autoload
 (put 't-head-extra 'safe-local-variable 'stringp)
 
@@ -3633,6 +3637,21 @@ INFO is the info plist."
            '(latex-fragment latex-environment)
          (lambda (_) t) info t nil t)))
 
+(defun t--normalize-string-or-function (input &rest args)
+  "Normalize INPUT, whether a string or a function.
+
+INPUT is a string, or a function called with ARGS.  Apply INPUT when it
+is a function, then normalize the result with
+`org-element-normalize-string'.  Return nil when the function returns
+nil."
+  (declare (ftype (function (t &rest t) (or null string)))
+           (important-return-value t))
+  (let ((s (if (functionp input)
+               (let ((r (apply input args)))
+                 (and r (format "%s" r)))
+             input)))
+    (org-element-normalize-string s)))
+
 ;; FIXME: Consider adding code highlighting (such as highlight.js).
 (defun t--build-head (info)
   "Return the <head>...</head> block of the HTML output.
@@ -3651,8 +3670,8 @@ contents, wrapped in a <head> element."
    ;; Mathjax or MathML config.
    (when (t--has-math-p info) (t--build-math-config info))
    ;; User defined <head> contents
-   (org-element-normalize-string (t--pget info :html-head))
-   (org-element-normalize-string (t--pget info :html-head-extra))
+   (t--normalize-string-or-function (t--pget info :html-head) info)
+   (t--normalize-string-or-function (t--pget info :html-head-extra) info)
    "</head>\n"))
 
 ;;;; Legacy home and up

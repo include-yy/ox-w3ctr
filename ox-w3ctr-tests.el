@@ -3049,7 +3049,16 @@ int a = 1;</code></p>\n</details>")
             ((symbol-function 't--has-math-p)
              (lambda (_info) nil)))
     ($l (t--build-head nil)
-        ($c "<head>\n" "META\n" "</head>\n"))))
+        ($c "<head>\n" "META\n" "</head>\n")))
+  ;; :html-head can be a function of INFO
+  (cl-letf (((symbol-function 't--build-meta-info)
+             (lambda (_info) "META\n"))
+            ((symbol-function 't--use-default-style-p)
+             (lambda (_info) nil))
+            ((symbol-function 't--has-math-p)
+             (lambda (_info) nil)))
+    ($l (t--build-head '(:html-head (lambda (_info) "FN\n")))
+        ($c "<head>\n" "META\n" "FN\n" "</head>\n"))))
 
 (ert-deftest t--format-legacy-navbar ()
   "Tests for `org-w3ctr--format-legacy-navbar'."
