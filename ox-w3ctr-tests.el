@@ -3010,7 +3010,7 @@ int a = 1;</code></p>\n</details>")
    nil '(:with-latex mathjax)))
 
 (ert-deftest t--use-default-style-p ()
-  "Tests for `org-w3ctr--use-default-styple-p'."
+  "Tests for `org-w3ctr--use-default-style-p'."
   ($n (t--use-default-style-p nil))
   ($s (t--use-default-style-p '(:html-head-include-style t))))
 
@@ -3027,6 +3027,29 @@ int a = 1;</code></p>\n</details>")
     ($s (t--has-math-p (mkinfo "\\(1+2\\)")))
     ($s (t--has-math-p (mkinfo "\\[1+2\\]")))
     ($s (t--has-math-p (mkinfo "\\begin_equation\n123\n\\end_equation")))))
+
+(ert-deftest t--build-head ()
+  "Tests for `org-w3ctr--build-head'."
+  (cl-letf (((symbol-function 't--build-meta-info)
+             (lambda (_info) "META\n"))
+            ((symbol-function 't--use-default-style-p)
+             (lambda (_info) t))
+            ((symbol-function 't--load-css)
+             (lambda (_info) "CSS\n"))
+            ((symbol-function 't--has-math-p)
+             (lambda (_info) t))
+            ((symbol-function 't--build-math-config)
+             (lambda (_info) "MATH\n")))
+    ($l (t--build-head '(:html-head "H\n" :html-head-extra "E\n"))
+        ($c "<head>\n" "META\n" "CSS\n" "MATH\n" "H\n" "E\n" "</head>\n")))
+  (cl-letf (((symbol-function 't--build-meta-info)
+             (lambda (_info) "META\n"))
+            ((symbol-function 't--use-default-style-p)
+             (lambda (_info) nil))
+            ((symbol-function 't--has-math-p)
+             (lambda (_info) nil)))
+    ($l (t--build-head nil)
+        ($c "<head>\n" "META\n" "</head>\n"))))
 
 (ert-deftest t--format-legacy-navbar ()
   "Tests for `org-w3ctr--format-legacy-navbar'."

@@ -3609,30 +3609,37 @@ or `org-w3ctr-math-head-default-function' when it is nil."
 
 ;;;; Rest of <head>
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-head (`org-w3ctr-head')
 ;; - :html-head-extra (`org-w3ctr-head-extra')
 ;; - :html-head-include-style (`org-w3ctr-head-include-style')
 
 (defun t--use-default-style-p (info)
-  "Test if org export use default CSS style."
+  "Return non-nil if the export includes the default CSS style.
+
+INFO is the info plist."
   (declare (ftype (function (list) boolean))
            (important-return-value t))
   (t--pget info :html-head-include-style))
 
 (defun t--has-math-p (info)
-  "Test if org doc has latex fragment or latex environment."
+  "Return non-nil if the Org document has a LaTeX fragment or environment.
+
+INFO is the info plist."
   (declare (ftype (function (list) boolean))
            (important-return-value t))
   (and (t--pget info :with-latex)
        (org-element-map (t--pget info :parse-tree)
            '(latex-fragment latex-environment)
-         #'identity info t nil t)))
+         (lambda (_) t) info t nil t)))
 
-;; FIXME: Consider add code hightlight (such as highlight.js) codes.
+;; FIXME: Consider adding code highlighting (such as highlight.js).
 (defun t--build-head (info)
-  "Return information for the <head>...</head> of the HTML output."
+  "Return the <head>...</head> block of the HTML output.
+
+INFO is the info plist.  Return the <meta> block, the default style, the
+math configuration, and the user's `:html-head' and `:html-head-extra'
+contents, wrapped in a <head> element."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (concat
