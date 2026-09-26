@@ -167,6 +167,11 @@ one section per pass — docstring, `declare`, `important-return-value`/
 `pure`, helper use, tests — and remove the marker when the section is
 done.  What a pass turns up goes to `## Tasks` or `README.org` Roadmap.
 
+A section deferred to a later round carries `;; REFINE2:` instead of
+`;; REFINE:`, so the `grep -n 'REFINE:'` recipe skips it (the `2` breaks
+the exact match).  Take the remaining `REFINE:` sections first; the
+`REFINE2:` ones come afterwards.
+
 Its one **precondition**: the two local skills
 (`.agents/skills/ox-w3ctr-verify`, `.agents/skills/elisp-docstring`) get
 refactored until they are actually usable — the owner reads their code

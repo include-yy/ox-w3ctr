@@ -3568,15 +3568,13 @@ clear the cache.  This forces the exporter to re-read the file."
   (interactive)
   (setq t--style-cache nil))
 
-;;;; Mathjax config
+;;;; Math config
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+;; REFINE2: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :with-latex (`org-w3ctr-with-latex')
 ;; - :html-mathjax-config (`org-w3ctr-mathjax-config')
 ;; - :html-math-head-function (`org-w3ctr-math-head-function')
-;; - :html-math-custom-render-function
-;; (`org-w3ctr-math-custom-default-render-function')
 
 (defconst t-svg-math-style "\
 <style>
