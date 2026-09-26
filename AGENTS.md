@@ -110,7 +110,10 @@ too but fails rather than skipping.
   add `(pure t)` where the function is side-effect free and its result
   depends only on its arguments.  Exemptions: `defsubst`, end-user
   commands (`t-export-*`, `t-publish-*`, `t-convert-*`), interactive
-  commands whose return value is incidental.
+  commands whose return value is incidental.  `nil` is a subtype of
+  both `list` and `symbol` (`(listp nil)` and `(symbolp nil)` are t),
+  so a return type of `list` or `symbol` already admits `nil` — do not
+  write `(or list null)` or `(or symbol null)`.
 - **Naming**: internal helpers `t--*`, public API `t-*`.  No third
   scheme (`org-w3ctr-faces-*` is gone; keep it that way).
 - **Headers**: `;;;` for major parts, `;;;;` for sections.  No

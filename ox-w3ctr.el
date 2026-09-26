@@ -1588,8 +1588,7 @@ omitted from the result."
   (declare (ftype (function (list) string))
            (pure t) (important-return-value t))
   (let (output)
-    (dolist ( item attributes
-              (mapconcat 'identity (nreverse output) " "))
+    (dolist (item attributes (mapconcat 'identity (nreverse output) " "))
       (cond
        ((null item) (pop output))
        ((symbolp item) (push (substring (symbol-name item) 1) output))
@@ -1697,16 +1696,23 @@ For example:
   => (\"a\" \"b\" \"cde\")
 
 If no matches are found, or if REGEXP is an empty string, this
-function returns nil."
+function returns nil.  A match of length zero is skipped."
   (declare (ftype (function (string string &optional (or null fixnum))
                             list))
            (pure t) (important-return-value t))
   (if (string= regexp "") nil
     (let ((pos (max (or start 0) 0))
           (matches))
-      (while (string-match regexp str pos)
-        (push (match-string 0 str) matches)
-        (setq pos (match-end 0)))
+      (while (and (< pos (length str))
+                  (string-match regexp str pos))
+        (let ((beg (match-beginning 0))
+              (end (match-end 0)))
+          (if (= beg end)
+              ;; Zero-width match: skip it and move on, so a regexp
+              ;; that can match the empty string does not loop forever.
+              (setq pos (1+ pos))
+            (push (match-string 0 str) matches)
+            (setq pos end))))
       (nreverse matches))))
 
 ;;;; S-exp rendering
@@ -1768,7 +1774,7 @@ sanitizes string content using `org-w3ctr--encode-plain-text'."
      (let* ((tag (downcase (t--2str (nth 0 data))))
             (attr-ls (nth 1 data))
             (attrs (if (booleanp attr-ls) ""
-                     (mapconcat #'t--make-attr attr-ls))))
+                     (t--make-attr__ attr-ls))))
        (if (string-match-p t--void-element-regexp tag)
            (t--void-element tag attrs)
          (let ((children (mapconcat #'t--sexp2html (cddr data))))
@@ -1797,6 +1803,8 @@ current export state, as a plist.
 
 When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
 nil.  This doesn't apply to radio targets and targets."
+  (declare (ftype (function (t list &optional boolean) (or null string)))
+           (important-return-value t))
   (let ((type (org-element-type datum)))
     (cond
      ;; CUSTOM_ID always wins.
@@ -2159,7 +2167,7 @@ value as a string, or nil for unsupported keywords."
 (defsubst t--wrap-image (contents _info caption attrs)
   "Wrap CONTENTS in a <figure> element for standalone images.
 
-CONTENTS is the image HTML.  _INFO is unused.  CAPTION is the
+CONTENTS is the image HTML.  INFO is unused.  CAPTION is the
 caption string (may be empty).  ATTRS is a pre-formatted attribute
 string for the <figure> tag.  Return the formatted <figure> element
 as a string."
@@ -2229,7 +2237,7 @@ is converted to non-breaking spaces; newlines become <br>."
     ;; Replace each newline character with line break. Also
     ;; remove any trailing "br" close-tag so as to avoid
     ;; duplicates.
-    (let* ((re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote "<br>"))))
+    (let ((re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote "<br>"))))
       (replace-regexp-in-string re "<br>\n" (or contents ""))))))
 
 ;;; Objects
@@ -2911,9 +2919,16 @@ the TOC remains near the beginning of the document.")
 ;; same way — this is a feature, not a bug.
 (defun t-section (section contents info)
   "Transcode a SECTION element from Org to HTML.
+
 CONTENTS holds the contents of the section.  INFO is a plist
-holding contextual information."
-  (declare (ftype (function (t t t) (or null string))))
+holding contextual information.
+
+A section inside a headline returns CONTENTS as-is.  The zeroth
+section, the one outside any headline, returns nil and stores
+CONTENTS in `org-w3ctr--zeroth-section-output', so the template can
+place it before the table of contents."
+  (declare (ftype (function (t t t) (or null string)))
+           (important-return-value t))
   ;; normal section
   (if (org-element-lineage section 'headline) contents
     ;; FIXME: Use the topmost property drawer for the zeroth section's

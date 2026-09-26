@@ -661,7 +661,15 @@ the OINFO cache is off."
   ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-03]" 1)
       '("[2000-01-03]"))
   ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-03]" -1)
-      '("[2000-01-02]" "[2000-01-03]")))
+      '("[2000-01-02]" "[2000-01-03]"))
+  ;; Zero-width regexps terminate: empty matches are skipped, not pushed.
+  ($l (t--find-all "a*" "bc") nil)
+  ($l (t--find-all "b*" "ab") '("b"))
+  ($l (t--find-all "a*" "a") '("a"))
+  ;; START beyond the string length signals nothing and returns nil.
+  ($l (t--find-all "z" "abc" 5) nil)
+  ;; START at the end of the string is still a valid search position.
+  ($l (t--find-all "[0-9]" "abc1" 3) '("1")))
 
 (ert-deftest t--sexp2html ()
   "Tests for `org-w3ctr--sexp2html'."
