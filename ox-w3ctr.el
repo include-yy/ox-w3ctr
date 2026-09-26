@@ -1511,6 +1511,7 @@ Used by `org-w3ctr--encode-plain-text*'.")
 
 (defun t--read-attr (attribute element)
   "Read the property ATTRIBUTE from ELEMENT as a list of Lisp objects.
+
 Return nil if the property does not exist, is empty, or whitespace-only.
 Signal `org-w3ctr-error' if the value is not a valid Lisp s-expression."
   (declare (ftype (function (symbol t) list))
@@ -1523,6 +1524,7 @@ Signal `org-w3ctr-error' if the value is not a valid Lisp s-expression."
 
 (defun t--read-attr__ (element)
   "Parse the `:attr__' (#+attr__:) property from ELEMENT.
+
 A vector such as [class1 class2] becomes (\"class\" \"class1 class2\");
 an empty vector [] becomes nil.  Return nil if the property is absent."
   (declare (ftype (function (t) list))
@@ -1538,8 +1540,7 @@ an empty vector [] becomes nil.  Return nil if the property is absent."
 (defun t--make-attr (list)
   "Format a single Lisp LIST into an HTML attribute string.
 
-This low-level helper function converts a single list, LIST, into
-its corresponding HTML attribute string.  It handles two formats:
+It handles two formats:
 
 - A boolean attribute: (ATTR) becomes \" ATTR\".
 - An attribute with values: (ATTR VAL1 VAL2) becomes
@@ -1600,12 +1601,12 @@ omitted from the result."
   "Format `:attr__' attributes, adding an `id' attribute if needed.
 
 This function first reads and parses the `:attr__' property from
-an ELEMENT.  Its main purpose is to then automatically add an `id'
-attribute based on the element's reference, unless an `id' is
-already explicitly defined in the property.
+ELEMENT.  Its main purpose is to add an `id' attribute based on the
+element's reference, unless an `id' is already explicitly defined in
+the property.
 
-The final, combined list of attributes is then formatted into a
-single string by `org-w3ctr--make-attr__'."
+`org-w3ctr--make-attr__' formats the final, combined list of
+attributes into a single string."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (let* ((reference (t--reference element info named-only))
@@ -1621,12 +1622,12 @@ single string by `org-w3ctr--make-attr__'."
   "Format attributes from `:attr_html', adding an `id' if needed.
 
 This function processes the standard Org `:attr_html' property from
-an ELEMENT.  Its main purpose is to automatically add an `id'
-attribute based on the element's reference, unless an `id' is
-already present in the property list.
+ELEMENT.  Its main purpose is to add an `id' attribute based on the
+element's reference, unless an `id' is already present in the property
+list.
 
-The final property list is then formatted into a single string by
-`org-w3ctr--make-attribute-string'."
+`org-w3ctr--make-attribute-string' formats the final property list
+into a single string."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (let* ((attrs (org-export-read-attribute :attr_html element))
@@ -1658,12 +1659,9 @@ standard `:attr_html' property using `org-w3ctr--make-attr_html'."
 (defun t--load-file (file)
   "Read the entire contents of FILE into a string.
 
-This function returns the full content of the file at path FILE
-as a single string.  It signals a `org-w3ctr-error' if FILE does not
-exist or is a directory.
-
-FILE is decoded as UTF-8 regardless of the locale coding system,
-so the same file reads identically on every machine."
+Signal `org-w3ctr-error' if FILE does not exist or is a directory.
+FILE is decoded as UTF-8 regardless of the locale coding system, so
+the same file reads identically on every machine."
   (declare (ftype (function (string) string)))
   (unless (and (file-exists-p file) (not (file-directory-p file)))
     (t-error "Bad File: %s" file))
@@ -1688,8 +1686,7 @@ a `org-w3ctr-error' if FILE does not exist or is a directory."
   "Return a list of all non-overlapping matches for REGEXP in STR.
 
 The search begins at position START, which defaults to the
-beginning of the string.  This function returns a list of all
-substrings that completely match REGEXP.
+beginning of the string.
 
 For example:
   (org-w3ctr--find-all \"[a-z]+\" \"1a-b2-cde\")
@@ -2234,7 +2231,7 @@ is converted to non-breaking spaces; newlines become <br>."
    ;; Replace leading white spaces with non-breaking spaces.
    (replace-regexp-in-string
     "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
-    ;; Replace each newline character with line break. Also
+    ;; Replace each newline character with line break.  Also
     ;; remove any trailing "br" close-tag so as to avoid
     ;; duplicates.
     (let ((re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote "<br>"))))
@@ -2253,7 +2250,7 @@ is converted to non-breaking spaces; newlines become <br>."
   "Transcode an ENTITY object from Org to HTML.
 
 CONTENTS and INFO are unused.  Return the HTML entity string
-for ENTITY (e.g. `&alpha;')."
+for ENTITY (for example, `&alpha;')."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
   (org-element-property :html entity))
@@ -2320,6 +2317,7 @@ TEXT as its content."
 ;; See (info "(org)Checkboxes")
 (defun t-statistics-cookie (statistics-cookie _contents _info)
   "Transcode a STATISTICS-COOKIE object from Org to HTML.
+
 CONTENTS and INFO are unused.  Return the cookie value wrapped in <code>."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
@@ -2331,9 +2329,8 @@ CONTENTS and INFO are unused.  Return the cookie value wrapped in <code>."
 ;; See (info "(org)Subscripts and Superscripts")
 (defun t-subscript (_subscript contents _info)
   "Transcode a SUBSCRIPT object from Org to HTML.
-CONTENTS is the subscript content.  INFO is unused.
 
-Return a <sub> element."
+CONTENTS is the subscript content.  INFO is unused.  Return a <sub> element."
   (declare (ftype (function (t string t) string))
            (pure t) (important-return-value t))
   (format "<sub>%s</sub>" contents))
@@ -2343,9 +2340,8 @@ Return a <sub> element."
 ;; See (info "(org)Subscripts and Superscripts")
 (defun t-superscript (_superscript contents _info)
   "Transcode a SUPERSCRIPT object from Org to HTML.
-CONTENTS is the superscript content.  INFO is unused.
 
-Return a <sup> element."
+CONTENTS is the superscript content.  INFO is unused.  Return a <sup> element."
   (declare (ftype (function (t string t) string))
            (pure t) (important-return-value t))
   (format "<sup>%s</sup>" contents))
@@ -2356,10 +2352,10 @@ Return a <sup> element."
 ;; - :html-text-markup-alist (`org-w3ctr-text-markup-alist')
 
 (defun t--get-markup-format (name info)
-  "Get markup format string for NAME from INFO plist.
-Returns \"%s\" if not found.
+  "Return the markup format string for NAME from the INFO plist.
 
-NAME is a symbol (like \\='bold), INFO is Org export info plist."
+NAME is a symbol (like \\='bold) and INFO is the Org export info
+plist.  Return \"%s\" if NAME is not found."
   (declare (ftype (function (symbol list) string))
            (important-return-value t))
   (if-let* ((alist (t--pget info :html-text-markup-alist))
@@ -2501,7 +2497,7 @@ Return the transcoded string."
 (defun t--timezone-to-offset (zone)
   "Convert timezone string ZONE to offset in seconds.
 
-Valid formats are UTC/GMT[+-]XX (e.g., UTC+8), [+-]HHMM (e.g., -0500)
+Valid formats are UTC/GMT[+-]XX (for example, UTC+8), [+-]HHMM (for example, -0500)
 or \"local\", which means use zero offset.  Return nil if ZONE doesn't
 match `org-w3ctr-timezone-regex'."
   (declare (ftype (function (string) (or fixnum symbol)))
@@ -2865,10 +2861,10 @@ timestamp string."
       (t--format-timestamp-fix timestamp fmt info))))
 
 (defun t-ts-default-format-function (timestamp _info)
-  "The default custom TIMESTAMP format function.
+  "Return the raw value of TIMESTAMP.
 
-TIMESTAMP is an Org timestamp object.  INFO is unused.  Return
-the raw value of TIMESTAMP."
+TIMESTAMP is an Org timestamp object.  INFO is unused.  This is the
+default `org-w3ctr-timestamp-format-function'."
   (declare (ftype (function (t list) string))
            (pure t) (important-return-value t))
   (org-element-property :raw-value timestamp))
@@ -2913,7 +2909,7 @@ This is used to override the default ox-html behavior where TOC comes
 first, allowing zeroth section's content to appear before the TOC while
 the TOC remains near the beginning of the document.")
 
-;; Malformed headlines (e.g., ** before *) are exported as-is:
+;; Malformed headlines (for example, ** before *) are exported as-is:
 ;; the heading level and section numbering reflect the source, not
 ;; a normalized hierarchy.  Both ox-html and ox-w3ctr behave the
 ;; same way — this is a feature, not a bug.
@@ -2933,7 +2929,7 @@ place it before the table of contents."
   (if (org-element-lineage section 'headline) contents
     ;; FIXME: Use the topmost property drawer for the zeroth section's
     ;; properties (it is lifted onto the org-data root); the template
-    ;; can then honor e.g. `:HTML_CONTAINER:' when wrapping this output.
+    ;; can then honor, for example, `:HTML_CONTAINER:' when wrapping this output.
     (prog1 nil (setq t--zeroth-section-output contents))))
 
 ;;;; Todo
@@ -3024,7 +3020,7 @@ with a class based on `:html-tag-class-prefix' and the tag name."
                (lambda (tag)
                  (format "<span class=\"%s\">%s</span>"
                          (concat prefix (org-html-fix-class-name tag)) tag))
-                         tags "&#xa0;")))))
+               tags "&#xa0;")))))
 
 (defun t--tags (tags info)
   "Format TAGS into HTML.
@@ -3058,8 +3054,8 @@ Return the formatted HTML string, or nil when TAGS is empty."
 (defun t--headline-todo (headline info)
   "Format and return the TODO keyword for HEADLINE.
 
-Returns the exported keyword string only if `:with-todo-keywords' is
-enabled in INFO and a TODO keyword exists on the HEADLINE.  Returns nil
+Return the exported keyword string only if `:with-todo-keywords' is
+enabled in INFO and a TODO keyword exists on the HEADLINE.  Return nil
 otherwise."
   (declare (ftype (function (t list) (or null string)))
            (important-return-value t))
@@ -3070,9 +3066,9 @@ otherwise."
 (defun t--headline-priority (headline info)
   "Return the numerical priority of a headline.
 
-This function returns the priority number (e.g., 65 for [#A]) only if
-the export option `:with-priority' is non-nil in INFO and the HEADLINE
-element has a priority cookie.  Returns nil otherwise."
+Return the priority number (for example, 65 for [#A]) only if the
+export option `:with-priority' is non-nil in INFO and the HEADLINE
+element has a priority cookie.  Return nil otherwise."
   (declare (ftype (function (t list) (or null fixnum)))
            (important-return-value t))
   (and (t--pget info :with-priority)
@@ -3081,17 +3077,18 @@ element has a priority cookie.  Returns nil otherwise."
 (defun t--headline-tags (headline info)
   "Return the list of tags for a headline.
 
-This function returns a list of tags associated with the HEADLINE
-element, but only if the export option `:with-tags' is enabled in the
-INFO plist. The tags are processed for export.  Returns nil if tags are
-disabled or not present."
+Return a list of tags associated with the HEADLINE element, but only if
+the export option `:with-tags' is enabled in the INFO plist.  The tags
+are processed for export.  Return nil if tags are disabled or not
+present."
   (declare (ftype (function (t list) (or null list)))
            (important-return-value t))
   (and (t--pget info :with-tags)
        (org-export-get-tags headline info)))
 
 (defun t-format-headline-default-function (todo _todo-type priority text tags info)
-  "Default format function for a headline.
+  "Format a headline from its todo, priority, text, and tags.
+
 See `org-w3ctr-format-headline-function' for details and the
 description of TODO, TODO-TYPE, PRIORITY, TEXT, TAGS, and INFO
 arguments."
@@ -3163,7 +3160,7 @@ final assembly."
 
 This function computes the final HTML heading level based on the
 headline's relative level within the Org document and the value
-of `:html-toplevel-hlevel'. The formula used is:
+of `:html-toplevel-hlevel'.  The formula used is:
   (relative + top-level - 1).
 
 Signal `org-w3ctr-error' when `:html-toplevel-hlevel' is not an
@@ -3197,7 +3194,7 @@ when HEADLINE is low-level."
   "Transcode a low-level headline into an HTML list item (`<li>').
 
 This function renders headlines that are too deep to become standard
-<hN> tags. It creates a list structure where a group of sibling
+<hN> tags.  It creates a list structure where a group of sibling
 low-level headlines becomes a single `<ol>' or `<ul>'.
 
 The list type (`<ol>' vs. `<ul>') is determined by whether section
@@ -3257,7 +3254,7 @@ non-nil, else nil."
 
 HEADLINE is the headline element, INFO the export plist.  When the
 headline is numbered, return `<span class=\"secno\">' holding its
-dotted section number (e.g. \"1.1. \"), else nil."
+dotted section number (for example, \"1.1. \"), else nil."
   (declare (ftype (function (t list) (or null string)))
            (pure t) (important-return-value t))
   (when-let* (((org-export-numbered-headline-p headline info))
@@ -3266,7 +3263,7 @@ dotted section number (e.g. \"1.1. \"), else nil."
             (mapconcat #'number-to-string numbers "."))))
 
 (defun t--headline-hN (headline info)
-  "Return the HTML heading tag name (e.g., \"h2\") for HEADLINE.
+  "Return the HTML heading tag name (for example, \"h2\") for HEADLINE.
 
 HEADLINE is the headline element, INFO the export plist.  The
 h-level is capped at 6, so the tag is always at most \"h6\"."
@@ -3276,11 +3273,9 @@ h-level is capped at 6, so the tag is always at most \"h6\"."
     (format "h%s" level)))
 
 (defun t-heading-default-format-function (headline title h id class info)
-  "Default format function for the heading block.
+  "Return the `.header-wrapper' div holding the heading and its self-link.
 
-See `org-w3ctr-heading-format-function' for the argument
-descriptions.  Return the `.header-wrapper' div holding the heading
-and its self-link."
+See `org-w3ctr-heading-format-function' for the argument descriptions."
   (declare (ftype (function (t string string string (or null string) list)
                             string))
            (important-return-value t))
