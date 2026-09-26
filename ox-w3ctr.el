@@ -1503,7 +1503,8 @@ Used by `org-w3ctr--encode-plain-text'.")
 
 (defconst t--protect-char-alist*
   '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;")
-    ;; https://stackoverflow.com/a/2428595
+    ;; Single and double quotes also need escaping inside attribute
+    ;; values; see https://stackoverflow.com/a/2428595.
     ("'" . "&apos;") ("\"" . "&quot;"))
   "Alist mapping HTML special characters to their entity strings,
 including single and double quotes.
@@ -1673,9 +1674,10 @@ standard `:attr_html' property using `org-w3ctr--make-attr_html'."
 Signal `org-w3ctr-error' if FILE does not exist or is a directory.
 FILE is decoded as UTF-8 regardless of the locale coding system, so
 the same file reads identically on every machine."
-  (declare (ftype (function (string) string)))
+  (declare (ftype (function (string) string))
+           (important-return-value t))
   (unless (and (file-exists-p file) (not (file-directory-p file)))
-    (t-error "Bad File: %s" file))
+    (t-error "Invalid file: %s" file))
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8))
       (insert-file-contents file))
@@ -1690,7 +1692,7 @@ the full contents of FILE into the current buffer.  It signals
 a `org-w3ctr-error' if FILE does not exist or is a directory."
   (declare (ftype (function (string) t)))
   (unless (and (file-exists-p file) (not (file-directory-p file)))
-    (t-error "Bad File: %s" file))
+    (t-error "Invalid file: %s" file))
   (insert-file-contents-literally file))
 
 (defun t--find-all (regexp str &optional start)
@@ -2014,7 +2016,7 @@ the info plist.  Return the formatted item as a string."
        (let ((term (when-let* ((a (org-element-property :tag item)))
                      (org-export-data a info))))
          (t--format-descriptive-item contents checkbox info term)))
-      (_ (t-error "Unrecognized list item type: %s" type)))))
+      (_ (t-error "Unknown list item type: %s" type)))))
 
 ;;;; Plain List
 
@@ -2552,7 +2554,7 @@ invalid, signal an error."
        (t (if-let* ((time (t--timezone-to-offset zone)))
               (t--pput info :html-timezone time)
             (t-error "Invalid timezone format: %s" zone))))
-    (t-error ":html-timezone is nil")))
+    (t-error "Invalid timezone: nil")))
 
 (defun t--get-info-export-timezone-offset (info &optional zone1-offset)
   "Return export timezone offset from INFO plist.
@@ -2596,7 +2598,10 @@ This value can be used to convert timestamps between timezones:
    the corresponding UTC time.
 2. Then add the export timezone offset to the UTC time to get the
    timestamp in the export timezone."
-  (declare (ftype (function (list &optional t t) fixnum))
+  (declare (ftype (function ( list &optional
+                              (or fixnum symbol)
+                              (or fixnum symbol))
+                            fixnum))
            (important-return-value t))
   (let* ((offset1 (or z1 (t--get-info-timezone-offset info)))
          (offset2 (or z2 (t--get-info-export-timezone-offset
@@ -2663,8 +2668,8 @@ formatted datetime string."
               (time (if notime time (time-add time delta))))
         (condition-case nil
             (format-time-string fmt time)
-          (error (t-error "Time may be out of range: %s" time)))
-      (t-error ":html-datetime-option is invalid: %s" option))))
+          (error (t-error "Invalid time value: %s" time)))
+      (t-error "Invalid datetime option: %s" option))))
 
 (defun t--call-with-invalid-time-spec-handler (fn timestamp &rest args)
   "Wrap FN call with clearer error messages for invalid timestamps.
@@ -2678,7 +2683,7 @@ with the raw value of TIMESTAMP.  Other errors are re-signaled as-is."
       (apply fn timestamp args)
     (error
      (if (equal e '(error "Invalid time specification"))
-         (t-error "Timestamp %s encode failed"
+         (t-error "Invalid timestamp: %s"
                   (org-element-property :raw-value timestamp))
        (signal e)))))
 
@@ -2688,7 +2693,7 @@ with the raw value of TIMESTAMP.  Other errors are re-signaled as-is."
 TIMESTAMP is an Org timestamp object.  INFO is the info plist.
 END, when non-nil, format the end of a range.  Return a string
 suitable for an HTML <time> datetime attribute."
-  (declare (ftype (function (t list &optional t) string))
+  (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (format " datetime=\"%s\""
           (t--format-datetime
@@ -2709,7 +2714,7 @@ inserts trailing spaces when the timestamp is followed by space."
            (important-return-value t))
   (or (t--call-with-invalid-time-spec-handler
        #'org-element-timestamp-interpreter timestamp :nothing)
-      (t-error "Bad start date: %s" timestamp)))
+      (t-error "Invalid timestamp start: %s" timestamp)))
 
 (defun t--format-timestamp-diary (timestamp info)
   "Format a diary TIMESTAMP object.
@@ -2764,7 +2769,7 @@ formatted timestamp string."
          (1 (format str (t--format-ts-datetime timestamp info)))
          (2 (format str (t--format-ts-datetime timestamp info)
                     (t--format-ts-datetime timestamp info t)))
-         (_ (t-error "Abnormal timestamp: %s" raw)))))
+         (_ (t-error "Invalid timestamp range: %s" raw)))))
     (w (t-error "Unknown timestamp wrapper: %s" w))))
 
 (defun t--format-timestamp-raw (timestamp info)
@@ -2798,7 +2803,7 @@ Return the formatted timestamp string."
             (org-timestamp-formats fmt)
             (raw (t--interpret-timestamp timestamp)))
       (t--format-timestamp-raw-1 timestamp raw info)
-    (t-error ":html-timestamp-formats not valid: %s"
+    (t-error "Invalid timestamp formats: %s"
              (t--pget info :html-timestamp-formats))))
 
 (defun t--format-timestamp-fix (timestamp fmt info)
@@ -2820,7 +2825,7 @@ options.  Return the formatted timestamp string."
            (`time
             (format (t--format-ts-span-time time info t)
                     (t--format-ts-datetime timestamp info)))
-           (_ (t-error "Unknown timestamp wrap: %s" wrap)))))
+           (_ (t-error "Unknown timestamp wrapper: %s" wrap)))))
       ((or `active-range `inactive-range)
        (let* ((t1 (org-format-timestamp timestamp fmt))
               (t2 (org-format-timestamp timestamp fmt t)))
@@ -2834,7 +2839,7 @@ options.  Return the formatted timestamp string."
                                (t--format-ts-span-time t2 info t))))
               (format tt (t--format-ts-datetime timestamp info)
                       (t--format-ts-datetime timestamp info t))))
-           (_ (t-error "Unknown timestamp wrap: %s" wrap)))))
+           (_ (t-error "Unknown timestamp wrapper: %s" wrap)))))
       (_ (t-error "Unknown timestamp type: %s" type)))))
 
 (defun t--format-timestamp-org (timestamp info)
@@ -2870,7 +2875,7 @@ timestamp string."
          (fmt (if (org-timestamp-has-time-p timestamp)
                   (cdr fmts) (car fmts))))
     (unless (and (stringp fmt) (string-match-p re fmt))
-      (t-error "FMT not fit in `cus': %s" fmts))
+      (t-error "Invalid custom timestamp format: %s" fmts))
     (let ((fmt (if (/= (aref fmt 0) ?\{) fmt (substring fmt 1 -1))))
       (t--format-timestamp-fix timestamp fmt info))))
 
@@ -2889,7 +2894,7 @@ default `org-w3ctr-timestamp-format-function'."
            (important-return-value t))
   (if-let* ((fun (t--pget info :html-timestamp-format-function)))
       (funcall fun timestamp info)
-    (t-error ":html-timestamp-format-function is nil")))
+    (t-error "Invalid timestamp format function: nil")))
 
 (defun t-timestamp (timestamp _contents info)
   "Transcode a TIMESTAMP object from Org to HTML.
@@ -2937,7 +2942,7 @@ A section inside a headline returns CONTENTS as-is.  The zeroth
 section, the one outside any headline, returns nil and stores
 CONTENTS in `org-w3ctr--zeroth-section-output', so the template can
 place it before the table of contents."
-  (declare (ftype (function (t t t) (or null string)))
+  (declare (ftype (function (t (or null string) list) (or null string)))
            (important-return-value t))
   ;; normal section
   (if (org-element-lineage section 'headline) contents
@@ -3215,7 +3220,7 @@ The list type (`<ol>' vs. `<ul>') is determined by whether section
 numbering is active.  The reference id and `:HTML_CONTAINER_CLASS:'
 become attributes of the `<li>'; when `:HTML_HEADLINE_CLASS:' is set,
 the headline text is wrapped in a `<span>' with that class."
-  (declare (ftype (function (t t list) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((numberedp (org-export-numbered-headline-p headline info))
          (tag (if numberedp "ol" "ul"))
@@ -3390,7 +3395,7 @@ to the CONTENT-FORMAT and encoding the result as plain text."
     (if-let* ((fun (t--pget info :html-file-timestamp-function))
               ((functionp fun)))
         (funcall fun info)
-      (t-error "Invalid :html-file-timestamp-function: %s"
+      (t-error "Invalid file timestamp function: %s"
                (t--pget info :html-file-timestamp-function)))))
 
 (defun t--ensure-charset-utf8 ()
@@ -3739,7 +3744,7 @@ base64 encoded string. If the file does not exist, raise an error."
            (important-return-value t))
   (let ((file (file-name-concat t--dir "assets" (concat name ".svg"))))
     (if (not (file-exists-p file))
-        (t-error "Svg budget not exists: %s" file)
+        (t-error "Invalid SVG budget: %s" file)
       (with-temp-buffer
         (t--insert-file file)
         (base64-encode-region (point-min) (point-max) t)

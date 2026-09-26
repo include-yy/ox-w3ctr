@@ -1752,7 +1752,7 @@ int a = 1;</code></p>\n</details>")
   ;; time out of range
   (let ((info8 '(:html-timezone 0 :html-datetime-option s-none)))
     ($e!l (t--format-datetime -65536 info8)
-          '(org-w3ctr-error "Time may be out of range: -65536"))))
+          '(org-w3ctr-error "Invalid time value: -65536"))))
 
 (ert-deftest t--call-with-invalid-time-spec-handler ()
   "Tests for `org-w3ctr--call-with-invalid-time-spec-handler'."
@@ -1762,13 +1762,13 @@ int a = 1;</code></p>\n</details>")
     ($e!l (t--call-with-invalid-time-spec-handler
            (lambda (_ts) (error "Invalid time specification"))
            (nth 0 ts))
-          '(org-w3ctr-error "Timestamp [2000-01-01] encode failed"))
+          '(org-w3ctr-error "Invalid timestamp: [2000-01-01]"))
     ($e!l (t--call-with-invalid-time-spec-handler
            #'org-timestamp-to-time (nth 1 ts))
-          '(org-w3ctr-error "Timestamp [1945-08-15] encode failed"))
+          '(org-w3ctr-error "Invalid timestamp: [1945-08-15]"))
     ($e!l (t--call-with-invalid-time-spec-handler
            #'org-element-timestamp-interpreter (nth 2 ts) nil)
-          '(org-w3ctr-error "Timestamp [1145-05-14]--[1919-08-10] encode failed")))
+          '(org-w3ctr-error "Invalid timestamp: [1145-05-14]--[1919-08-10]")))
   (let ((ts (t-get-parsed-elements
              "[2038-01-19 03:14:07] [2025-06-17 16:40]" 'timestamp)))
     ($s (t--call-with-invalid-time-spec-handler
@@ -1792,7 +1792,7 @@ int a = 1;</code></p>\n</details>")
          (ts6 (t-get-parsed-elements
                "[2022-06-07 09:00]--[2022-06-08]" 'timestamp)))
     ($e!l (t--format-ts-datetime (nth 0 ts0) info)
-          '(org-w3ctr-error "Timestamp [1900-01-01] encode failed"))
+          '(org-w3ctr-error "Invalid timestamp: [1900-01-01]"))
     ($l (t--format-ts-datetime (nth 0 ts1) info)
         " datetime=\"2025-06-17T08:49Z\"")
     ($l (t--format-ts-datetime (nth 0 ts2) info)
@@ -1866,7 +1866,7 @@ int a = 1;</code></p>\n</details>")
   (cl-flet ((f (s) (car (t-get-parsed-elements s 'timestamp)))
             (g (x) (t--interpret-timestamp x)))
     ($e!l (g (f "[1949-10-01]"))
-          '(org-w3ctr-error "Timestamp [1949-10-01] encode failed"))
+          '(org-w3ctr-error "Invalid timestamp: [1949-10-01]"))
     ($e! (let ((ts (f "[2000-01-01]")))
            (setf (org-element-property :year-start ts) nil)
            (g ts))))
@@ -2124,7 +2124,7 @@ int a = 1;</code></p>\n</details>")
           "&lt;2011-11-18 06:54&gt;--&lt;2011-11-18 14:54&gt;")
       ($l (g t4 '(nil . "%M")) "&lt;54&gt;--&lt;54&gt;"))
     ($e!l (t--format-timestamp-fmt (f "[2000-01-01]") nil)
-          '(org-w3ctr-error ":html-timestamp-formats not valid: nil"))))
+          '(org-w3ctr-error "Invalid timestamp formats: nil"))))
 
 (ert-deftest t--format-timestamp-fix ()
   "Tests for `org-w3ctr--format-timestamp-fix'."
@@ -2147,11 +2147,11 @@ int a = 1;</code></p>\n</details>")
           ($c "<time datetime=\"2011-11-18T14:54Z\">"
               "2011-11-18 Fri</time>"))
       ($e!l (g t2 "%F" 'wtf)
-            '(org-w3ctr-error "Unknown timestamp wrap: wtf"))
+            '(org-w3ctr-error "Unknown timestamp wrapper: wtf"))
       ($l (g t3 "{%F%a%R}" 'none)
           "{2011-11-18Fri06:54}--{2011-11-18Fri14:54}")
       ($e!l (g t3 "%a" 'abc)
-            '(org-w3ctr-error "Unknown timestamp wrap: abc"))
+            '(org-w3ctr-error "Unknown timestamp wrapper: abc"))
       ($l (g t3 "[%F%R]" 'span)
           ($c "<span class=\"timestamp-wrapper\">"
               "<span class=\"timestamp\">"
@@ -2775,7 +2775,7 @@ int a = 1;</code></p>\n</details>")
   ($e!l
    (t--get-info-file-timestamp '( :time-stamp-file t
                                   :html-file-timestamp-function nil))
-   '(org-w3ctr-error "Invalid :html-file-timestamp-function: nil"))
+   '(org-w3ctr-error "Invalid file timestamp function: nil"))
   (t-check-element-values
    #'t--get-info-file-timestamp
    `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
