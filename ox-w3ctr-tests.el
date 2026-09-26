@@ -3028,6 +3028,15 @@ int a = 1;</code></p>\n</details>")
     ($s (t--has-math-p (mkinfo "\\[1+2\\]")))
     ($s (t--has-math-p (mkinfo "\\begin_equation\n123\n\\end_equation")))))
 
+(ert-deftest t--normalize-string-or-function ()
+  "Tests for `org-w3ctr--normalize-string-or-function'."
+  ($l (t--normalize-string-or-function "abc") "abc\n")
+  ($l (t--normalize-string-or-function "abc\n") "abc\n")
+  ($n (t--normalize-string-or-function nil))
+  ($l (t--normalize-string-or-function (lambda () "fn")) "fn\n")
+  ($n (t--normalize-string-or-function (lambda () nil)))
+  ($l (t--normalize-string-or-function (lambda () 42)) "42\n"))
+
 (ert-deftest t--build-head ()
   "Tests for `org-w3ctr--build-head'."
   (cl-letf (((symbol-function 't--build-meta-info)
