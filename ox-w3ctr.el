@@ -3383,7 +3383,8 @@ CONTENT-FORMAT is present, <meta LABEL=\"IDENTITY\"
 content=\"{content}\">.
 
 {content} is CONTENT-FORMAT, after any CONTENT-FORMATTERS are
-applied to it, encoded as plain text."
+applied to it, encoded as plain text.  LABEL and IDENTITY are not
+escaped; callers pass literal names."
   (declare (ftype (function ( string string
                               &optional string &rest t)
                             string))
@@ -3425,7 +3426,7 @@ is not a function."
 Signal an error when `org-w3ctr-coding-system' is not a symbol, names
 no coding system, or names one whose MIME charset is not UTF-8."
   (declare (ftype (function () string))
-           (important-return-value t))
+           (side-effect-free t) (important-return-value t))
   (let* ((c t-coding-system)
          (h (lambda (_) (t-error "Invalid coding system: %s" c))))
     (unless (symbolp c) (funcall h c))
