@@ -314,6 +314,14 @@ same session.  Larger or planned work is in the =Roadmap= section of
     (excluding `defsubst` and end-user commands).
   - Rename `;;;; Legacy home and up` (fold into Navbar or rename).
 
+- **Shorthand symbol names in docstrings and comments.**  They are
+  string literals and get no `read-symbol-shorthands`; write the full
+  `org-w3ctr-*` name.  The Navbar section is clean as of 2026-10-03;
+  remaining offenders (grep `` `t- `` in `ox-w3ctr.el`): `t-style` /
+  `t-style-file`, `t-fixup-js` (also an `Update ???` placeholder),
+  `t-inline-image-rules`, `t-inline-image-p`, `t-link`, `t--link-path`.
+  Fix per section in the passes.
+
 - **Legacy navbar fallback tests (deferred from the Legacy home and up
   pass).**  The legacy-bar edge cases are tested as of the follow-up
   pass (blank and missing links, custom format strings, the error

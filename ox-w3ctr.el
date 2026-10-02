@@ -3777,16 +3777,27 @@ kept.  Return the navbar block, a <nav> element with id
   (concat "<nav id=\"navbar\">" (t--prepend-newline (t--trim links))
           "\n</nav>\n"))
 
-(defun t--format-navbar-vector (v)
-  "Submodule of `t-format-navbar-default-function'."
+(defun t--format-navbar-vector (pairs)
+  "Build the navbar from the (URL . NAME) pairs in vector PAIRS.
+
+PAIRS is a vector of conses as in `org-w3ctr-link-navbar'.  Return
+the navbar block, one anchor per pair: link and name go in
+verbatim, without HTML escaping.  Return \"\" for an empty PAIRS,
+which `org-w3ctr-format-navbar-default-function' reads as \"no links\"
+and answers with the legacy home/up bar.  Signal `org-w3ctr-error'
+when an entry is not a (URL . NAME) cons of strings."
   (declare (ftype (function (vector) string))
-           (pure t) (important-return-value t))
-  (if (equal v []) ""
-    (t--wrap-navbar
-     (mapconcat
-      (pcase-lambda (`(,link . ,name))
-        (format "<a href=\"%s\">%s</a>" link name))
-      v "\n"))))
+           (important-return-value t))
+  (if (equal pairs []) ""
+    (let ((valid-p (lambda (x) (and (stringp (car-safe x))
+                                    (stringp (cdr-safe x))))))
+      (unless (cl-every valid-p pairs)
+        (t-error "Invalid navbar vector: %s" pairs))
+      (t--wrap-navbar
+       (mapconcat
+        (pcase-lambda (`(,link . ,name))
+          (format "<a href=\"%s\">%s</a>" link name))
+        pairs "\n")))))
 
 (defun t--format-navbar-list (ll info)
   "Render the navbar link elements LL into a <nav> element.
@@ -3794,7 +3805,7 @@ kept.  Return the navbar block, a <nav> element with id
 LL is a list of Org elements and INFO the export options plist.
 Return \"\" when LL is nil or none of its links transcode to a
 non-blank string; otherwise return the <nav> block.  See
-`t-format-navbar-default-function'."
+`org-w3ctr-format-navbar-default-function'."
   (declare (ftype (function (list list) string))
            (important-return-value t))
   (if (null ll) ""
@@ -3815,18 +3826,15 @@ conses becomes one anchor per entry, and a list of Org elements
 
 When the option yields no links at all (nil, an empty vector, or
 a list that transcoded to nothing), fall back to the legacy
-home/up bar, `org-w3ctr--format-legacy-navbar'.  Signal `org-w3ctr-error'
-when a vector entry is not a (URL . NAME) cons of strings, or
-when the option is neither a vector nor a list."
+home/up bar, `org-w3ctr--format-legacy-navbar'.  Signal
+`org-w3ctr-error' when the option is neither a vector nor a list,
+and when a vector entry is not a (URL . NAME) cons of strings
+(checked in `org-w3ctr--format-navbar-vector')."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (let* ((links (t--pget info :html-link-navbar))
-         (p (lambda (x) (and (stringp (car-safe x))
-                             (stringp (cdr-safe x)))))
          (nav (pcase links
-                ((pred vectorp)
-                 (if (cl-every p links) (t--format-navbar-vector links)
-                   (t-error "Invalid navbar vector: %s" links)))
+                ((pred vectorp) (t--format-navbar-vector links))
                 ((pred listp) (t--format-navbar-list links info))
                 (other (t-error "Invalid navbar type: %s" other)))))
     ;; Empty result, whatever the reason: the legacy home/up bar.

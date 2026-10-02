@@ -3186,7 +3186,15 @@ int a = 1;</code></p>\n</details>")
 <nav id=\"navbar\">
 <a href=\"a\">b</a>
 <a href=\"c\">d</a>
-</nav>\n"))
+</nav>\n")
+  ;; Link and name go in verbatim, without HTML escaping.
+  ($l (t--format-navbar-vector [("<u>" . "N")])
+      "<nav id=\"navbar\">\n<a href=\"<u>\">N</a>\n</nav>\n")
+  ;; An entry that is not a (URL . NAME) cons of strings is an error.
+  ($q (car (should-error (t--format-navbar-vector [(a . "b")])))
+      'org-w3ctr-error)
+  ($q (car (should-error (t--format-navbar-vector [("a" . b)])))
+      'org-w3ctr-error))
 
 (ert-deftest t--format-navbar-list ()
   "Tests for `org-w3ctr--format-navbar-list'."
