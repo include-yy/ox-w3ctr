@@ -308,3 +308,9 @@ same session.  Larger or planned work is in the =Roadmap= section of
   - Add `(declare (ftype …))` to the ~18 functions that still lack it
     (excluding `defsubst` and end-user commands).
   - Rename `;;;; Legacy home and up` (fold into Navbar or rename).
+
+- **Legacy navbar edge-case tests (deferred from the Legacy home and
+  up pass).**  Still to discuss and add: whitespace-only links, a
+  custom `:html-home/up-format` string, a literal `%` in the format
+  string, and a non-string format value (the error path of
+  `org-w3ctr--format-home/up`).

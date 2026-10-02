@@ -555,31 +555,50 @@ See `org-html-inline-image-rules' for more information."
 (defcustom t-link-home ""
   "URL for the `HOME' link in the legacy navigation bar.
 
-Used as a fallback when `org-w3ctr-link-navbar' is not set."
+The legacy bar appears only when `org-w3ctr-link-navbar' yields
+no links; see `org-w3ctr-home/up-format' for its format.  When
+this option is empty or blank, the `HOME' anchor falls back to
+`org-w3ctr-link-up', and the reverse also holds."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-link-up ""
   "URL for the `UP' link in the legacy navigation bar.
 
-Used as a fallback when `org-w3ctr-link-navbar' is not set."
+The legacy bar appears only when `org-w3ctr-link-navbar' yields
+no links; see `org-w3ctr-home/up-format' for its format.  When
+this option is empty or blank, the `UP' anchor falls back to
+`org-w3ctr-link-home', and the reverse also holds."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-home/up-format
   "<nav id=\"navbar\">\n <a href=\"%s\"> UP </a>
  <a href=\"%s\"> HOME </a>\n</nav>"
-  "Formatting string for the legacy home/up navigation bar.
+  "Format string for the legacy home/up navigation bar.
 
-The first %s is for the `UP' link, and the second for `HOME'."
+The default bar shares id \"navbar\" with the navbar of
+`org-w3ctr-format-navbar-default-function', so one CSS rule
+styles both.
+The first %s receives the `UP' link and the second the `HOME'
+link.  Both go in verbatim, without HTML escaping.  The bar is
+omitted entirely when `org-w3ctr-link-up' and
+`org-w3ctr-link-home' are both empty or blank.  The transcoder
+normalizes the result to end in a newline."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-link-navbar nil
   "Navigation bar links.  Can be:
-- A vector of (URL . NAME) pairs, e.g [(\"../index.html\" . \"Up\")]
-- A list of Org elements (from HTML_LINK_NAVBAR)
-- nil to use the legacy home/up behavior"
+- A vector of (URL . NAME) pairs, for example
+  [(\"../index.html\" . \"Up\")],
+- A list of Org elements (from the HTML_LINK_NAVBAR keyword),
+- nil for the legacy home/up behavior.
+
+A value that yields no links (nil, an empty vector, or a list
+that transcodes to nothing) falls back to the legacy bar; see
+`org-w3ctr--format-legacy-navbar'.  To suppress the navbar
+entirely, set `org-w3ctr-format-navbar-function' to nil."
   :group 'org-export-w3ctr
   :type 'sexp)
 
@@ -3676,25 +3695,59 @@ contents, wrapped in a <head> element."
 
 ;;;; Legacy home and up
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-link-up (`org-w3ctr-link-up')
 ;; - :html-link-home (`org-w3ctr-link-home')
 ;; - :html-home/up-format (`org-w3ctr-home/up-format')
 
-(defun t--format-legacy-navbar (info)
-  "Format the legacy Home/Up navigation bar.
+;; This bar is only half of ox-html's home/up feature: ox-html also
+;; prepends `:html-link-home' to relative file links when
+;; `:html-link-use-abs-url' is set (see `org-html-link-file-path').
+;; ox-w3ctr has never implemented that half; see the FIXME in
+;; `org-w3ctr--link-path'.
 
-Generates HTML navigation bar using either :html-link-up or
-:html-link-home from the INFO plist, falling back to each other when
-empty. Returns nil if both links are empty strings."
+(defun t--format-home/up (fmt up home)
+  "Fill the home/up format string FMT with the link URLs UP and HOME.
+
+FMT is a `format' string as in `org-w3ctr-home/up-format': its
+first %s receives UP, its second HOME.  Both go in verbatim,
+without HTML escaping.  Return the formatted string.
+
+Signal `org-w3ctr-error' when FMT is not a string, or when `format'
+rejects it, for example for a literal % in FMT or the wrong number
+of %s specifications."
+  (declare (ftype (function (t string string) string))
+           (pure t) (important-return-value t))
+  (unless (stringp fmt)
+    (t-error "Invalid :html-home/up-format: %S" fmt))
+  (condition-case err
+      (format fmt up home)
+    (error (t-error "Invalid :html-home/up-format: %s"
+                    (error-message-string err)))))
+
+(defun t--format-legacy-navbar (info)
+  "Format the legacy Home/Up navigation bar from the export INFO.
+
+INFO is the export options plist.  Read the link targets from the
+`:html-link-up' and `:html-link-home' options, and the format
+string from `:html-home/up-format'; its first %s receives the UP
+link and its second the HOME link.  When only one of the two
+links is set, both anchors use it.  The links go into the format
+string verbatim, without HTML escaping.
+
+Return the bar as a string, normalized to end in a newline.
+Return nil when both links are empty, blank, or missing.  Signal
+`org-w3ctr-error' when `:html-home/up-format' is not a string or
+`format' rejects it."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (let ((link-up (t--nw-trim (t--pget info :html-link-up)))
         (link-home (t--nw-trim (t--pget info :html-link-home))))
     (unless (and (null link-up) (null link-home))
-      (format (t--pget info :html-home/up-format)
-              (or link-up link-home) (or link-home link-up)))))
+      (org-element-normalize-string
+       (t--format-home/up (t--pget info :html-home/up-format)
+                          (or link-up link-home)
+                          (or link-home link-up))))))
 
 ;;;; Navbar
 
@@ -3721,45 +3774,48 @@ empty. Returns nil if both links are empty strings."
       v "\n"))))
 
 (defun t--format-navbar-list (ll info)
-  "Submodule of `t-format-navbar-default-function'."
+  "Render the navbar link elements LL into a <nav> element.
+
+LL is a list of Org elements and INFO the export options plist.
+Return \"\" when LL is nil or none of its links transcode to a
+non-blank string; otherwise return the <nav> block.  See
+`t-format-navbar-default-function'."
   (declare (ftype (function (list list) string))
            (important-return-value t))
   (if (null ll) ""
     (let* ((elems (mapcar (lambda (x) (org-export-data x info)) ll))
            (links (cl-remove-if-not #'t--nw-p elems))
            (as (mapcar #'t--trim links)))
-      (t--format-navbar-nav (string-join as "\n")))))
+      (if (null as) "" (t--format-navbar-nav (string-join as "\n"))))))
 
 (defun t-format-navbar-default-function (info)
-  "Generate HTML navigation links from the export INFO plist. This
-function processes the :html-link-navbar property to create a
-navigation section in the exported document.
+  "Generate the navbar HTML from the export options INFO.
 
-When :html-link-navbar is a vector, it should contain cons cells in
-the form (URL . LABEL) where URL is the target location and LABEL is
-the display text.
+INFO is the export options plist.  Read the links from
+`:html-link-navbar' and render them: a vector of (URL . NAME)
+conses becomes one anchor per entry, and a list of Org elements
+(from the HTML_LINK_NAVBAR keyword) is transcoded with
+`org-export-data'.  Wrap the anchors in a <nav> element with id
+\"navbar\".
 
-When :html-link-navbar is a list, it is treated as containing Org
-link elements. These links will be processed through `org-export-data'
-to generate the final HTML output.
-
-The output is always wrapped in a <nav> HTML element with
-id=\"navbar\" for consistent styling and semantic markup.
-Each link is separated by newlines for readability in the output HTML."
+When the option yields no links at all (nil, an empty vector, or
+a list that transcoded to nothing), fall back to the legacy
+home/up bar, `org-w3ctr--format-legacy-navbar'.  Signal `org-w3ctr-error'
+when a vector entry is not a (URL . NAME) cons of strings, or
+when the option is neither a vector nor a list."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (let* ((links (t--pget info :html-link-navbar))
          (p (lambda (x) (and (stringp (car-safe x))
-                             (stringp (cdr-safe x))))))
-    (pcase links
-      ((pred vectorp)
-       (or (and (cl-every p links) (t--format-navbar-vector links))
-           (t-error "Invalid navbar vector: %s" links)))
-      ((pred listp)
-       (let ((res (t--format-navbar-list links info)))
-         (if (not (string-empty-p res)) res
-           (or (t--format-legacy-navbar info) ""))))
-      (other (t-error "Invalid navbar type: %s" other)))))
+                             (stringp (cdr-safe x)))))
+         (nav (pcase links
+                ((pred vectorp)
+                 (if (cl-every p links) (t--format-navbar-vector links)
+                   (t-error "Invalid navbar vector: %s" links)))
+                ((pred listp) (t--format-navbar-list links info))
+                (other (t-error "Invalid navbar type: %s" other)))))
+    ;; Empty result, whatever the reason: the legacy home/up bar.
+    (if (string-empty-p nav) (or (t--format-legacy-navbar info) "") nav)))
 
 ;;;; CC license budget
 

@@ -3081,27 +3081,27 @@ int a = 1;</code></p>\n</details>")
                  :html-home/up-format ,t-home/up-format)))
     ($l (t--format-legacy-navbar info) "\
 <nav id=\"navbar\">\n <a href=\"1\"> UP </a>
- <a href=\"2\"> HOME </a>\n</nav>")
+ <a href=\"2\"> HOME </a>\n</nav>\n")
     (setq info (plist-put info :html-link-home ""))
     ($l (t--format-legacy-navbar info) "\
 <nav id=\"navbar\">\n <a href=\"1\"> UP </a>
- <a href=\"1\"> HOME </a>\n</nav>")
+ <a href=\"1\"> HOME </a>\n</nav>\n")
     (setq info (plist-put info :html-link-up ""))
     (setf (plist-get info :html-link-home) "2")
     ($l (t--format-legacy-navbar info) "\
 <nav id=\"navbar\">\n <a href=\"2\"> UP </a>
- <a href=\"2\"> HOME </a>\n</nav>"))
+ <a href=\"2\"> HOME </a>\n</nav>\n"))
   (t-check-element-values
    #'t--format-legacy-navbar
    `(("#+html_link_up: https://example.com"
       ,($c "<nav id=\"navbar\">\n <a href=\"https://example.com\"> UP "
-           "</a>\n <a href=\"https://example.com\"> HOME </a>\n</nav>"))
+           "</a>\n <a href=\"https://example.com\"> HOME </a>\n</nav>\n"))
      ("#+html_link_home: https://a.com"
       ,($c "<nav id=\"navbar\">\n <a href=\"https://a.com\"> UP "
-           "</a>\n <a href=\"https://a.com\"> HOME </a>\n</nav>"))
+           "</a>\n <a href=\"https://a.com\"> HOME </a>\n</nav>\n"))
      ("#+html_link_home: a\n#+html_link_up:b"
       ,($c "<nav id=\"navbar\">\n <a href=\"b\"> UP "
-           "</a>\n <a href=\"a\"> HOME </a>\n</nav>")))
+           "</a>\n <a href=\"a\"> HOME </a>\n</nav>\n")))
    nil `( :html-link-up "" :html-link-home ""
           :html-link-navbar nil
           :html-home/up-format ,t-home/up-format)))
@@ -3177,13 +3177,13 @@ int a = 1;</code></p>\n</details>")
       "<nav id=\"navbar\">\n1 2 3\n</nav>\n")
      ("#+html_link_navbar: \n#+html_link_home: 123"
       ,($c "<nav id=\"navbar\">\n <a href=\"123\"> UP </a>\n"
-           " <a href=\"123\"> HOME </a>\n</nav>"))
+           " <a href=\"123\"> HOME </a>\n</nav>\n"))
      ("#+html_link_up: 456"
       ,($c "<nav id=\"navbar\">\n <a href=\"456\"> UP </a>\n"
-           " <a href=\"456\"> HOME </a>\n</nav>"))
+           " <a href=\"456\"> HOME </a>\n</nav>\n"))
      ("#+html_link_home: 123\n#+html_link_up: 456"
       ,($c "<nav id=\"navbar\">\n <a href=\"456\"> UP </a>\n"
-           " <a href=\"123\"> HOME </a>\n</nav>")))
+           " <a href=\"123\"> HOME </a>\n</nav>\n")))
    nil `(:html-format-navbar-function
          t-format-navbar-default-function
          :html-link-up "" :html-link-home ""

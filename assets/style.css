@@ -1778,20 +1778,6 @@ aside.example .marker>a.self-link{color:inherit}
 :is(h4,h5,h6)+a.self-link::before{color:#000}
 
 /* org related style */
-#home-and-up {
-    position: fixed;
-    z-index: 3;
-    top: 0; right: 0.5em;
-    margin: 0;
-    min-height: 1.5em;
-    font-size: 1.5em;
-}
-#home-and-up > a {
-    padding: .1em 0.25em;
-    margin: 0;
-    border: none;
-}
-
 #navbar {
     position: fixed;
     z-index: 3;
