@@ -3696,14 +3696,17 @@ contents, wrapped in a <head> element."
    (t--normalize-string-or-function (t--pget info :html-head-extra) info)
    "</head>\n"))
 
-;;;; Legacy home and up
+;;;; Navbar
 
 ;; Options:
+;; - :html-link-navbar (`org-w3ctr-link-navbar')
+;; - :html-format-navbar-function (`org-w3ctr-format-navbar-function')
 ;; - :html-link-up (`org-w3ctr-link-up')
 ;; - :html-link-home (`org-w3ctr-link-home')
 ;; - :html-home/up-format (`org-w3ctr-home/up-format')
 
-;; FIXME: This bar is only half of ox-html's home/up feature: ox-html also
+;; The legacy home/up bar fills in when the navbar yields no links.
+;; FIXME: It is only half of ox-html's home/up feature: ox-html also
 ;; prepends `:html-link-home' to relative file links when
 ;; `:html-link-use-abs-url' is set (see `org-html-link-file-path').
 ;; ox-w3ctr has never implemented that half; see the FIXME in
@@ -3755,13 +3758,6 @@ goes unnoticed."
        (t--format-home/up (t--pget info :html-home/up-format)
                           (or link-up link-home)
                           (or link-home link-up))))))
-
-;;;; Navbar
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; Options:
-;; - :html-link-navbar (`org-w3ctr-link-navbar')
-;; - :html-format-navbar-function (`org-w3ctr-format-navbar-function')
 
 (defun t--wrap-navbar (links)
   "Wrap the navbar links HTML in the <nav> element.
@@ -3824,15 +3820,17 @@ INFO is the export options plist.  Read the links from
 `:html-link-navbar' and render them: a vector of (URL . NAME)
 conses becomes one anchor per entry, and a list of Org elements
 (from the HTML_LINK_NAVBAR keyword) is transcoded with
-`org-export-data'.  Wrap the anchors in a <nav> element with id
-\"navbar\".
+`org-export-data'.  The anchors are wrapped in a <nav> element
+with id \"navbar\".
 
 When the option yields no links at all (nil, an empty vector, or
 a list that transcoded to nothing), fall back to the legacy
-home/up bar, `org-w3ctr--format-legacy-navbar'.  Signal
-`org-w3ctr-error' when the option is neither a vector nor a list,
-and when a vector entry is not a (URL . NAME) cons of strings
-(checked in `org-w3ctr--format-navbar-vector')."
+home/up bar, `org-w3ctr--format-legacy-navbar'.  Return the
+navbar HTML as a string: \"\" when neither the navbar option nor
+the legacy home/up bar yields any links.  Signal `org-w3ctr-error'
+when the option is neither a vector nor a list, and when a vector
+entry is not a (URL . NAME) cons of strings (checked in
+`org-w3ctr--format-navbar-vector')."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (let* ((links (t--pget info :html-link-navbar))

@@ -312,7 +312,6 @@ same session.  Larger or planned work is in the =Roadmap= section of
     (`t--rpc-make-json` … `t--jstools-call`).
   - Add `(declare (ftype …))` to the ~18 functions that still lack it
     (excluding `defsubst` and end-user commands).
-  - Rename `;;;; Legacy home and up` (fold into Navbar or rename).
 
 - **Shorthand symbol names in docstrings and comments.**  They are
   string literals and get no `read-symbol-shorthands`; write the full
@@ -321,11 +320,3 @@ same session.  Larger or planned work is in the =Roadmap= section of
   `t-style-file`, `t-fixup-js` (also an `Update ???` placeholder),
   `t-inline-image-rules`, `t-inline-image-p`, `t-link`, `t--link-path`.
   Fix per section in the passes.
-
-- **Legacy navbar fallback tests (deferred from the Legacy home and up
-  pass).**  The legacy-bar edge cases are tested as of the follow-up
-  pass (blank and missing links, custom format strings, the error
-  paths).  What remains is the fallback semantics of
-  `org-w3ctr-format-navbar-default-function`: an empty vector or a
-  blank link list falling back to the legacy bar.  Fold into the
-  Navbar section pass.

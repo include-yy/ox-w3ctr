@@ -3218,12 +3218,26 @@ int a = 1;</code></p>\n</details>")
       ($l (it info)
           ($c "<nav id=\"navbar\">\n<a href=\"a\">b</a>\n"
               "<a href=\"c\">d</a>\n</nav>\n")))
-    (let ((info '(:html-link-navbar [(a . "b")])))
-      ($e! (it info)))
-    (let ((info '(:html-link-navbar [("a" . b)])))
-      ($e! (it info)))
-    (let ((info '(:html-link-navbar [(a . b)])))
-      ($e! (it info))))
+    ;; An entry that is not a (URL . NAME) cons of strings is an error.
+    ($q (car (should-error (it '(:html-link-navbar [(a . "b")]))))
+        'org-w3ctr-error)
+    ($q (car (should-error (it '(:html-link-navbar [("a" . b)]))))
+        'org-w3ctr-error)
+    ($q (car (should-error (it '(:html-link-navbar [(a . b)]))))
+        'org-w3ctr-error)
+    ;; Neither a vector nor a list is an error.
+    ($q (car (should-error (it '(:html-link-navbar "str"))))
+        'org-w3ctr-error)
+    ;; No links anywhere is "".
+    ($l (it '(:html-link-navbar [])) "")
+    ;; An empty vector and a blank link list fall back to the legacy bar.
+    ($l (it '( :html-link-navbar [] :html-link-up "u" :html-link-home "h"
+               :html-home/up-format "%s|%s"))
+        "u|h\n")
+    (cl-letf (((symbol-function 'org-export-data) (lambda (x _info) x)))
+      ($l (it '( :html-link-navbar (" " "\t") :html-link-up "u"
+                 :html-link-home "h" :html-home/up-format "%s|%s"))
+          "u|h\n")))
   (t-check-element-values
    #'t-format-navbar-default-function
    `(("" ,($c "<nav id=\"navbar\">\n<a href=\"https://example.com\">"
