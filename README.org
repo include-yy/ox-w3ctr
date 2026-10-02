@@ -45,12 +45,13 @@ now).
   entries are grouped, most are not.  Order every entry, consider
   replacing cumbersome string options with =*-function= ones.  Chart
   compatibility with ox-html for each option.  Known divergences to
-  chart: =:html-home/up-format= lost its =HTML_HOME/UP_FORMAT= keyword
-  and =newline= behavior; =:html-link-use-abs-url= is unimplemented
-  (FIXME in =org-w3ctr--link-path=); the legacy home/up bar emits our
-  own =<nav id="navbar">= markup, deliberately not ox-html's =<div
-  id="org-div-home-and-up">=.  =org-w3ctr-home/up-format=, a bare
-  =format= string, is the natural =*-function= candidate.
+  chart: =:html-link-use-abs-url= is unimplemented (FIXME in
+  =org-w3ctr--link-path=); the legacy home/up bar emits our own =<nav
+  id="navbar">= markup, deliberately not ox-html's =<div
+  id="org-div-home-and-up">=.  =:html-home/up-format= keeps its
+  ox-html keyword compatibility (=HTML_HOME/UP_FORMAT=, =newline=).
+  =org-w3ctr-home/up-format=, a bare =format= string, is the natural
+  =*-function= candidate.
 - *Src-block feature gaps vs ox-html.*  Dropped when forking (judged
   low-value for W3C TR output).  Revisit later:
   - Line numbers, coderef, =retain-labels=.

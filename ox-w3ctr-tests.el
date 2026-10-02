@@ -3143,7 +3143,17 @@ int a = 1;</code></p>\n</details>")
       ,($c "<nav id=\"navbar\">\n <a href=\"b\"> UP "
            "</a>\n <a href=\"a\"> HOME </a>\n</nav>\n"))
      ("#+html_link_home: \n#+html_link_up:"
-      nil))
+      nil)
+     ;; The HTML_HOME/UP_FORMAT keyword, ox-html compatible: one line,
+     ;; or several lines joined with newlines.
+     (,($c "#+html_link_up: u\n#+html_link_home: h\n"
+           "#+html_home/up_format: [%s][%s]")
+      "[u][h]\n")
+     (,($c "#+html_link_up: u\n#+html_link_home: h\n"
+           "#+html_home/up_format: <nav>\n"
+           "#+html_home/up_format: %s %s\n"
+           "#+html_home/up_format: </nav>")
+      "<nav>\nu h\n</nav>\n"))
    nil `( :html-link-up "" :html-link-home ""
           :html-link-navbar nil
           :html-home/up-format ,t-home/up-format)))

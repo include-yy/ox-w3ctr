@@ -190,7 +190,7 @@
     (:html-inline-image-rules nil nil t-inline-image-rules)
     (:html-link-home "HTML_LINK_HOME" nil t-link-home)
     (:html-link-up "HTML_LINK_UP" nil t-link-up)
-    (:html-home/up-format nil nil t-home/up-format)
+    (:html-home/up-format "HTML_HOME/UP_FORMAT" nil t-home/up-format newline)
     (:html-link-navbar "HTML_LINK_NAVBAR" nil t-link-navbar parse)
     (:html-format-navbar-function nil nil t-format-navbar-function)
     ;; Footnote
@@ -580,9 +580,12 @@ this option is empty or blank, the `UP' anchor falls back to
 The default bar shares id \"navbar\" with the navbar of
 `org-w3ctr-format-navbar-default-function', so one CSS rule
 styles both.
+
 The first %s receives the `UP' link and the second the `HOME'
-link.  Both go in verbatim, without HTML escaping.  The bar is
-omitted entirely when `org-w3ctr-link-up' and
+link.  Both go in verbatim, without HTML escaping.  Set the
+option per file with the HTML_HOME/UP_FORMAT keyword: as in
+ox-html, multiple keyword lines are joined with newlines.  The
+bar is omitted entirely when `org-w3ctr-link-up' and
 `org-w3ctr-link-home' are both empty or blank.  The transcoder
 normalizes the result to end in a newline."
   :group 'org-export-w3ctr
