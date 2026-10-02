@@ -3738,10 +3738,10 @@ operation, or more %s specifications than the two links can fill."
 
 INFO is the export options plist.  Read the link targets from the
 `:html-link-up' and `:html-link-home' options, and the format
-string from `:html-home/up-format'; its first %s receives the UP
-link and its second the HOME link.  When only one of the two
-links is set, both anchors use it.  The links go into the format
-string verbatim, without HTML escaping.
+string from `:html-home/up-format'; its first %s receives UP and
+its second HOME.  When only one of the two links is set, both
+anchors use it.  The links go into the format string verbatim,
+without HTML escaping.
 
 Return the bar as a string, normalized to end in a newline.
 Return nil when both links are empty, whitespace-only, or
@@ -3819,7 +3819,7 @@ and answers with the legacy home/up bar."
 INFO is the export options plist.  Read the links from
 `:html-link-navbar' and render them: a vector of (URL . NAME)
 conses becomes one anchor per entry, and a list of Org elements
-(from the HTML_LINK_NAVBAR keyword) is transcoded with
+from the HTML_LINK_NAVBAR keyword is transcoded with
 `org-export-data'.  The anchors are wrapped in a <nav> element
 with id \"navbar\".
 
