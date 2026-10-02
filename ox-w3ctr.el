@@ -3853,8 +3853,11 @@ entry is not a (URL . NAME) cons of strings (checked in
   '((nil "Not Specified")
     (all-rights-reserved "All Rights Reserved")
     (all-rights-reversed "All Rights Reversed")
-    (cc0 "CC0" "https://creativecommons.org/public-domain/cc0/")
-    ;; 4.0
+    (cc0 "CC0 1.0 Universal"
+     "https://creativecommons.org/publicdomain/zero/1.0/")
+    (public-domain-mark "Public Domain Mark 1.0"
+     "https://creativecommons.org/publicdomain/mark/1.0/")
+    ;; 4.0 (the whole suite: six licenses).
     ( cc-by-4.0 "CC BY 4.0"
       "https://creativecommons.org/licenses/by/4.0/")
     ( cc-by-nc-4.0 "CC BY-NC 4.0"
@@ -3867,7 +3870,10 @@ entry is not a (URL . NAME) cons of strings (checked in
       "https://creativecommons.org/licenses/by-nd/4.0/")
     ( cc-by-sa-4.0 "CC BY-SA 4.0"
       "https://creativecommons.org/licenses/by-sa/4.0/")
-    ;; 3.0 (not recommended by Creative Commons)
+    ;; 3.0 Unported (the whole suite; not recommended by Creative
+    ;; Commons).  Jurisdiction ports (US, IGO, and friends), the
+    ;; retired Sampling / Sampling Plus / Developing Nations licenses,
+    ;; and the 2.x series are deliberately out of scope.
     ( cc-by-3.0 "CC BY 3.0"
       "https://creativecommons.org/licenses/by/3.0/")
     ( cc-by-nc-3.0 "CC BY-NC 3.0"
