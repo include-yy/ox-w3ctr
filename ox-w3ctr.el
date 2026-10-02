@@ -223,7 +223,7 @@
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     (:html-extension nil nil t-extension)
     ;; Preamble and License
-    (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
+    (:html-use-cc-badges nil "cc-badges" t-use-cc-badges)
     (:html-license nil "license" t-public-license)
     (:html-license-format-function nil nil t-license-format-function)
     (:html-preamble nil "html-preamble" t-preamble)
@@ -1006,8 +1006,11 @@ Validate</a>"
   :type 'string)
 
 ;;;; Preamble and License
-(defcustom t-use-cc-budget t
-  "Use CC budget or not."
+(defcustom t-use-cc-badges t
+  "Non-nil means append the CC badge icons to the license line.
+
+`org-w3ctr-license-default-format-function' reads this option;
+the icons for a license come from `org-w3ctr--cc-icon-names'."
   :group 'org-export-w3ctr
   :type 'boolean)
 
@@ -1313,7 +1316,7 @@ oclosure through that symbol.  KEY is a property keyword."
        :time-stamp-file :html-file-timestamp-function :html-viewport
        :with-latex :html-mathjax-config
        :html-math-head-function :html-math-custom-render-function
-       :html-use-cc-budget :html-license
+       :html-use-cc-badges :html-license
        :html-license-format-function
        ;; link
        :html-extension :html-link-org-files-as-html
@@ -3841,11 +3844,11 @@ entry is not a (URL . NAME) cons of strings (checked in
     ;; Empty result, whatever the reason: the legacy home/up bar.
     (if (string-empty-p nav) (or (t--format-legacy-navbar info) "") nav)))
 
-;;;; CC license budget
+;;;; CC license badges
 
 ;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
-;; - :html-use-cc-budget (`org-w3ctr-use-cc-budget')
+;; - :html-use-cc-badges (`org-w3ctr-use-cc-badges')
 ;; - :html-license (`org-w3ctr-public-license')
 ;; - :html-license-format-function (`org-w3ctr-license-format-function')
 
@@ -3987,7 +3990,7 @@ attribution and appropriate Creative Commons icons when applicable."
   (let* ((license (t--pget info :html-license))
          (details (assq license t-public-license-alist))
          (icons (t--cc-icon-names license))
-         (use-budget (t--pget info :html-use-cc-budget))
+         (use-badges (t--pget info :html-use-cc-badges))
          (author (t--get-info-author info)))
     (unless details
       (t-error "Unknown license: %s" license))
@@ -4001,7 +4004,7 @@ attribution and appropriate Creative Commons icons when applicable."
         " is licensed under "
         (if (null link) name
           (format "<a href=\"%s\">%s</a>" link name))
-        (when (and icons use-budget)
+        (when (and icons use-badges)
           (concat " " (t--get-cc-svgs license)))))
       (_ (t-error "Internal error")))))
 

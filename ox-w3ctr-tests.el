@@ -3391,7 +3391,7 @@ int a = 1;</code></p>\n</details>")
         (setq info (plist-put info :author "test"))
         ($l (test info)
             "This work by test is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>")
-        (setq info (plist-put info :html-use-cc-budget t))
+        (setq info (plist-put info :html-use-cc-badges t))
         ($l (test info)
             (concat "This work by test is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>"
                     " " (t--get-cc-svgs 'cc-by-4.0)))
