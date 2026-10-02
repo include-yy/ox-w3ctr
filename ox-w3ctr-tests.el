@@ -3281,7 +3281,7 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr--load-cc-svg'."
   (cl-letf (((symbol-function 't--insert-file)
              (lambda (file) file)))
-    (dolist (a '("by" "cc" "nc" "nd" "sa" "zero"))
+    (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
       ($s (t--load-cc-svg a)))))
 
 (ert-deftest t--load-cc-svg-once ()
@@ -3289,9 +3289,9 @@ int a = 1;</code></p>\n</details>")
   (cl-letf (((symbol-function 't--insert-file)
              (lambda (file) file))
             (t--cc-svg-hashtable (make-hash-table :test 'equal)))
-    (dolist (a '("by" "cc" "nc" "nd" "sa" "zero"))
+    (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
       (t--load-cc-svg-once a))
-    (dolist (a '("by" "cc" "nc" "nd" "sa" "zero"))
+    (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
       ($l (gethash a t--cc-svg-hashtable) (t--load-cc-svg a)))))
 
 (ert-deftest t--build-cc-img ()
@@ -3316,7 +3316,9 @@ int a = 1;</code></p>\n</details>")
       ($l (it 'cc-by-4.0) "ccby")
       ($l (it 'cc-by-sa-4.0) "ccbysa")
       ($l (it 'cc-by-nc-sa-4.0) "ccbyncsa")
-      ($l (it 'cc-by-nc-nd-4.0) "ccbyncnd"))))
+      ($l (it 'cc-by-nc-nd-4.0) "ccbyncnd")
+      ($l (it 'public-domain-mark) "pdm")
+      ($l (it 'all-rights-reserved) ""))))
 
 (ert-deftest t--get-info-author ()
   "Tests for `org-w3ctr--get-info-author'."
@@ -3382,7 +3384,12 @@ int a = 1;</code></p>\n</details>")
         (setq info (plist-put info :html-use-cc-budget t))
         ($l (test info)
             (concat "This work by test is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>"
-                    " " (t--get-cc-svgs 'cc-by-4.0)))))))
+                    " " (t--get-cc-svgs 'cc-by-4.0)))
+        ;; PDM gets its icon too.
+        (setq info (plist-put info :html-license 'public-domain-mark))
+        ($l (test info)
+            (concat "This work by test is licensed under <a href=\"https://creativecommons.org/publicdomain/mark/1.0/\">Public Domain Mark 1.0</a>"
+                    " " (t--get-cc-svgs 'public-domain-mark)))))))
 
 (ert-deftest t--pre/postamble-format-spec ()
   "Tests for `org-w3ctr--pre/postamble-format-spec'."

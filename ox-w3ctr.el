@@ -3892,7 +3892,7 @@ Each element is of form (SYMBOL DISPLAY-NAME &optional URL).")
 (defvar t--cc-svg-hashtable (make-hash-table :test 'equal)
   "Hash table stores base64 encoded svg file contents.
 
-Include cc, by, sa, nc, nd, and zero.")
+Include cc, by, nc, nd, sa, zero, and pdm.")
 
 (defun t--load-cc-svg (name)
   "Load SVG file with given NAME from assets directory, return as
@@ -3925,17 +3925,34 @@ See https://chooser-beta.creativecommons.org/"
 vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" \
 alt=\"\">" base64))
 
-(defun t--get-cc-svgs (license)
-  "Get HTML img tags for Creative Commons LICENSE icons.
+(defun t--cc-icon-names (license)
+  "Return the icon file names for LICENSE, or nil when it has none.
 
-For CC0 license, returns both `cc' and `zero' icons. For other licenses,
-splits the license name to get individual component icons."
-  (declare (ftype (function (symbol) string))
+LICENSE is a license symbol as in `org-w3ctr-public-license-alist'.
+A CC license icon set is named after its components: for example
+`cc-by-nc-sa-4.0' takes the icons cc, by, nc, and sa.  The two
+public-domain tools carry their own icons; other entries have
+none."
+  (declare (ftype (function (t) list))
+           (pure t) (important-return-value t))
+  (and (symbolp license)
+       (pcase license
+         ('cc0 '("cc" "zero"))
+         ('public-domain-mark '("pdm"))
+         ((pred (lambda (s) (string-prefix-p "cc" (symbol-name s))))
+          (split-string (symbol-name license) "[0-9.-]" t))
+         (_ nil))))
+
+(defun t--get-cc-svgs (license)
+  "Build the HTML img tags for the icons of LICENSE.
+
+LICENSE is a license symbol; the file names come from
+`org-w3ctr--cc-icon-names'.  Return the img tags concatenated, or
+the empty string when LICENSE has no icons."
+  (declare (ftype (function (t) string))
            (important-return-value t))
-  (let ((names (if (eq license 'cc0) '("cc" "zero")
-                 (split-string (symbol-name license) "[0-9.-]" t)))
-        (f (lambda (x) (t--build-cc-img (t--load-cc-svg-once x)))))
-    (mapconcat f names)))
+  (let ((f (lambda (x) (t--build-cc-img (t--load-cc-svg-once x)))))
+    (mapconcat f (t--cc-icon-names license))))
 
 (defun t--get-info-author (info)
   "Get exported author string from INFO if :with-author is non-nil."
@@ -3954,7 +3971,7 @@ attribution and appropriate Creative Commons icons when applicable."
            (important-return-value t))
   (let* ((license (t--pget info :html-license))
          (details (assq license t-public-license-alist))
-         (is-cc (string-match-p "^cc" (symbol-name license)))
+         (icons (t--cc-icon-names license))
          (use-budget (t--pget info :html-use-cc-budget))
          (author (t--get-info-author info)))
     (unless details
@@ -3969,7 +3986,7 @@ attribution and appropriate Creative Commons icons when applicable."
         " is licensed under "
         (if (null link) name
           (format "<a href=\"%s\">%s</a>" link name))
-        (when (and is-cc use-budget)
+        (when (and icons use-budget)
           (concat " " (t--get-cc-svgs license)))))
       (_ (t-error "Internal error")))))
 
