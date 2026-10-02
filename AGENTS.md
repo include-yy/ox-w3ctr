@@ -113,7 +113,8 @@ too but fails rather than skipping.
   `(declare (ftype (function (ARGS) RET)))`; add
   `(important-return-value t)` where the caller must use the result;
   add `(pure t)` where the function is side-effect free and its result
-  depends only on its arguments.  Exemptions: `defsubst`, end-user
+  depends only on its arguments, and it signals no errors (constant
+  folding would raise them at compile time).  Exemptions: `defsubst`, end-user
   commands (`t-export-*`, `t-publish-*`, `t-convert-*`), interactive
   commands whose return value is incidental.  `nil` is a subtype of
   both `list` and `symbol` (`(listp nil)` and `(symbolp nil)` are t),
@@ -311,6 +312,7 @@ same session.  Larger or planned work is in the =Roadmap= section of
 
 - **Legacy navbar edge-case tests (deferred from the Legacy home and
   up pass).**  Still to discuss and add: whitespace-only links, a
-  custom `:html-home/up-format` string, a literal `%` in the format
-  string, and a non-string format value (the error path of
-  `org-w3ctr--format-home/up`).
+  custom `:html-home/up-format` string through a full export, and the
+  fallback semantics of `org-w3ctr-format-navbar-default-function`
+  (an empty vector or a blank link list falling back to the legacy
+  bar).  The `org-w3ctr--format-home/up` error paths are tested.

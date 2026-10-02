@@ -3073,6 +3073,26 @@ int a = 1;</code></p>\n</details>")
     ($l (t--build-head '(:html-head (lambda (_info) "FN\n")))
         ($c "<head>\n" "META\n" "FN\n" "</head>\n"))))
 
+(ert-deftest t--format-home/up ()
+  "Tests for `org-w3ctr--format-home/up'."
+  ;; The first %s is UP, the second HOME.
+  ($l (t--format-home/up "%s|%s" "u" "h") "u|h")
+  ;; Links go in verbatim, without HTML escaping.
+  ($l (t--format-home/up "%s %s" "<u>" "&h") "<u> &h")
+  ;; A literal %% survives.
+  ($l (t--format-home/up "100%% %s" "u" "h") "100% u")
+  ;; A non-string FMT signals `org-w3ctr-error' with our own message.
+  ($e!l (t--format-home/up nil "u" "h")
+        '(org-w3ctr-error "Invalid :html-home/up-format: nil"))
+  ($e!l (t--format-home/up 'foo "u" "h")
+        '(org-w3ctr-error "Invalid :html-home/up-format: foo"))
+  ;; `format' rejections are wrapped in `org-w3ctr-error' too.  Assert
+  ;; the symbol only: the message text is `format''s own and may drift.
+  ($q (car (should-error (t--format-home/up "100%" "u" "h")))
+      'org-w3ctr-error)
+  ($q (car (should-error (t--format-home/up "%q%s" "u" "h")))
+      'org-w3ctr-error))
+
 (ert-deftest t--format-legacy-navbar ()
   "Tests for `org-w3ctr--format-legacy-navbar'."
   (let ((info '(:html-link-up "" :html-link-home "")))

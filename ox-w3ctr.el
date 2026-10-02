@@ -3700,24 +3700,26 @@ contents, wrapped in a <head> element."
 ;; - :html-link-home (`org-w3ctr-link-home')
 ;; - :html-home/up-format (`org-w3ctr-home/up-format')
 
-;; This bar is only half of ox-html's home/up feature: ox-html also
+;; FIXME: This bar is only half of ox-html's home/up feature: ox-html also
 ;; prepends `:html-link-home' to relative file links when
 ;; `:html-link-use-abs-url' is set (see `org-html-link-file-path').
 ;; ox-w3ctr has never implemented that half; see the FIXME in
 ;; `org-w3ctr--link-path'.
 
 (defun t--format-home/up (fmt up home)
-  "Fill the home/up format string FMT with the link URLs UP and HOME.
+  "Apply the home/up format string FMT to the link URLs UP and HOME.
 
-FMT is a `format' string as in `org-w3ctr-home/up-format': its
-first %s receives UP, its second HOME.  Both go in verbatim,
-without HTML escaping.  Return the formatted string.
+FMT is a `format' control string as in `org-w3ctr-home/up-format':
+its first %s receives UP and its second HOME.  Insert both URLs
+verbatim, without HTML escaping.  Return the filled string,
+exactly what `format' produces: `org-w3ctr--format-legacy-navbar'
+normalizes the trailing newline.
 
 Signal `org-w3ctr-error' when FMT is not a string, or when `format'
-rejects it, for example for a literal % in FMT or the wrong number
-of %s specifications."
+rejects it, for example for a literal %, an invalid format
+operation, or more %s specifications than the two links can fill."
   (declare (ftype (function (t string string) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (unless (stringp fmt)
     (t-error "Invalid :html-home/up-format: %S" fmt))
   (condition-case err
