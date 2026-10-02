@@ -3095,6 +3095,9 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--format-legacy-navbar ()
   "Tests for `org-w3ctr--format-legacy-navbar'."
+  ;; Missing and blank links both mean "no bar".
+  ($n (t--format-legacy-navbar '(:html-home/up-format "%s|%s")))
+  ($n (t--format-legacy-navbar '(:html-link-up " " :html-link-home "\t")))
   (let ((info '(:html-link-up "" :html-link-home "")))
     ($n (t--format-legacy-navbar info)))
   (let ((info `( :html-link-up "1" :html-link-home "2"
@@ -3111,6 +3114,23 @@ int a = 1;</code></p>\n</details>")
     ($l (t--format-legacy-navbar info) "\
 <nav id=\"navbar\">\n <a href=\"2\"> UP </a>
  <a href=\"2\"> HOME </a>\n</nav>\n"))
+  ;; A custom format string: UP first, HOME second, and the result
+  ;; normalized to exactly one trailing newline.
+  ($l (t--format-legacy-navbar
+       '(:html-link-up "u" :html-link-home "h"
+         :html-home/up-format "[%s][%s]"))
+      "[u][h]\n")
+  ($l (t--format-legacy-navbar
+       '(:html-link-up "u" :html-link-home "h"
+         :html-home/up-format "<%s %s>\n\n\n"))
+      "<u h>\n")
+  ;; A bad format string errors when the bar is built, and goes
+  ;; unnoticed when it is not.
+  ($q (car (should-error
+            (t--format-legacy-navbar
+             '(:html-link-up "u" :html-home/up-format "100%"))))
+      'org-w3ctr-error)
+  ($n (t--format-legacy-navbar '(:html-home/up-format nil)))
   (t-check-element-values
    #'t--format-legacy-navbar
    `(("#+html_link_up: https://example.com"
@@ -3121,7 +3141,9 @@ int a = 1;</code></p>\n</details>")
            "</a>\n <a href=\"https://a.com\"> HOME </a>\n</nav>\n"))
      ("#+html_link_home: a\n#+html_link_up:b"
       ,($c "<nav id=\"navbar\">\n <a href=\"b\"> UP "
-           "</a>\n <a href=\"a\"> HOME </a>\n</nav>\n")))
+           "</a>\n <a href=\"a\"> HOME </a>\n</nav>\n"))
+     ("#+html_link_home: \n#+html_link_up:"
+      nil))
    nil `( :html-link-up "" :html-link-home ""
           :html-link-navbar nil
           :html-home/up-format ,t-home/up-format)))

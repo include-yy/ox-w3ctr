@@ -3738,14 +3738,16 @@ links is set, both anchors use it.  The links go into the format
 string verbatim, without HTML escaping.
 
 Return the bar as a string, normalized to end in a newline.
-Return nil when both links are empty, blank, or missing.  Signal
-`org-w3ctr-error' when `:html-home/up-format' is not a string or
-`format' rejects it."
+Return nil when both links are empty, whitespace-only, or
+missing.  Signal `org-w3ctr-error' when `:html-home/up-format' is
+not a string or `format' rejects it; the format string is checked
+only when the bar is built, so with both links absent a bad one
+goes unnoticed."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (let ((link-up (t--nw-trim (t--pget info :html-link-up)))
         (link-home (t--nw-trim (t--pget info :html-link-home))))
-    (unless (and (null link-up) (null link-home))
+    (when (or link-up link-home)
       (org-element-normalize-string
        (t--format-home/up (t--pget info :html-home/up-format)
                           (or link-up link-home)
