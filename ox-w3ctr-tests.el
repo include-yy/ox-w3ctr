@@ -3288,11 +3288,11 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr--load-cc-svg-once'."
   (cl-letf (((symbol-function 't--insert-file)
              (lambda (file) file))
-            (t--cc-svg-hashtable (make-hash-table :test 'equal)))
+            (t--cc-svg-cache (make-hash-table :test 'equal)))
     (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
       (t--load-cc-svg-once a))
     (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
-      ($l (gethash a t--cc-svg-hashtable) (t--load-cc-svg a)))))
+      ($l (gethash a t--cc-svg-cache) (t--load-cc-svg a)))))
 
 (ert-deftest t--build-cc-img ()
   "Tests for `org-w3ctr--build-cc-img'."

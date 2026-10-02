@@ -3886,13 +3886,24 @@ entry is not a (URL . NAME) cons of strings (checked in
       "https://creativecommons.org/licenses/by-nd/3.0/")
     ( cc-by-sa-3.0 "CC BY-SA 3.0"
       "https://creativecommons.org/licenses/by-sa/3.0/"))
-  "Alist mapping license symbols to their display names and URLs.
-Each element is of form (SYMBOL DISPLAY-NAME &optional URL).")
+  "Alist mapping license symbols to display names and deed URLs.
 
-(defvar t--cc-svg-hashtable (make-hash-table :test 'equal)
-  "Hash table stores base64 encoded svg file contents.
+Each element has the form (SYMBOL DISPLAY-NAME &optional URL);
+an entry without a URL renders as a plain name.  The catalogue is
+complete for the CC 3.0 and 4.0 suites and the public-domain
+tools: it lists what Creative Commons publishes and recommends
+none.  CC license symbols read `cc-<components>-<version>', from
+which `org-w3ctr--cc-icon-names' derives the icon names.  See
+`org-w3ctr-license-default-format-function' for how entries are
+rendered.")
 
-Include cc, by, nc, nd, sa, zero, and pdm.")
+(defvar t--cc-svg-cache (make-hash-table :test 'equal)
+  "Cache of base64-encoded SVG icons, keyed by icon name.
+
+Keys are icon name strings (the shipped set is cc, by, nc, nd,
+sa, zero, and pdm); values are the base64-encoded contents of
+assets/<name>.svg.  `org-w3ctr--load-cc-svg-once' fills entries
+in on demand.")
 
 (defun t--load-cc-svg (name)
   "Load SVG file with given NAME from assets directory, return as
@@ -3912,7 +3923,7 @@ base64 encoded string. If the file does not exist, raise an error."
 If the SVG is already cached, return the cached base64 string."
   (declare (ftype (function (string) string))
            (important-return-value t))
-  (with-memoization (gethash name t--cc-svg-hashtable)
+  (with-memoization (gethash name t--cc-svg-cache)
     (t--load-cc-svg name)))
 
 (defun t--build-cc-img (base64)
