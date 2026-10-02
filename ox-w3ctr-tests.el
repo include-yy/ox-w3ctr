@@ -3209,9 +3209,9 @@ int a = 1;</code></p>\n</details>")
     ($l (t--format-navbar-list '("a" " " "\t" "\n" "e") nil) "a\ne")
     ($l (t--format-navbar-list '(" " "\t") nil) "")))
 
-(ert-deftest t-format-navbar-default-function ()
-  "Tests for `org-w3ctr-format-navbar-default-function'."
-  ($it t-format-navbar-default-function
+(ert-deftest t-navbar-default-format-function ()
+  "Tests for `org-w3ctr-navbar-default-format-function'."
+  ($it t-navbar-default-format-function
     (let ((info '(:html-link-navbar [("a" . "b")])))
       ($l (it info) "<nav id=\"navbar\">\n<a href=\"a\">b</a>\n</nav>\n"))
     (let ((info '(:html-link-navbar [("a" . "b") ("c" . "d")])))
@@ -3239,14 +3239,14 @@ int a = 1;</code></p>\n</details>")
                  :html-link-home "h" :html-home/up-format "%s|%s"))
           "u|h\n")))
   (t-check-element-values
-   #'t-format-navbar-default-function
+   #'t-navbar-default-format-function
    `(("" ,($c "<nav id=\"navbar\">\n<a href=\"https://example.com\">"
               "example</a>\n</nav>\n")))
    nil '( :html-link-navbar [("https://example.com" . "example")]
-          :html-format-navbar-function
-          t-format-navbar-default-function))
+          :html-navbar-format-function
+          t-navbar-default-format-function))
   (t-check-element-values
-   #'t-format-navbar-default-function
+   #'t-navbar-default-format-function
    `(("#+html_link_navbar: [[https://a.com][b]]"
       "<nav id=\"navbar\">\n<a href=\"https://a.com\">b</a>\n</nav>\n")
      ("#+html_link_navbar: [[https://a.com]]"
@@ -3272,8 +3272,8 @@ int a = 1;</code></p>\n</details>")
      ("#+html_link_home: 123\n#+html_link_up: 456"
       ,($c "<nav id=\"navbar\">\n <a href=\"456\"> UP </a>\n"
            " <a href=\"123\"> HOME </a>\n</nav>\n")))
-   nil `(:html-format-navbar-function
-         t-format-navbar-default-function
+   nil `(:html-navbar-format-function
+         t-navbar-default-format-function
          :html-link-up "" :html-link-home ""
          :html-home/up-format ,t-home/up-format)))
 
@@ -3324,15 +3324,15 @@ int a = 1;</code></p>\n</details>")
    #'t--get-info-author
    '(("#+AUTHOR: /hello/" "<i>hello</i>")
      ("#+AUTHOR: " nil))
-   nil '( :with-author t :html-format-license-function
-          t-format-license-default-function)))
+   nil '( :with-author t :html-license-format-function
+          t-license-default-format-function)))
 
-(ert-deftest t-format-license-default-function ()
-  "Tests for `org-w3ctr-format-license-default-function'."
+(ert-deftest t-license-default-format-function ()
+  "Tests for `org-w3ctr-license-default-format-function'."
   (cl-letf (((symbol-function 't--get-info-author)
              (lambda (info) (plist-get info :author))))
     (cl-flet ((test (info)
-                (t-format-license-default-function (copy-sequence info))))
+                (t-license-default-format-function (copy-sequence info))))
       (let ((info (list :html-license nil)))
         ($l (test info) "Not Specified")
         (setq info (plist-put info :html-license 'all-rights-reserved))

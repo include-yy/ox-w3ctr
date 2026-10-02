@@ -121,7 +121,10 @@ too but fails rather than skipping.
   so a return type of `list` or `symbol` already admits `nil` — do not
   write `(or list null)` or `(or symbol null)`.
 - **Naming**: internal helpers `t--*`, public API `t-*`.  No third
-  scheme (`org-w3ctr-faces-*` is gone; keep it that way).
+  scheme (`org-w3ctr-faces-*` is gone; keep it that way).  Formatter
+  hooks are `<subject>-format-function`, their defaults
+  `<subject>-default-format-function`; `:html-format-headline-function`
+  is the one exception, kept verbatim from ox-html.
 - **Headers**: `;;;` for major parts, `;;;;` for sections.  No
   `;;;;`-under-`;;;;` that pretends to be a third level.  A refactored
   element is either under a `;;;` part or a flat `;;;;` block — not a

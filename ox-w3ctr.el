@@ -192,7 +192,7 @@
     (:html-link-up "HTML_LINK_UP" nil t-link-up)
     (:html-home/up-format "HTML_HOME/UP_FORMAT" nil t-home/up-format newline)
     (:html-link-navbar "HTML_LINK_NAVBAR" nil t-link-navbar parse)
-    (:html-format-navbar-function nil nil t-format-navbar-function)
+    (:html-navbar-format-function nil nil t-navbar-format-function)
     ;; Footnote
     (:html-footnotes-section nil nil t-footnotes-section)
     (:html-footnote-format nil nil t-footnote-format)
@@ -225,7 +225,7 @@
     ;; Preamble and License
     (:html-use-cc-budget nil "cc-budget" t-use-cc-budget)
     (:html-license nil "license" t-public-license)
-    (:html-format-license-function nil nil t-format-license-function)
+    (:html-license-format-function nil nil t-license-format-function)
     (:html-preamble nil "html-preamble" t-preamble)
     (:html-postamble nil "html-postamble" t-postamble)
     ;; Misc
@@ -578,7 +578,7 @@ this option is empty or blank, the `UP' anchor falls back to
   "Format string for the legacy home/up navigation bar.
 
 The default bar shares id \"navbar\" with the navbar of
-`org-w3ctr-format-navbar-default-function', so one CSS rule
+`org-w3ctr-navbar-default-format-function', so one CSS rule
 styles both.
 
 The first %s receives the `UP' link and the second the `HOME'
@@ -601,18 +601,18 @@ normalizes the result to end in a newline."
 A value that yields no links (nil, an empty vector, or a list
 that transcodes to nothing) falls back to the legacy bar; see
 `org-w3ctr--format-legacy-navbar'.  To suppress the navbar
-entirely, set `org-w3ctr-format-navbar-function' to nil."
+entirely, set `org-w3ctr-navbar-format-function' to nil."
   :group 'org-export-w3ctr
   :type 'sexp)
 
-(defcustom t-format-navbar-function #'t-format-navbar-default-function
+(defcustom t-navbar-format-function #'t-navbar-default-format-function
   "The function used to generate the HTML for the navbar.
 
 This function is called with one argument: INFO plist.  It should
 return a string containing the complete HTML for the navigation bar
 \(e.g., inside `<nav>' tags).
 
-See `org-w3ctr-format-navbar-default-function' for an example."
+See `org-w3ctr-navbar-default-format-function' for an example."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -1027,7 +1027,7 @@ or variants."
           (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
           (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
 
-(defcustom t-format-license-function #'t-format-license-default-function
+(defcustom t-license-format-function #'t-license-default-format-function
   "Default function to build license string."
   :group 'org-export-w3ctr
   :type 'function)
@@ -1314,7 +1314,7 @@ oclosure through that symbol.  KEY is a property keyword."
        :with-latex :html-mathjax-config
        :html-math-head-function :html-math-custom-render-function
        :html-use-cc-budget :html-license
-       :html-format-license-function
+       :html-license-format-function
        ;; link
        :html-extension :html-link-org-files-as-html
        :html-inline-images :html-inline-image-rules
@@ -3700,7 +3700,7 @@ contents, wrapped in a <head> element."
 
 ;; Options:
 ;; - :html-link-navbar (`org-w3ctr-link-navbar')
-;; - :html-format-navbar-function (`org-w3ctr-format-navbar-function')
+;; - :html-navbar-format-function (`org-w3ctr-navbar-format-function')
 ;; - :html-link-up (`org-w3ctr-link-up')
 ;; - :html-link-home (`org-w3ctr-link-home')
 ;; - :html-home/up-format (`org-w3ctr-home/up-format')
@@ -3779,7 +3779,7 @@ kept.  Return the navbar block, a <nav> element with id
 PAIRS is a vector of conses as in `org-w3ctr-link-navbar'.  Return
 the navbar block, one anchor per pair: link and name go in
 verbatim, without HTML escaping.  Return \"\" for an empty PAIRS,
-which `org-w3ctr-format-navbar-default-function' reads as \"no links\"
+which `org-w3ctr-navbar-default-format-function' reads as \"no links\"
 and answers with the legacy home/up bar.  Signal `org-w3ctr-error'
 when an entry is not a (URL . NAME) cons of strings."
   (declare (ftype (function (vector) string))
@@ -3804,7 +3804,7 @@ used to transcode them with `org-export-data'.  Return the navbar
 block, one line per element that transcodes to a non-blank string;
 the strings go in verbatim, without HTML escaping.  Return \"\"
 when ELEMENTS is nil or nothing survives, which
-`org-w3ctr-format-navbar-default-function' reads as \"no links\"
+`org-w3ctr-navbar-default-format-function' reads as \"no links\"
 and answers with the legacy home/up bar."
   (declare (ftype (function (list list) string))
            (important-return-value t))
@@ -3813,7 +3813,7 @@ and answers with the legacy home/up bar."
            (kept (delq nil (mapcar #'t--nw-trim rendered))))
       (if (null kept) "" (t--wrap-navbar (string-join kept "\n"))))))
 
-(defun t-format-navbar-default-function (info)
+(defun t-navbar-default-format-function (info)
   "Generate the navbar HTML from the export options INFO.
 
 INFO is the export options plist.  Read the links from
@@ -3847,7 +3847,7 @@ entry is not a (URL . NAME) cons of strings (checked in
 ;; Options:
 ;; - :html-use-cc-budget (`org-w3ctr-use-cc-budget')
 ;; - :html-license (`org-w3ctr-public-license')
-;; - :html-format-license-function (`org-w3ctr-format-license-function')
+;; - :html-license-format-function (`org-w3ctr-license-format-function')
 
 (defconst t-public-license-alist
   '((nil "Not Specified")
@@ -3939,7 +3939,7 @@ splits the license name to get individual component icons."
               (a (t--pget info :author)))
     (t--nw-trim (org-export-data a info))))
 
-(defun t-format-license-default-function (info)
+(defun t-license-default-format-function (info)
   "Generate HTML string describing the public license for a work.
 
 Extracts license information from INFO plist and formats it with author
@@ -3971,7 +3971,7 @@ attribution and appropriate Creative Commons icons when applicable."
   "Generate HTML string describing the public license for a work."
   (declare (ftype (function (list) string))
            (important-return-value t))
-  (funcall (t--pget info :html-format-license-function) info))
+  (funcall (t--pget info :html-license-format-function) info))
 
 ;;;; Preamble and Postamble
 
@@ -4353,7 +4353,7 @@ navbar, title, preamble, postamble, and other standard page elements."
    (t--build-head info)
    "<body>\n"
    ;; home and up links
-   (when-let* ((fun (plist-get info :html-format-navbar-function)))
+   (when-let* ((fun (plist-get info :html-navbar-format-function)))
      (funcall fun info))
    ;; title and preamble
    (format "<div class=\"head\">\n%s%s</div>\n"
