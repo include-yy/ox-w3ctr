@@ -3763,18 +3763,26 @@ goes unnoticed."
 ;; - :html-link-navbar (`org-w3ctr-link-navbar')
 ;; - :html-format-navbar-function (`org-w3ctr-format-navbar-function')
 
-(defun t--format-navbar-nav (s)
-  "Format navbar <nav> element."
+(defun t--wrap-navbar (links)
+  "Wrap the navbar links HTML in the <nav> element.
+
+LINKS is the rendered anchor HTML.  Surrounding whitespace and
+newlines are trimmed before wrapping, so the block shape does not
+depend on how the caller formats its input; internal newlines are
+kept.  Return the navbar block, a <nav> element with id
+\"navbar\", ending in a newline.  A blank LINKS gives an empty
+<nav> shell."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
-  (format "<nav id=\"navbar\">\n%s\n</nav>\n" s))
+  (concat "<nav id=\"navbar\">" (t--prepend-newline (t--trim links))
+          "\n</nav>\n"))
 
 (defun t--format-navbar-vector (v)
   "Submodule of `t-format-navbar-default-function'."
   (declare (ftype (function (vector) string))
            (pure t) (important-return-value t))
   (if (equal v []) ""
-    (t--format-navbar-nav
+    (t--wrap-navbar
      (mapconcat
       (pcase-lambda (`(,link . ,name))
         (format "<a href=\"%s\">%s</a>" link name))
@@ -3793,7 +3801,7 @@ non-blank string; otherwise return the <nav> block.  See
     (let* ((elems (mapcar (lambda (x) (org-export-data x info)) ll))
            (links (cl-remove-if-not #'t--nw-p elems))
            (as (mapcar #'t--trim links)))
-      (if (null as) "" (t--format-navbar-nav (string-join as "\n"))))))
+      (if (null as) "" (t--wrap-navbar (string-join as "\n"))))))
 
 (defun t-format-navbar-default-function (info)
   "Generate the navbar HTML from the export options INFO.

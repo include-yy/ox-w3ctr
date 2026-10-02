@@ -272,6 +272,10 @@ Web Component after it.
   is equivalent to `(signal (car err) (cdr err))`, more concise, and
   preserves `eq` equality of the error descriptor.  Prefer it in
   `condition-case` handlers.
+- **Verification cadence.**  The ERT suite is the routine gate.  The
+  verify skill's corpus runs are not needed for routine changes; run
+  them when asked, or for a genuinely global change (definition-time
+  switches, option-list reorders), and report the numbers.
 
 ## Known issues
 

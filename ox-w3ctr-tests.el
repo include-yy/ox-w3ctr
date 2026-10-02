@@ -3158,10 +3158,22 @@ int a = 1;</code></p>\n</details>")
           :html-link-navbar nil
           :html-home/up-format ,t-home/up-format)))
 
-(ert-deftest t--format-navbar-nav ()
-  "Tests for `org-w3ctr--format-navbar-nav'."
-  ($l (t--format-navbar-nav "") "<nav id=\"navbar\">\n\n</nav>\n")
-  ($l (t--format-navbar-nav "1") "<nav id=\"navbar\">\n1\n</nav>\n"))
+(ert-deftest t--wrap-navbar ()
+  "Tests for `org-w3ctr--wrap-navbar'."
+  ($l (t--wrap-navbar "") "<nav id=\"navbar\">\n\n</nav>\n")
+  ($l (t--wrap-navbar "1") "<nav id=\"navbar\">\n1\n</nav>\n")
+  ;; Content passes through verbatim; the wrapper only adds the
+  ;; element and its surrounding newlines.
+  ($l (t--wrap-navbar "<a href=\"u\">U</a>\n<a href=\"h\">H</a>")
+      ($c "<nav id=\"navbar\">\n<a href=\"u\">U</a>\n"
+          "<a href=\"h\">H</a>\n</nav>\n"))
+  ;; Surrounding whitespace and newlines are trimmed: the block shape
+  ;; does not depend on how the caller formats its input.  Internal
+  ;; newlines are kept.
+  ($l (t--wrap-navbar "a\n") "<nav id=\"navbar\">\na\n</nav>\n")
+  ($l (t--wrap-navbar "\n  a\nb  \n\n") "<nav id=\"navbar\">\na\nb\n</nav>\n")
+  ;; Blank input is wrapped as an empty shell.
+  ($l (t--wrap-navbar "  \n ") "<nav id=\"navbar\">\n\n</nav>\n"))
 
 (ert-deftest t--format-navbar-vector ()
   "Tests for `org-w3ctr--format-navbar-vector'."
@@ -3181,7 +3193,7 @@ int a = 1;</code></p>\n</details>")
   ($s (t--format-navbar-list nil nil))
   (cl-letf (((symbol-function 'org-export-data)
              (lambda (x _info) x))
-            ((symbol-function 't--format-navbar-nav)
+            ((symbol-function 't--wrap-navbar)
              (lambda (x) x)))
     ($l (t--format-navbar-list '("a") nil) "a")
     ($l (t--format-navbar-list '("a" "b" "c") nil) "a\nb\nc")
