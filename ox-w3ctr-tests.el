@@ -3279,20 +3279,30 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--load-cc-svg ()
   "Tests for `org-w3ctr--load-cc-svg'."
-  (cl-letf (((symbol-function 't--insert-file)
-             (lambda (file) file)))
-    (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
-      ($s (t--load-cc-svg a)))))
+  ;; Round-trip the real file: base64 with no line breaks, decoding
+  ;; back to SVG markup.
+  (let ((raw (t--load-cc-svg "by")))
+    ($s (string-match-p "\\`[A-Za-z0-9+/=]+\\'" raw))
+    ($s (string-match-p "<svg" (base64-decode-string raw))))
+  ;; Every shipped icon reads.
+  (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
+    ($s (t--load-cc-svg a)))
+  ;; A missing icon is an error.
+  ($q (car (should-error (t--load-cc-svg "no-such-icon")))
+      'org-w3ctr-error))
 
 (ert-deftest t--load-cc-svg-once ()
   "Tests for `org-w3ctr--load-cc-svg-once'."
-  (cl-letf (((symbol-function 't--insert-file)
-             (lambda (file) file))
-            (t--cc-svg-cache (make-hash-table :test 'equal)))
-    (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
-      (t--load-cc-svg-once a))
-    (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
-      ($l (gethash a t--cc-svg-cache) (t--load-cc-svg a)))))
+  ;; Each name is read once; repeat calls come from the cache.
+  (let ((reads 0))
+    (cl-letf (((symbol-function 't--load-cc-svg)
+               (lambda (name) (setq reads (1+ reads)) (concat "b64:" name)))
+              (t--cc-svg-cache (make-hash-table :test 'equal)))
+      ($l (t--load-cc-svg-once "by") "b64:by")
+      ($l (t--load-cc-svg-once "by") "b64:by")
+      ($l (t--load-cc-svg-once "cc") "b64:cc")
+      ($l reads 2)
+      ($l (gethash "by" t--cc-svg-cache) "b64:by"))))
 
 (ert-deftest t--build-cc-img ()
   "Tests for `org-w3ctr--build-cc-img'."

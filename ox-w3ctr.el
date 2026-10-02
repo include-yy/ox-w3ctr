@@ -3906,21 +3906,25 @@ assets/<name>.svg.  `org-w3ctr--load-cc-svg-once' fills entries
 in on demand.")
 
 (defun t--load-cc-svg (name)
-  "Load SVG file with given NAME from assets directory, return as
-base64 encoded string. If the file does not exist, raise an error."
+  "Load the icon SVG file NAME and return it base64-encoded.
+
+NAME is an icon name; the file is assets/<NAME>.svg under the
+package directory.  Return its contents as a base64 string with
+no line breaks.  Signal `org-w3ctr-error' when the file does not
+exist."
   (declare (ftype (function (string) string))
            (important-return-value t))
-  (let ((file (file-name-concat t--dir "assets" (concat name ".svg"))))
-    (if (not (file-exists-p file))
-        (t-error "Invalid SVG budget: %s" file)
-      (with-temp-buffer
-        (t--insert-file file)
-        (base64-encode-region (point-min) (point-max) t)
-        (buffer-substring-no-properties (point-min) (point-max))))))
+  (with-temp-buffer
+    (t--insert-file (file-name-concat t--dir "assets" (concat name ".svg")))
+    (base64-encode-region (point-min) (point-max) t)
+    (buffer-substring-no-properties (point-min) (point-max))))
 
 (defun t--load-cc-svg-once (name)
-  "Load SVG file with given NAME once and cache it in a hash table.
-If the SVG is already cached, return the cached base64 string."
+  "Return the base64 SVG of the icon NAME, reading it at most once.
+
+Like `org-w3ctr--load-cc-svg', but consult `org-w3ctr--cc-svg-cache'
+first: NAME is read from disk on the first call and served from
+the cache afterwards."
   (declare (ftype (function (string) string))
            (important-return-value t))
   (with-memoization (gethash name t--cc-svg-cache)
