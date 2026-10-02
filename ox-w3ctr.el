@@ -3799,20 +3799,23 @@ when an entry is not a (URL . NAME) cons of strings."
           (format "<a href=\"%s\">%s</a>" link name))
         pairs "\n")))))
 
-(defun t--format-navbar-list (ll info)
-  "Render the navbar link elements LL into a <nav> element.
+(defun t--format-navbar-list (elements info)
+  "Build the navbar from the Org link elements ELEMENTS.
 
-LL is a list of Org elements and INFO the export options plist.
-Return \"\" when LL is nil or none of its links transcode to a
-non-blank string; otherwise return the <nav> block.  See
-`org-w3ctr-format-navbar-default-function'."
+ELEMENTS is a list of Org elements as parsed from the
+HTML_LINK_NAVBAR keyword, and INFO is the export options plist
+used to transcode them with `org-export-data'.  Return the navbar
+block, one line per element that transcodes to a non-blank string;
+the strings go in verbatim, without HTML escaping.  Return \"\"
+when ELEMENTS is nil or nothing survives, which
+`org-w3ctr-format-navbar-default-function' reads as \"no links\"
+and answers with the legacy home/up bar."
   (declare (ftype (function (list list) string))
            (important-return-value t))
-  (if (null ll) ""
-    (let* ((elems (mapcar (lambda (x) (org-export-data x info)) ll))
-           (links (cl-remove-if-not #'t--nw-p elems))
-           (as (mapcar #'t--trim links)))
-      (if (null as) "" (t--wrap-navbar (string-join as "\n"))))))
+  (if (null elements) ""
+    (let* ((rendered (mapcar (lambda (x) (org-export-data x info)) elements))
+           (kept (delq nil (mapcar #'t--nw-trim rendered))))
+      (if (null kept) "" (t--wrap-navbar (string-join kept "\n"))))))
 
 (defun t-format-navbar-default-function (info)
   "Generate the navbar HTML from the export options INFO.

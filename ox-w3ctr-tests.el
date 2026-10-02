@@ -3198,14 +3198,16 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--format-navbar-list ()
   "Tests for `org-w3ctr--format-navbar-list'."
-  ($s (t--format-navbar-list nil nil))
+  ;; A nil list and an all-blank list both mean "no links".
+  ($l (t--format-navbar-list nil nil) "")
   (cl-letf (((symbol-function 'org-export-data)
              (lambda (x _info) x))
             ((symbol-function 't--wrap-navbar)
              (lambda (x) x)))
     ($l (t--format-navbar-list '("a") nil) "a")
     ($l (t--format-navbar-list '("a" "b" "c") nil) "a\nb\nc")
-    ($l (t--format-navbar-list '("a" " " "\t" "\n" "e") nil) "a\ne")))
+    ($l (t--format-navbar-list '("a" " " "\t" "\n" "e") nil) "a\ne")
+    ($l (t--format-navbar-list '(" " "\t") nil) "")))
 
 (ert-deftest t-format-navbar-default-function ()
   "Tests for `org-w3ctr-format-navbar-default-function'."
