@@ -4618,7 +4618,9 @@ clear the cache.  This forces the exporter to re-read the file."
 
 ;;;; Math config
 
-;; REFINE2: this section is pending the mainline fine pass (see AGENTS.md).
+;; FIXME: Consider adding a `mathml-by-mathjax' case to
+;; `org-w3ctr-math-head-default-function', which today returns "" for
+;; it while `svg-by-mathjax' gets its display-math style.
 ;; Options:
 ;; - :with-latex (`org-w3ctr-with-latex')
 ;; - :html-mathjax-config (`org-w3ctr-mathjax-config')

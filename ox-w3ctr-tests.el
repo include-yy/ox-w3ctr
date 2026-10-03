@@ -836,6 +836,58 @@ int a = 1;</code></p>\n</details>")
    '(("#+begin: hello\n123\n#+end:" "<p>123</p>\n")
      ("#+begin: nothing\n#+end:" ""))))
 
+(ert-deftest t-footnote-section-function ()
+  "The footnotes section goes through `org-w3ctr-footnote-section-function'."
+  (let ((org-w3ctr-footnote-section-function
+         (lambda (definitions _info)
+           (format "<FOOTNOTES n=%d/>" (length definitions)))))
+    (t-check-element-values
+     #'t-footnote-section
+     '(("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
+        "<FOOTNOTES n=2/>"))
+     nil '(:with-latex verbatim))))
+
+(ert-deftest t--footnote-key ()
+  "Tests for `org-w3ctr--footnote-key'."
+  ($l (t--footnote-key "name" 3) "name")
+  ($l (t--footnote-key "1" 3) 3)
+  ($l (t--footnote-key nil 3) 3))
+
+(ert-deftest t--footnote-id ()
+  "Tests for `org-w3ctr--footnote-id'."
+  ($l (t--footnote-id "name" 3) "fn-name")
+  ($l (t--footnote-id "1" 3) "fn-3")
+  ($l (t--footnote-id nil 3) "fn-3"))
+
+(ert-deftest t-footnote-reference ()
+  "Tests for `org-w3ctr-footnote-reference'."
+  (t-check-element-values
+   #'t-footnote-reference
+   '(("A[fn:1].\n\n[fn:1] The definition." "[<a href=\"#fn-1\">1</a>]")
+     ("A[fn:name].\n\n[fn:name] The definition." "[<a href=\"#fn-name\">name</a>]")
+     ("A[fn::text]." "[<a href=\"#fn-1\">1</a>]")
+     ;; Two footnotes in a row are separated (values are in reverse
+     ;; call order, as in the other `org-w3ctr-check-element-values' tests).
+     ("A[fn:1][fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
+      ", [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
+   t '(:with-latex verbatim :html-prefer-user-labels t)))
+
+(ert-deftest t-footnote-section ()
+  "Tests for `org-w3ctr-footnote-section'."
+  (t-check-element-values
+   #'t-footnote-section
+   '(("A[fn:1].\n\n[fn:1] The definition."
+      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>The definition.</p>\n</dd>\n</dl>\n</div>\n")
+     ("A[fn:name].\n\n[fn:name] The definition."
+      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-name\">[name]</dt>\n<dd>\n<p>The definition.</p>\n</dd>\n</dl>\n</div>\n")
+     ("A[fn:name:text]."
+      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-name\">[name]</dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n")
+     ("A[fn::text]."
+      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n")
+     ("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
+      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>one.</p>\n</dd>\n<dt id=\"fn-2\">[2]</dt>\n<dd>\n<p>two.</p>\n</dd>\n</dl>\n</div>\n"))
+   nil '(:with-latex verbatim)))
+
 (ert-deftest t--checkbox ()
   "Tests for `org-w3ctr-checkbox'."
   (let ((info '(:html-checkbox-type unicode)))
@@ -1065,6 +1117,45 @@ int a = 1;</code></p>\n</details>")
      ("#+begin_quote\n\n\n\n\n\n\n\n\n\n#+end_quote"
       "<blockquote>\n\n</blockquote>"))))
 
+(ert-deftest t--table-cell-align ()
+  "Tests for `org-w3ctr--table-cell-align'."
+  (with-temp-buffer
+    (insert "| <l> | <r> |\n| a | b |\n")
+    (org-mode)
+    (let* ((info (list :html-table-align-cache nil))
+           (cells (org-element-map (org-element-parse-buffer)
+                      'table-cell #'identity)))
+      ;; Cells in order: <l>, <r>, a, b.
+      ($q (t--table-cell-align (nth 2 cells) info) 'left)
+      ($q (t--table-cell-align (nth 3 cells) info) 'right)
+      ($s (hash-table-p (plist-get info :html-table-align-cache)))))
+  (with-temp-buffer
+    (insert "| a | b |\n")
+    (org-mode)
+    (let* ((info (list :html-table-align-cache nil))
+           (cells (org-element-map (org-element-parse-buffer)
+                      'table-cell #'identity)))
+      ($n (t--table-cell-align (car cells) info))
+      ($n (t--table-cell-align (cadr cells) info)))))
+
+(ert-deftest t-table ()
+  "Tests for `org-w3ctr-table'."
+  (t-check-element-values
+   #'t-table
+   '(("| a | b |"
+      "<table>\n\n\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>\n</table>")
+     ("| a | b |\n|---+---|\n| 1 | 2 |"
+      "<table>\n\n\n<colgroup span=\"2\">\n<thead>\n<tr>\n<th scope=\"col\">a</th>\n<th scope=\"col\">b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td>2</td>\n</tr>\n</tbody>\n</table>")
+     ("#+name: t\n#+caption: Cap\n| a |"
+      "<table id=\"t\">\n<caption>Cap</caption>\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
+     ("| <l> | <r> |\n| a | b |"
+      "<table>\n\n\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td style=\"text-align:left\">a</td>\n<td style=\"text-align:right\">b</td>\n</tr>\n</tbody>\n</table>")
+     ("#+attr_html: :class data\n| a |"
+      "<table class=\"data\">\n\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
+     ("| / | < | > | < | > |\n|   | a | b | c | d |"
+      "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>"))
+      nil '(:html-prefer-user-labels t)))
+
 (ert-deftest t-example-block ()
   "Tests for `org-w3ctr-example-block'."
   (t-check-element-values
@@ -1188,15 +1279,22 @@ int a = 1;</code></p>\n</details>")
   ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)
          '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing")))
 
-(ert-deftest t--wrap-image ()
-  "Tests for `org-w3ctr--wrap-image'."
-  ($l (t--wrap-image "" nil "" "") "<figure>\n</figure>")
-  ($l (t--wrap-image "hello" nil "" "")
-      "<figure>\nhello</figure>")
-  ($l (t--wrap-image "hello" nil " abc" "")
-      "<figure>\nhello<figcaption>abc</figcaption>\n</figure>")
-  ($l (t--wrap-image "" nil "\ntest\n" "1")
-      "<figure1>\n<figcaption>test</figcaption>\n</figure>"))
+(ert-deftest t-latex-fragment ()
+  "Tests for `org-w3ctr-latex-fragment'."
+  ;; NB: for `verbatim', Org expands the fragment itself (ox.el) and
+  ;; never calls the back-end transcoder, so only `mathjax' is tested.
+  (t-check-element-values
+   #'t-latex-fragment
+   '(("$x^2$" "\\(x^2\\)"))
+   nil '(:with-latex mathjax)))
+
+(ert-deftest t-latex-environment ()
+  "Tests for `org-w3ctr-latex-environment'."
+  (t-check-element-values
+   #'t-latex-environment
+   '(("\\begin{equation}\nx=1\n\\end{equation}"
+      "\\begin{equation}\nx=1\n\\end{equation}"))
+   nil '(:with-latex mathjax)))
 
 (ert-deftest t-paragraph ()
   "Tests for `org-w3ctr-paragraph'."
@@ -1264,6 +1362,129 @@ int a = 1;</code></p>\n</details>")
      ("#+attr__:[hi]\n#+begin_verse\n\n\n#+end_verse"
       "<p class=\"hi\">\n<br>\n<br>\n</p>"))
       nil '(:html-prefer-user-labels t)))
+
+(ert-deftest t--engrave-buffer ()
+  "Tests for `org-w3ctr--engrave-buffer'."
+  (with-temp-buffer
+    (insert "abc def")
+    (put-text-property 1 4 'face 'font-lock-keyword-face)
+    (let ((out (generate-new-buffer " *engrave-out*")))
+      (unwind-protect
+          (progn
+            (t--engrave-buffer (current-buffer) out)
+            ($l (with-current-buffer out (buffer-string))
+                "<span class=\"ef-k\">abc</span> def"))
+        (kill-buffer out)))))
+
+(ert-deftest t--engrave-next-face-change ()
+  "Tests for `org-w3ctr--engrave-next-face-change'."
+  (with-temp-buffer
+    (insert "abcdef")
+    (put-text-property 1 4 'face 'font-lock-keyword-face)
+    ($l (t--engrave-next-face-change 1) 4)
+    ($l (t--engrave-next-face-change 4) (point-max))))
+
+(ert-deftest t--engrave-overlay-faces-at ()
+  "Tests for `org-w3ctr--engrave-overlay-faces-at'."
+  (with-temp-buffer
+    (insert "abc")
+    ($n (t--engrave-overlay-faces-at 2))
+    (let ((ov (make-overlay 1 4)))
+      (overlay-put ov 'face 'font-lock-keyword-face)
+      ($l (t--engrave-overlay-faces-at 2) '(font-lock-keyword-face)))))
+
+(ert-deftest t--engrave-face-transformer ()
+  "Tests for `org-w3ctr--engrave-face-transformer'."
+  ($l (t--engrave-face-transformer 'font-lock-keyword-face "defun")
+      "<span class=\"ef-k\">defun</span>")
+  ($l (t--engrave-face-transformer 'font-lock-keyword-face "<&>")
+      "<span class=\"ef-k\">&lt;&amp;&gt;</span>")
+  ;; Unfaced, unknown and default faces are emitted unwrapped.
+  ($l (t--engrave-face-transformer nil "<&>") "&lt;&amp;&gt;")
+  ($l (t--engrave-face-transformer 'no-such-face "<&>") "&lt;&amp;&gt;")
+  ($l (t--engrave-face-transformer 'default "<&>") "&lt;&amp;&gt;")
+  ;; Whitespace-only runs are never wrapped.
+  ($l (t--engrave-face-transformer 'font-lock-keyword-face "  \n ")
+      "  \n "))
+
+(ert-deftest t--engrave-get-style ()
+  "Tests for `org-w3ctr--engrave-get-style'."
+  ($n (t--engrave-get-style nil))
+  ($n (t--engrave-get-style 'default))
+  ($n (t--engrave-get-style 'no-such-face))
+  ($l (t--engrave-get-style 'font-lock-keyword-face)
+      '(font-lock-keyword-face :slug "k"))
+  ($l (t--engrave-get-style '(font-lock-comment-face))
+      '(font-lock-comment-face :slug "c"))
+  ($l (t--engrave-get-style 'css-property)
+      '(css-property :slug "f")))
+
+(ert-deftest t--engrave-fontify-code ()
+  "Tests for `org-w3ctr--engrave-fontify-code'."
+  (let ((out (t--engrave-fontify-code "(defun foo () 1)" "emacs-lisp")))
+    (should (string-match-p "ef-k" out))
+    ($n (string-match-p "<code" out)))
+  ($l (t--engrave-fontify-code "(a < b)" "no-such-lang") "(a &lt; b)")
+  ($l (t--engrave-fontify-code "(a < b)" nil) "(a &lt; b)"))
+
+(ert-deftest t-fontify-code ()
+  "Tests for `org-w3ctr-fontify-code'."
+  (let ((out (t-fontify-code "(defun foo () 1)" "emacs-lisp")))
+    (should (string-match-p "ef-k" out))
+    ($n (string-match-p "<code" out)))
+  (let ((t-fontify-method nil))
+    ($l (t-fontify-code "(a < b)" "emacs-lisp") "(a &lt; b)"))
+  ($l (t-fontify-code "" "emacs-lisp") "")
+  ($l (t-fontify-code "(a < b)" nil) "(a &lt; b)"))
+
+(ert-deftest t--src-code ()
+  "Tests for `org-w3ctr--src-code'."
+  (cl-flet ((f (str) (car (t-get-parsed-elements str 'src-block))))
+    (let ((out (t--src-code (f "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src")
+                            "emacs-lisp")))
+      (should (string-match-p "ef-k" out))
+      ($n (string-match-p "<code" out)))))
+
+(ert-deftest t--src-code-tag ()
+  "Tests for `org-w3ctr--src-code-tag'."
+  ($l (t--src-code-tag "emacs-lisp" "body")
+      "<code class=\"src src-emacs-lisp\">body</code>")
+  ($l (t--src-code-tag nil "body") "<code>body</code>"))
+
+(ert-deftest t--src-block-attrs ()
+  "Tests for `org-w3ctr--src-block-attrs' (uncaptioned, deterministic)."
+  (t-check-element-values
+   #'t--src-block-attrs
+   '(("#+begin_src emacs-lisp\nx\n#+end_src" "")
+     ("#+attr__: [foo]\n#+begin_src emacs-lisp\nx\n#+end_src"
+      " class=\"foo\"")
+     ("#+name: nm\n#+begin_src emacs-lisp\nx\n#+end_src"
+      " id=\"nm\""))
+      nil '(:html-prefer-user-labels t)))
+
+(ert-deftest t-src-block ()
+  "Tests for `org-w3ctr-src-block'."
+  (let ((out (org-export-string-as
+              "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
+              'w3ctr t)))
+    (should (string-match-p "<pre>\n<code class=\"src src-emacs-lisp\">" out)))
+  (let ((out (org-export-string-as
+              "#+caption: C\n#+begin_src emacs-lisp\nx\n#+end_src"
+              'w3ctr t)))
+    (should (string-match-p "<div id=\"org[^\"]*\" class=\"example\">" out))
+    (should (string-match-p "self-link" out)))
+  (let ((out (org-export-string-as
+              "#+attr_html: :textarea t\n#+begin_src emacs-lisp\nx\n#+end_src"
+              'w3ctr t)))
+    (should (string-match-p "<textarea" out))))
+
+(ert-deftest t-inline-src-block ()
+  "Tests for `org-w3ctr-inline-src-block'."
+  (let ((org-export-babel-evaluate nil))
+    (let ((out (org-export-string-as "src_emacs-lisp{(+ 1 2)}" 'w3ctr t)))
+      (should (string-match-p "<code class=\"src-inline src-emacs-lisp\">" out))
+      ;; Single wrapper: no nested <code>.
+      ($n (string-match-p "src-inline[^\"]*\"><code" out)))))
 
 (ert-deftest t-entity ()
   "Tests for `org-w3ctr-entity'."
@@ -1384,148 +1605,6 @@ int a = 1;</code></p>\n</details>")
      ("x86^64" "<sup>64</sup>")
      ("f^{1}" "<sup>1</sup>"))))
 
-(ert-deftest t--get-markup-format ()
-  "Tests for `org-w3ctr--get-markup-format'."
-  (let ((info '(:html-text-markup-alist ((a . 2) (b . 3) (c . 4)))))
-    ($l (t--get-markup-format 'a info) 2)
-    ($l (t--get-markup-format 'b info) 3)
-    ($l (t--get-markup-format 'c info) 4))
-  ($l (t--get-markup-format 'anything nil) "%s"))
-
-(ert-deftest t-bold ()
-  "Tests for `org-w3ctr-bold'."
-  (t-check-element-values
-   #'t-bold
-   '(("*abc*" "<b>abc</b>")
-     ("**abc**"
-      "<b><b>abc</b></b>"
-      "<b>abc</b>")
-     ("**" . nil)
-     ("***" "<b>*</b>")
-     ("****" "<b>**</b>")
-     ("*****"
-      "<b><b>*</b></b>"
-      "<b>*</b>")
-     ("*\\star\\star\\star*" "<b>***</b>")
-     ("*hello world this world*"
-      "<b>hello world this world</b>")
-     ("*hello\nworld*" "<b>hello\nworld</b>"))))
-
-(ert-deftest t-italic ()
-  "Tests for `org-w3ctr-italic'."
-  (t-check-element-values
-   #'t-italic
-   '(("/abc/" "<i>abc</i>")
-     ("//abc//"
-      "<i><i>abc</i></i>" "<i>abc</i>")
-     ("//" . nil)
-     ("///" "<i>/</i>")
-     ("////" "<i>//</i>")
-     ("/////"
-      "<i><i>/</i></i>" "<i>/</i>")
-     ("/\\slash\\slash\\slash/" "<i>///</i>")
-     ("/hello world this world/"
-      "<i>hello world this world</i>")
-     ("/hello\nworld/" "<i>hello\nworld</i>"))))
-
-(ert-deftest t-underline ()
-  "Tests for `org-w3ctr-underline'."
-  (t-check-element-values
-   #'t-underline
-   '(("_abc_" "<u>abc</u>")
-     ("__abc__"
-      "<u><u>abc</u></u>"
-      "<u>abc</u>")
-     ("__" . nil)
-     ("___" "<u>_</u>")
-     ("____" "<u>__</u>")
-     ("_____"
-      "<u><u>_</u></u>"
-      "<u>_</u>")
-     ("_\\under\\under\\under_"
-      "<u>___</u>")
-     ("_hello world this world_"
-      "<u>hello world this world</u>")
-     ("_hello\nworld_"
-      "<u>hello\nworld</u>"))))
-
-(ert-deftest t-verbatim ()
-  "Tests for `org-w3ctr-verbatim'."
-  (t-check-element-values
-   #'t-verbatim
-   '(("=abc=" "<code>abc</code>")
-     ("==abc==" "<code>=abc=</code>")
-     ("==" . nil)
-     ("===" "<code>=</code>")
-     ("====" "<code>==</code>")
-     ("=====" "<code>===</code>")
-     ("=\\slash\\slash\\slash="
-      "<code>\\slash\\slash\\slash</code>")
-     ("=hello world this world="
-      "<code>hello world this world</code>")
-     ("=hello\nworld=" "<code>hello\nworld</code>"))))
-
-(ert-deftest t-code ()
-  "Tests for `org-w3ctr-code'."
-  (t-check-element-values
-   #'t-code
-   '(("~abc~" "<code>abc</code>")
-     ("~~abc~~" "<code>~abc~</code>")
-     ("~~" . nil)
-     ("~~~" "<code>~</code>")
-     ("~~~~" "<code>~~</code>")
-     ("~~~~~" "<code>~~~</code>")
-     ("~\\slash\\slash\\slash~"
-      "<code>\\slash\\slash\\slash</code>")
-     ("~hello world this world~"
-      "<code>hello world this world</code>")
-     ("~hello\nworld~" "<code>hello\nworld</code>"))))
-
-(ert-deftest t-strike-through ()
-  "Tests for `org-w3ctr-strike-through'."
-  (t-check-element-values
-   #'t-strike-through
-   '(("+abc+" "<s>abc</s>")
-     ("++abc++"
-      "<s><s>abc</s></s>"
-      "<s>abc</s>")
-     ("++" . nil)
-     ("+++" "<s>+</s>")
-     ("++++" "<s>++</s>")
-     ("+++++"
-      "<s><s>+</s></s>"
-      "<s>+</s>")
-     ("+\\plus\\plus\\plus+" "<s>+++</s>")
-     ("+hello world this world+"
-      "<s>hello world this world</s>")
-     ("+hello\nworld+" "<s>hello\nworld</s>"))))
-
-(ert-deftest t--convert-special-strings ()
-  "Tests for `org-w3ctr--convert-special-strings'."
-  (dolist (a '(("hello..." . "hello&#x2026;")
-               ("......" . "&#x2026;&#x2026;")
-               ("\\\\-" . "\\&#x00ad;")
-               ("---abc" . "&#x2014;abc")
-               ("--abc" . "&#x2013;abc")))
-    ($l (t--convert-special-strings (car a)) (cdr a))))
-
-(ert-deftest t-plain-text ()
-  "Tests for `org-w3ctr-plain-text'."
-  ($l (t-plain-text "a < b & c > d" '())
-      "a &lt; b &amp; c &gt; d")
-  ($l (t-plain-text "\"hello\"" '(:with-smart-quotes t))
-      "\"hello\"")
-  ($l (t-plain-text "a -- b" '(:with-special-strings t))
-      "a &#x2013; b")
-  ($l (t-plain-text "line1\nline2" '(:preserve-breaks t))
-      "line1<br>\nline2")
-  ($l (t-plain-text
-       "\"a < b\" -- c\nd"
-       '( :with-smart-quotes t
-          :with-special-strings t
-          :preserve-breaks t))
-      "\"a &lt; b\" &#x2013; c<br>\nd"))
-
 (ert-deftest t--timezone-to-offset ()
   "Tests for `org-w3ctr--timezone-to-offset'."
   ($it t--timezone-to-offset
@@ -2303,6 +2382,247 @@ int a = 1;</code></p>\n</details>")
           :html-timestamp-formats ("%F" . "%F %R")
           :html-timezone "UTC+8" :html-datetime-option s-none)))
 
+(ert-deftest t-inline-image-path-regexp ()
+  "Tests for `org-w3ctr-inline-image-path-regexp'."
+  (let ((case-fold-search t))
+    (dolist (p '("img.png" "img.PNG" "img.jpeg" "img.jpg" "img.jfif"
+                 "img.gif" "img.svg" "img.webp" "img.avif" "img.jxl"
+                 "img.bmp" "img.ico" "img.apng"
+                 "img.png?x=1" "img.png#frag"))
+      ($s (string-match-p t-inline-image-path-regexp p)))
+    (dolist (p '("img.png.txt" "img.tiff" "img.heic" "img.jp2"))
+      ($n (string-match-p t-inline-image-path-regexp p)))))
+
+(ert-deftest t--wrap-image ()
+  "Tests for `org-w3ctr--wrap-image'."
+  ($l (t--wrap-image "" nil "" "") "<figure>\n</figure>")
+  ($l (t--wrap-image "hello" nil "" "")
+      "<figure>\nhello</figure>")
+  ($l (t--wrap-image "hello" nil " abc" "")
+      "<figure>\nhello<figcaption>abc</figcaption>\n</figure>")
+  ($l (t--wrap-image "" nil "\ntest\n" "1")
+      "<figure1>\n<figcaption>test</figcaption>\n</figure>"))
+
+(ert-deftest t-inline-image-p ()
+  "Tests for `org-w3ctr-inline-image-p'."
+  (let* ((info '(:html-inline-image-rules (("file" . "\\.png\\'"))))
+         (p (lambda (s)
+              (with-temp-buffer
+                (org-mode)
+                (insert s)
+                (org-w3ctr-inline-image-p
+                 (car (org-element-map (org-element-parse-buffer)
+                          'link #'identity))
+                 info)))))
+    ($s (funcall p "[[file:img.png]]"))
+    ($n (funcall p "[[https://example.com][ ]]"))
+    ($n (funcall p "[[https://example.com][  x  ]]"))
+    ($n (funcall p "[[https://example.com][]]"))
+    ;; Description = white space + exactly one image link.
+    ($s (with-temp-buffer
+          (org-mode)
+          (insert "[[https://example.com][file:img.png]]")
+          (let ((tree (org-element-parse-buffer)))
+            (org-export-insert-image-links
+             tree info org-w3ctr-inline-image-rules)
+            (let ((link (car (org-element-map tree 'link #'identity))))
+              (org-element-set-contents
+               link (cons " " (org-element-contents link)))
+              (org-w3ctr-inline-image-p link info)))))))
+
+(ert-deftest t--link-org-files-as-html ()
+  "Tests for `org-w3ctr--link-org-files-as-html'."
+  (let ((info '(:html-link-org-files-as-html t :html-extension "html")))
+    ($l (t--link-org-files-as-html "foo.org" info) "foo.html")
+    ($l (t--link-org-files-as-html "dir/foo.org" info) "dir/foo.html")
+    ($l (t--link-org-files-as-html "foo.txt" info) "foo.txt"))
+  ($l (t--link-org-files-as-html
+       "foo.org" '(:html-link-org-files-as-html nil :html-extension "html"))
+      "foo.org"))
+
+(ert-deftest t--link-equation ()
+  "Tests for `org-w3ctr--link-equation'."
+  (t-check-element-values
+   #'t-link
+   '(("#+name: eq\n\\begin{equation}\nx=1\n\\end{equation}\n\nSee [[eq]]."
+      "\\eqref{eq}"))
+   t '(:with-latex mathjax :html-prefer-user-labels t)))
+
+(ert-deftest t--link-external ()
+  "Tests for `org-w3ctr--link-external'."
+  ($l (t--link-external "https://example.com" "desc" "")
+      "<a href=\"https://example.com\">desc</a>")
+  ($l (t--link-external "https://example.com" nil "")
+      "<a href=\"https://example.com\">https://example.com</a>"))
+
+(ert-deftest t-link ()
+  "Tests for `org-w3ctr-link'."
+  (t-check-element-values
+   #'t-link
+   '(("[[https://example.com][desc]]"
+      "<a href=\"https://example.com\">desc</a>")
+     ("[[https://example.com]]"
+      "<a href=\"https://example.com\">https://example.com</a>")
+     ("[[file:other.org][other]]"
+      "<a href=\"other.html\">other</a>")
+     ("[[file:img.png]]"
+      "<img src=\"img.png\" alt=\"img.png\">")
+     ;; Custom ID link to a headline.
+     ("* Head\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n\nSee [[#custom]]."
+      "<a href=\"#custom\">1</a>")
+     ;; Fuzzy link to a target.
+     ("A <<foo>> target. See [[foo]]."
+      "<a href=\"#foo\">No description for this link</a>")
+     ;; Fuzzy link to a named element.
+     ("#+name: tab\n| a |\n\nSee [[tab]]."
+      "<a href=\"#tab\">No description for this link</a>")
+     ;; Radio target link.
+     ("<<<radio>>>\n\nSee radio here."
+      "<a href=\"#radio\">radio</a>"))
+   t '(:with-latex verbatim :html-prefer-user-labels t)))
+
+(ert-deftest t--get-markup-format ()
+  "Tests for `org-w3ctr--get-markup-format'."
+  (let ((info '(:html-text-markup-alist ((a . 2) (b . 3) (c . 4)))))
+    ($l (t--get-markup-format 'a info) 2)
+    ($l (t--get-markup-format 'b info) 3)
+    ($l (t--get-markup-format 'c info) 4))
+  ($l (t--get-markup-format 'anything nil) "%s"))
+
+(ert-deftest t-bold ()
+  "Tests for `org-w3ctr-bold'."
+  (t-check-element-values
+   #'t-bold
+   '(("*abc*" "<b>abc</b>")
+     ("**abc**"
+      "<b><b>abc</b></b>"
+      "<b>abc</b>")
+     ("**" . nil)
+     ("***" "<b>*</b>")
+     ("****" "<b>**</b>")
+     ("*****"
+      "<b><b>*</b></b>"
+      "<b>*</b>")
+     ("*\\star\\star\\star*" "<b>***</b>")
+     ("*hello world this world*"
+      "<b>hello world this world</b>")
+     ("*hello\nworld*" "<b>hello\nworld</b>"))))
+
+(ert-deftest t-italic ()
+  "Tests for `org-w3ctr-italic'."
+  (t-check-element-values
+   #'t-italic
+   '(("/abc/" "<i>abc</i>")
+     ("//abc//"
+      "<i><i>abc</i></i>" "<i>abc</i>")
+     ("//" . nil)
+     ("///" "<i>/</i>")
+     ("////" "<i>//</i>")
+     ("/////"
+      "<i><i>/</i></i>" "<i>/</i>")
+     ("/\\slash\\slash\\slash/" "<i>///</i>")
+     ("/hello world this world/"
+      "<i>hello world this world</i>")
+     ("/hello\nworld/" "<i>hello\nworld</i>"))))
+
+(ert-deftest t-underline ()
+  "Tests for `org-w3ctr-underline'."
+  (t-check-element-values
+   #'t-underline
+   '(("_abc_" "<u>abc</u>")
+     ("__abc__"
+      "<u><u>abc</u></u>"
+      "<u>abc</u>")
+     ("__" . nil)
+     ("___" "<u>_</u>")
+     ("____" "<u>__</u>")
+     ("_____"
+      "<u><u>_</u></u>"
+      "<u>_</u>")
+     ("_\\under\\under\\under_"
+      "<u>___</u>")
+     ("_hello world this world_"
+      "<u>hello world this world</u>")
+     ("_hello\nworld_"
+      "<u>hello\nworld</u>"))))
+
+(ert-deftest t-verbatim ()
+  "Tests for `org-w3ctr-verbatim'."
+  (t-check-element-values
+   #'t-verbatim
+   '(("=abc=" "<code>abc</code>")
+     ("==abc==" "<code>=abc=</code>")
+     ("==" . nil)
+     ("===" "<code>=</code>")
+     ("====" "<code>==</code>")
+     ("=====" "<code>===</code>")
+     ("=\\slash\\slash\\slash="
+      "<code>\\slash\\slash\\slash</code>")
+     ("=hello world this world="
+      "<code>hello world this world</code>")
+     ("=hello\nworld=" "<code>hello\nworld</code>"))))
+
+(ert-deftest t-code ()
+  "Tests for `org-w3ctr-code'."
+  (t-check-element-values
+   #'t-code
+   '(("~abc~" "<code>abc</code>")
+     ("~~abc~~" "<code>~abc~</code>")
+     ("~~" . nil)
+     ("~~~" "<code>~</code>")
+     ("~~~~" "<code>~~</code>")
+     ("~~~~~" "<code>~~~</code>")
+     ("~\\slash\\slash\\slash~"
+      "<code>\\slash\\slash\\slash</code>")
+     ("~hello world this world~"
+      "<code>hello world this world</code>")
+     ("~hello\nworld~" "<code>hello\nworld</code>"))))
+
+(ert-deftest t-strike-through ()
+  "Tests for `org-w3ctr-strike-through'."
+  (t-check-element-values
+   #'t-strike-through
+   '(("+abc+" "<s>abc</s>")
+     ("++abc++"
+      "<s><s>abc</s></s>"
+      "<s>abc</s>")
+     ("++" . nil)
+     ("+++" "<s>+</s>")
+     ("++++" "<s>++</s>")
+     ("+++++"
+      "<s><s>+</s></s>"
+      "<s>+</s>")
+     ("+\\plus\\plus\\plus+" "<s>+++</s>")
+     ("+hello world this world+"
+      "<s>hello world this world</s>")
+     ("+hello\nworld+" "<s>hello\nworld</s>"))))
+
+(ert-deftest t--convert-special-strings ()
+  "Tests for `org-w3ctr--convert-special-strings'."
+  (dolist (a '(("hello..." . "hello&#x2026;")
+               ("......" . "&#x2026;&#x2026;")
+               ("\\\\-" . "\\&#x00ad;")
+               ("---abc" . "&#x2014;abc")
+               ("--abc" . "&#x2013;abc")))
+    ($l (t--convert-special-strings (car a)) (cdr a))))
+
+(ert-deftest t-plain-text ()
+  "Tests for `org-w3ctr-plain-text'."
+  ($l (t-plain-text "a < b & c > d" '())
+      "a &lt; b &amp; c &gt; d")
+  ($l (t-plain-text "\"hello\"" '(:with-smart-quotes t))
+      "\"hello\"")
+  ($l (t-plain-text "a -- b" '(:with-special-strings t))
+      "a &#x2013; b")
+  ($l (t-plain-text "line1\nline2" '(:preserve-breaks t))
+      "line1<br>\nline2")
+  ($l (t-plain-text
+       "\"a < b\" -- c\nd"
+       '( :with-smart-quotes t
+          :with-special-strings t
+          :preserve-breaks t))
+      "\"a &lt; b\" &#x2013; c<br>\nd"))
+
 (ert-deftest t-section ()
   "Tests for `org-w3ctr-section'."
   (cl-letf (((symbol-function 't-section)
@@ -2996,23 +3316,6 @@ int a = 1;</code></p>\n</details>")
     ($l (t--build-math-config '(:with-latex mathjax :html-mathjax-config "JX"))
         "JX")))
 
-(ert-deftest t-latex-fragment ()
-  "Tests for `org-w3ctr-latex-fragment'."
-  ;; NB: for `verbatim', Org expands the fragment itself (ox.el) and
-  ;; never calls the back-end transcoder, so only `mathjax' is tested.
-  (t-check-element-values
-   #'t-latex-fragment
-   '(("$x^2$" "\\(x^2\\)"))
-   nil '(:with-latex mathjax)))
-
-(ert-deftest t-latex-environment ()
-  "Tests for `org-w3ctr-latex-environment'."
-  (t-check-element-values
-   #'t-latex-environment
-   '(("\\begin{equation}\nx=1\n\\end{equation}"
-      "\\begin{equation}\nx=1\n\\end{equation}"))
-   nil '(:with-latex mathjax)))
-
 (ert-deftest t--use-default-style-p ()
   "Tests for `org-w3ctr--use-default-style-p'."
   ($n (t--use-default-style-p nil))
@@ -3610,309 +3913,6 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr--format-toc-headline'."
   nil)
 
-
-(ert-deftest t-table ()
-  "Tests for `org-w3ctr-table'."
-  (t-check-element-values
-   #'t-table
-   '(("| a | b |"
-      "<table>\n\n\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>\n</table>")
-     ("| a | b |\n|---+---|\n| 1 | 2 |"
-      "<table>\n\n\n<colgroup span=\"2\">\n<thead>\n<tr>\n<th scope=\"col\">a</th>\n<th scope=\"col\">b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td>2</td>\n</tr>\n</tbody>\n</table>")
-     ("#+name: t\n#+caption: Cap\n| a |"
-      "<table id=\"t\">\n<caption>Cap</caption>\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
-     ("| <l> | <r> |\n| a | b |"
-      "<table>\n\n\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td style=\"text-align:left\">a</td>\n<td style=\"text-align:right\">b</td>\n</tr>\n</tbody>\n</table>")
-     ("#+attr_html: :class data\n| a |"
-      "<table class=\"data\">\n\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
-     ("| / | < | > | < | > |\n|   | a | b | c | d |"
-      "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>"))
-      nil '(:html-prefer-user-labels t)))
-
-(ert-deftest t--table-cell-align ()
-  "Tests for `org-w3ctr--table-cell-align'."
-  (with-temp-buffer
-    (insert "| <l> | <r> |\n| a | b |\n")
-    (org-mode)
-    (let* ((info (list :html-table-align-cache nil))
-           (cells (org-element-map (org-element-parse-buffer)
-                      'table-cell #'identity)))
-      ;; Cells in order: <l>, <r>, a, b.
-      ($q (t--table-cell-align (nth 2 cells) info) 'left)
-      ($q (t--table-cell-align (nth 3 cells) info) 'right)
-      ($s (hash-table-p (plist-get info :html-table-align-cache)))))
-  (with-temp-buffer
-    (insert "| a | b |\n")
-    (org-mode)
-    (let* ((info (list :html-table-align-cache nil))
-           (cells (org-element-map (org-element-parse-buffer)
-                      'table-cell #'identity)))
-      ($n (t--table-cell-align (car cells) info))
-      ($n (t--table-cell-align (cadr cells) info)))))
-
-(ert-deftest t-inline-image-p ()
-  "Tests for `org-w3ctr-inline-image-p'."
-  (let* ((info '(:html-inline-image-rules (("file" . "\\.png\\'"))))
-         (p (lambda (s)
-              (with-temp-buffer
-                (org-mode)
-                (insert s)
-                (org-w3ctr-inline-image-p
-                 (car (org-element-map (org-element-parse-buffer)
-                          'link #'identity))
-                 info)))))
-    ($s (funcall p "[[file:img.png]]"))
-    ($n (funcall p "[[https://example.com][ ]]"))
-    ($n (funcall p "[[https://example.com][  x  ]]"))
-    ($n (funcall p "[[https://example.com][]]"))
-    ;; Description = white space + exactly one image link.
-    ($s (with-temp-buffer
-          (org-mode)
-          (insert "[[https://example.com][file:img.png]]")
-          (let ((tree (org-element-parse-buffer)))
-            (org-export-insert-image-links
-             tree info org-w3ctr-inline-image-rules)
-            (let ((link (car (org-element-map tree 'link #'identity))))
-              (org-element-set-contents
-               link (cons " " (org-element-contents link)))
-              (org-w3ctr-inline-image-p link info)))))))
-
-(ert-deftest t--link-org-files-as-html ()
-  "Tests for `org-w3ctr--link-org-files-as-html'."
-  (let ((info '(:html-link-org-files-as-html t :html-extension "html")))
-    ($l (t--link-org-files-as-html "foo.org" info) "foo.html")
-    ($l (t--link-org-files-as-html "dir/foo.org" info) "dir/foo.html")
-    ($l (t--link-org-files-as-html "foo.txt" info) "foo.txt"))
-  ($l (t--link-org-files-as-html
-       "foo.org" '(:html-link-org-files-as-html nil :html-extension "html"))
-      "foo.org"))
-
-(ert-deftest t--link-external ()
-  "Tests for `org-w3ctr--link-external'."
-  ($l (t--link-external "https://example.com" "desc" "")
-      "<a href=\"https://example.com\">desc</a>")
-  ($l (t--link-external "https://example.com" nil "")
-      "<a href=\"https://example.com\">https://example.com</a>"))
-
-(ert-deftest t-link ()
-  "Tests for `org-w3ctr-link'."
-  (t-check-element-values
-   #'t-link
-   '(("[[https://example.com][desc]]"
-      "<a href=\"https://example.com\">desc</a>")
-     ("[[https://example.com]]"
-      "<a href=\"https://example.com\">https://example.com</a>")
-     ("[[file:other.org][other]]"
-      "<a href=\"other.html\">other</a>")
-     ("[[file:img.png]]"
-      "<img src=\"img.png\" alt=\"img.png\">")
-     ;; Custom ID link to a headline.
-     ("* Head\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n\nSee [[#custom]]."
-      "<a href=\"#custom\">1</a>")
-     ;; Fuzzy link to a target.
-     ("A <<foo>> target. See [[foo]]."
-      "<a href=\"#foo\">No description for this link</a>")
-     ;; Fuzzy link to a named element.
-     ("#+name: tab\n| a |\n\nSee [[tab]]."
-      "<a href=\"#tab\">No description for this link</a>")
-     ;; Radio target link.
-     ("<<<radio>>>\n\nSee radio here."
-      "<a href=\"#radio\">radio</a>"))
-   t '(:with-latex verbatim :html-prefer-user-labels t)))
-
-(ert-deftest t--link-equation ()
-  "Tests for `org-w3ctr--link-equation'."
-  (t-check-element-values
-   #'t-link
-   '(("#+name: eq\n\\begin{equation}\nx=1\n\\end{equation}\n\nSee [[eq]]."
-      "\\eqref{eq}"))
-   t '(:with-latex mathjax :html-prefer-user-labels t)))
-
-(ert-deftest t-inline-image-path-regexp ()
-  "Tests for `org-w3ctr-inline-image-path-regexp'."
-  (let ((case-fold-search t))
-    (dolist (p '("img.png" "img.PNG" "img.jpeg" "img.jpg" "img.jfif"
-                 "img.gif" "img.svg" "img.webp" "img.avif" "img.jxl"
-                 "img.bmp" "img.ico" "img.apng"
-                 "img.png?x=1" "img.png#frag"))
-      ($s (string-match-p t-inline-image-path-regexp p)))
-    (dolist (p '("img.png.txt" "img.tiff" "img.heic" "img.jp2"))
-      ($n (string-match-p t-inline-image-path-regexp p)))))
-
-(ert-deftest t--footnote-key ()
-  "Tests for `org-w3ctr--footnote-key'."
-  ($l (t--footnote-key "name" 3) "name")
-  ($l (t--footnote-key "1" 3) 3)
-  ($l (t--footnote-key nil 3) 3))
-
-(ert-deftest t--footnote-id ()
-  "Tests for `org-w3ctr--footnote-id'."
-  ($l (t--footnote-id "name" 3) "fn-name")
-  ($l (t--footnote-id "1" 3) "fn-3")
-  ($l (t--footnote-id nil 3) "fn-3"))
-
-(ert-deftest t-footnote-reference ()
-  "Tests for `org-w3ctr-footnote-reference'."
-  (t-check-element-values
-   #'t-footnote-reference
-   '(("A[fn:1].\n\n[fn:1] The definition." "[<a href=\"#fn-1\">1</a>]")
-     ("A[fn:name].\n\n[fn:name] The definition." "[<a href=\"#fn-name\">name</a>]")
-     ("A[fn::text]." "[<a href=\"#fn-1\">1</a>]")
-     ;; Two footnotes in a row are separated (values are in reverse
-     ;; call order, as in the other `org-w3ctr-check-element-values' tests).
-     ("A[fn:1][fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
-      ", [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
-   t '(:with-latex verbatim :html-prefer-user-labels t)))
-
-(ert-deftest t-footnote-section ()
-  "Tests for `org-w3ctr-footnote-section'."
-  (t-check-element-values
-   #'t-footnote-section
-   '(("A[fn:1].\n\n[fn:1] The definition."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>The definition.</p>\n</dd>\n</dl>\n</div>\n")
-     ("A[fn:name].\n\n[fn:name] The definition."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-name\">[name]</dt>\n<dd>\n<p>The definition.</p>\n</dd>\n</dl>\n</div>\n")
-     ("A[fn:name:text]."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-name\">[name]</dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n")
-     ("A[fn::text]."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n")
-     ("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>one.</p>\n</dd>\n<dt id=\"fn-2\">[2]</dt>\n<dd>\n<p>two.</p>\n</dd>\n</dl>\n</div>\n"))
-   nil '(:with-latex verbatim)))
-
-(ert-deftest t-footnote-section-function ()
-  "The footnotes section goes through `org-w3ctr-footnote-section-function'."
-  (let ((org-w3ctr-footnote-section-function
-         (lambda (definitions _info)
-           (format "<FOOTNOTES n=%d/>" (length definitions)))))
-    (t-check-element-values
-     #'t-footnote-section
-     '(("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
-        "<FOOTNOTES n=2/>"))
-     nil '(:with-latex verbatim))))
-
-(ert-deftest t--engrave-get-style ()
-  "Tests for `org-w3ctr--engrave-get-style'."
-  ($n (t--engrave-get-style nil))
-  ($n (t--engrave-get-style 'default))
-  ($n (t--engrave-get-style 'no-such-face))
-  ($l (t--engrave-get-style 'font-lock-keyword-face)
-      '(font-lock-keyword-face :slug "k"))
-  ($l (t--engrave-get-style '(font-lock-comment-face))
-      '(font-lock-comment-face :slug "c"))
-  ($l (t--engrave-get-style 'css-property)
-      '(css-property :slug "f")))
-
-(ert-deftest t--engrave-face-transformer ()
-  "Tests for `org-w3ctr--engrave-face-transformer'."
-  ($l (t--engrave-face-transformer 'font-lock-keyword-face "defun")
-      "<span class=\"ef-k\">defun</span>")
-  ($l (t--engrave-face-transformer 'font-lock-keyword-face "<&>")
-      "<span class=\"ef-k\">&lt;&amp;&gt;</span>")
-  ;; Unfaced, unknown and default faces are emitted unwrapped.
-  ($l (t--engrave-face-transformer nil "<&>") "&lt;&amp;&gt;")
-  ($l (t--engrave-face-transformer 'no-such-face "<&>") "&lt;&amp;&gt;")
-  ($l (t--engrave-face-transformer 'default "<&>") "&lt;&amp;&gt;")
-  ;; Whitespace-only runs are never wrapped.
-  ($l (t--engrave-face-transformer 'font-lock-keyword-face "  \n ")
-      "  \n "))
-
-(ert-deftest t--engrave-overlay-faces-at ()
-  "Tests for `org-w3ctr--engrave-overlay-faces-at'."
-  (with-temp-buffer
-    (insert "abc")
-    ($n (t--engrave-overlay-faces-at 2))
-    (let ((ov (make-overlay 1 4)))
-      (overlay-put ov 'face 'font-lock-keyword-face)
-      ($l (t--engrave-overlay-faces-at 2) '(font-lock-keyword-face)))))
-
-(ert-deftest t--engrave-next-face-change ()
-  "Tests for `org-w3ctr--engrave-next-face-change'."
-  (with-temp-buffer
-    (insert "abcdef")
-    (put-text-property 1 4 'face 'font-lock-keyword-face)
-    ($l (t--engrave-next-face-change 1) 4)
-    ($l (t--engrave-next-face-change 4) (point-max))))
-
-(ert-deftest t--engrave-buffer ()
-  "Tests for `org-w3ctr--engrave-buffer'."
-  (with-temp-buffer
-    (insert "abc def")
-    (put-text-property 1 4 'face 'font-lock-keyword-face)
-    (let ((out (generate-new-buffer " *engrave-out*")))
-      (unwind-protect
-          (progn
-            (t--engrave-buffer (current-buffer) out)
-            ($l (with-current-buffer out (buffer-string))
-                "<span class=\"ef-k\">abc</span> def"))
-        (kill-buffer out)))))
-
-(ert-deftest t--engrave-fontify-code ()
-  "Tests for `org-w3ctr--engrave-fontify-code'."
-  (let ((out (t--engrave-fontify-code "(defun foo () 1)" "emacs-lisp")))
-    (should (string-match-p "ef-k" out))
-    ($n (string-match-p "<code" out)))
-  ($l (t--engrave-fontify-code "(a < b)" "no-such-lang") "(a &lt; b)")
-  ($l (t--engrave-fontify-code "(a < b)" nil) "(a &lt; b)"))
-
-(ert-deftest t-fontify-code ()
-  "Tests for `org-w3ctr-fontify-code'."
-  (let ((out (t-fontify-code "(defun foo () 1)" "emacs-lisp")))
-    (should (string-match-p "ef-k" out))
-    ($n (string-match-p "<code" out)))
-  (let ((t-fontify-method nil))
-    ($l (t-fontify-code "(a < b)" "emacs-lisp") "(a &lt; b)"))
-  ($l (t-fontify-code "" "emacs-lisp") "")
-  ($l (t-fontify-code "(a < b)" nil) "(a &lt; b)"))
-
-(ert-deftest t--src-code ()
-  "Tests for `org-w3ctr--src-code'."
-  (cl-flet ((f (str) (car (t-get-parsed-elements str 'src-block))))
-    (let ((out (t--src-code (f "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src")
-                            "emacs-lisp")))
-      (should (string-match-p "ef-k" out))
-      ($n (string-match-p "<code" out)))))
-
-(ert-deftest t--src-code-tag ()
-  "Tests for `org-w3ctr--src-code-tag'."
-  ($l (t--src-code-tag "emacs-lisp" "body")
-      "<code class=\"src src-emacs-lisp\">body</code>")
-  ($l (t--src-code-tag nil "body") "<code>body</code>"))
-
-(ert-deftest t--src-block-attrs ()
-  "Tests for `org-w3ctr--src-block-attrs' (uncaptioned, deterministic)."
-  (t-check-element-values
-   #'t--src-block-attrs
-   '(("#+begin_src emacs-lisp\nx\n#+end_src" "")
-     ("#+attr__: [foo]\n#+begin_src emacs-lisp\nx\n#+end_src"
-      " class=\"foo\"")
-     ("#+name: nm\n#+begin_src emacs-lisp\nx\n#+end_src"
-      " id=\"nm\""))
-      nil '(:html-prefer-user-labels t)))
-
-(ert-deftest t-src-block ()
-  "Tests for `org-w3ctr-src-block'."
-  (let ((out (org-export-string-as
-              "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
-              'w3ctr t)))
-    (should (string-match-p "<pre>\n<code class=\"src src-emacs-lisp\">" out)))
-  (let ((out (org-export-string-as
-              "#+caption: C\n#+begin_src emacs-lisp\nx\n#+end_src"
-              'w3ctr t)))
-    (should (string-match-p "<div id=\"org[^\"]*\" class=\"example\">" out))
-    (should (string-match-p "self-link" out)))
-  (let ((out (org-export-string-as
-              "#+attr_html: :textarea t\n#+begin_src emacs-lisp\nx\n#+end_src"
-              'w3ctr t)))
-    (should (string-match-p "<textarea" out))))
-
-(ert-deftest t-inline-src-block ()
-  "Tests for `org-w3ctr-inline-src-block'."
-  (let ((org-export-babel-evaluate nil))
-    (let ((out (org-export-string-as "src_emacs-lisp{(+ 1 2)}" 'w3ctr t)))
-      (should (string-match-p "<code class=\"src-inline src-emacs-lisp\">" out))
-      ;; Single wrapper: no nested <code>.
-      ($n (string-match-p "src-inline[^\"]*\"><code" out)))))
 
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-") ("$" . "org-w3ctr:test-"))

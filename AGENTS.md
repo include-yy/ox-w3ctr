@@ -170,10 +170,13 @@ the plan.
 
 Sections below `;;;; OINFO oclosure` that are not yet refined carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
-source.  Take them in source order (`grep -n 'REFINE:' ox-w3ctr.el`),
-one section per pass — docstring, `declare`, `important-return-value`/
-`pure`, helper use, tests — and remove the marker when the section is
-done.  What a pass turns up goes to `## Tasks` or `README.org` Roadmap.
+source.  Work the `;;; Template and Inner Template` part to
+completion first, then the earlier parts (the 2026-10 section refile
+scrambled source order); within a part, take each section in source
+order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass —
+docstring, `declare`, `important-return-value`/`pure`, helper use,
+tests — and remove the marker when the section is done.  What a pass
+turns up goes to `## Tasks` or `README.org` Roadmap.
 
 A section deferred to a later round carries `;; REFINE2:` instead of
 `;; REFINE:`, so the `grep -n 'REFINE:'` recipe skips it (the `2` breaks
