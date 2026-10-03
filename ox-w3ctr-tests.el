@@ -3576,15 +3576,32 @@ int a = 1;</code></p>\n</details>")
   (cl-letf (((symbol-function 't--get-info-date) #'ignore)
             ((symbol-function 't--get-info-mtime) #'ignore)
             ((symbol-function 't-format-public-license) #'ignore))
-    ($l (t-preamble-default-function nil)
+    (let ((expected ($c "<details open>\n"
+                        "<summary>More details about this document</summary>\n"
+                        "<dl>\n"
+                        "<dt>Drafting to Completion / Publication:</dt> "
+                        "<dd>[Not Specified]</dd>\n"
+                        "<dt>Date of last modification:</dt> <dd>[Not Specified]</dd>\n"
+                        "<dt>Creation Tools:</dt> <dd>[Not Specified]</dd>\n"
+                        "<dt>Public License:</dt> <dd></dd>\n"
+                        "</dl>\n</details>\n<hr>")))
+      ;; Every row falls back to the placeholder.
+      ($l (t-preamble-default-function nil) expected)
+      ;; A blank creator is missing too.
+      ($l (t-preamble-default-function '(:creator "   ")) expected)))
+  ;; The rows fill in when the values exist.
+  (cl-letf (((symbol-function 't--get-info-date) (lambda (_i) "DATE"))
+            ((symbol-function 't--get-info-mtime) (lambda (_i) "MTIME"))
+            ((symbol-function 't-format-public-license)
+             (lambda (_i) "LICENSE")))
+    ($l (t-preamble-default-function '(:creator "MAKER"))
         ($c "<details open>\n"
             "<summary>More details about this document</summary>\n"
             "<dl>\n"
-            "<dt>Drafting to Completion / Publication:</dt> "
-            "<dd>[Not Specified]</dd>\n"
-            "<dt>Date of last modification:</dt> <dd>[Not Specified]</dd>\n"
-            "<dt>Creation Tools:</dt> <dd>[Not Specified]</dd>\n"
-            "<dt>Public License:</dt> <dd></dd>\n"
+            "<dt>Drafting to Completion / Publication:</dt> <dd>DATE</dd>\n"
+            "<dt>Date of last modification:</dt> <dd>MTIME</dd>\n"
+            "<dt>Creation Tools:</dt> <dd>MAKER</dd>\n"
+            "<dt>Public License:</dt> <dd>LICENSE</dd>\n"
             "</dl>\n</details>\n<hr>"))))
 
 (ert-deftest t--format-toc-headline ()

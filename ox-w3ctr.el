@@ -4201,11 +4201,14 @@ when there is no input file or it cannot be stat'ed."
     (format-time-string "%FT%RZ" time t)))
 
 (defun t-preamble-default-function (info)
-  "Return a default HTML preamble string with document metadata.
+  "Return the default HTML preamble for export INFO.
 
-The generated HTML uses a <details> element to display the document's
-publication date, modification date, creator tools, and license.
-It takes the export options plist INFO as its argument."
+INFO is the export options plist.  The preamble is a <details>
+element listing the document metadata: the publication date from
+`org-w3ctr--get-info-date', the last modification time from
+`org-w3ctr--get-info-mtime', the creator string, and the license
+line from `org-w3ctr-format-public-license'.  A row shows
+\"[Not Specified]\" when its value is missing or blank."
   (concat
    "<details open>\n"
    "<summary>More details about this document</summary>\n"
@@ -4220,7 +4223,7 @@ It takes the export options plist INFO as its argument."
    "</dd>\n"
    ;; Creation tools.
    "<dt>Creation Tools:</dt> <dd>"
-   (or (t--pget info :creator) "[Not Specified]")
+   (or (t--nw-trim (t--pget info :creator)) "[Not Specified]")
    "</dd>\n"
    ;; License.
    "<dt>Public License:</dt> <dd>"
