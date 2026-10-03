@@ -3941,8 +3941,8 @@ int a = 1;</code></p>\n</details>")
         "Alternative"))
      nil '(:with-toc 2))))
 
-(ert-deftest t--format-toc-headline ()
-  "Tests for `org-w3ctr--format-toc-headline'."
+(ert-deftest t-toc-headline-default-format-function ()
+  "Tests for `org-w3ctr-toc-headline-default-format-function'."
   (cl-letf (((symbol-function 't--reference) (lambda (_h _i) "id"))
             ((symbol-function 't--build-toc-headline)
              (lambda (_h _i) "TITLE"))
@@ -3950,7 +3950,8 @@ int a = 1;</code></p>\n</details>")
              (lambda (_h _i) "1.2"))
             ((symbol-function 't--low-level-headline-p)
              (lambda (_h _i) nil)))
-    ($l (t--format-toc-headline nil nil) "<a href=\"#id\">1.2TITLE</a>"))
+    ($l (t-toc-headline-default-format-function nil nil)
+        "<a href=\"#id\">1.2TITLE</a>"))
   ;; Low-level headlines carry no section number.
   (cl-letf (((symbol-function 't--reference) (lambda (_h _i) "id"))
             ((symbol-function 't--build-toc-headline)
@@ -3959,7 +3960,8 @@ int a = 1;</code></p>\n</details>")
              (lambda (_h _i) "1.2"))
             ((symbol-function 't--low-level-headline-p)
              (lambda (_h _i) t)))
-    ($l (t--format-toc-headline nil nil) "<a href=\"#id\">TITLE</a>")))
+    ($l (t-toc-headline-default-format-function nil nil)
+        "<a href=\"#id\">TITLE</a>")))
 
 (ert-deftest t--get-info-toc-element ()
   "Tests for `org-w3ctr--get-info-toc-element'."
@@ -3990,7 +3992,7 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr--build-toc'."
   (cl-letf (((symbol-function 'org-export-collect-headlines)
              (lambda (_i _d &optional _s) '(h1 h2)))
-            ((symbol-function 't--format-toc-headline)
+            ((symbol-function 't-toc-headline-default-format-function)
              (lambda (h _i) (symbol-name h)))
             ((symbol-function 'org-export-get-relative-level)
              (lambda (h _i) (if (eq h 'h1) 1 2))))
@@ -4000,7 +4002,20 @@ int a = 1;</code></p>\n</details>")
   ;; No headline in range, no table.
   (cl-letf (((symbol-function 'org-export-collect-headlines)
              (lambda (_i _d &optional _s) nil)))
-    ($n (t--build-toc 2 '(:html-toc-element ul)))))
+    ($n (t--build-toc 2 '(:html-toc-element ul))))
+  ;; The hook formats the entry; without one, the default is used.
+  (cl-letf (((symbol-function 'org-export-collect-headlines)
+             (lambda (_i _d &optional _s) '(h1)))
+            ((symbol-function 'org-export-get-relative-level)
+             (lambda (_h _i) 1))
+            ((symbol-function 't-toc-headline-default-format-function)
+             (lambda (h _i) (format "DEFAULT %s" h))))
+    ($l (t--build-toc 2 '(:html-toc-element ul))
+        "\n<ul class=\"toc\">\n<li>DEFAULT h1</li>\n</ul>\n")
+    ($l (t--build-toc 2 (list :html-toc-element 'ul
+                              :html-toc-headline-format-function
+                              (lambda (h _i) (format "HOOK %s" h))))
+        "\n<ul class=\"toc\">\n<li>HOOK h1</li>\n</ul>\n")))
 
 (ert-deftest t--build-table-of-contents ()
   "Tests for `org-w3ctr--build-table-of-contents'."

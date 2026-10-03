@@ -219,6 +219,7 @@
     (:creator "CREATOR" nil t-creator-string)
     (:html-validation-link nil nil t-validation-link)
     (:html-toc-element nil nil t-toc-element)
+    (:html-toc-headline-format-function nil nil t-toc-headline-format-function)
     (:html-back-to-top nil "back-to-top" t-back-to-top)
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     (:html-extension nil nil t-extension)
@@ -991,6 +992,19 @@ replacements."
   "List element of table of contents."
   :group 'org-export-w3ctr
   :type '(choice (const ul) (const ol)))
+
+(defcustom t-toc-headline-format-function
+  #'t-toc-headline-default-format-function
+  "The function used to format a table of contents entry.
+
+This function is called with a HEADLINE element and an INFO plist.
+It should return the entry HTML: an anchor to the headline's
+reference.  The default,
+`org-w3ctr-toc-headline-default-format-function', pairs the section
+number with the headline text; replace the function to change the
+entry markup."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 (defcustom t-back-to-top t
   "Add back-to-top arrow at the end of html file."
@@ -5222,6 +5236,8 @@ line from `org-w3ctr-format-public-license'.  A row shows
 
 ;; Options:
 ;; :html-toc-element (`org-w3ctr-toc-element')
+;; :html-toc-headline-format-function
+;;   (`org-w3ctr-toc-headline-format-function')
 ;; :with-toc (`org-export-with-toc')
 
 (defun t--toc-headline-secno (headline info)
@@ -5258,8 +5274,11 @@ it to `org-w3ctr--build-bare-headline' for final assembly."
                info)))
     (t--build-bare-headline headline text info)))
 
-(defun t--format-toc-headline (headline info)
-  "Return the table of contents entry for HEADLINE.
+(defun t-toc-headline-default-format-function (headline info)
+  "Format the table of contents entry for HEADLINE.
+
+This is the default of `org-w3ctr-toc-headline-format-function',
+the counterpart of ox-html's `org-html--format-toc-headline'.
 
 HEADLINE is a headline element and INFO the export options plist.
 The entry is an anchor to HEADLINE's reference, holding the
@@ -5327,8 +5346,12 @@ DEPTH."
   (declare (ftype (function ((or null integer) list &optional t)
                             (or null string)))
            (important-return-value t))
-  (let ((fn (lambda (h) (cons (t--format-toc-headline h info)
-                              (org-export-get-relative-level h info)))))
+  (let ((fn (lambda (h)
+              (cons (funcall (or (t--pget info
+                                         :html-toc-headline-format-function)
+                                 #'t-toc-headline-default-format-function)
+                             h info)
+                    (org-export-get-relative-level h info)))))
     (when-let* ((hs (org-export-collect-headlines info depth scope))
                 (entries (mapcar fn hs)))
       (t--toc-alist-to-text entries info (not scope)))))
