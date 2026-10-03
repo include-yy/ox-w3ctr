@@ -3364,9 +3364,9 @@ int a = 1;</code></p>\n</details>")
              (lambda (info) (plist-get info :author))))
     (cl-flet ((test (info)
                 (t-license-default-format-function (copy-sequence info))))
-      (let ((info (list :html-license nil
-                        :html-cc-badges-format-function
-                        #'t-cc-badges-default-format-function)))
+      ;; No :html-cc-badges-format-function here on purpose: the call
+      ;; site falls back to the default renderer.
+      (let ((info (list :html-license nil)))
         ($l (test info) "Not Specified")
         (setq info (plist-put info :html-license 'all-rights-reserved))
         ($l (test info) "All Rights Reserved")
@@ -3416,11 +3416,18 @@ int a = 1;</code></p>\n</details>")
         ($l (test info)
             (concat "This work by test is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>"
                     " " (t-cc-badges-default-format-function 'cc-by-4.0 nil)))
-        ;; PDM gets its icon too.
+        ;; The public-domain tools get their own sentences.
+        (setq info (plist-put info :html-license 'cc0))
+        ($l (test info)
+            (concat "This work by test is dedicated to the public domain under <a href=\"https://creativecommons.org/publicdomain/zero/1.0/\">CC0 1.0 Universal</a>"
+                    " " (t-cc-badges-default-format-function 'cc0 nil)))
         (setq info (plist-put info :html-license 'public-domain-mark))
         ($l (test info)
-            (concat "This work by test is licensed under <a href=\"https://creativecommons.org/publicdomain/mark/1.0/\">Public Domain Mark 1.0</a>"
-                    " " (t-cc-badges-default-format-function 'public-domain-mark nil)))))))
+            (concat "This work by test is marked as being in the public domain (<a href=\"https://creativecommons.org/publicdomain/mark/1.0/\">Public Domain Mark 1.0</a>)"
+                    " " (t-cc-badges-default-format-function 'public-domain-mark nil)))
+        ;; An unknown license is an error.
+        (setq info (plist-put info :html-license 'nope))
+        ($q (car (should-error (test info))) 'org-w3ctr-error)))))
 
 (ert-deftest t--pre/postamble-format-spec ()
   "Tests for `org-w3ctr--pre/postamble-format-spec'."

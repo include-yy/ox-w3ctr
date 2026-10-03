@@ -4020,10 +4020,17 @@ Unlike `org-w3ctr--get-info-author-raw', the author goes through
     (t--nw-trim (org-export-data a info))))
 
 (defun t-license-default-format-function (info)
-  "Generate HTML string describing the public license for a work.
+  "Generate the license line from the export options INFO.
 
-Extracts license information from INFO plist and formats it with author
-attribution and appropriate Creative Commons icons when applicable."
+INFO is the export options plist.  Read the license from
+`:html-license' and describe it as its kind demands: a CC license
+is \"licensed under\", CC0 is dedicated to the public domain, and
+the Public Domain Mark marks a work as being in the public domain.
+
+The author comes from `org-w3ctr--get-info-author' and the badge icons
+from the `:html-cc-badges-format-function' hook when
+`:html-use-cc-badges' is non-nil.  Return the line as a string.
+Signal `org-w3ctr-error' for an unknown license."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (let* ((license (t--pget info :html-license))
@@ -4035,18 +4042,21 @@ attribution and appropriate Creative Commons icons when applicable."
     (pcase (cdr details)
       (`(,name) name)
       (`(,name ,link)
-       (concat
-        "This work"
-        (when (and author (not (eq license 'cc0)))
-          (concat " by " author))
-        " is licensed under "
-        (if (null link) name
-          (format "<a href=\"%s\">%s</a>" link name))
-        (when use-badges
-          (when-let* ((badges (funcall
-                              (t--pget info :html-cc-badges-format-function)
-                              license info))
-                      ((not (string-empty-p badges))))
+       (let ((tag (if (null link) name
+                    (format "<a href=\"%s\">%s</a>" link name))))
+         (concat
+          "This work"
+          (when author (concat " by " author))
+          (pcase license
+            ('cc0 (concat " is dedicated to the public domain under " tag))
+            ('public-domain-mark
+             (concat " is marked as being in the public domain (" tag ")"))
+            (_ (concat " is licensed under " tag)))
+          (when-let* ((_ use-badges)
+                      (fn (or (t--pget info :html-cc-badges-format-function)
+                              #'t-cc-badges-default-format-function))
+                      (badges (funcall fn license info))
+                      (_ (not (string-empty-p badges))))
             (concat " " badges)))))
       (_ (t-error "Internal error")))))
 
