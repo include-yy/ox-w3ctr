@@ -3306,21 +3306,21 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--build-cc-img ()
   "Tests for `org-w3ctr--build-cc-img'."
-  ($l (t--build-cc-img "")
-      ($c "<img style=\"height:1.4em!important;margin-left:0.2em;"
+  ($l (t--build-cc-img "by" "")
+      ($c "<img style=\"height:1.4em;margin-left:0.2em;"
           "vertical-align:text-bottom;\" "
-          "src=\"data:image/svg+xml;base64,\" alt=\"\">"))
-  ($l (t--build-cc-img "test")
-      ($c "<img style=\"height:1.4em!important;margin-left:0.2em;"
+          "src=\"data:image/svg+xml;base64,\" alt=\"BY\">"))
+  ($l (t--build-cc-img "zero" "test")
+      ($c "<img style=\"height:1.4em;margin-left:0.2em;"
           "vertical-align:text-bottom;\" "
-          "src=\"data:image/svg+xml;base64,test\" alt=\"\">")))
+          "src=\"data:image/svg+xml;base64,test\" alt=\"CC0\">")))
 
 (ert-deftest t-cc-badges-default-format-function ()
   "Tests for `org-w3ctr-cc-badges-default-format-function'."
   (cl-letf (((symbol-function 't--load-cc-svg-once)
              #'identity)
             ((symbol-function 't--build-cc-img)
-             #'identity))
+             (lambda (name _base64) name)))
     ($it t-cc-badges-default-format-function
       ($l (it 'cc0 nil) "cczero")
       ($l (it 'cc-by-4.0 nil) "ccby")

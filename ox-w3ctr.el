@@ -3947,18 +3947,33 @@ the cache afterwards."
   (with-memoization (gethash name t--cc-svg-cache)
     (t--load-cc-svg name)))
 
-(defun t--build-cc-img (base64)
-  "Build an HTML img tag embedding the base64 SVG string BASE64.
+(defun t--cc-icon-alt (name)
+  "Return the alt text for the badge icon NAME.
 
-BASE64 is the output of `org-w3ctr--load-cc-svg-once'.  The image
-is decorative (empty alt attribute): the license name follows in
-text.  The inline sizing style is taken from the CC license
-chooser, https://chooser-beta.creativecommons.org/."
+NAME is an icon name; the alt text is its standard abbreviation:
+most names simply uppercase (by becomes BY), while zero becomes
+CC0."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
-  (format "<img style=\"height:1.4em!important;margin-left:0.2em;\
+  (if (equal name "zero") "CC0" (upcase name)))
+
+(defun t--build-cc-img (name base64)
+  "Build an HTML img tag for the badge icon NAME with BASE64 SVG.
+
+NAME is an icon name as in `org-w3ctr--cc-icon-names'; the alt
+attribute carries its standard abbreviation from
+`org-w3ctr--cc-icon-alt' (BY, NC, SA, and CC0 for zero).  BASE64
+is the icon's base64 SVG, as returned by
+`org-w3ctr--load-cc-svg-once'.  The inline sizing style follows
+the CC license chooser, https://chooser-beta.creativecommons.org/,
+minus its !important: exported documents have no hostile host
+stylesheet to guard against, and dropping it leaves the icons
+open to user styling."
+  (declare (ftype (function (string string) string))
+           (pure t) (important-return-value t))
+  (format "<img style=\"height:1.4em;margin-left:0.2em;\
 vertical-align:text-bottom;\" src=\"data:image/svg+xml;base64,%s\" \
-alt=\"\">" base64))
+alt=\"%s\">" base64 (t--cc-icon-alt name)))
 
 (defun t--cc-icon-names (license)
   "Return the icon file names for LICENSE, or nil when it has none.
@@ -3987,7 +4002,7 @@ unused here.  Return the img tags concatenated, or the empty
 string when LICENSE has no icons."
   (declare (ftype (function (t list) string))
            (important-return-value t))
-  (let ((f (lambda (x) (t--build-cc-img (t--load-cc-svg-once x)))))
+  (let ((f (lambda (x) (t--build-cc-img x (t--load-cc-svg-once x)))))
     (mapconcat f (t--cc-icon-names license))))
 
 (defun t--get-info-author (info)
