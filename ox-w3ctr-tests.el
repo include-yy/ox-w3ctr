@@ -3350,7 +3350,13 @@ int a = 1;</code></p>\n</details>")
    '(("#+AUTHOR: /hello/" "<i>hello</i>")
      ("#+AUTHOR: " nil))
    nil '( :with-author t :html-license-format-function
-          t-license-default-format-function)))
+          t-license-default-format-function))
+  ;; The gate and the missing author are direct-call cases: a full
+  ;; export defaults :author to `user-full-name'.
+  (cl-letf (((symbol-function 'org-export-data) (lambda (d _info) d)))
+    ($n (t--get-info-author '(:with-author nil :author "x")))
+    ($n (t--get-info-author '(:with-author t)))
+    ($l (t--get-info-author '(:with-author t :author "x")) "x")))
 
 (ert-deftest t-license-default-format-function ()
   "Tests for `org-w3ctr-license-default-format-function'."

@@ -4007,7 +4007,12 @@ string when LICENSE has no icons."
     (mapconcat f (t--cc-icon-names license))))
 
 (defun t--get-info-author (info)
-  "Get exported author string from INFO if :with-author is non-nil."
+  "Return the exported author string from INFO, or nil.
+
+INFO is the export options plist.  Return nil when :with-author or
+:author is nil, or when the author transcodes to a blank string.
+Unlike `org-w3ctr--get-info-author-raw', the author goes through
+`org-export-data': markup in the author name becomes HTML."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* (((t--pget info :with-author))
