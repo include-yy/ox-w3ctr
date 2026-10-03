@@ -172,10 +172,11 @@ Sections below `;;;; OINFO oclosure` that are not yet refined carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
 source.  The `;;; Template and Inner Template` part was finished on
 2026-10-04; the work now is the earlier parts (the 2026-10 section
-refile scrambled source order).  The eight `REFINE:` sections left, in
-source order: Filter Functions, Footnote, Special Block, Table, LaTeX,
-Engrave-faces subset, Source block, Link.  Within a part, take each
-section in source order (`grep -n 'REFINE:' ox-w3ctr.el`), one section
+refile scrambled source order).  The nine `REFINE:` sections left, in
+source order: Filter Functions, JSON-RPC, Footnote, Special Block,
+Table, LaTeX, Engrave-faces subset, Source block, Link.  Within a part,
+take each section in source order (`grep -n 'REFINE:' ox-w3ctr.el`),
+one section
 per pass — docstring, `declare`, `important-return-value`/`pure`,
 helper use, tests — and remove the marker when the section is done.
 What a pass turns up goes to `## Tasks` or `README.org` Roadmap.
@@ -321,7 +322,7 @@ same session.  Larger or planned work is in the =Roadmap= section of
   - Add `(declare (ftype …))` to the 15 functions that still lack it
     (excluding `defsubst`, interactive, and end-user commands; count as
     of 2026-10-04): the 11-function RPC/jstools group in
-    `;;; Simple JSON based sync RPC`, plus `t-final-function`,
+    `;;;; JSON-RPC`, plus `t-final-function`,
     `t-special-block`, `t--textarea-block` and
     `t-preamble-default-function`.
 
