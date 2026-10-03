@@ -1921,6 +1921,15 @@ nil.  This doesn't apply to radio targets and targets."
 ;;;; Filter Functions
 
 ;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+
+(defun t-image-link-filter (data _backend info)
+  "Process image links that are inside descriptions.
+DATA is the parse tree.  INFO is an info plist.
+See `org-export-insert-image-links' for more details."
+  (declare (ftype (function (t t list) t))
+           (important-return-value t))
+  (org-export-insert-image-links data info t-inline-image-rules))
+
 (defun t-final-function (contents _backend info)
   "Filter to indent the HTML and convert HTML entities."
   (with-temp-buffer
@@ -3499,13 +3508,6 @@ is the info plist.  Return the formatted timestamp string."
 ;; - :html-equation-reference-format
 ;;   (`org-w3ctr-equation-reference-format')
 
-(defun t-image-link-filter (data _backend info)
-  "Process image links that are inside descriptions.
-DATA is the parse tree.  INFO is an info plist.
-See `org-export-insert-image-links' for more details."
-  (declare (ftype (function (t t list) t))
-           (important-return-value t))
-  (org-export-insert-image-links data info t-inline-image-rules))
 
 ;; The "exactly one link" rule below fixes an upstream Org bug found
 ;; while refactoring `ox-html.el'; see
