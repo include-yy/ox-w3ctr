@@ -81,12 +81,9 @@
 ;;;; Define Back-End
 (org-export-define-backend 'w3ctr
   '(;; see https://orgmode.org/worg/org-syntax.html for details
-    ;; top-level structure
-    (inner-template . t-inner-template)
-    (template . t-template)
-    ;;@ headline section [2]
-    (headline . t-headline)
-    (section . t-section)
+    ;; The pairs follow the order of their implementations below; the
+    ;; annotations keep Org's taxonomy, so family members that the
+    ;; source keeps with their element sit beside it here too.
     ;;@ greater elements [11]
     ;; footnote-definition                      NO-EXIST
     ;; inlinetasks `inlinetask'                 NO-USE
@@ -94,10 +91,13 @@
     (center-block . t-center-block)             ; #+begin_center
     (drawer . t-drawer)                         ; :name: ... :end:
     (dynamic-block . t-dynamic-block)           ; #+begin: name para
+    (footnote-reference . t-footnote-reference) ; [fn:] (an object)
     (item . t-item)                             ; plain list item
     (plain-list . t-plain-list)                 ; plain list
     (quote-block . t-quote-block)               ; #+begin_quote
     (special-block . t-special-block)           ; #+begin_{sth}
+    (table-cell . t-table-cell)                 ; | | (an object)
+    (table-row . t-table-row)                   ; | | (a lesser element)
     (table . t-table)                           ; | | | \n | | |
     ;;@ lesser elements [17]
     ;; babel cell                               NO-EXIST
@@ -112,11 +112,12 @@
     (fixed-width . t-fixed-width)               ; ^: contents
     (horizontal-rule . t-horizontal-rule)       ; -----------
     (keyword . t-keyword)                       ; #+name: ...
+    (latex-fragment . t-latex-fragment)         ; \(, \[ (an object)
     (latex-environment . t-latex-environment)   ; \begin
     (paragraph . t-paragraph)                   ; \n ... \n
-    (src-block . t-src-block)                   ; #+begin_src lang
-    (table-row . t-table-row)                   ; | |
     (verse-block . t-verse-block)               ; #+begin_verse
+    (src-block . t-src-block)                   ; #+begin_src lang
+    (inline-src-block . t-inline-src-block)     ; src_LANG{body} (an object)
     ;;@ objects [25]
     ;; citation                                 NO-USE
     ;; citation reference                       NO-USE
@@ -124,26 +125,28 @@
     ;; macros                                   NO-EXIST
     (entity . t-entity)                         ; \alpha, \cent
     (export-snippet . t-export-snippet)         ; @@html:something@@
-    (footnote-reference . t-footnote-reference) ; [fn:]
-    (inline-src-block . t-inline-src-block)     ; src_LANG{body}
-    (latex-fragment . t-latex-fragment)         ; \(, \[
-    (line-break . t-line-break)                 ; \\
-    (link . t-link)                             ; [[...][...]]
+    (line-break . t-line-break)                 ; \
+    (target . t-target)                         ; <<target>>
     (radio-target . t-radio-target)             ; <<<contents>>>
     (statistics-cookie . t-statistics-cookie)   ; [%] [/]
     (subscript . t-subscript)                   ; a_{b}
     (superscript . t-superscript)               ; a^{b}
-    (table-cell . t-table-cell)                 ; | |
-    (target . t-target)                         ; <<target>>
     (timestamp . t-timestamp)                   ; [<time-spec>]
+    (link . t-link)                             ; [[...][...]]
     ;; smallest objects
     (bold . t-bold)                             ; *a*
     (italic . t-italic)                         ; /a/
-    (underline . t-underline)                   ; _a_
+    (underline . t-underline)                   ; _a/
     (verbatim . t-verbatim)                     ; =a=
     (code . t-code)                             ; ~a~
     (strike-through . t-strike-through)         ; +a+
-    (plain-text . t-plain-text))
+    (plain-text . t-plain-text)
+    ;;@ headline section [2]
+    (section . t-section)
+    (headline . t-headline)
+    ;; top-level structure
+    (inner-template . t-inner-template)
+    (template . t-template))
   :filters-alist '((:filter-parse-tree . t-image-link-filter)
                    (:filter-final-output . t-final-function))
   :menu-entry
