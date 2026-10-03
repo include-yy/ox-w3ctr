@@ -219,6 +219,7 @@
     (:creator "CREATOR" nil t-creator-string)
     (:html-validation-link nil nil t-validation-link)
     (:html-toc-element nil nil t-toc-element)
+    (:html-toc-title nil nil t-toc-title)
     (:html-toc-headline-format-function nil nil t-toc-headline-format-function)
     (:html-back-to-top nil "back-to-top" t-back-to-top)
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
@@ -998,6 +999,16 @@ the markers), so `ol' is the better choice for list semantics
 wherever a stylesheet is guaranteed."
   :group 'org-export-w3ctr
   :type '(choice (const ul) (const ol)))
+
+(defcustom t-toc-title "Table of Contents"
+  "Heading text of the table of contents.
+
+W3C technical reports use \"Table of Contents\".  Unlike ox-html,
+which derives its heading from the translation machinery
+(`org-export-translate'), this is a plain string to set per
+installation."
+  :group 'org-export-w3ctr
+  :type 'string)
 
 (defcustom t-toc-headline-format-function
   #'t-toc-headline-default-format-function
@@ -5242,6 +5253,7 @@ line from `org-w3ctr-format-public-license'.  A row shows
 
 ;; Options:
 ;; :html-toc-element (`org-w3ctr-toc-element')
+;; :html-toc-title (`org-w3ctr-toc-title')
 ;; :html-toc-headline-format-function
 ;;   (`org-w3ctr-toc-headline-format-function')
 ;; :with-toc (`org-export-with-toc')
@@ -5367,10 +5379,11 @@ within DEPTH."
   "Build the document table of contents for export INFO.
 
 INFO is the export options plist.  Return the <nav id=\"toc\">
-block, holding a heading at the `:html-toplevel-hlevel' level and
-the entries from `org-w3ctr--build-toc', or nil when `:with-toc'
-is nil or no headline falls within its depth.  A nil `:with-toc'
-means no table at all, distinct from the unlimited depth
+block, holding a heading with the `:html-toc-title' text at the
+`:html-toplevel-hlevel' level and the entries from
+`org-w3ctr--build-toc', or nil when `:with-toc' is nil or no
+headline falls within its depth.  A nil `:with-toc' means no
+table at all, distinct from the unlimited depth
 `org-w3ctr--build-toc' gives that value."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
@@ -5380,7 +5393,8 @@ means no table at all, distinct from the unlimited depth
      "<nav id=\"toc\">\n"
      (let ((top-level (t--pget info :html-toplevel-hlevel)))
        (format "<h%d>%s</h%d>"
-               top-level "Table of Contents" top-level))
+               top-level (or (t--pget info :html-toc-title) t-toc-title)
+               top-level))
      toc
      "</nav>\n")))
 

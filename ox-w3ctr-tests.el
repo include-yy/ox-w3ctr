@@ -4043,18 +4043,23 @@ int a = 1;</code></p>\n</details>")
                (lambda (d _i &optional _s) (setq seen d) "TOC")))
       ;; The depth comes from :with-toc.
       ($l (t--build-table-of-contents
-           '(:with-toc 2 :html-toplevel-hlevel 3))
+           '(:with-toc 2 :html-toplevel-hlevel 3 :html-toc-title "Table of Contents"))
           "<nav id=\"toc\">\n<h3>Table of Contents</h3>TOC</nav>\n")
       ($l seen 2)))
+  ;; A missing title falls back to `org-w3ctr-toc-title'.
+  (cl-letf (((symbol-function 't--build-toc)
+             (lambda (_d _i &optional _s) "TOC")))
+    ($l (t--build-table-of-contents '(:with-toc 2 :html-toplevel-hlevel 3))
+        "<nav id=\"toc\">\n<h3>Table of Contents</h3>TOC</nav>\n"))
   ;; No entries, no block.
   (cl-letf (((symbol-function 't--build-toc) (lambda (_d _i &optional _s) nil)))
-    ($n (t--build-table-of-contents '(:with-toc 2 :html-toplevel-hlevel 3))))
+    ($n (t--build-table-of-contents '(:with-toc 2 :html-toplevel-hlevel 3 :html-toc-title "Table of Contents"))))
   ;; A nil :with-toc means no table at all: the builder is not even
   ;; asked (its nil depth means "unlimited" instead).
   (cl-letf (((symbol-function 't--build-toc)
              (lambda (_d _i &optional _s) "TOC")))
     ($n (t--build-table-of-contents
-         '(:with-toc nil :html-toplevel-hlevel 3)))))
+         '(:with-toc nil :html-toplevel-hlevel 3 :html-toc-title "Table of Contents")))))
 
 (ert-deftest t--list-of-elements ()
   "Tests for `org-w3ctr--list-of-elements'."
