@@ -4213,28 +4213,6 @@ like TODO keywords and tags."
                (org-element-property :title headline) info)))
     (t--build-bare-headline headline text info)))
 
-;; FIXME: Add tests
-(defun t--build-toc-headline (headline info)
-  "Build a headline string for the Table of Contents.
-
-HEADLINE is the headline element and INFO is the info plist.  Retrieve
-HEADLINE's alternative title, falling back to the regular title when
-none is set, format it for export with the TOC entry backend, and pass
-it to `org-w3ctr--build-bare-headline' for final assembly."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  ;; FIXME: The default TOC entry backend turns links into text, so an
-  ;; inline image in a headline title becomes its file name in the TOC.
-  ;; Upstream `org-html--format-toc-headline' (3ea1682731, "Generate
-  ;; images in TOC for HTML export") overrides the link transcoder to
-  ;; render such images with `org-html-link'.  Decide whether to follow
-  ;; it; for W3C TR output the text is likely preferable.
-  (let ((text (org-export-data-with-backend
-               (org-export-get-alt-title headline info)
-               (org-export-toc-entry-backend 'w3ctr)
-               info)))
-    (t--build-bare-headline headline text info)))
-
 (defun t--get-headline-hlevel (headline info)
   "Calculate the absolute HTML heading level for a headline.
 
@@ -5242,13 +5220,16 @@ line from `org-w3ctr-format-public-license'.  A row shows
 
 ;;;; Table of Contents
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; :html-toc-element (`org-w3ctr-toc-element')
 ;; :with-toc (`org-export-with-toc')
 
 (defun t--toc-headline-secno (headline info)
-  "Return section number for HEADLINE as an HTML span."
+  "Return the section number of HEADLINE as an HTML span, or nil.
+
+HEADLINE is a headline element and INFO the export options plist.
+The span holds the headline number, dotted between levels.  Return
+nil when HEADLINE is unnumbered."
   (declare (ftype (function (t list) (or null string)))
            (important-return-value t))
   (when-let* (((org-export-numbered-headline-p headline info))
@@ -5256,9 +5237,36 @@ line from `org-w3ctr-format-public-license'.  A row shows
     (format "<span class=\"secno\">%s</span>"
             (mapconcat #'number-to-string numbers "."))))
 
+;; FIXME: Add tests
+(defun t--build-toc-headline (headline info)
+  "Build a headline string for the Table of Contents.
+
+HEADLINE is the headline element and INFO is the info plist.  Retrieve
+HEADLINE's alternative title, falling back to the regular title when
+none is set, format it for export with the TOC entry backend, and pass
+it to `org-w3ctr--build-bare-headline' for final assembly."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  ;; FIXME: The default TOC entry backend turns links into text, so an
+  ;; inline image in a headline title becomes its file name in the TOC.
+  ;; Upstream `org-html--format-toc-headline' (3ea1682731, "Generate
+  ;; images in TOC for HTML export") overrides the link transcoder to
+  ;; render such images with `org-html-link'.  Decide whether to follow
+  ;; it; for W3C TR output the text is likely preferable.
+  (let ((text (org-export-data-with-backend
+               (org-export-get-alt-title headline info)
+               (org-export-toc-entry-backend 'w3ctr)
+               info)))
+    (t--build-bare-headline headline text info)))
+
 (defun t--format-toc-headline (headline info)
-  "Return an appropriate table of contents entry for HEADLINE.
-INFO is a plist used as a communication channel."
+  "Return the table of contents entry for HEADLINE.
+
+HEADLINE is a headline element and INFO the export options plist.
+The entry is an anchor to HEADLINE's reference, holding the
+section number from `org-w3ctr--toc-headline-secno' and the
+headline text from `org-w3ctr--build-toc-headline'.  Low-level
+headlines get no section number."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (format "<a href=\"#%s\">%s</a>" (t--reference headline info)
@@ -5267,12 +5275,11 @@ INFO is a plist used as a communication channel."
                   (t--build-toc-headline headline info))))
 
 (defun t--get-info-toc-element (info)
-  "Return the HTML tag (`ul' or `ol') for the TOC list from INFO.
+  "Return the TOC list tag from INFO as a string.
 
-This function retrieves the value of the :html-toc-element
-property from the INFO plist. It ensures the value is a valid
-tag, either \\='ul or \\='ol, and returns the corresponding string.
-It signals an error for any other value."
+INFO is the export options plist.  The `:html-toc-element' option
+is the symbol `ul' or `ol'; return its name.  Signal
+`org-w3ctr-error' for any other value."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (let ((tag (t--pget info :html-toc-element)))
@@ -5281,9 +5288,14 @@ It signals an error for any other value."
       (_ (t-error "Invalid TOC list tag: %s" tag)))))
 
 (defun t--toc-alist-to-text (toc-entries info &optional top)
-  "Return innards of a table of contents, as a string.
-TOC-ENTRIES is an alist where key is an entry title, as a string,
-and value is its relative level, as an integer."
+  "Return the innards of a table of contents as a string.
+
+TOC-ENTRIES is an alist of (TITLE . LEVEL) pairs in document
+order, TITLE a string and LEVEL the headline's relative level.
+INFO is the export options plist; its `:html-toc-element' chooses
+the list tag.  With TOP non-nil, nesting starts at level zero;
+otherwise it starts one below the first entry's level.  Lists open
+and close with the level changes; the result carries no wrapper."
   (declare (ftype (function (list list &optional boolean) string))
            (important-return-value t))
   (let* ((prev-level (or (and top 0) (1- (cdar toc-entries))))
@@ -5305,38 +5317,44 @@ and value is its relative level, as an integer."
       toc-entries "")
      (t--make-string (- prev-level start-level) close))))
 
-;; FIXME: Improve doc.
-;; Compose with headline, interesting www
-(defun t--build-table-of-contents (info)
-  "Build top-level table of contents."
-  (declare (ftype (function (list) (or null string)))
-           (important-return-value t))
-  (let ((fn (lambda (h) (cons (t--format-toc-headline h info)
-                              (org-export-get-relative-level h info)))))
-    (when-let* ((depth (t--pget info :with-toc))
-                (headlines (org-export-collect-headlines info depth))
-                (entries (mapcar fn headlines)))
-      (concat
-       "<nav id=\"toc\">\n"
-       (let ((top-level (t--pget info :html-toplevel-hlevel)))
-         (format "<h%d>%s</h%d>"
-                 top-level "Table of Contents" top-level))
-       (t--toc-alist-to-text entries info t)
-       "</nav>\n"))))
-
 (defun t--build-toc (depth info &optional scope)
-  "Build a table of contents.
-DEPTH is an integer specifying the depth of the table.  INFO is
-a plist used as a communication channel.  Optional argument SCOPE
-is an element defining the scope of the table.  Return the table
-of contents as a string, or nil if it is empty."
+  "Build the innards of a table of contents.
+
+DEPTH is the headline depth `org-export-collect-headlines' takes,
+and INFO is the export options plist.  Optional argument SCOPE is
+an element that limits the collection to its own subtree.  Return
+the nested list as a string, or nil when no headline falls within
+DEPTH."
+  (declare (ftype (function ((or null integer) list &optional t)
+                            (or null string)))
+           (important-return-value t))
   (let ((fn (lambda (h) (cons (t--format-toc-headline h info)
                               (org-export-get-relative-level h info)))))
     (when-let* ((hs (org-export-collect-headlines info depth scope))
                 (entries (mapcar fn hs)))
       (t--toc-alist-to-text entries info (not scope)))))
 
-;; FIXME: Add index class to ul
+(defun t--build-table-of-contents (info)
+  "Build the document table of contents for export INFO.
+
+INFO is the export options plist.  Return the <nav id=\"toc\">
+block, holding a heading at the `:html-toplevel-hlevel' level and
+the entries from `org-w3ctr--build-toc', or nil when `:with-toc'
+is nil or no headline falls within its depth.  A nil `:with-toc'
+means no table at all, distinct from the unlimited depth
+`org-w3ctr--build-toc' gives that value."
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
+  (when-let* ((depth (t--pget info :with-toc))
+              (toc (t--build-toc depth info)))
+    (concat
+     "<nav id=\"toc\">\n"
+     (let ((top-level (t--pget info :html-toplevel-hlevel)))
+       (format "<h%d>%s</h%d>"
+               top-level "Table of Contents" top-level))
+     toc
+     "</nav>\n")))
+
 ;; FIXME: Add named-only argument (MAYBE)
 (defun t--list-of-elements (collect-fn info)
   "Return an HTML list of elements collected by COLLECT-FN.
@@ -5365,26 +5383,40 @@ label, the item is hyperlinked to it."
      "\n</ul>")))
 
 (defun t--list-of-listings (info)
-  "Return a formatted HTML list of source code listings."
-  (declare (ftype (function (list) (or null string))))
+  "Return an HTML list of source code listings, or nil.
+
+INFO is the export options plist.  Delegate to
+`org-w3ctr--list-of-elements' over `org-export-collect-listings';
+return nil when there is no listing."
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
   (t--list-of-elements #'org-export-collect-listings info))
 
 (defun t--list-of-tables (info)
-  "Return a formatted HTML list of tables."
-  (declare (ftype (function (list) (or null string))))
+  "Return an HTML list of tables, or nil.
+
+INFO is the export options plist.  Delegate to
+`org-w3ctr--list-of-elements' over `org-export-collect-tables';
+return nil when there is no table."
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
   (t--list-of-elements #'org-export-collect-tables info))
 
 ;; copied from `org-html-keyword'.
 (defun t--keyword-toc (keyword value info)
-  "Transcode a table of contents keyword VALUE.
+  "Transcode the TOC keyword VALUE.
 
-VALUE determines the type of list to generate:
-- \"tables\": A list of tables.
-- \"listings\": A list of source code listings.
-- \"headlines\": A table of contents for headlines. It can be
-  followed by a number for depth and keywords like \":target\" or
-  \"local\" for scope."
-  (declare (ftype (function (t string list) (or (null string))))
+KEYWORD is the keyword element holding VALUE; it serves as the
+scope when VALUE asks for a \"local\" table.  VALUE determines the
+list to generate:
+- \"tables\": a list of tables.
+- \"listings\": a list of source code listings.
+- \"headlines\": a table of contents, optionally followed by a
+  depth number and by \":target LINK\" or \"local\" for scope.
+
+INFO is the export options plist.  Return the list as a string,
+or nil when VALUE selects none of the three."
+  (declare (ftype (function (t string list) (or null string)))
            (important-return-value t))
   (let ((case-fold-search t))
     (cond

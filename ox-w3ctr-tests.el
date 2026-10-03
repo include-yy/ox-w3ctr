@@ -3909,9 +3909,154 @@ int a = 1;</code></p>\n</details>")
             "<dt>Public License:</dt> <dd>LICENSE</dd>\n"
             "</dl>\n</details>\n<hr>"))))
 
+(ert-deftest t--toc-headline-secno ()
+  "Tests for `org-w3ctr--toc-headline-secno'."
+  (cl-letf (((symbol-function 'org-export-numbered-headline-p)
+             (lambda (_h _i) t))
+            ((symbol-function 'org-export-get-headline-number)
+             (lambda (_h _i) '(1 1 4))))
+    ($l (t--toc-headline-secno nil nil)
+        "<span class=\"secno\">1.1.4</span>"))
+  ;; Unnumbered headlines have no span.
+  (cl-letf (((symbol-function 'org-export-numbered-headline-p)
+             (lambda (_h _i) nil)))
+    ($n (t--toc-headline-secno nil nil))))
+
 (ert-deftest t--format-toc-headline ()
   "Tests for `org-w3ctr--format-toc-headline'."
-  nil)
+  (cl-letf (((symbol-function 't--reference) (lambda (_h _i) "id"))
+            ((symbol-function 't--build-toc-headline)
+             (lambda (_h _i) "TITLE"))
+            ((symbol-function 't--toc-headline-secno)
+             (lambda (_h _i) "1.2"))
+            ((symbol-function 't--low-level-headline-p)
+             (lambda (_h _i) nil)))
+    ($l (t--format-toc-headline nil nil) "<a href=\"#id\">1.2TITLE</a>"))
+  ;; Low-level headlines carry no section number.
+  (cl-letf (((symbol-function 't--reference) (lambda (_h _i) "id"))
+            ((symbol-function 't--build-toc-headline)
+             (lambda (_h _i) "TITLE"))
+            ((symbol-function 't--toc-headline-secno)
+             (lambda (_h _i) "1.2"))
+            ((symbol-function 't--low-level-headline-p)
+             (lambda (_h _i) t)))
+    ($l (t--format-toc-headline nil nil) "<a href=\"#id\">TITLE</a>")))
+
+(ert-deftest t--get-info-toc-element ()
+  "Tests for `org-w3ctr--get-info-toc-element'."
+  ($l (t--get-info-toc-element '(:html-toc-element ul)) "ul")
+  ($l (t--get-info-toc-element '(:html-toc-element ol)) "ol")
+  ($q (car (should-error (t--get-info-toc-element '(:html-toc-element dl))))
+      'org-w3ctr-error))
+
+(ert-deftest t--toc-alist-to-text ()
+  "Tests for `org-w3ctr--toc-alist-to-text'."
+  (let ((info '(:html-toc-element ul)))
+    ;; A flat list at the top level.
+    ($l (t--toc-alist-to-text '(("a" . 1) ("b" . 1)) info t)
+        "\n<ul class=\"toc\">\n<li>a</li>\n<li>b</li>\n</ul>\n")
+    ;; Entering a deeper level nests a list.
+    ($l (t--toc-alist-to-text '(("a" . 1) ("b" . 2)) info t)
+        ($c "\n<ul class=\"toc\">\n<li>a\n<ul class=\"toc\">\n<li>b"
+            "</li>\n</ul>\n</li>\n</ul>\n"))
+    ;; Leaving a level closes it before the entry.
+    ($l (t--toc-alist-to-text '(("a" . 1) ("b" . 2) ("c" . 1)) info t)
+        ($c "\n<ul class=\"toc\">\n<li>a\n<ul class=\"toc\">\n<li>b"
+            "</li>\n</ul>\n</li>\n<li>c</li>\n</ul>\n"))
+    ;; Without top, the first entry's level sets the depth.
+    ($l (t--toc-alist-to-text '(("a" . 3)) info)
+        "\n<ul class=\"toc\">\n<li>a</li>\n</ul>\n")))
+
+(ert-deftest t--build-toc ()
+  "Tests for `org-w3ctr--build-toc'."
+  (cl-letf (((symbol-function 'org-export-collect-headlines)
+             (lambda (_i _d &optional _s) '(h1 h2)))
+            ((symbol-function 't--format-toc-headline)
+             (lambda (h _i) (symbol-name h)))
+            ((symbol-function 'org-export-get-relative-level)
+             (lambda (h _i) (if (eq h 'h1) 1 2))))
+    ($l (t--build-toc 2 '(:html-toc-element ul))
+        ($c "\n<ul class=\"toc\">\n<li>h1\n<ul class=\"toc\">\n<li>h2"
+            "</li>\n</ul>\n</li>\n</ul>\n")))
+  ;; No headline in range, no table.
+  (cl-letf (((symbol-function 'org-export-collect-headlines)
+             (lambda (_i _d &optional _s) nil)))
+    ($n (t--build-toc 2 '(:html-toc-element ul)))))
+
+(ert-deftest t--build-table-of-contents ()
+  "Tests for `org-w3ctr--build-table-of-contents'."
+  (let (seen)
+    (cl-letf (((symbol-function 't--build-toc)
+               (lambda (d _i &optional _s) (setq seen d) "TOC")))
+      ;; The depth comes from :with-toc.
+      ($l (t--build-table-of-contents
+           '(:with-toc 2 :html-toplevel-hlevel 3))
+          "<nav id=\"toc\">\n<h3>Table of Contents</h3>TOC</nav>\n")
+      ($l seen 2)))
+  ;; No entries, no block.
+  (cl-letf (((symbol-function 't--build-toc) (lambda (_d _i &optional _s) nil)))
+    ($n (t--build-table-of-contents '(:with-toc 2 :html-toplevel-hlevel 3))))
+  ;; A nil :with-toc means no table at all: the builder is not even
+  ;; asked (its nil depth means "unlimited" instead).
+  (cl-letf (((symbol-function 't--build-toc)
+             (lambda (_d _i &optional _s) "TOC")))
+    ($n (t--build-table-of-contents
+         '(:with-toc nil :html-toplevel-hlevel 3)))))
+
+(ert-deftest t--list-of-elements ()
+  "Tests for `org-w3ctr--list-of-elements'."
+  (cl-letf (((symbol-function 'org-export-get-caption)
+             (lambda (_e &optional _s) "CAP"))
+            ((symbol-function 'org-export-data) (lambda (c _i) c))
+            ((symbol-function 't--reference)
+             (lambda (_e _i &optional _n) "id")))
+    ($l (t--list-of-elements (lambda (_i) '(e1)) nil)
+        "<ul class=\"index\">\n<li><a href=\"#id\">CAP</a></li>\n</ul>"))
+  ;; Without a label the entry is plain text.
+  (cl-letf (((symbol-function 'org-export-get-caption)
+             (lambda (_e &optional _s) "CAP"))
+            ((symbol-function 'org-export-data) (lambda (c _i) c))
+            ((symbol-function 't--reference)
+             (lambda (_e _i &optional _n) nil)))
+    ($l (t--list-of-elements (lambda (_i) '(e1)) nil)
+        "<ul class=\"index\">\n<li>CAP</li>\n</ul>"))
+  ;; No entries, no list.
+  ($n (t--list-of-elements (lambda (_i) nil) nil)))
+
+(ert-deftest t--list-of-listings ()
+  "Tests for `org-w3ctr--list-of-listings'."
+  (let (seen)
+    (cl-letf (((symbol-function 't--list-of-elements)
+               (lambda (fn _i) (setq seen fn) "X")))
+      ($l (t--list-of-listings nil) "X")
+      ($q seen #'org-export-collect-listings))))
+
+(ert-deftest t--list-of-tables ()
+  "Tests for `org-w3ctr--list-of-tables'."
+  (let (seen)
+    (cl-letf (((symbol-function 't--list-of-elements)
+               (lambda (fn _i) (setq seen fn) "X")))
+      ($l (t--list-of-tables nil) "X")
+      ($q seen #'org-export-collect-tables))))
+
+(ert-deftest t--keyword-toc ()
+  "Tests for `org-w3ctr--keyword-toc'."
+  (cl-letf (((symbol-function 't--list-of-tables) (lambda (_i) "TABLES"))
+            ((symbol-function 't--list-of-listings) (lambda (_i) "LISTINGS"))
+            ((symbol-function 't--build-toc)
+             (lambda (d _i &optional s) (format "TOC %S %S" d s))))
+    ($l (t--keyword-toc nil "tables" nil) "TABLES")
+    ($l (t--keyword-toc nil "listings" nil) "LISTINGS")
+    ($l (t--keyword-toc nil "headlines" nil) "TOC nil nil")
+    ($l (t--keyword-toc nil "headlines 3" nil) "TOC 3 nil")
+    ;; :target resolves the link; local scopes to KEYWORD.
+    (cl-letf (((symbol-function 'org-export-resolve-link)
+               (lambda (l _i) (format "RESOLVED %s" l))))
+      ($l (t--keyword-toc 'kw "headlines 2 :target \"file:foo.org\"" nil)
+          "TOC 2 \"RESOLVED file:foo.org\"")
+      ($l (t--keyword-toc 'kw "headlines local" nil) "TOC nil kw"))
+    ;; No match, no output.
+    ($n (t--keyword-toc nil "nothing" nil))))
 
 
 ;; Local Variables:
