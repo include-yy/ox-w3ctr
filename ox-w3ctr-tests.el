@@ -3343,6 +3343,18 @@ int a = 1;</code></p>\n</details>")
       ($l (it 'public-domain-mark nil) "pdm")
       ($l (it 'all-rights-reserved nil) ""))))
 
+(ert-deftest t-format-public-license ()
+  "Tests for `org-w3ctr-format-public-license'."
+  (cl-letf (((symbol-function 't-license-default-format-function)
+             (lambda (_info) "DEFAULT")))
+    ;; The hook from INFO is called with INFO.
+    ($l (t-format-public-license
+         (list :x 1 :html-license-format-function
+               (lambda (info) (format "CUSTOM:%s" (plist-get info :x)))))
+        "CUSTOM:1")
+    ;; Without the option it falls back to the default renderer.
+    ($l (t-format-public-license (list :x 1)) "DEFAULT")))
+
 (ert-deftest t--get-info-author ()
   "Tests for `org-w3ctr--get-info-author'."
   (t-check-element-values

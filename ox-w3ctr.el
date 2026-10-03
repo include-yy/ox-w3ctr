@@ -3859,7 +3859,6 @@ entry is not a (URL . NAME) cons of strings (checked in
 
 ;;;; CC license badges
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-use-cc-badges (`org-w3ctr-use-cc-badges')
 ;; - :html-license (`org-w3ctr-public-license')
@@ -4061,10 +4060,17 @@ Signal `org-w3ctr-error' for an unknown license."
       (_ (t-error "Internal error")))))
 
 (defun t-format-public-license (info)
-  "Generate HTML string describing the public license for a work."
+  "Generate the license line from the export options INFO.
+
+INFO is the export options plist.  This is the stable entry for
+the license line: it calls the `:html-license-format-function'
+hook, whose default is `org-w3ctr-license-default-format-function'
+and which receives INFO.  Return its result as a string."
   (declare (ftype (function (list) string))
            (important-return-value t))
-  (funcall (t--pget info :html-license-format-function) info))
+  (funcall (or (t--pget info :html-license-format-function)
+               #'t-license-default-format-function)
+           info))
 
 ;;;; Preamble and Postamble
 
