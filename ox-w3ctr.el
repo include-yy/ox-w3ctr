@@ -5314,32 +5314,31 @@ is the symbol `ul' or `ol'; return its name.  Signal
 (defun t--toc-alist-to-text (toc-entries info &optional top)
   "Return the innards of a table of contents as a string.
 
-TOC-ENTRIES is an alist of (TITLE . LEVEL) pairs in document
-order, TITLE a string and LEVEL the headline's relative level.
-INFO is the export options plist; its `:html-toc-element' chooses
-the list tag.  With TOP non-nil, nesting starts at level zero;
-otherwise it starts one below the first entry's level.  Lists open
-and close with the level changes; the result carries no wrapper."
+TOC-ENTRIES is a non-empty alist of (TITLE . LEVEL) pairs in
+document order, TITLE a string and LEVEL the headline's relative
+level.  INFO is the export options plist; its `:html-toc-element'
+chooses the list tag.  With TOP non-nil, nesting starts at level
+zero; otherwise it starts one below the first entry's level.  Lists
+open and close with the level changes; the result carries no
+wrapper."
   (declare (ftype (function (list list &optional boolean) string))
            (important-return-value t))
-  (let* ((prev-level (or (and top 0) (1- (cdar toc-entries))))
-         (start-level prev-level)
-         (tag (t--get-info-toc-element info))
+  (let* ((tag (t--get-info-toc-element info))
          (open (format "\n<%s class=\"toc\">\n<li>" tag))
-         (close (format "</li>\n</%s>\n" tag)))
+         (close (format "</li>\n</%s>\n" tag))
+         (base (if top 0 (1- (cdar toc-entries))))
+         (levels (mapcar #'cdr toc-entries))
+         ;; Each entry deepens or climbs from its predecessor; the
+         ;; first compares against the base level.
+         (deltas (cl-mapcar #'- levels (cons base levels)))
+         (step (pcase-lambda (`(,title . ,delta))
+                 (if (> delta 0)
+                     (concat (t--make-string delta open) title)
+                   (concat (t--make-string (- delta) close)
+                           "</li>\n<li>" title)))))
     (concat
-     (mapconcat
-      (pcase-lambda (`(,headline . ,level))
-        (let* ((cnt (- level prev-level))
-               (times (if (> cnt 0) (1- cnt) (- cnt))))
-          (setq prev-level level)
-          (concat
-           (t--make-string
-            times (cond ((> cnt 0) open) ((< cnt 0) close)))
-           (if (> cnt 0) open "</li>\n<li>")
-           headline)))
-      toc-entries "")
-     (t--make-string (- prev-level start-level) close))))
+     (mapconcat step (cl-mapcar #'cons (mapcar #'car toc-entries) deltas))
+     (t--make-string (- (car (last levels)) base) close))))
 
 (defun t--build-toc (depth info &optional scope)
   "Build the innards of a table of contents.

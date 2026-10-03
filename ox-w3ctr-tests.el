@@ -3984,7 +3984,14 @@ int a = 1;</code></p>\n</details>")
     ($l (t--toc-alist-to-text '(("a" . 1) ("b" . 2) ("c" . 1)) info t)
         ($c "\n<ul class=\"toc\">\n<li>a\n<ul class=\"toc\">\n<li>b"
             "</li>\n</ul>\n</li>\n<li>c</li>\n</ul>\n"))
-    ;; Without top, the first entry's level sets the depth.
+    ;; The two cases of Org commit 332695e85, where the scope semantics
+  ;; was fixed upstream.
+  ($l (t--toc-alist-to-text '(("1" . 1) ("1.1" . 2) ("2" . 1)) info t)
+      "\n<ul class=\"toc\">\n<li>1\n<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n<li>2</li>\n</ul>\n")
+  ;; A first entry below the top level wraps in empty lists.
+  ($l (t--toc-alist-to-text '(("1" . 2) ("1.1" . 3) ("2" . 1)) info t)
+      "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n<li>1\n<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n</ul>\n</li>\n<li>2</li>\n</ul>\n")
+  ;; Without top, the first entry's level sets the depth.
     ($l (t--toc-alist-to-text '(("a" . 3)) info)
         "\n<ul class=\"toc\">\n<li>a</li>\n</ul>\n")))
 
