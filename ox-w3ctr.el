@@ -1490,7 +1490,9 @@ Single and double quotes are escaped too.  Used by
 `org-w3ctr--encode-plain-text*'.")
 
 (defun t--encode-plain-text* (text)
-  "Escape `&', `<', `>', `\=', `\"' in TEXT for safe use in HTML attributes."
+  "Escape `&', `<', `>', and both quote characters in TEXT.
+
+The result is safe to use inside an HTML attribute value."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
   (dolist (pair t--protect-char-alist* text)
@@ -1671,7 +1673,7 @@ the same file reads identically on every machine."
 
 This function uses `insert-file-contents-literally' to place
 the full contents of FILE into the current buffer.  It signals
-a `org-w3ctr-error' if FILE does not exist or is a directory."
+an `org-w3ctr-error' if FILE does not exist or is a directory."
   (declare (ftype (function (string) t)))
   (unless (and (file-exists-p file) (not (file-directory-p file)))
     (t-error "Invalid file: %s" file))
@@ -1786,9 +1788,9 @@ not look like a valid HTML identifier."
   (declare (ftype (function (t) (or null string)))
            (pure t) (important-return-value t))
   (when (memq (org-element-type datum) '(radio-target target))
-    (let ((val (org-element-property :value datum)))
-      (when (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val)
-        val))))
+    (when-let* ((val (org-element-property :value datum))
+                (_ (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val)))
+      val)))
 
 (defun t--reference (datum info &optional named-only)
   "Return an appropriate reference for DATUM.
@@ -1835,11 +1837,15 @@ See `org-export-insert-image-links' for more details."
   (org-export-insert-image-links data info t-inline-image-rules))
 
 (defun t-final-function (contents _backend info)
-  "Filter to indent the HTML and convert HTML entities."
+  "Indent the HTML when `:html-indent' is non-nil, and return it.
+
+CONTENTS is the exported HTML string and INFO the export plist.  The
+major mode is set only when indenting, so that the HTML indentation
+rules apply; its hooks are delayed, as in `org-html-final-function'."
   (with-temp-buffer
     (insert contents)
-    (set-auto-mode t)
     (when (t--pget info :html-indent)
+      (delay-mode-hooks (set-auto-mode t))
       (indent-region (point-min) (point-max)))
     (buffer-substring-no-properties (point-min) (point-max))))
 
