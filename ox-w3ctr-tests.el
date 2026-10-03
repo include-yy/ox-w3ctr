@@ -3560,7 +3560,9 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--get-info-mtime ()
   "Tests for `org-w3ctr--get-info-mtime'."
-  ($l (t--get-info-mtime nil) (format-time-string "%FT%RZ" nil t))
+  ;; No input file, no modification time; likewise a missing one.
+  ($n (t--get-info-mtime nil))
+  ($n (t--get-info-mtime '(:input-file "no/such/file")))
   ($l (t--get-info-mtime `(:input-file ,(file-name-concat
                                          t--dir "ox-w3ctr-tests.el")))
       (format-time-string
@@ -3580,7 +3582,7 @@ int a = 1;</code></p>\n</details>")
             "<dl>\n"
             "<dt>Drafting to Completion / Publication:</dt> "
             "<dd>[Not Specified]</dd>\n"
-            "<dt>Date of last modification:</dt> <dd></dd>\n"
+            "<dt>Date of last modification:</dt> <dd>[Not Specified]</dd>\n"
             "<dt>Creation Tools:</dt> <dd>[Not Specified]</dd>\n"
             "<dt>Public License:</dt> <dd></dd>\n"
             "</dl>\n</details>\n<hr>"))))

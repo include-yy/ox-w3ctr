@@ -4169,33 +4169,36 @@ usable string value, or when the value is of any other type."
               (t (t-error "Invalid %s: %s" type section)))))
     (or (and (t--nw-p it) (org-element-normalize-string it)) "")))
 
-;; Copied from `org-export-get-date'.
 (defun t--get-info-date (info)
-  "Extract and format the document's date from the INFO plist.
+  "Return the document date from INFO, rendered by the back end.
 
-This function looks for a `:date' property in INFO that contains a
-single Org timestamp. It returns the formatted timestamp as a string,
-or nil if no valid date is found."
+INFO is the export options plist.  The date is the single Org timestamp
+in the `:date' option, rendered by `org-w3ctr--format-timestamp-int';
+return nil when `:date' is missing, malformed, or holds more than one
+timestamp.
+
+Unlike the %d format code, which renders only the start of a range with
+`org-w3ctr-metadata-timestamp-format', this renders the whole timestamp
+in the back-end's own style."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* ((date (t--pget info :date))
-              ((and date (proper-list-p date) (null (cdr date))))
-              ((org-element-type-p (car date) 'timestamp)))
+              (_ (and (proper-list-p date) (null (cdr date))))
+              (_ (org-element-type-p (car date) 'timestamp)))
     (t--format-timestamp-int (car date) info)))
 
-;; Copied from `org-html-format-spec'.
 (defun t--get-info-mtime (info)
-  "Return the modification time of the input file as a formatted string.
+  "Return the input file's modification time as an ISO UTC string.
 
-If :input-file is not found, use current time."
-
-  (declare (ftype (function (list) string))
+INFO is the export options plist.  Return the modification time
+of the `:input-file', formatted as %FT%RZ (ISO 8601, UTC), or nil
+when there is no input file or it cannot be stat'ed."
+  (declare (ftype (function (list) (or null string)))
            (important-return-value t))
-  (format-time-string
-   "%FT%RZ" (and-let* ((file (t--pget info :input-file))
-                       (time (file-attribute-modification-time
-                              (file-attributes file)))))
-   t))
+  (and-let* ((file (t--pget info :input-file))
+             (time (file-attribute-modification-time
+                    (file-attributes file))))
+    (format-time-string "%FT%RZ" time t)))
 
 (defun t-preamble-default-function (info)
   "Return a default HTML preamble string with document metadata.
@@ -4213,7 +4216,7 @@ It takes the export options plist INFO as its argument."
    "</dd>\n"
    ;; Modification time.
    "<dt>Date of last modification:</dt> <dd>"
-   (t--get-info-mtime info)
+   (or (t--get-info-mtime info) "[Not Specified]")
    "</dd>\n"
    ;; Creation tools.
    "<dt>Creation Tools:</dt> <dd>"
