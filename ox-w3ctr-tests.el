@@ -3315,6 +3315,19 @@ int a = 1;</code></p>\n</details>")
           "vertical-align:text-bottom;\" "
           "src=\"data:image/svg+xml;base64,test\" alt=\"CC0\">")))
 
+(ert-deftest t--cc-icon-names ()
+  "Tests for `org-w3ctr--cc-icon-names'."
+  ($l (t--cc-icon-names 'cc0) '("cc" "zero"))
+  ($l (t--cc-icon-names 'public-domain-mark) '("pdm"))
+  ;; Components name the icons; the version digits are dropped.
+  ($l (t--cc-icon-names 'cc-by-nc-sa-4.0) '("cc" "by" "nc" "sa"))
+  ($l (t--cc-icon-names 'cc-by-nc-nd-3.0) '("cc" "by" "nc" "nd"))
+  ;; Non-CC entries and non-symbol values have none.
+  ($n (t--cc-icon-names 'all-rights-reserved))
+  ($n (t--cc-icon-names nil))
+  ($n (t--cc-icon-names "cc-by-4.0"))
+  ($n (t--cc-icon-names 42)))
+
 (ert-deftest t-cc-badges-default-format-function ()
   "Tests for `org-w3ctr-cc-badges-default-format-function'."
   (cl-letf (((symbol-function 't--load-cc-svg-once)

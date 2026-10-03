@@ -3960,15 +3960,16 @@ CC0."
 (defun t--build-cc-img (name base64)
   "Build an HTML img tag for the badge icon NAME with BASE64 SVG.
 
-NAME is an icon name as in `org-w3ctr--cc-icon-names'; the alt
+NAME is an icon name as in `org-w3ctr--cc-icon-names': the alt
 attribute carries its standard abbreviation from
 `org-w3ctr--cc-icon-alt' (BY, NC, SA, and CC0 for zero).  BASE64
 is the icon's base64 SVG, as returned by
-`org-w3ctr--load-cc-svg-once'.  The inline sizing style follows
-the CC license chooser, https://chooser-beta.creativecommons.org/,
-minus its !important: exported documents have no hostile host
-stylesheet to guard against, and dropping it leaves the icons
-open to user styling."
+`org-w3ctr--load-cc-svg-once'.  Return the tag as a string.
+
+The inline sizing style is the CC license chooser's (see the
+chooser at https://chooser-beta.creativecommons.org/) minus its
+!important: an exported document has no hostile host stylesheet
+to guard against, and the !important would block user styling."
   (declare (ftype (function (string string) string))
            (pure t) (important-return-value t))
   (format "<img style=\"height:1.4em;margin-left:0.2em;\
@@ -3981,8 +3982,8 @@ alt=\"%s\">" base64 (t--cc-icon-alt name)))
 LICENSE is a license symbol as in `org-w3ctr-public-license-alist'.
 A CC license icon set is named after its components: for example
 `cc-by-nc-sa-4.0' takes the icons cc, by, nc, and sa.  The two
-public-domain tools carry their own icons; other entries have
-none."
+public-domain tools carry their own icons; other entries, and
+non-symbol values, have none."
   (declare (ftype (function (t) list))
            (pure t) (important-return-value t))
   (and (symbolp license)
