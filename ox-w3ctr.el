@@ -954,8 +954,10 @@ timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :type 'function)
 
 (defcustom t-metadata-timestamp-format "%Y-%m-%d %H:%M"
-  "Formatting string used for timestamps in preamble and postamble.
-See `format-time-string' for more information on its components."
+  "Format string for the %d, %T, and %C pre/postamble format codes.
+
+See `format-time-string' for its components.  The default omits
+ox-html's %a weekday abbreviation on purpose."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -967,16 +969,21 @@ Emacs</a> %s (<a href=\"https://orgmode.org\">Org</a> mode %s) \
           (if (fboundp 'org-version) (org-version)
             "unknown version")
           t-version)
-  ;; See also `org-html-creator-string'.
-  "Information about the creator of the HTML document.
-This option can also be set on with the CREATOR keyword."
+  "Information about the creator of the HTML document, for the %c
+format code.
+
+This option can also be set with the CREATOR keyword.  See also
+`org-html-creator-string'."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-validation-link
   "<a href=\"https://validator.w3.org/check?uri=referer\">\
 Validate</a>"
-  "Link to HTML validation service."
+  "Link to the HTML validation service, for the %v format code.
+
+The link is inserted verbatim, like the other format-code
+replacements."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -1049,24 +1056,29 @@ shared SVG sprite or inline <svg>."
   :type 'function)
 
 (defcustom t-preamble #'t-preamble-default-function
-  "Controls the insertion of a preamble in the exported HTML.
+  "Control the preamble inserted into the exported HTML.
 
-It can be one of the following types:
-- string: The string will be formatted using `format-spec' and
-  inserted.  See `org-w3ctr--pre/postamble-format-spec' for available
-  format codes (e.g., %d, %c).
-- function: The function is called with the INFO plist, and its return
-  value is inserted.
-- symbol: If the symbol is a function, it is called as above.
-  Otherwise, its string value is retrieved and formatted.
-- nil: No preamble is inserted."
+The value is one of:
+- nil: no preamble.
+- string: formatted with `format-spec' against the codes in
+  `org-w3ctr--pre/postamble-format-spec' (for example %d, %c) and
+  inserted.
+- function: called with the export options plist, its return
+  value inserted.
+- symbol: called like a function if it has one, else its value
+  cell is formatted as a string.
+
+The default is `org-w3ctr-preamble-default-function'.  The result
+is normalized to end in a newline; see
+`org-w3ctr--build-pre/postamble' for the exact contract."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
 
 (defcustom t-postamble nil
-  "Controls the insertion of a postamble in the exported HTML.
+  "Control the postamble inserted into the exported HTML.
 
-See `org-w3ctr-preamble' for more information."
+The value takes the same kinds as `org-w3ctr-preamble'; the
+default nil inserts nothing."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
 
@@ -4074,7 +4086,6 @@ and which receives INFO.  Return its result as a string."
 
 ;;;; Preamble and Postamble
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-metadata-timestamp-format (`org-w3ctr-metadata-timestamp-format')
 ;; - :email (`user-mail-address')
@@ -4232,21 +4243,6 @@ line from `org-w3ctr-format-public-license'.  A row shows
    "</dl>\n"
    "</details>\n"
    "<hr>"))
-
-(defconst t-preamble-example "\
-<details open>
-  <summary>More details about this document</summary>
-  <dl>
-    <dt>Date:</dt> <dd>%d</dd>
-    <dt>Creator:</dt> <dd>%c</dd>
-    <dt>License:</dt> <dd>This work is licensed under CC BY-SA 4.0</dd>
-  </dl>
-</details>
-<hr>"
-  "Default HTML template for document preamble metadata section.
-
-Note: This variable is provided as an example only and may need
-adaptation for actual project use.")
 
 ;;;; Table of Contents
 
