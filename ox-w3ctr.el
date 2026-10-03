@@ -162,16 +162,15 @@
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     (:html-todo-format-function nil nil t-todo-format-function)
     (:html-priority-format-function nil nil t-priority-format-function)
-    (:html-tag-class-prefix nil nil t-tag-class-prefix)
     (:html-tags-format-function nil nil t-tags-format-function)
+    (:html-tag-class-prefix nil nil t-tag-class-prefix)
     (:html-format-headline-function nil nil t-format-headline-function)
     (:html-heading-format-function nil nil t-heading-format-function)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)
-    (:html-prefer-user-labels nil nil t-prefer-user-labels)
     (:html-container nil nil t-container-element)
     (:html-self-link-headlines nil nil t-self-link-headlines)
-    (:html-zeroth-section-tocname nil "zeroth-name" t-zeroth-section-tocname)
+    (:html-prefer-user-labels nil nil t-prefer-user-labels)
     (:headline-levels nil "H" org-export-headline-levels)
     ;; Markup texts
     (:html-text-markup-alist nil nil t-text-markup-alist)
@@ -377,12 +376,6 @@ reference."
   :type 'boolean
   :safe #'booleanp)
 
-(defcustom t-zeroth-section-tocname "Abstract"
-  "Default TOC name of the zeroth section."
-  :group 'org-export-w3ctr
-  :type 'string)
-
-;;;; Markup texts
 (defcustom t-text-markup-alist
   ;; See also `org-html-text-markup-alist'.
   '((bold . "<b>%s</b>")
