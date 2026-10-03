@@ -240,6 +240,7 @@
     (:html-toc-title nil nil t-toc-title)
     (:html-toc-headline-format-function nil nil t-toc-headline-format-function)
     ;; Template
+    (:html-include-fixup-js nil "fixup-js" t-include-fixup-js)
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     (:subtitle "SUBTITLE" nil nil parse)
     ;; Misc
@@ -1098,8 +1099,22 @@ entry markup."
   :type 'function)
 
 ;;;; Template
+(defcustom t-include-fixup-js t
+  "Control whether to include the fixup JavaScript in the exported HTML.
+
+When non-nil, the fixup script is embedded before the closing </body>
+tag: the document's own `:html-fixup-js' when set, otherwise the
+`assets/fixup.js' shipped with the package.  When nil, no script is
+emitted."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
 (defvar t-fixup-js ""
-  "Js code that control toc's hide and show.")
+  "JavaScript to inject before the closing </body> tag.
+
+When this is a non-blank string it overrides the `assets/fixup.js'
+shipped with the package; when it is empty, the exporter loads that
+file instead.  See `org-w3ctr--load-fixup-js'.")
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export.
@@ -1135,19 +1150,6 @@ This option will override `org-export-use-babel'"
 There was a support for highlight.js, but has been abandoned."
   :group 'org-export-w3ctr
   :type '(choice (const engrave) (const nil)))
-
-;; load default CSS from style.css
-(defun t-update-css-js ()
-  "Update ??? and `t-fixup-js'."
-  (interactive)
-  (setq t-fixup-js
-        (let ((fname (file-name-concat t--dir "assets/fixup.js")))
-          (format "<script>\n%s\n</script>\n"
-                  (with-temp-buffer
-                    (let ((coding-system-for-read 'utf-8))
-                      (insert-file-contents fname))
-                    (buffer-string))))))
-(t-update-css-js)
 
 ;;; Simple JSON based sync RPC, not JSONRPC
 ;; FIXME: Hand-rolled RPC from way back.  Consider migrating to the
@@ -5505,6 +5507,7 @@ or nil when VALUE selects none of the three."
 
 ;; Options:
 ;; :language (`org-export-default-language')
+;; :html-include-fixup-js (`org-w3ctr-include-fixup-js')
 ;; :html-fixup-js (`org-w3ctr-fixup-js')
 
 (defun t-inner-template (contents info)
@@ -5550,6 +5553,37 @@ invisible, but it keeps the heading anchor alive."
          (when (t--nw-p sub)
            (format "<p id=\"w3c-state\">%s</p>\n" sub)))))))
 
+(defvar t--fixup-js-cache nil
+  "Cached fixup JavaScript loaded from `assets/fixup.js'.
+
+`org-w3ctr--load-fixup-js' stores the wrapped file contents here so
+that repeated exports do not re-read the file; `org-w3ctr-clear-js'
+resets it.")
+
+(defun t--load-fixup-js ()
+  "Return the fixup JavaScript for HTML export.
+
+Return the cached `org-w3ctr--fixup-js-cache' when it is a
+non-whitespace string.  Otherwise read `assets/fixup.js' from the
+package directory with `org-w3ctr--load-file', wrap its contents in a
+<script> element, store the result in the cache, and return it."
+  (declare (ftype (function () string))
+           (important-return-value t))
+  (or (t--nw-p t--fixup-js-cache)
+      (setq t--fixup-js-cache
+            (format "<script>\n%s\n</script>\n"
+                    (t--load-file
+                     (file-name-concat t--dir "assets" "fixup.js"))))))
+
+(defun t-clear-js ()
+  "Clear the cached fixup JavaScript.
+
+The fixup script is cached after the first export reads it from
+`assets/fixup.js'.  After editing that file, run this command so the
+next export re-reads it."
+  (interactive)
+  (setq t--fixup-js-cache nil))
+
 (defun t-template-1 (contents info)
   "Assemble the full HTML document around CONTENTS.
 
@@ -5578,9 +5612,12 @@ the postamble, and the `:html-fixup-js' script."
    contents
    ;; Postamble.
    (t--build-pre/postamble 'postamble info)
-   ;; The fixup script.
-   (when-let* ((js (t--nw-p (t--pget info :html-fixup-js))))
-     (org-element-normalize-string js))
+   ;; The fixup script, unless switched off: the document's own, else
+   ;; the shipped default.
+   (when (t--pget info :html-include-fixup-js)
+     (org-element-normalize-string
+      (or (t--nw-p (t--pget info :html-fixup-js))
+          (t--load-fixup-js))))
    ;; Closing document.
    "</body>
 </html>"))

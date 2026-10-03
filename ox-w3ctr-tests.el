@@ -4169,24 +4169,57 @@ int a = 1;</code></p>\n</details>")
     ($l (t--build-title '(:with-title t :title "  " :subtitle ""))
         "<h1 id=\"title\">&lrm;</h1>\n")))
 
+(ert-deftest t--load-fixup-js ()
+  "Tests for `org-w3ctr--load-fixup-js'."
+  ;; A non-whitespace cache is returned without touching t--load-file.
+  (let ((t--fixup-js-cache "<script>cached</script>"))
+    ($l (t--load-fixup-js) "<script>cached</script>"))
+  ;; An empty cache is refilled from the asset and stored.
+  (cl-letf (((symbol-function 't--load-file) (lambda (_file) "JS")))
+    (let ((t--fixup-js-cache nil))
+      ($l (t--load-fixup-js) "<script>\nJS\n</script>\n")
+      ($l t--fixup-js-cache "<script>\nJS\n</script>\n"))))
+
+(ert-deftest t-clear-js ()
+  "Tests for `org-w3ctr-clear-js'."
+  (let ((t--fixup-js-cache "<script>x</script>"))
+    (t-clear-js)
+    ($q t--fixup-js-cache nil)))
+
+(ert-deftest t-fixup-js-switch ()
+  "The `fixup-js' OPTIONS key controls the shipped script."
+  (let ((on (org-export-string-as "* H\nbody" 'w3ctr nil))
+        (off (org-export-string-as
+              "#+OPTIONS: fixup-js:nil\n* H\nbody" 'w3ctr nil)))
+    ($s (string-match-p "<script>" on))
+    ($n (string-match-p "<script>" off))))
+
 (ert-deftest t-template-1 ()
   "Tests for `org-w3ctr-template-1'."
   (cl-letf (((symbol-function 't--build-head) (lambda (_i) "HEAD"))
             ((symbol-function 't--build-title) (lambda (_i) "TITLE"))
+            ((symbol-function 't--load-fixup-js) (lambda () "DEFAULT-JS"))
             ((symbol-function 't--build-pre/postamble)
              (lambda (type _i) (upcase (symbol-name type)))))
-    ;; The parts assemble in order.
+    ;; The parts assemble in order; the document's fixup script wins.
     ($l (t-template-1 "BODY" (list :language "en"
                                    :html-navbar-format-function
                                    (lambda (_i) "NAV")
+                                   :html-include-fixup-js t
                                    :html-fixup-js "JS();"))
         (concat "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\nNAV"
                 "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
                 "POSTAMBLE"
                 "JS();\n</body>\n</html>"))
-    ;; A nil navbar function suppresses the navbar; without a fixup
-    ;; script there is none.
-    ($l (t-template-1 "BODY" '(:language "en"))
+    ;; A nil navbar function suppresses the navbar; a document without
+    ;; its own fixup script falls back to the shipped default.
+    ($l (t-template-1 "BODY" '(:language "en" :html-include-fixup-js t))
+        (concat "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\n"
+                "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
+                "POSTAMBLE"
+                "DEFAULT-JS\n</body>\n</html>"))
+    ;; The switch off drops the script.
+    ($l (t-template-1 "BODY" '(:language "en" :html-include-fixup-js nil))
         (concat "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\n"
                 "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
                 "POSTAMBLE</body>\n</html>"))))
@@ -4200,7 +4233,6 @@ int a = 1;</code></p>\n</details>")
                (lambda () (setq cleaned t))))
       ($l (t-template "X" nil) "<X>")
       ($s cleaned))))
-
 
 (ert-deftest t--file-extension ()
   "Tests for `org-w3ctr--file-extension'."
