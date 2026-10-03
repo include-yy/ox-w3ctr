@@ -3475,6 +3475,8 @@ int a = 1;</code></p>\n</details>")
     (test "" (i "%e" '(:email "test"))
           "<a href=\"mailto:test\">test</a>\n")
     (test "" (i "%c" '(:creator "foo")) "foo\n")
+    ;; A missing creator yields "", not "nil".
+    (test "" (i "%c" '(:creator nil)) "")
     (test "" (i "%v" '(:html-validation-link "foo.com")) "foo.com\n")
     ;; No input file, no modification time.
     (test "" (i "%C") "")

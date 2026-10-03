@@ -4101,10 +4101,10 @@ and which receives INFO.  Return its result as a string."
 ;; Compared with `org-html-format-spec', rename to make the name more
 ;; specific, and add some helpful docstring.
 (defun t--pre/postamble-format-spec (info)
-  "Return the format-spec alist for preamble and postamble.
+  "Return the `format-spec' alist for preamble and postamble.
 
-The entries are precomputed; each maps a format character to its
-replacement string:
+INFO is the export options plist.  The entries are precomputed;
+each maps a format character to its replacement string:
 
 - %t: the document title.
 - %s: the document subtitle.
@@ -4131,7 +4131,7 @@ replacement string:
                   (split-string email ",+ *" t)
                   ", ")
                ""))
-      (?c . ,(t--pget info :creator))
+      (?c . ,(or (t--pget info :creator) ""))
       (?C . ,(or (when-let* ((file (t--pget info :input-file))
                              (attrs (file-attributes file)))
                    (format-time-string
