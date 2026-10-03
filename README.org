@@ -50,8 +50,9 @@ now).
   id="navbar">= markup, deliberately not ox-html's =<div
   id="org-div-home-and-up">=.  =:html-home/up-format= keeps its
   ox-html keyword compatibility (=HTML_HOME/UP_FORMAT=, =newline=).
-  =org-w3ctr-home/up-format=, a bare =format= string, is the natural
-  =*-function= candidate.
+  =org-w3ctr-metadata-timestamp-format= drops ox-html's =%a= weekday
+  abbreviation (deliberate).  =org-w3ctr-home/up-format=, a bare
+  =format= string, is the natural =*-function= candidate.
 - *Src-block feature gaps vs ox-html.*  Dropped when forking (judged
   low-value for W3C TR output).  Revisit later:
   - Line numbers, coderef, =retain-labels=.

@@ -3711,7 +3711,7 @@ contents, wrapped in a <head> element."
    (t--normalize-string-or-function (t--pget info :html-head) info)
    (t--normalize-string-or-function (t--pget info :html-head-extra) info)
    "</head>\n"))
-
+
 ;;;; Navbar
 
 ;; Options:
@@ -4090,18 +4090,21 @@ and which receives INFO.  Return its result as a string."
 ;; Compared with `org-html-format-spec', rename to make the name more
 ;; specific, and add some helpful docstring.
 (defun t--pre/postamble-format-spec (info)
-  "Return format specification for preamble and postamble.
+  "Return the format-spec alist for preamble and postamble.
 
-Supported format specifiers:
-- %t means produce title.
-- %s means produce subtitle.
-- %d means produce (start)date.
-- %T means produce current time formatted with pre/postamble format.
-- %a means produce author.
-- %e means produce mailto link.
-- %c means produce creator string.
-- %C means produce file modification time (if exists).
-- %v means produce W3C HTML validation link."
+The entries are precomputed; each maps a format character to its
+replacement string:
+
+- %t: the document title.
+- %s: the document subtitle.
+- %d: the document date, formatted with
+  `org-w3ctr-metadata-timestamp-format'.
+- %T: the current time, same format.
+- %a: the author.
+- %e: the author's email as mailto links.
+- %c: the creator string.
+- %C: the modification time of the input file.
+- %v: the `org-w3ctr-validation-link' HTML."
   (declare (ftype (function (list) list))
            (important-return-value t))
   (let ((fmt (t--pget info :html-metadata-timestamp-format)))
@@ -4110,52 +4113,60 @@ Supported format specifiers:
       (?d . ,(org-export-data (org-export-get-date info fmt) info))
       (?T . ,(format-time-string fmt))
       (?a . ,(org-export-data (t--pget info :author) info))
-      (?e . ,(mapconcat
-              (lambda (e) (format "<a href=\"mailto:%s\">%s</a>" e e))
-              (split-string (t--pget info :email)  ",+ *")
-              ", "))
+      (?e . ,(if-let* ((email (t--pget info :email))
+                       ((t--nw-p email)))
+                 (mapconcat
+                  (lambda (e) (format "<a href=\"mailto:%s\">%s</a>" e e))
+                  (split-string email ",+ *" t)
+                  ", ")
+               ""))
       (?c . ,(t--pget info :creator))
-      (?C . ,(let ((file (t--pget info :input-file)))
-               (format-time-string
-                fmt (and file (file-attribute-modification-time
-                               (file-attributes file))))))
+      (?C . ,(or (when-let* ((file (t--pget info :input-file))
+                             (attrs (file-attributes file)))
+                   (format-time-string
+                    fmt (file-attribute-modification-time attrs)))
+                 ""))
       (?v . ,(or (t--pget info :html-validation-link) "")))))
 
 ;; Modified preamble/postamble handling compared to ox-html:
-;; - Remove `org-html-preamble-format' / `org-html-postamble-format'
-;;   mechanism; values are now set directly through `org-w3ctr-preamble'
-;;   and `org-w3ctr-postamble'.
-;; - Drop the 'auto option for postamble; when value is a symbol:
-;;   - Calls the symbol if it's a function.
-;;   - Otherwise formats the symbol's string value if present.
+;; - Remove the `org-html-preamble-format' / `org-html-postamble-format'
+;;   mechanism; values go directly through `org-w3ctr-preamble' and
+;;   `org-w3ctr-postamble'.
+;; - Drop the 'auto option for postamble.
 (defun t--build-pre/postamble (type info)
-  "Build the preamble or postamble string.
+  "Build the preamble or postamble string for export INFO.
 
-This function reads the configuration from `:html-preamble' or
-`:html-postamble' based on TYPE.  TYPE should be the symbol `preamble'
-or `postamble'."
+TYPE is the symbol `preamble' or `postamble', selecting the
+`:html-preamble' or `:html-postamble' option.  Both accept the
+same kinds of value: nil gives the empty string, a string is
+formatted with `format-spec' against
+`org-w3ctr--pre/postamble-format-spec', a function is called with
+INFO, and a symbol with a function is called like a function, or
+else its value cell is formatted as a string.  Return the result
+as a string, normalized to end in a newline, or the empty string
+when it is blank.  Signal `org-w3ctr-error' when a symbol has no
+usable string value, or when the value is of any other type."
   (declare (ftype (function (symbol list) string))
            (important-return-value t))
-  (let ((section (t--pget info (intern (format ":html-%s" type))))
-        (spec (t--pre/postamble-format-spec info))
-        it)
-    (cond
-     ((null section) (setq it ""))
-     ;; string formatted with `format-spec'.
-     ((stringp section) (setq it (format-spec section spec)))
-     ;; function.
-     ((functionp section) (setq it (funcall section info)))
-     ;; symbol's function cell is nil or not a function.
-     ((symbolp section)
-      (if-let* ((value (symbol-value section))
-                ((t--nw-p value)))
-          (setq it (format-spec value spec))
-        ;; When pre/postamble's value type is symbol and symbol's
-        ;; function cell is nil, its value cell must be string type.
-        (t-error "Invalid %s symbol value: %s"
-                 type (symbol-value section))))
-     ;; not nil, string or symbol
-     (t (t-error "Invalid %s: %s" type section)))
+  (let* ((section (t--pget info (intern (format ":html-%s" type))))
+         (spec (t--pre/postamble-format-spec info))
+         (it (cond
+              ((null section) "")
+              ;; string formatted with `format-spec'.
+              ((stringp section) (format-spec section spec))
+              ;; function.
+              ((functionp section) (funcall section info))
+              ;; symbol: call it if it has a function, or else format
+              ;; the string in its value cell.
+              ((symbolp section)
+               (unless (boundp section)
+                 (t-error "Invalid %s symbol: %s" type section))
+               (if-let* ((value (symbol-value section))
+                         ((t--nw-p value)))
+                   (format-spec value spec)
+                 (t-error "Invalid %s symbol value: %s"
+                          type (symbol-value section))))
+              (t (t-error "Invalid %s: %s" type section)))))
     (or (and (t--nw-p it) (org-element-normalize-string it)) "")))
 
 ;; Copied from `org-export-get-date'.

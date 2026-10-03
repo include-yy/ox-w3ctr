@@ -3475,7 +3475,26 @@ int a = 1;</code></p>\n</details>")
     (test "" (i "%e" '(:email "test"))
           "<a href=\"mailto:test\">test</a>\n")
     (test "" (i "%c" '(:creator "foo")) "foo\n")
-    (test "" (i "%v" '(:html-validation-link "foo.com")) "foo.com\n")))
+    (test "" (i "%v" '(:html-validation-link "foo.com")) "foo.com\n")
+    ;; No input file, no modification time.
+    (test "" (i "%C") "")
+    ;; A missing email yields "" and leaves the eager spec intact.
+    (let ((user-mail-address nil))
+      (test "" (i "%e") "")
+      (test "#+TITLE: x" (i "%t") "x\n"))
+    ;; Direct calls pin %C against a real file's mtime.
+    (cl-letf (((symbol-function 'org-export-data) (lambda (d _info) d)))
+      (let* ((file (make-temp-file "ox-w3ctr-mtime"))
+             (fmt "%Y-%m-%d %H:%M")
+             (time (encode-time 0 0 12 1 1 2000)))
+        (unwind-protect
+            (progn
+              (set-file-times file time)
+              ($l (cdr (assq ?C (t--pre/postamble-format-spec
+                                 (list :input-file file
+                                       :html-metadata-timestamp-format fmt))))
+                  (format-time-string fmt time)))
+          (delete-file file))))))
 
 (ert-deftest t--build-pre/postamble ()
   "Tests for `org-w3ctr--build-pre/postamble'."
@@ -3508,7 +3527,23 @@ int a = 1;</code></p>\n</details>")
           '(org-w3ctr-error "Invalid preamble symbol value: foo")))
   (dlet ((bar 'foo))
     ($e!l (org-export-string-as "" 'w3ctr nil '(:html-postamble bar))
-          '(org-w3ctr-error "Invalid postamble symbol value: foo"))))
+          '(org-w3ctr-error "Invalid postamble symbol value: foo")))
+  ;; A symbol without a value is our own error, not void-variable.
+  ($e!l (org-export-string-as "" 'w3ctr nil '(:html-preamble no-such-var))
+        '(org-w3ctr-error "Invalid preamble symbol: no-such-var"))
+  ;; A whitespace value cell is unusable.
+  (dlet ((bar "   "))
+    ($e!l (org-export-string-as "" 'w3ctr nil '(:html-postamble bar))
+          '(org-w3ctr-error "Invalid postamble symbol value:    ")))
+  ;; Blank results normalize to the empty string.
+  (t-check-element-values
+   #'t--build-pre/postamble
+   '(("" "" "")) nil
+   '(:html-preamble (lambda (info) "  ") :html-postamble nil))
+  (t-check-element-values
+   #'t--build-pre/postamble
+   '(("" "" "")) nil
+   '(:html-preamble (lambda (info) nil) :html-postamble nil)))
 
 (ert-deftest t--get-info-date ()
   "Tests for `org-w3ctr--get-info-date'."
