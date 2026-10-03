@@ -2321,8 +2321,6 @@ is converted to non-breaking spaces; newlines become <br>."
 ;;; Objects
 ;; footnote-reference, inline-src-block are not here.
 ;; latex-fragment, link and table-cell are not here.
-;; timestamp is not here.
-;; smallest objects are not here.
 
 ;;;; Entity
 
@@ -2426,143 +2424,6 @@ CONTENTS is the superscript content.  INFO is unused.  Return a <sup> element."
   (declare (ftype (function (t string t) string))
            (pure t) (important-return-value t))
   (format "<sup>%s</sup>" contents))
-
-;;; Smallest objects
-;; See (info "(org) Emphasis and Monospace")
-;; Options:
-;; - :html-text-markup-alist (`org-w3ctr-text-markup-alist')
-
-(defun t--get-markup-format (name info)
-  "Return the markup format string for NAME from the INFO plist.
-
-NAME is a symbol (like \\='bold) and INFO is the Org export info
-plist.  Return \"%s\" if NAME is not found."
-  (declare (ftype (function (symbol list) string))
-           (important-return-value t))
-  (if-let* ((alist (t--pget info :html-text-markup-alist))
-            (str (cdr (assq name alist))))
-      str "%s"))
-
-;;;; Bold
-
-(defun t-bold (_bold contents info)
-  "Transcode BOLD from Org to HTML.
-
-CONTENTS is the bold text.  INFO is the info plist.  Return the
-formatted text."
-  (declare (ftype (function (t string list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'bold info) contents))
-
-;;;; Italic
-
-(defun t-italic (_italic contents info)
-  "Transcode ITALIC from Org to HTML.
-
-CONTENTS is the italic text.  INFO is the info plist.  Return the
-formatted text."
-  (declare (ftype (function (t string list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'italic info) contents))
-
-;;;; Underline
-
-(defun t-underline (_underline contents info)
-  "Transcode UNDERLINE from Org to HTML.
-
-CONTENTS is the underlined text.  INFO is the info plist.  Return
-the formatted text."
-  (declare (ftype (function (t string list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'underline info) contents))
-
-;;;; Verbatim
-
-(defun t-verbatim (verbatim _contents info)
-  "Transcode VERBATIM from Org to HTML.
-
-CONTENTS is unused; the value comes from the element's `:value'
-property.  INFO is the info plist.  Return the formatted text."
-  (declare (ftype (function (t string list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'verbatim info)
-          (t--encode-plain-text
-           (org-element-property :value verbatim))))
-
-;;;; Code
-
-(defun t-code (code _contents info)
-  "Transcode CODE from Org to HTML.
-
-CONTENTS is unused; the value comes from the element's `:value'
-property.  INFO is the info plist.  Return the formatted text."
-  (declare (ftype (function (t string list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'code info)
-          (t--encode-plain-text
-           (org-element-property :value code))))
-
-;;;; Strike-Through
-
-(defun t-strike-through (_strike-through contents info)
-  "Transcode STRIKE-THROUGH from Org to HTML.
-
-CONTENTS is the struck-through text.  INFO is the info plist.
-Return the formatted text."
-  (declare (ftype (function (t string list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'strike-through info) contents))
-
-;;;; Plain Text
-
-;; Options:
-;; :with-smart-quotes    (`org-export-with-smart-quotes')
-;; :with-special-strings (`org-export-with-special-strings')
-;; :preserve-breaks      (`org-export-preserve-breaks')
-(defconst t-special-string-regexps
-  '(("\\\\-" . "&#x00ad;"); shy
-    ("---\\([^-]\\)" . "&#x2014;\\1"); mdash
-    ("--\\([^-]\\)" . "&#x2013;\\1"); ndash
-    ("\\.\\.\\." . "&#x2026;")); hellip
-  "Regular expressions for special string conversion.")
-
-(defun t--convert-special-strings (string)
-  "Convert special characters in STRING to HTML."
-  (declare (ftype (function (string) string))
-           (pure t) (important-return-value t))
-  (dolist (a t-special-string-regexps string)
-    (let ((re (car a))
-          (rpl (cdr a)))
-      (setq string (replace-regexp-in-string re rpl string t)))))
-
-(defun t-plain-text (text info)
-  "Transcode a TEXT string from Org to HTML.
-
-TEXT is the plain text content.  INFO is the info plist.  Encode
-HTML entities, activate smart quotes when enabled, convert special
-strings when enabled, and preserve line breaks when enabled.
-Return the transcoded string."
-  (declare (ftype (function (string list) string))
-           (important-return-value t))
-  (let ((output text))
-    ;; Protect following characters: <, >, &.
-    (setq output (t--encode-plain-text output))
-    ;; Handle smart quotes.  Be sure to provide original
-    ;; string since OUTPUT may have been modified.
-    (when (t--pget info :with-smart-quotes)
-      (setq output (org-export-activate-smart-quotes
-                    output :html info text)))
-    ;; Handle special strings.
-    (when (t--pget info :with-special-strings)
-      (setq output (t--convert-special-strings output)))
-    ;; Handle break preservation if required.
-    (when (t--pget info :preserve-breaks)
-      (setq output
-            (replace-regexp-in-string
-             "\\(\\\\\\\\\\)?[ \t]*\n"
-             "<br>\n" output)))
-    ;; Return value.
-    output))
 
 ;;;; Timestamp
 
@@ -2983,6 +2844,144 @@ is the info plist.  Return the formatted timestamp string."
                     (`fun #'t--format-timestamp-fun)
                     (o (t-error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
+
+;;; Smallest objects
+;; See (info "(org) Emphasis and Monospace")
+;; Options:
+;; - :html-text-markup-alist (`org-w3ctr-text-markup-alist')
+
+(defun t--get-markup-format (name info)
+  "Return the markup format string for NAME from the INFO plist.
+
+NAME is a symbol (like \\='bold) and INFO is the Org export info
+plist.  Return \"%s\" if NAME is not found."
+  (declare (ftype (function (symbol list) string))
+           (important-return-value t))
+  (if-let* ((alist (t--pget info :html-text-markup-alist))
+            (str (cdr (assq name alist))))
+      str "%s"))
+
+;;;; Bold
+
+(defun t-bold (_bold contents info)
+  "Transcode BOLD from Org to HTML.
+
+CONTENTS is the bold text.  INFO is the info plist.  Return the
+formatted text."
+  (declare (ftype (function (t string list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'bold info) contents))
+
+;;;; Italic
+
+(defun t-italic (_italic contents info)
+  "Transcode ITALIC from Org to HTML.
+
+CONTENTS is the italic text.  INFO is the info plist.  Return the
+formatted text."
+  (declare (ftype (function (t string list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'italic info) contents))
+
+;;;; Underline
+
+(defun t-underline (_underline contents info)
+  "Transcode UNDERLINE from Org to HTML.
+
+CONTENTS is the underlined text.  INFO is the info plist.  Return
+the formatted text."
+  (declare (ftype (function (t string list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'underline info) contents))
+
+;;;; Verbatim
+
+(defun t-verbatim (verbatim _contents info)
+  "Transcode VERBATIM from Org to HTML.
+
+CONTENTS is unused; the value comes from the element's `:value'
+property.  INFO is the info plist.  Return the formatted text."
+  (declare (ftype (function (t string list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'verbatim info)
+          (t--encode-plain-text
+           (org-element-property :value verbatim))))
+
+;;;; Code
+
+(defun t-code (code _contents info)
+  "Transcode CODE from Org to HTML.
+
+CONTENTS is unused; the value comes from the element's `:value'
+property.  INFO is the info plist.  Return the formatted text."
+  (declare (ftype (function (t string list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'code info)
+          (t--encode-plain-text
+           (org-element-property :value code))))
+
+;;;; Strike-Through
+
+(defun t-strike-through (_strike-through contents info)
+  "Transcode STRIKE-THROUGH from Org to HTML.
+
+CONTENTS is the struck-through text.  INFO is the info plist.
+Return the formatted text."
+  (declare (ftype (function (t string list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'strike-through info) contents))
+
+;;;; Plain Text
+
+;; Options:
+;; :with-smart-quotes    (`org-export-with-smart-quotes')
+;; :with-special-strings (`org-export-with-special-strings')
+;; :preserve-breaks      (`org-export-preserve-breaks')
+(defconst t-special-string-regexps
+  '(("\\\\-" . "&#x00ad;"); shy
+    ("---\\([^-]\\)" . "&#x2014;\\1"); mdash
+    ("--\\([^-]\\)" . "&#x2013;\\1"); ndash
+    ("\\.\\.\\." . "&#x2026;")); hellip
+  "Regular expressions for special string conversion.")
+
+(defun t--convert-special-strings (string)
+  "Convert special characters in STRING to HTML."
+  (declare (ftype (function (string) string))
+           (pure t) (important-return-value t))
+  (dolist (a t-special-string-regexps string)
+    (let ((re (car a))
+          (rpl (cdr a)))
+      (setq string (replace-regexp-in-string re rpl string t)))))
+
+(defun t-plain-text (text info)
+  "Transcode a TEXT string from Org to HTML.
+
+TEXT is the plain text content.  INFO is the info plist.  Encode
+HTML entities, activate smart quotes when enabled, convert special
+strings when enabled, and preserve line breaks when enabled.
+Return the transcoded string."
+  (declare (ftype (function (string list) string))
+           (important-return-value t))
+  (let ((output text))
+    ;; Protect following characters: <, >, &.
+    (setq output (t--encode-plain-text output))
+    ;; Handle smart quotes.  Be sure to provide original
+    ;; string since OUTPUT may have been modified.
+    (when (t--pget info :with-smart-quotes)
+      (setq output (org-export-activate-smart-quotes
+                    output :html info text)))
+    ;; Handle special strings.
+    (when (t--pget info :with-special-strings)
+      (setq output (t--convert-special-strings output)))
+    ;; Handle break preservation if required.
+    (when (t--pget info :preserve-breaks)
+      (setq output
+            (replace-regexp-in-string
+             "\\(\\\\\\\\\\)?[ \t]*\n"
+             "<br>\n" output)))
+    ;; Return value.
+    output))
+
 
 ;;; Headline and Section
 
