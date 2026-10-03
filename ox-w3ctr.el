@@ -5398,31 +5398,33 @@ table at all, distinct from the unlimited depth
      toc
      "</nav>\n")))
 
-;; FIXME: Add named-only argument (MAYBE)
 (defun t--list-of-elements (collect-fn info)
   "Return an HTML list of elements collected by COLLECT-FN.
 
 COLLECT-FN is a function that takes INFO and returns a list of Org
-elements. INFO is the export state plist.
+elements; each must carry a caption, as
+`org-export-collect-listings' and `org-export-collect-tables'
+guarantee.  INFO is the export options plist.
 
-The function generates a `<ul>' list where each list item corresponds to
-an element, displaying its caption. If the element has a reference
-label, the item is hyperlinked to it."
+Each list item displays the element's caption -- the short one
+when it has one, else the full one -- and links to the element
+when it has a reference label.  Only named elements are linked:
+unnamed ones carry fresh random ids on every export."
   (declare (ftype (function (function list) (or null string)))
            (important-return-value t))
   (when-let* ((entries (funcall collect-fn info)))
     (concat
      "<ul class=\"index\">\n"
-     (thread-first
-       (lambda (entry)
-         (let* ((label (t--reference entry info t))
-                (caption (or (org-export-get-caption entry t)
-                             (org-export-get-caption entry)))
-                (title (t--trim (org-export-data caption info))))
-           (format "<li>%s</li>"
-                   (if (not label) title
-                     (format "<a href=\"#%s\">%s</a>" label title)))))
-       (mapconcat entries "\n"))
+     (mapconcat
+      (lambda (entry)
+        (let* ((label (t--reference entry info t))
+               (caption (or (org-export-get-caption entry t)
+                            (org-export-get-caption entry)))
+               (title (t--trim (org-export-data caption info))))
+          (format "<li>%s</li>"
+                  (if (not label) title
+                    (format "<a href=\"#%s\">%s</a>" label title)))))
+      entries "\n")
      "\n</ul>")))
 
 (defun t--list-of-listings (info)

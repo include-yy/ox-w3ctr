@@ -4078,6 +4078,22 @@ int a = 1;</code></p>\n</details>")
              (lambda (_e _i &optional _n) nil)))
     ($l (t--list-of-elements (lambda (_i) '(e1)) nil)
         "<ul class=\"index\">\n<li>CAP</li>\n</ul>"))
+  ;; The short caption wins over the full one.
+  (cl-letf (((symbol-function 'org-export-get-caption)
+             (lambda (_e &optional short) (if short "SHORT" "FULL")))
+            ((symbol-function 'org-export-data) (lambda (c _i) c))
+            ((symbol-function 't--reference)
+             (lambda (_e _i &optional _n) nil)))
+    ($l (t--list-of-elements (lambda (_i) '(e1)) nil)
+        "<ul class=\"index\">\n<li>SHORT</li>\n</ul>"))
+  ;; Without a short caption, the full one is used.
+  (cl-letf (((symbol-function 'org-export-get-caption)
+             (lambda (_e &optional short) (unless short "FULL")))
+            ((symbol-function 'org-export-data) (lambda (c _i) c))
+            ((symbol-function 't--reference)
+             (lambda (_e _i &optional _n) nil)))
+    ($l (t--list-of-elements (lambda (_i) '(e1)) nil)
+        "<ul class=\"index\">\n<li>FULL</li>\n</ul>"))
   ;; No entries, no list.
   ($n (t--list-of-elements (lambda (_i) nil) nil)))
 
