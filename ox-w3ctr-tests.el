@@ -3315,20 +3315,20 @@ int a = 1;</code></p>\n</details>")
           "vertical-align:text-bottom;\" "
           "src=\"data:image/svg+xml;base64,test\" alt=\"\">")))
 
-(ert-deftest t--get-cc-svgs ()
-  "Tests for `org-w3ctr--get-cc-svgs'."
+(ert-deftest t-cc-badges-default-format-function ()
+  "Tests for `org-w3ctr-cc-badges-default-format-function'."
   (cl-letf (((symbol-function 't--load-cc-svg-once)
              #'identity)
             ((symbol-function 't--build-cc-img)
              #'identity))
-    ($it t--get-cc-svgs
-      ($l (it 'cc0) "cczero")
-      ($l (it 'cc-by-4.0) "ccby")
-      ($l (it 'cc-by-sa-4.0) "ccbysa")
-      ($l (it 'cc-by-nc-sa-4.0) "ccbyncsa")
-      ($l (it 'cc-by-nc-nd-4.0) "ccbyncnd")
-      ($l (it 'public-domain-mark) "pdm")
-      ($l (it 'all-rights-reserved) ""))))
+    ($it t-cc-badges-default-format-function
+      ($l (it 'cc0 nil) "cczero")
+      ($l (it 'cc-by-4.0 nil) "ccby")
+      ($l (it 'cc-by-sa-4.0 nil) "ccbysa")
+      ($l (it 'cc-by-nc-sa-4.0 nil) "ccbyncsa")
+      ($l (it 'cc-by-nc-nd-4.0 nil) "ccbyncnd")
+      ($l (it 'public-domain-mark nil) "pdm")
+      ($l (it 'all-rights-reserved nil) ""))))
 
 (ert-deftest t--get-info-author ()
   "Tests for `org-w3ctr--get-info-author'."
@@ -3345,7 +3345,9 @@ int a = 1;</code></p>\n</details>")
              (lambda (info) (plist-get info :author))))
     (cl-flet ((test (info)
                 (t-license-default-format-function (copy-sequence info))))
-      (let ((info (list :html-license nil)))
+      (let ((info (list :html-license nil
+                        :html-cc-badges-format-function
+                        #'t-cc-badges-default-format-function)))
         ($l (test info) "Not Specified")
         (setq info (plist-put info :html-license 'all-rights-reserved))
         ($l (test info) "All Rights Reserved")
@@ -3394,12 +3396,12 @@ int a = 1;</code></p>\n</details>")
         (setq info (plist-put info :html-use-cc-badges t))
         ($l (test info)
             (concat "This work by test is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>"
-                    " " (t--get-cc-svgs 'cc-by-4.0)))
+                    " " (t-cc-badges-default-format-function 'cc-by-4.0 nil)))
         ;; PDM gets its icon too.
         (setq info (plist-put info :html-license 'public-domain-mark))
         ($l (test info)
             (concat "This work by test is licensed under <a href=\"https://creativecommons.org/publicdomain/mark/1.0/\">Public Domain Mark 1.0</a>"
-                    " " (t--get-cc-svgs 'public-domain-mark)))))))
+                    " " (t-cc-badges-default-format-function 'public-domain-mark nil)))))))
 
 (ert-deftest t--pre/postamble-format-spec ()
   "Tests for `org-w3ctr--pre/postamble-format-spec'."

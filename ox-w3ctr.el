@@ -226,6 +226,7 @@
     (:html-use-cc-badges nil "cc-badges" t-use-cc-badges)
     (:html-license nil "license" t-public-license)
     (:html-license-format-function nil nil t-license-format-function)
+    (:html-cc-badges-format-function nil nil t-cc-badges-format-function)
     (:html-preamble nil "html-preamble" t-preamble)
     (:html-postamble nil "html-postamble" t-postamble)
     ;; Misc
@@ -1032,6 +1033,18 @@ or variants."
 
 (defcustom t-license-format-function #'t-license-default-format-function
   "Default function to build license string."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+(defcustom t-cc-badges-format-function #'t-cc-badges-default-format-function
+  "The function used to render the CC badge icons for a license.
+
+This function is called with a LICENSE symbol and an INFO plist.
+It should return an HTML string with the license's badge icons, or
+the empty string when there are none.  The default,
+`org-w3ctr-cc-badges-default-format-function', embeds the icons
+as base64 images; replace it for other markup, for example a
+shared SVG sprite or inline <svg>."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -3851,6 +3864,7 @@ entry is not a (URL . NAME) cons of strings (checked in
 ;; - :html-use-cc-badges (`org-w3ctr-use-cc-badges')
 ;; - :html-license (`org-w3ctr-public-license')
 ;; - :html-license-format-function (`org-w3ctr-license-format-function')
+;; - :html-cc-badges-format-function (`org-w3ctr-cc-badges-format-function')
 
 (defconst t-public-license-alist
   '((nil "Not Specified")
@@ -3934,9 +3948,12 @@ the cache afterwards."
     (t--load-cc-svg name)))
 
 (defun t--build-cc-img (base64)
-  "Create HTML img tag with embedded BASE64 encoded SVG.
+  "Build an HTML img tag embedding the base64 SVG string BASE64.
 
-See https://chooser-beta.creativecommons.org/"
+BASE64 is the output of `org-w3ctr--load-cc-svg-once'.  The image
+is decorative (empty alt attribute): the license name follows in
+text.  The inline sizing style is taken from the CC license
+chooser, https://chooser-beta.creativecommons.org/."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
   (format "<img style=\"height:1.4em!important;margin-left:0.2em;\
@@ -3961,13 +3978,14 @@ none."
           (split-string (symbol-name license) "[0-9.-]" t))
          (_ nil))))
 
-(defun t--get-cc-svgs (license)
+(defun t-cc-badges-default-format-function (license _info)
   "Build the HTML img tags for the icons of LICENSE.
 
 LICENSE is a license symbol; the file names come from
-`org-w3ctr--cc-icon-names'.  Return the img tags concatenated, or
-the empty string when LICENSE has no icons."
-  (declare (ftype (function (t) string))
+`org-w3ctr--cc-icon-names'.  INFO is the export options plist,
+unused here.  Return the img tags concatenated, or the empty
+string when LICENSE has no icons."
+  (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((f (lambda (x) (t--build-cc-img (t--load-cc-svg-once x)))))
     (mapconcat f (t--cc-icon-names license))))
@@ -3989,7 +4007,6 @@ attribution and appropriate Creative Commons icons when applicable."
            (important-return-value t))
   (let* ((license (t--pget info :html-license))
          (details (assq license t-public-license-alist))
-         (icons (t--cc-icon-names license))
          (use-badges (t--pget info :html-use-cc-badges))
          (author (t--get-info-author info)))
     (unless details
@@ -4004,8 +4021,12 @@ attribution and appropriate Creative Commons icons when applicable."
         " is licensed under "
         (if (null link) name
           (format "<a href=\"%s\">%s</a>" link name))
-        (when (and icons use-badges)
-          (concat " " (t--get-cc-svgs license)))))
+        (when use-badges
+          (when-let* ((badges (funcall
+                              (t--pget info :html-cc-badges-format-function)
+                              license info))
+                      ((not (string-empty-p badges))))
+            (concat " " badges)))))
       (_ (t-error "Internal error")))))
 
 (defun t-format-public-license (info)
