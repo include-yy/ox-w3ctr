@@ -4202,6 +4202,19 @@ int a = 1;</code></p>\n</details>")
       ($s cleaned))))
 
 
+(ert-deftest t--file-extension ()
+  "Tests for `org-w3ctr--file-extension'."
+  (dlet ((t-extension "html"))
+    ;; The default extension, and the per-call override.
+    ($l (t--file-extension nil) ".html")
+    ($l (t--file-extension '(:html-extension "xhtml")) ".xhtml"))
+  (dlet ((t-extension nil))
+    ;; Without a default, the fallback is "html".
+    ($l (t--file-extension nil) "html"))
+  (dlet ((t-extension ""))
+    ;; An empty default means no dot.
+    ($l (t--file-extension nil) "")))
+
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-") ("$" . "org-w3ctr:test-"))
 ;; coding: utf-8-unix

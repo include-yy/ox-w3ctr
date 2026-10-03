@@ -1921,6 +1921,18 @@ nil.  This doesn't apply to radio targets and targets."
       nil)
      ;; Fallback: random orgXXXXXXX.
      (t (org-export-get-reference datum info)))))
+
+;;;; Filter Functions
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+(defun t-final-function (contents _backend info)
+  "Filter to indent the HTML and convert HTML entities."
+  (with-temp-buffer
+    (insert contents)
+    (set-auto-mode t)
+    (when (t--pget info :html-indent)
+      (indent-region (point-min) (point-max)))
+    (buffer-substring-no-properties (point-min) (point-max))))
 
 ;;; Greater elements
 
@@ -5232,7 +5244,7 @@ line from `org-w3ctr-format-public-license'.  A row shows
    "</dl>\n"
    "</details>\n"
    "<hr>"))
-
+
 ;;;; Table of Contents
 
 ;; Options:
@@ -5566,29 +5578,17 @@ and INFO the export options plist."
            (important-return-value t))
   (prog1 (t-template-1 contents info)
     (static-when t--oinfo-cache-p (t--oinfo-cleanup))))
-
-;;; Filter Functions
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-(defun t-final-function (contents _backend info)
-  "Filter to indent the HTML and convert HTML entities."
-  (with-temp-buffer
-    (insert contents)
-    (set-auto-mode t)
-    (when (plist-get info :html-indent)
-      (indent-region (point-min) (point-max)))
-    (buffer-substring-no-properties (point-min) (point-max))))
 
 
 ;;; End-user functions
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;;;###autoload
 (defun t-export-as-html
     (&optional async subtreep visible-only body-only ext-plist)
-  "Export current buffer to an HTML buffer.
+  "Export the current buffer to an HTML buffer.
 
-See `org-html-export-as-html' for more information."
+Like `org-html-export-as-html', with `org-export-use-babel' bound
+to `org-w3ctr-use-babel'."
   (interactive)
   (let ((org-export-use-babel t-use-babel))
     (org-export-to-buffer 'w3ctr "*Org w3ctr HTML Export*"
@@ -5605,42 +5605,48 @@ to convert it."
   (let ((org-export-use-babel t-use-babel))
     (org-export-replace-region-by 'w3ctr)))
 
+(defun t--file-extension (plist)
+  "Return the HTML file extension to export to, dot included.
+
+PLIST is the caller's override plist (the export ext-plist or a
+publish project plist), not the export INFO; its `:html-extension'
+wins over `org-w3ctr-extension', and \"html\" is the last resort."
+  (declare (ftype (function (t) string))
+           (important-return-value t))
+  (concat (when (> (length t-extension) 0) ".")
+          (or (plist-get plist :html-extension)
+              t-extension
+              "html")))
+
 ;;;###autoload
 (defun t-export-to-html
     (&optional async subtreep visible-only body-only ext-plist)
-  "Export current buffer to a HTML file.
+  "Export the current buffer to an HTML file.
 
-See `org-html-export-to-html' for more information."
+Like `org-html-export-to-html', with `org-export-use-babel' bound
+to `org-w3ctr-use-babel' and the file extension from
+`org-w3ctr--file-extension'."
   (interactive)
-  (let* ((extension (concat
-                     (when (> (length t-extension) 0) ".")
-                     (or (plist-get ext-plist :html-extension)
-                         t-extension
-                         "html")))
+  (let* ((extension (t--file-extension ext-plist))
          (file (org-export-output-file-name extension subtreep))
          (org-export-coding-system t-coding-system)
-         (org-export-use-babel t-use-babel)
-         )
+         (org-export-use-babel t-use-babel))
     (org-export-to-file 'w3ctr file
       async subtreep visible-only body-only ext-plist)))
 
 ;;;###autoload
 (defun t-publish-to-html (plist filename pub-dir)
-  "Publish an org file to HTML.
+  "Publish an Org file to HTML.
 
-FILENAME is the filename of the Org file to be published.  PLIST
-is the property list for the given project.  PUB-DIR is the
-publishing directory.
-
-Return output file name."
+Like `org-html-publish-to-html', with `org-export-use-babel' bound
+to `org-w3ctr-use-babel'.  FILENAME is the Org file to publish,
+PLIST the project's property list, and PUB-DIR the publishing
+directory.  Return the output file name."
   (let ((org-export-use-babel t-use-babel))
     (org-publish-org-to 'w3ctr filename
-                        (concat (when (> (length t-extension) 0) ".")
-                                (or (plist-get plist :html-extension)
-                                    t-extension
-                                    "html"))
+                        (t--file-extension plist)
                         plist pub-dir)))
-
+
 (provide 'ox-w3ctr)
 
 ;; Local variables:
