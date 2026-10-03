@@ -103,8 +103,8 @@ too but fails rather than skipping.
   ```
 
   Do not use `grep -c $'\r'` for this: in this MSYS2 environment it
-  reports the line count for *any* file (a pure-LF 4937-line
-  `ox-w3ctr.el` gives 4937), so it always looks like a failure.
+  reports the line count for *any* file (a pure-LF 5672-line
+  `ox-w3ctr.el` gives 5672), so it always looks like a failure.
 - Do not commit changes unless explicitly asked.
 - **Docstring**: every `defun`/`defsubst` gets a full docstring — a
   one-line summary first, then parameter / return-value notes where
@@ -170,13 +170,15 @@ the plan.
 
 Sections below `;;;; OINFO oclosure` that are not yet refined carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
-source.  Work the `;;; Template and Inner Template` part to
-completion first, then the earlier parts (the 2026-10 section refile
-scrambled source order); within a part, take each section in source
-order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass —
-docstring, `declare`, `important-return-value`/`pure`, helper use,
-tests — and remove the marker when the section is done.  What a pass
-turns up goes to `## Tasks` or `README.org` Roadmap.
+source.  The `;;; Template and Inner Template` part was finished on
+2026-10-04; the work now is the earlier parts (the 2026-10 section
+refile scrambled source order).  The eight `REFINE:` sections left, in
+source order: Filter Functions, Footnote, Special Block, Table, LaTeX,
+Engrave-faces subset, Source block, Link.  Within a part, take each
+section in source order (`grep -n 'REFINE:' ox-w3ctr.el`), one section
+per pass — docstring, `declare`, `important-return-value`/`pure`,
+helper use, tests — and remove the marker when the section is done.
+What a pass turns up goes to `## Tasks` or `README.org` Roadmap.
 
 A section deferred to a later round carries `;; REFINE2:` instead of
 `;; REFINE:`, so the `grep -n 'REFINE:'` recipe skips it (the `2` breaks
@@ -316,13 +318,20 @@ same session.  Larger or planned work is in the =Roadmap= section of
 - **Docstring & layout leftovers (from the tidy pass).**
   - Add docstrings to the 13 jstools RPC functions
     (`t--rpc-make-json` … `t--jstools-call`).
-  - Add `(declare (ftype …))` to the ~18 functions that still lack it
-    (excluding `defsubst` and end-user commands).
+  - Add `(declare (ftype …))` to the 15 functions that still lack it
+    (excluding `defsubst`, interactive, and end-user commands; count as
+    of 2026-10-04): the 11-function RPC/jstools group in
+    `;;; Simple JSON based sync RPC`, plus `t-final-function`,
+    `t-special-block`, `t--textarea-block` and
+    `t-preamble-default-function`.
 
 - **Shorthand symbol names in docstrings and comments.**  They are
   string literals and get no `read-symbol-shorthands`; write the full
-  `org-w3ctr-*` name.  The Navbar section is clean as of 2026-10-03;
-  remaining offenders (grep `` `t- `` in `ox-w3ctr.el`): `t-style` /
-  `t-style-file`, `t-fixup-js` (also an `Update ???` placeholder),
-  `t-inline-image-rules`, `t-inline-image-p`, `t-link`, `t--link-path`.
-  Fix per section in the passes.
+  `org-w3ctr-*` name.  Fix per section in the passes.  As of
+  2026-10-04, grep `` `t- `` in `ox-w3ctr.el` finds, outside the
+  `REFINE:` sections, only `t-style` / `t-style-file` (<head>).
+  The rest sit inside sections the pass will fix:
+  `t--engrave-face-transformer` (Engrave-faces subset);
+  `t-fontify-method`, `t-fontify-code` (Source block);
+  `t-inline-image-rules`, `t-inline-image-p`, `t-link`, `t--link-path`,
+  `t--link-target`, `t--link-equation` (Link).
