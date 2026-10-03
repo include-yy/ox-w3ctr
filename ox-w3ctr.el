@@ -4013,34 +4013,30 @@ Return the transcoded string."
 
 ;;;; Section
 
-(defvar t--zeroth-section-output nil
-  "Internal variable storing zeroth section's HTML output.
-
-This is used to override the default ox-html behavior where TOC comes
-first, allowing zeroth section's content to appear before the TOC while
-the TOC remains near the beginning of the document.")
-
 ;; Malformed headlines (for example, ** before *) are exported as-is:
 ;; the heading level and section numbering reflect the source, not
 ;; a normalized hierarchy.  Both ox-html and ox-w3ctr behave the
 ;; same way — this is a feature, not a bug.
-(defun t-section (section contents _info)
+(defun t-section (section contents info)
   "Transcode a SECTION element from Org to HTML.
 
-CONTENTS holds the contents of the section.  INFO is unused.
+CONTENTS holds the contents of the section and INFO is the
+export options plist.
 
 A section inside a headline returns CONTENTS as-is.  The zeroth
 section, the one outside any headline, returns nil and stores
-CONTENTS in `org-w3ctr--zeroth-section-output', so the template can
-place it before the table of contents."
+CONTENTS in the `:zeroth-section-output' key of INFO, so the
+template can place it before the table of contents."
   (declare (ftype (function (t (or null string) list) (or null string)))
            (important-return-value t))
   ;; normal section
   (if (org-element-lineage section 'headline) contents
-    ;; FIXME: Use the topmost property drawer for the zeroth section's
-    ;; properties (it is lifted onto the org-data root); the template
-    ;; can then honor, for example, `:HTML_CONTAINER:' when wrapping this output.
-    (prog1 nil (setq t--zeroth-section-output contents))))
+    ;; FIXME: Make use of the zeroth section's property drawer, for
+    ;; example `:HTML_CONTAINER:' when wrapping this output.
+    ;; Facts so far: the drawer is the file-level one (`org-entry-get'
+    ;; at the buffer start sees its properties; the parse tree keeps
+    ;; it under the zeroth section), and it is dropped from the output.
+    (prog1 nil (t--pput info :zeroth-section-output contents))))
 
 ;;;; Todo
 
@@ -5495,16 +5491,19 @@ or nil when VALUE selects none of the three."
 ;; :html-back-to-top (`org-w3ctr-back-to-top')
 ;; :html-fixup-js (`org-w3ctr-fixup-js')
 
-;; FIXME: Consider use :with-title
-;; Maybe I have use it in above or below codes.
 (defun t-inner-template (contents info)
-  "Return body of document string after HTML conversion.
-CONTENTS is the transcoded contents string."
+  "Build the document body from the transcoded CONTENTS and INFO.
+
+INFO is the export options plist.  The body is the zeroth section
+\(the content before the first headline, stored by
+`org-w3ctr-section' in the `:zeroth-section-output' key of INFO),
+then the table of contents, the CONTENTS wrapped in a <main>
+element, and the footnote section."
   (declare (ftype (function ((or null string) list) string))
            (important-return-value t))
   ;; See also `org-html-inner-template'.
   (concat
-   t--zeroth-section-output
+   (t--pget info :zeroth-section-output)
    (t--build-table-of-contents info)
    "<main>\n"
    contents
@@ -5519,9 +5518,9 @@ paragraph for the subtitle. It only produces output if
 :with-title is non-nil in the INFO plist."
   (declare (ftype (function (list) string))
            (important-return-value t))
-  (when (plist-get info :with-title)
+  (when (t--pget info :with-title)
     (let ((title (t--pget info :title))
-          (subtitle (plist-get info :subtitle)))
+          (subtitle (t--pget info :subtitle)))
       (concat
        "<h1 id=\"title\">"
        (let ((tit (org-export-data title info)))

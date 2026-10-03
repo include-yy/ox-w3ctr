@@ -2638,22 +2638,13 @@ int a = 1;</code></p>\n</details>")
    '(("* test1\n\n123 234\n\n" "<p>123 234</p>\n")
      ("* test2\n\n#+a:b\n\n456\n" "<p>456</p>\n")
      ("* test3\n\n\n\n" . nil)))
-  ;; zeroth section
-  (let* ((ls nil)
-         (f (lambda (s n o w)
-              (when (stringp n) (push n ls))
-              (set s n))))
-    (unwind-protect
-        (progn
-          (add-variable-watcher 't--zeroth-section-output f)
-          (t-check-element-values #'t-section '(("567" nil)))
-          ($l (car ls) "<p>567</p>\n")
-          (t-check-element-values #'t-section '(("\n\n\n678" nil)))
-          ($l (car ls) "<p>678</p>\n")
-          (t-check-element-values #'t-section '(("#+a:b\n\n\n666\n" nil)))
-          ($l (car ls) "<p>666</p>\n"))
-      (dolist (a (get-variable-watchers 't--zeroth-section-output))
-        (remove-variable-watcher 't--zeroth-section-output a)))))
+  ;; The zeroth section returns nil and stores its output in INFO.
+  (let* ((sec (car (t-get-parsed-elements "zeroth" 'section)))
+         (info '(:html-toc-element ul)))
+    ($n (t-section sec "<p>567</p>
+" info))
+    ($l (t--pget info :zeroth-section-output) "<p>567</p>
+")))
 
 (ert-deftest t--todo ()
   "Tests for `org-w3ctr--todo'."
@@ -4141,6 +4132,21 @@ int a = 1;</code></p>\n</details>")
           "TOC nil \"RESOLVED x\""))
     ;; No match, no output.
     ($n (t--keyword-toc nil "nothing" nil))))
+
+(ert-deftest t-inner-template ()
+  "Tests for `org-w3ctr-inner-template'."
+  ;; The zeroth section lands before the table of contents, and a
+  ;; document without one does not inherit the previous export's.
+  (let ((with (org-export-string-as "ZEROTH\n\n* H\nbody" 'w3ctr nil))
+        (without (org-export-string-as "* H\nbody" 'w3ctr nil)))
+    ($s (string-match-p "ZEROTH" with))
+    ($n (string-match-p "ZEROTH" without)))
+  ;; The zeroth section's property drawer is dropped, not rendered.
+  (let ((out (org-export-string-as
+              ":PROPERTIES:\n:HTML_CONTAINER: aside\n:END:\n\nzeroth\n\n* H\nbody"
+              'w3ctr nil)))
+    ($s (string-match-p "zeroth" out))
+    ($n (string-match-p "HTML_CONTAINER" out))))
 
 
 ;; Local Variables:
