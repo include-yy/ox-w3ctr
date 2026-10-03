@@ -4147,6 +4147,19 @@ int a = 1;</code></p>\n</details>")
               'w3ctr nil)))
     ($s (string-match-p "zeroth" out))
     ($n (string-match-p "HTML_CONTAINER" out))))
+
+(ert-deftest t--build-title ()
+  "Tests for `org-w3ctr--build-title'."
+  (cl-letf (((symbol-function 'org-export-data) (lambda (d _i) d)))
+    ;; A missing :with-title means no block at all.
+    ($n (t--build-title '(:title "T")))
+    ;; The title and the subtitle paragraph.
+    ($l (t--build-title '(:with-title t :title "T" :subtitle "S"))
+        "<h1 id=\"title\">T</h1>\n<p id=\"w3c-state\">S</p>\n")
+    ;; A blank title keeps the anchor with an invisible mark, and a
+    ;; blank subtitle emits no paragraph.
+    ($l (t--build-title '(:with-title t :title "  " :subtitle ""))
+        "<h1 id=\"title\">&lrm;</h1>\n")))
 
 
 ;; Local Variables:

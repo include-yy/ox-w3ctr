@@ -5513,10 +5513,12 @@ element, and the footnote section."
 (defun t--build-title (info)
   "Build the HTML for the document title and subtitle.
 
-This function generates the `<h1>' title and an associated
-paragraph for the subtitle. It only produces output if
-:with-title is non-nil in the INFO plist."
-  (declare (ftype (function (list) string))
+INFO is the export options plist.  Return an <h1 id=\"title\">
+holding the title and, when the subtitle is non-blank, a
+<p id=\"w3c-state\"> holding it; return nil when `:with-title' is
+nil.  An absent or blank title renders as a left-to-right mark:
+invisible, but it keeps the heading anchor alive."
+  (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when (t--pget info :with-title)
     (let ((title (t--pget info :title))
@@ -5524,11 +5526,13 @@ paragraph for the subtitle. It only produces output if
       (concat
        "<h1 id=\"title\">"
        (let ((tit (org-export-data title info)))
-         (or (t--nw-p tit)  "&lrm;"))
+         (or (t--nw-p tit) "&lrm;"))
        "</h1>\n"
-       ;; FIXME: Consider use subtitle, not w3c-state
+       ;; The subtitle rides in the W3C state line (id=\"w3c-state\"): a
+       ;; real TR idiom, styled by the stylesheet's #w3c-state rule.
        (let ((sub (org-export-data subtitle info)))
-         (format "<p id=\"w3c-state\">%s</p>\n" sub))))))
+         (when (t--nw-p sub)
+           (format "<p id=\"w3c-state\">%s</p>\n" sub)))))))
 
 (defun t-template-1 (contents info)
   "Assemble the full HTML document structure around CONTENTS.
