@@ -44,6 +44,7 @@
 (require 'map)
 (require 'format-spec)
 (require 'xml)
+(require 'jsonrpc)
 (require 'ox)
 (require 'ox-publish)
 (require 'ox-html)
@@ -1844,124 +1845,131 @@ See `org-export-insert-image-links' for more details."
 
 ;;;; JSON-RPC
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+;; A JSON-RPC 2.0 client built on `jsonrpc.el'.  `org-w3ctr--jrpc' is the
+;; generic layer; `org-w3ctr--jstools' is the one instance used here, whose
+;; COMMAND starts the node MathJax helper.  The helper speaks Content-Length
+;; framing (see jstools/index.js), which is what `jsonrpc.el' reads and
+;; writes too.
 
-;; FIXME: Hand-rolled RPC from way back.  Consider migrating to the
-;; built-in `jsonrpc.el', which provides the same JSON framing over
-;; the same process transport.
-(defvar t--rpc-timeout 1.0
-  "Timeout for a rpc, in seconds.")
-(defvar t--rpc-id 0
-  "JSON-rpc ID for request.")
+(oclosure-define t--jrpc
+  "Callable JSON-RPC client.
 
-;; https://www.jsonrpc.org/specification
-(defun t--rpc-make-json (func args)
-  (json-serialize
-   `( :jsonrpc "2.0" :method ,(format "%s" func)
-      :params ,args  :id ,(incf t--rpc-id))))
+NAME - the client and connection name.
+CONN - the live `jsonrpc-process-connection', or nil before first use.
+TIMEOUT - the default per-request timeout, in seconds.
+COMMAND - the argv used to (re)start the server.
+METHODS - the method names this side exposes; nil disables the check."
+  (name :type string)
+  (conn :mutable t)
+  (timeout :type number)
+  (command :type list)
+  (methods :type list))
 
-(defun t--rpc-send (proc jstr)
-  (process-send-string proc (concat jstr "\n")))
+(defun t--jrpc-make (name command &optional timeout methods)
+  "Return a callable JSON-RPC client that starts COMMAND on demand.
 
-(defun t--rpc-call (proc func args)
-  (t--rpc-send proc (t--rpc-make-json func args)))
+NAME is the client and connection name.  COMMAND is the argv of the
+server process.  TIMEOUT is the default per-request timeout in seconds,
+10.0 when nil.  METHODS is the list of method names the client accepts,
+or nil to accept any."
+  (declare (ftype (function (string list &optional number list) function))
+           (important-return-value t))
+  (oclosure-lambda (t--jrpc (name name)
+                            (conn nil)
+                            (timeout (or timeout 10.0))
+                            (command command)
+                            (methods methods))
+      (method params &optional timeout-override)
+    (jsonrpc-request conn method params
+                     :timeout (or timeout-override timeout))))
 
-(defun t--rpc-filter (proc string)
-  (when (buffer-live-p (process-buffer proc))
-    (with-current-buffer (process-buffer proc)
-      ;; insert string
-      (save-excursion
-        (goto-char (process-mark proc))
-        (insert string)
-        (set-marker (process-mark proc) (point)))
-      ;; find json data
-      (when-let* ((curr (point))
-                  (end (search-forward "\n" nil t)))
-        (goto-char curr)
-        (let* ((hash (json-parse-buffer)))
-          (if (not (process-get proc 'debug))
-              (delete-region curr end)
-            (goto-char (point-max)))
-          (set-marker (process-mark proc) (point))
-          (throw 't--rpc hash))))))
+(defun t--jrpc-connect (name command)
+  "Return a new `jsonrpc-process-connection' running COMMAND.
 
-(defun t--rpc-sentinel (proc _change)
-  (when (not (process-live-p proc))
-    (unless (process-get proc 'debug)
-      (let* ((re " \\*ox-w3ctr-proc-\\[")
-             (buf (process-buffer proc))
-             (bufname (buffer-name buf)))
-        (when (string-match-p re bufname)
-          (kill-buffer buf))))))
+NAME names the connection and its process.  `jsonrpc.el' creates a
+stderr buffer (`*NAME stderr*') during initialization and then calls the
+`:process' function, so the process is created there with that buffer
+wired as its stderr.  Passing an already-made process would leave the
+child's stderr merged into stdout and corrupt the protocol."
+  (declare (ftype (function (string list) t))
+           (important-return-value t))
+  (make-instance 'jsonrpc-process-connection
+    :name name
+    :process (lambda (_conn)
+               (make-process
+                :name name
+                :command command
+                :stderr (get-buffer (format "*%s stderr*" name))
+                :noquery t :coding 'binary))))
 
-(defun t--rpc-start (name cmd-list &optional debug)
-  (let* ((buf (get-buffer-create
-               (concat " *ox-w3ctr-proc-[" name "]*")))
-         (proc (make-process
-                :name name :buffer buf
-                :command cmd-list :coding 'utf-8
-                :noquery t :filter #'t--rpc-filter
-                :sentinel #'t--rpc-sentinel)))
-    (with-current-buffer buf
-      (goto-char (point-max))
-      (set-marker (process-mark proc) (point)))
-    (when debug (process-put proc 'debug t))
-    proc))
+(defun t--jrpc-shutdown (client)
+  "Shut down CLIENT's connection and clear its `conn' slot.
 
-(defun t--rpc-request-sync (proc fun args)
-  (catch 't--rpc
-    (t--rpc-call proc fun args)
-    (let ((curr-time (float-time)))
-      (while (< (- (float-time) curr-time) t--rpc-timeout)
-        (accept-process-output nil 1))
-      (error "ox-w3ctr RPC timeout: (%s %s)" fun args))))
+CLIENT is a `org-w3ctr--jrpc' object.  Return nil."
+  (declare (ftype (function (t) null)))
+  (let ((conn (t--jrpc--conn client)))
+    (when conn (ignore-errors (jsonrpc-shutdown conn t)))
+    (setf (t--jrpc--conn client) nil)))
 
-(defun t--rpc-request! (proc fun args)
-  (let* ((data (t--rpc-request-sync proc fun args)))
-    (if-let* ((err (gethash "error" data)))
-        (error "ox-w3ctr RPC error: %s %s %s"
-               (gethash "code" err)
-               (gethash "message" err)
-               (gethash "data" err))
-      (gethash "result" data))))
+(defun t--jrpc-ensure (client)
+  "Return CLIENT's live connection, starting one if needed.
 
-(defvar t--jstools-proc nil
-  "js-tools process object.")
-(defvar t-jstools-debug nil)
+CLIENT is a `org-w3ctr--jrpc' object.  A dead or absent connection is
+shut down and rebuilt from CLIENT's `command', and the result is stored
+back in CLIENT's `conn' slot."
+  (declare (ftype (function (t) t)))
+  (let ((conn (t--jrpc--conn client)))
+    (unless (and conn (jsonrpc-running-p conn))
+      (t--jrpc-shutdown client)
+      (setf (t--jrpc--conn client)
+            (t--jrpc-connect (t--jrpc--name client)
+                             (t--jrpc--command client))))
+    (t--jrpc--conn client)))
 
-(defvar t--jstools-timeout 30000
-  "default server side timeout, in milliseconds.")
+(defun t--jrpc-restart (client)
+  "Restart CLIENT's server process and return the new connection.
+
+CLIENT is a `org-w3ctr--jrpc' object."
+  (declare (ftype (function (t) t)))
+  (t--jrpc-shutdown client)
+  (t--jrpc-ensure client))
+
+(defun t--jcall (client method params &optional timeout)
+  "Call METHOD on CLIENT, restarting its connection if needed.
+
+CLIENT is a `org-w3ctr--jrpc' object.  METHOD is a method name and
+PARAMS the JSON-RPC params value.  TIMEOUT overrides CLIENT's default.
+Signal `org-w3ctr-error' when METHOD is outside CLIENT's METHODS."
+  (declare (ftype (function (t symbol t &optional number) t))
+           (important-return-value t))
+  (let ((allowed (t--jrpc--methods client)))
+    (unless (or (null allowed) (memq method allowed))
+      (t-error "Unknown jstools method: %s" method)))
+  (t--jrpc-ensure client)
+  (funcall client method params timeout))
+
+(defconst t--jstools-methods '(tex2mml tex2svg)
+  "The RPC methods ox-w3ctr exposes from the jstools helper.
+
+The node helper also answers the test methods echo and add; they stay
+unexposed.")
+
+(defvar t--jstools
+  (t--jrpc-make "ox-w3ctr-jstools"
+                (list "node" (file-name-concat t--dir "jstools/index.js")
+                      "--timeout" "30000")
+                nil t--jstools-methods)
+  "The JSON-RPC client for the node MathJax helper.")
 
 (defun t-toggle-jstools-debug ()
+  "Show the JSON-RPC event log for the jstools connection."
   (interactive)
-  (if t-jstools-debug
-      (progn
-        (setq t-jstools-debug nil)
-        (message "ox-w3ctr: jstools debug disabled."))
-    (setq t-jstools-debug t)
-    (message "ox-w3ctr: jstools debug enabled.")))
-
-(defun t--start-jstools ()
-  (unless (process-live-p t--jstools-proc)
-    (setq t--jstools-proc
-          (t--rpc-start
-           "jstools"
-           `("node" ,(file-name-concat t--dir "jstools/index.js")
-             "--timeout" ,(number-to-string t--jstools-timeout))
-           t-jstools-debug))))
-
-(defun t--restart-jstools ()
-  (when (process-live-p t--jstools-proc)
-    (delete-process t--jstools-proc))
-  (t--start-jstools))
+  (pop-to-buffer (jsonrpc-events-buffer (t--jrpc-ensure t--jstools))))
 
 (defun t-launch-jstools ()
+  "Restart the jstools helper process."
   (interactive)
-  (t--restart-jstools))
-
-(defun t--jstools-call (fun args)
-  (t--start-jstools)
-  (t--rpc-request! t--jstools-proc fun args))
+  (t--jrpc-restart t--jstools))
 
 ;;; Greater elements
 
@@ -2639,9 +2647,9 @@ MODE is the value of `:with-latex'; INFO is the export state."
     ((or `nil `verbatim) frag)
     (`mathjax (t--normalize-latex frag))
     (`mathml-by-mathjax
-     (t--jstools-call 'tex2mml (t--normalize-latex frag)))
+     (t--jcall t--jstools 'tex2mml (list :fragment (t--normalize-latex frag))))
     (`svg-by-mathjax
-     (t--jstools-call 'tex2svg (t--normalize-latex frag)))
+     (t--jcall t--jstools 'tex2svg (list :fragment (t--normalize-latex frag))))
     (`custom
      (funcall (t--pget info :html-math-custom-render-function) frag info))
     (o (error "Unknown LaTeX mode: %s" o))))

@@ -1,13 +1,13 @@
 // ox-w3ctr MathJax RPC helper.
 //
-// Newline-delimited JSON-RPC 2.0 over stdin/stdout: one request per line in,
-// one response per line out.  The Emacs side (`t--jstools-call`) starts this
+// JSON-RPC 2.0 over stdin/stdout, framed with `Content-Length: <bytes>\r\n\r\n`
+// (the framing `jsonrpc.el` reads and writes).  The Emacs side starts this
 // process once and reuses it for a whole export, then it exits by itself once
 // idle.
 //
-// Only `tex2mml` is used by ox-w3ctr; `echo` and `add` are for manual testing.
+// Only `tex2mml` / `tex2svg` are used by ox-w3ctr; `echo` and `add` are for
+// manual testing.
 
-import * as readline from 'readline'
 import { stdin, stdout } from 'process'
 
 import * as Mathjax from 'mathjax'
@@ -75,7 +75,7 @@ const stripNoise = (mml) => mml
 // Use the promise-based conversion: the synchronous `tex2mml` throws
 // "MathJax retry" as soon as the input needs an extension or extra font data,
 // which v4 loads lazily.
-const tex2mml = async (fragment) => {
+const tex2mml = async ({ fragment }) => {
     const { tex, display } = unwrap(fragment)
     const mml = await mathjax.tex2mmlPromise(tex, { display })
     return stripNoise(mml)
@@ -90,7 +90,7 @@ const escapeAttr = (s) => s
 // validation, so keep only the <svg>.  Drop the `data-latex` annotations and
 // give the image an accessible name.  Display math gets a phrasing wrapper
 // (`.math-display'), so it stays valid inside a <p>.
-const tex2svg = async (fragment) => {
+const tex2svg = async ({ fragment }) => {
     const { tex, display } = unwrap(fragment)
     const node = await mathjax.tex2svgPromise(tex, { display })
     const label = escapeAttr(tex.replace(/\s+/g, ' ').trim())
@@ -116,9 +116,37 @@ server.addMethod('tex2svg', tex2svg)
 server.addMethod('echo', ({ text }) => text)
 server.addMethod('add', ([a, b]) => a + b)
 
-readline.createInterface({ input: stdin }).on('line', (line) => {
+// Content-Length framing: the length is in UTF-8 BYTES, and there is no
+// trailing newline.  A chunk may carry several messages, or only part of one,
+// so keep the remainder and re-parse.
+let pending = Buffer.alloc(0)
+
+const respond = (message) => {
     touch()
-    server.receiveJSON(line).then((response) => {
-        if (response) stdout.write(JSON.stringify(response) + '\n')
+    server.receiveJSON(message).then((response) => {
+        if (!response) return              // a notification gets no reply
+        const json = JSON.stringify(response)
+        const bytes = Buffer.byteLength(json, 'utf8')
+        stdout.write(`Content-Length: ${bytes}\r\n\r\n${json}`)
     })
+}
+
+stdin.on('data', (chunk) => {
+    pending = Buffer.concat([pending, chunk])
+    for (;;) {
+        const headerEnd = pending.indexOf('\r\n\r\n')
+        if (headerEnd < 0) return          // header not complete yet
+        const header = pending.subarray(0, headerEnd).toString('ascii')
+        const match = header.match(/content-length:\s*(\d+)/i)
+        if (!match) {                      // unknown header: resynchronise
+            pending = pending.subarray(headerEnd + 4)
+            continue
+        }
+        const start = headerEnd + 4
+        const end = start + Number(match[1])
+        if (pending.length < end) return   // body not complete yet
+        const message = pending.subarray(start, end).toString('utf8')
+        pending = pending.subarray(end)
+        respond(message)
+    }
 })
