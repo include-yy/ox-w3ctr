@@ -221,7 +221,6 @@
     (:html-toc-element nil nil t-toc-element)
     (:html-toc-title nil nil t-toc-title)
     (:html-toc-headline-format-function nil nil t-toc-headline-format-function)
-    (:html-back-to-top nil "back-to-top" t-back-to-top)
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     (:html-extension nil nil t-extension)
     ;; Preamble and License
@@ -1023,19 +1022,6 @@ entry markup."
   :group 'org-export-w3ctr
   :type 'function)
 
-(defcustom t-back-to-top t
-  "Add back-to-top arrow at the end of html file."
-  :group 'org-export-w3ctr
-  :type '(boolean))
-
-(defcustom t-back-to-top-arrow
-  "<p role=\"navigation\" id=\"back-to-top\">\
-<a href=\"#title\"><abbr title=\"Back to Top\">↑\
-</abbr></a></p>\n"
-  "Add comments here."
-  :group 'org-export-w3ctr
-  :type 'string)
-
 (defvar t-fixup-js ""
   "Js code that control toc's hide and show.")
 
@@ -1105,11 +1091,13 @@ is normalized to end in a newline; see
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
 
-(defcustom t-postamble nil
+(defcustom t-postamble
+  "<p role=\"navigation\" id=\"back-to-top\"><a href=\"#title\"><abbr title=\"Back to Top\">↑</abbr></a></p>
+"
   "Control the postamble inserted into the exported HTML.
 
-The value takes the same kinds as `org-w3ctr-preamble'; the
-default nil inserts nothing."
+The value takes the same kinds as `org-w3ctr-preamble'.  The
+default is the back-to-top arrow; nil inserts nothing."
   :group 'org-export-w3ctr
   :type '(choice string function symbol))
 
@@ -5485,10 +5473,8 @@ or nil when VALUE selects none of the three."
 
 ;;;; Template
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; :language (`org-export-default-language')
-;; :html-back-to-top (`org-w3ctr-back-to-top')
 ;; :html-fixup-js (`org-w3ctr-fixup-js')
 
 (defun t-inner-template (contents info)
@@ -5535,42 +5521,48 @@ invisible, but it keeps the heading anchor alive."
            (format "<p id=\"w3c-state\">%s</p>\n" sub)))))))
 
 (defun t-template-1 (contents info)
-  "Assemble the full HTML document structure around CONTENTS.
+  "Assemble the full HTML document around CONTENTS.
 
-This function generates the complete HTML page, including the `<html>',
-`<head>', and `<body>' tags. It orchestrates the inclusion of the
-navbar, title, preamble, postamble, and other standard page elements."
-  (declare (ftype (function (string list) string))
+INFO is the export options plist.  Return the document as a
+string: the doctype, an <html> element in the `:language'
+language, the <head> from `org-w3ctr--build-head', and a <body>
+holding, in order, the navbar from `:html-navbar-format-function',
+a <div class=\"head\"> with the title and the preamble, CONTENTS,
+the postamble, and the `:html-fixup-js' script."
+  (declare (ftype (function ((or null string) list) string))
            (important-return-value t))
   (concat
    "<!DOCTYPE html>\n"
-   (format "<html lang=\"%s\">\n" (plist-get info :language))
+   (format "<html lang=\"%s\">\n" (t--pget info :language))
    (t--build-head info)
    "<body>\n"
-   ;; home and up links
-   (when-let* ((fun (plist-get info :html-navbar-format-function)))
+   ;; A nil `:html-navbar-format-function' suppresses the navbar: the
+   ;; option doubles as the switch, unlike the other format hooks,
+   ;; which fall back to their defaults.
+   (when-let* ((fun (t--pget info :html-navbar-format-function)))
      (funcall fun info))
-   ;; title and preamble
+   ;; Title and preamble in the head block.
    (format "<div class=\"head\">\n%s%s</div>\n"
            (t--build-title info)
            (t--build-pre/postamble 'preamble info))
    contents
-   ;; back-to-top
-   (when (plist-get info :html-back-to-top)
-     t-back-to-top-arrow)
    ;; Postamble.
    (t--build-pre/postamble 'postamble info)
-   ;; fixup.js here
-   (when-let* ((js (t--nw-p (plist-get info :html-fixup-js))))
+   ;; The fixup script.
+   (when-let* ((js (t--nw-p (t--pget info :html-fixup-js))))
      (org-element-normalize-string js))
    ;; Closing document.
-   "</body>\n</html>"))
+   "</body>
+</html>"))
 
 (defun t-template (contents info)
-  "Return complete document string after HTML conversion.
-CONTENTS is the transcoded contents string.  INFO is a plist
-holding export options."
-  (declare (ftype (function (string list) string))
+  "Assemble the complete document for CONTENTS and INFO.
+
+This is the outer template Org calls: the document from
+`org-w3ctr-template-1', after which the OINFO caches drop whatever
+the export left in them.  CONTENTS is the transcoded body string
+and INFO the export options plist."
+  (declare (ftype (function ((or null string) list) string))
            (important-return-value t))
   (prog1 (t-template-1 contents info)
     (static-when t--oinfo-cache-p (t--oinfo-cleanup))))

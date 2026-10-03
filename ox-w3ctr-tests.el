@@ -3839,7 +3839,15 @@ int a = 1;</code></p>\n</details>")
   (t-check-element-values
    #'t--build-pre/postamble
    '(("" "" "")) nil
-   '(:html-preamble (lambda (info) nil) :html-postamble nil)))
+   '(:html-preamble (lambda (info) nil) :html-postamble nil))
+  ;; With no :html-postamble in the plist, the export environment
+  ;; fills the default: the back-to-top arrow.
+  (t-check-element-values
+   #'t--build-pre/postamble
+   `(("" ,(concat "<p role=\"navigation\" id=\"back-to-top\">"
+                  "<a href=\"#title\"><abbr title=\"Back to Top\">↑"
+                  "</abbr></a></p>\n") ""))
+   nil '(:html-preamble nil)))
 
 (ert-deftest t--get-info-date ()
   "Tests for `org-w3ctr--get-info-date'."
@@ -4160,6 +4168,38 @@ int a = 1;</code></p>\n</details>")
     ;; blank subtitle emits no paragraph.
     ($l (t--build-title '(:with-title t :title "  " :subtitle ""))
         "<h1 id=\"title\">&lrm;</h1>\n")))
+
+(ert-deftest t-template-1 ()
+  "Tests for `org-w3ctr-template-1'."
+  (cl-letf (((symbol-function 't--build-head) (lambda (_i) "HEAD"))
+            ((symbol-function 't--build-title) (lambda (_i) "TITLE"))
+            ((symbol-function 't--build-pre/postamble)
+             (lambda (type _i) (upcase (symbol-name type)))))
+    ;; The parts assemble in order.
+    ($l (t-template-1 "BODY" (list :language "en"
+                                   :html-navbar-format-function
+                                   (lambda (_i) "NAV")
+                                   :html-fixup-js "JS();"))
+        (concat "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\nNAV"
+                "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
+                "POSTAMBLE"
+                "JS();\n</body>\n</html>"))
+    ;; A nil navbar function suppresses the navbar; without a fixup
+    ;; script there is none.
+    ($l (t-template-1 "BODY" '(:language "en"))
+        (concat "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\n"
+                "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
+                "POSTAMBLE</body>\n</html>"))))
+
+(ert-deftest t-template ()
+  "Tests for `org-w3ctr-template'."
+  (let (cleaned)
+    (cl-letf (((symbol-function 't-template-1)
+               (lambda (c _i) (format "<%s>" c)))
+              ((symbol-function 't--oinfo-cleanup)
+               (lambda () (setq cleaned t))))
+      ($l (t-template "X" nil) "<X>")
+      ($s cleaned))))
 
 
 ;; Local Variables:
