@@ -3922,6 +3922,25 @@ int a = 1;</code></p>\n</details>")
              (lambda (_h _i) nil)))
     ($n (t--toc-headline-secno nil nil))))
 
+(ert-deftest t--build-toc-headline ()
+  "Tests for `org-w3ctr--build-toc-headline'."
+  (cl-letf (((symbol-function 't--build-bare-headline)
+             (lambda (_h text _i) text)))
+    ;; The title goes through the TOC entry backend: a link becomes
+    ;; its description, or its raw path when none is set.
+    (t-check-element-values
+     #'t--build-toc-headline
+     '(("* Hello" "Hello")
+       ("* [[https://example.com][desc]]" "desc")
+       ("* [[https://example.com]]" "https://example.com"))
+     nil '(:with-toc 2))
+    ;; The alternative title wins over the regular one.
+    (t-check-element-values
+     #'t--build-toc-headline
+     '(("* Regular\n:PROPERTIES:\n:ALT_TITLE: Alternative\n:END:"
+        "Alternative"))
+     nil '(:with-toc 2))))
+
 (ert-deftest t--format-toc-headline ()
   "Tests for `org-w3ctr--format-toc-headline'."
   (cl-letf (((symbol-function 't--reference) (lambda (_h _i) "id"))

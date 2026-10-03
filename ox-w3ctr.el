@@ -5237,7 +5237,6 @@ nil when HEADLINE is unnumbered."
     (format "<span class=\"secno\">%s</span>"
             (mapconcat #'number-to-string numbers "."))))
 
-;; FIXME: Add tests
 (defun t--build-toc-headline (headline info)
   "Build a headline string for the Table of Contents.
 
