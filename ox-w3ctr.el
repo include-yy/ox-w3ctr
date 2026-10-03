@@ -1902,9 +1902,8 @@ nil.  This doesn't apply to radio targets and targets."
       nil)
      ;; Fallback: random orgXXXXXXX.
      (t (org-export-get-reference datum info)))))
-
+
 ;;; Greater elements
-;; special-block and table are not here.
 
 ;;;; Center Block
 
@@ -1963,6 +1962,83 @@ CONTENTS holds the contents of the block."
   (declare (ftype (function (t (or null string) t) string))
            (pure t) (important-return-value t))
   (or contents ""))
+
+;;;; Footnote
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+;; Options:
+;; - :html-footnotes-section (`org-w3ctr-footnotes-section')
+;; - :html-footnote-format (`org-w3ctr-footnote-format')
+;; - :html-footnote-separator (`org-w3ctr-footnote-separator')
+;; - :html-footnote-section-function
+;;   (`org-w3ctr-footnote-section-function')
+
+(defun t--footnote-key (label n)
+  "Return the key of a footnote with LABEL and number N.
+A nil or purely numeric LABEL is ignored, so that `[fn:1]' and an
+anonymous footnote do not share a key."
+  (declare (ftype (function ((or null string) integer) (or string integer)))
+           (pure t) (important-return-value t))
+  (if (and label (not (string-match-p "\\`[0-9]+\\'" label)))
+      label n))
+
+(defun t--footnote-id (label n)
+  "Return the HTML id for a footnote with LABEL and number N."
+  (declare (ftype (function ((or null string) integer) string))
+           (pure t) (important-return-value t))
+  (format "fn-%s" (t--footnote-key label n)))
+
+(defun t-footnote-reference (footnote-reference _contents info)
+  "Transcode a FOOTNOTE-REFERENCE object from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (concat
+   ;; Insert separator between two footnotes in a row.
+   (let ((prev (org-export-get-previous-element footnote-reference info)))
+     (when (org-element-type-p prev 'footnote-reference)
+       (t--pget info :html-footnote-separator)))
+   (let* ((label (org-element-property :label footnote-reference))
+          (n (org-export-get-footnote-number footnote-reference info)))
+     (format (t--pget info :html-footnote-format)
+             (format "<a href=\"#%s\">%s</a>"
+                     (t--footnote-id label n)
+                     (t--footnote-key label n))))))
+
+(defun t--footnote-definition (definition info)
+  "Format a footnote DEFINITION.
+DEFINITION is a (NUMBER LABEL DEF) tuple, as returned by
+`org-export-collect-footnote-definitions'.  INFO is the export
+state."
+  (declare (ftype (function (list list) string))
+           (important-return-value t))
+  (pcase-let ((`(,n ,label ,def) definition))
+    (format "<dt id=\"%s\">%s</dt>\n<dd>\n%s\n</dd>"
+            (t--footnote-id label n)
+            (format (t--pget info :html-footnote-format)
+                    (t--footnote-key label n))
+            (t--trim (org-export-data def info)))))
+
+(defun t-footnote-section-default-function (definitions info)
+  "Default function to build the footnotes section.
+DEFINITIONS is the list returned by
+`org-export-collect-footnote-definitions'.  INFO is the export
+state."
+  (declare (ftype (function (list list) string))
+           (important-return-value t))
+  (format (t--pget info :html-footnotes-section)
+          "References"
+          (format "\n%s\n"
+                  (mapconcat (lambda (d) (t--footnote-definition d info))
+                             definitions "\n"))))
+
+(defun t-footnote-section (info)
+  "Format the footnote section.
+INFO is a plist used as a communication channel."
+  (declare (ftype (function (list) t))
+           (important-return-value t))
+  (when-let* ((definitions (org-export-collect-footnote-definitions info)))
+    (funcall (t--pget info :html-footnote-section-function) definitions info)))
 
 ;;;; Item and Plain Lists helper functions
 
@@ -2113,8 +2189,237 @@ Return the formatted <blockquote> element as a string."
           (t--make-attr__id* quote-block info t)
           (t--prepend-newline contents)))
 
+;;;; Special Block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+;; FIXME
+;; See (info "(org)HTML doctypes")
+(defconst t-html5-elements
+  '("article" "aside" "audio" "canvas" "details" "figcaption"
+    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
+    "output" "progress" "section" "summary" "video")
+  "Elements in html5.
+
+For blocks that should contain headlines, use the HTML_CONTAINER
+property on the headline itself.")
+
+(defun t-special-block (special-block contents info)
+  "Transcode a SPECIAL-BLOCK element from Org to HTML.
+CONTENTS holds the contents of the block.  INFO is a plist
+holding contextual information."
+  (let* ((block-type (org-element-property :type special-block))
+         (html5-fancy (member block-type t-html5-elements))
+         (attributes (org-export-read-attribute :attr_html special-block)))
+    (unless html5-fancy
+      (let ((class (plist-get attributes :class)))
+        (setq attributes (plist-put attributes :class
+                                    (if class (concat class " " block-type)
+                                      block-type)))))
+    (let* ((contents (or contents ""))
+           (reference (t--reference special-block info t))
+           (a (t--make-attribute-string
+               (if (or (not reference) (plist-member attributes :id))
+                   attributes
+                 (plist-put attributes :id reference))))
+           (str (if (org-string-nw-p a) (concat " " a) "")))
+      (if html5-fancy
+          (format "<%s%s>\n%s</%s>" block-type str contents block-type)
+        (format "<div%s>\n%s\n</div>" str contents)))))
+
+;;;; Table
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+;; Options:
+;; - :html-table-use-header-tags-for-first-column
+;;   (`org-w3ctr-table-use-header-tags-for-first-column')
+
+(defun t--table-column-cookie (table column info)
+  "Return the explicit alignment cookie for COLUMN in TABLE, or nil.
+
+The value is taken from the last special row providing an `<l>',
+`<c>', or `<r>' cookie for COLUMN.  A number in the cookie denotes
+a column width and is ignored; a width-only cookie (e.g. `<5>') is
+not an alignment."
+  (declare (ftype (function (t fixnum list) (or null symbol)))
+           (important-return-value t))
+  (let (align)
+    (dolist (row (org-element-contents table) align)
+      (when (org-export-table-row-is-special-p row info)
+        (let* ((cells (org-element-contents row))
+               (value (and (< column (length cells))
+                           (org-element-contents (nth column cells)))))
+          (when (and value (null (cdr value)) (stringp (car value))
+                     (string-match "\\`<\\([lrc]\\)?\\([0-9]+\\)?>\\'"
+                                   (car value))
+                     (match-string 1 (car value)))
+            (setq align (pcase (match-string 1 (car value))
+                          ("l" 'left) ("c" 'center) ("r" 'right)))))))))
+
+(defun t--table-cell-align (cell info)
+  "Return the explicit alignment for CELL's column, or nil.
+
+The alignment is taken from the last `<l>', `<c>', or `<r>' cookie
+in the column.  When the column has no explicit cookie, return nil
+so that the CSS decides; Org's number-fraction heuristic is not
+used.  Results are memoized per table in INFO under
+`:html-table-align-cache' (the symbol `none' marks a column that
+was computed and has no cookie)."
+  (declare (ftype (function (t list) (or null symbol)))
+           (important-return-value t))
+  (let* ((row (org-element-parent cell))
+         (table (org-export-get-parent-table cell))
+         (cells (org-element-contents row))
+         (column (- (length cells) (length (memq cell cells))))
+         (cache (or (t--pget info :html-table-align-cache)
+                    (let ((h (make-hash-table :test #'eq)))
+                      (t--pput info :html-table-align-cache h)
+                      h)))
+         (vector (or (gethash table cache)
+                     (puthash table (make-vector (length cells) nil) cache))))
+    (when (>= column (length vector))
+      (setq vector (vconcat vector
+                            (make-list (- (1+ column) (length vector)) nil)))
+      (puthash table vector cache))
+    (let ((cached (aref vector column)))
+      (if cached
+          (if (eq cached 'none) nil cached)
+        (let ((align (t--table-column-cookie table column info)))
+          (aset vector column (or align 'none))
+          align)))))
+
+(defun t--table-cell-attrs (cell info)
+  "Return CELL's inline alignment attribute, or the empty string.
+
+Only an explicit Org alignment cookie produces an attribute; a
+column without a cookie is left to the CSS."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (if-let* ((align (t--table-cell-align cell info)))
+      (format " style=\"text-align:%s\"" align) ""))
+
+(defun t--table-column-specs (table info)
+  "Return the <colgroup> markup describing TABLE's column groups.
+
+Each column group is emitted as a single <colgroup span=\"N\">
+element.  `<col>' children are omitted: alignment now lives on the
+cells, and no other per-column attribute is expressible in Org."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (let ((n 0) out)
+    (dolist (cell (t--table-first-row-data-cells table info))
+      (setq n (1+ n))
+      (when (org-export-table-cell-ends-colgroup-p cell info)
+        (push (format "\n<colgroup span=\"%d\">" n) out)
+        (setq n 0)))
+    (mapconcat #'identity (nreverse out) "")))
+
+(defun t--table-caption (table info)
+  "Return TABLE's <caption> element, or the empty string.
+
+The caption is emitted as the table's first child; its visual
+position is left to CSS (`caption-side')."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (if-let* ((caption (org-export-get-caption table)))
+      (format "<caption>%s</caption>" (org-export-data caption info))
+    ""))
+
+(defun t--table-first-row-data-cells (table info)
+  "Return the cells of TABLE's first non-rule row.
+When TABLE has a special column, its first cell is dropped."
+  (declare (ftype (function (t list) list))
+           (important-return-value t))
+  (let ((row (org-element-map table 'table-row
+               (lambda (r)
+                 (unless (eq (org-element-property :type r) 'rule) r))
+               info 'first-match)))
+    (if (not (org-export-table-has-special-column-p table))
+        (org-element-contents row)
+      (cdr (org-element-contents row)))))
+
+(defun t-table-cell (table-cell contents info)
+  "Transcode a TABLE-CELL element from Org to HTML.
+CONTENTS is the cell's contents.  INFO is a plist used as a
+communication channel."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (let* ((row (org-element-parent table-cell))
+         (table (org-export-get-parent-table table-cell))
+         (attrs (t--table-cell-attrs table-cell info))
+         (contents (if (or (not contents) (string= "" (org-trim contents)))
+                       "&#xa0;" contents)))
+    (cond
+     ((and (org-export-table-has-header-p table info)
+           (= 1 (org-export-table-row-group row info)))
+      (format "\n<th scope=\"col\"%s>%s</th>" attrs contents))
+     ((and (t--pget info :html-table-use-header-tags-for-first-column)
+           (zerop (cdr (org-export-table-cell-address table-cell info))))
+      (format "\n<th scope=\"row\"%s>%s</th>" attrs contents))
+     (t
+      (format "\n<td%s>%s</td>" attrs contents)))))
+
+(defun t-table-row (table-row contents info)
+  "Transcode a TABLE-ROW element from Org to HTML.
+CONTENTS is the contents of the row.  INFO is a plist used as a
+communication channel."
+  (declare (ftype (function (t (or null string) list) (or null string)))
+           (important-return-value t))
+  ;; Rules are ignored since table separators are deduced from the
+  ;; borders of the current row.
+  (when (eq (org-element-property :type table-row) 'standard)
+    (let* ((group (org-export-table-row-group table-row info))
+           (start (org-export-table-row-starts-rowgroup-p table-row info))
+           (end (org-export-table-row-ends-rowgroup-p table-row info))
+           (group-tags
+            (cond
+             ((not (= 1 group)) '("<tbody>" . "\n</tbody>"))
+             ((org-export-table-has-header-p
+               (org-export-get-parent-table table-row) info)
+              '("<thead>" . "\n</thead>"))
+             (t '("<tbody>" . "\n</tbody>")))))
+      (concat (and start (car group-tags))
+              (concat "\n<tr>" contents "\n</tr>")
+              (and end (cdr group-tags))))))
+
+(defun t-table (table contents info)
+  "Transcode a TABLE element from Org to HTML.
+CONTENTS is the contents of the table.  INFO is a plist holding
+contextual information."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (if (eq (org-element-property :type table) 'table.el)
+      ;; "table.el" table.  Convert it using appropriate tools.
+      ;; (Modern-HTML reimplementation pending.)
+      (t--table.el-table table info)
+    ;; Standard table.
+    (format "<table%s>\n%s\n%s\n%s</table>"
+            (t--make-attr__id* table info t)
+            (t--table-caption table info)
+            (t--table-column-specs table info)
+            contents)))
+
+(defun t--table.el-table (table _info)
+  "Format a table.el TABLE into HTML.
+INFO is a plist used as a communication channel.
+Output is delegated to `table-generate-source' for now; a
+modern-HTML reimplementation is planned."
+  (declare (ftype (function (t list) (or null string)))
+           (important-return-value t))
+  (when (eq (org-element-property :type table) 'table.el)
+    (require 'table)
+    (let ((outbuf (with-current-buffer
+                      (get-buffer-create "*org-export-table*")
+                    (erase-buffer) (current-buffer))))
+      (with-temp-buffer
+        (insert (org-element-property :value table))
+        (goto-char (point-min))
+        (re-search-forward "^[ \t]*|[^|]" nil t)
+        (table-generate-source 'html outbuf))
+      (with-current-buffer outbuf
+        (prog1 (org-trim (buffer-string))
+          (kill-buffer))))))
+
 ;;; Lesser elements
-;; latex-environment, src-block, and table-row are not here.
 
 ;;;; Example Block
 
@@ -2240,6 +2545,63 @@ value as a string, or nil for unsupported keywords."
       ("TOC" (t--keyword-toc keyword value info))
       (_ nil))))
 
+;;;; LaTeX
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+;; Options:
+;; - :html-math-custom-render-function
+;;   (`org-w3ctr-math-custom-render-function')
+
+(defun t-math-custom-default-render-function (frag _info)
+  "Default value for `org-w3ctr-math-custom-render-function'."
+  (declare (ftype (function (string t) string))
+           (pure t) (important-return-value t))
+  frag)
+
+(defun t--normalize-latex (frag)
+  "Normalize the delimiters of LaTeX FRAG for client-side MathJax.
+
+Inline `$...$' becomes `\\(...\\)' and display `$$...$$' becomes
+`\\[...\\]'; anything else is returned unchanged."
+  (declare (ftype (function (string) string))
+           (pure t) (important-return-value t))
+  (cond
+   ((string-prefix-p "$$" frag) (concat "\\[" (substring frag 2 -2) "\\]"))
+   ((string-prefix-p "$" frag) (concat "\\(" (substring frag 1 -1) "\\)"))
+   (t frag)))
+
+(defun t--format-latex (frag mode info)
+  "Return the HTML for LaTeX fragment FRAG under MODE.
+MODE is the value of `:with-latex'; INFO is the export state."
+  (declare (ftype (function (string t list) string))
+           (important-return-value t))
+  (pcase mode
+    ((or `nil `verbatim) frag)
+    (`mathjax (t--normalize-latex frag))
+    (`mathml-by-mathjax
+     (t--jstools-call 'tex2mml (t--normalize-latex frag)))
+    (`svg-by-mathjax
+     (t--jstools-call 'tex2svg (t--normalize-latex frag)))
+    (`custom
+     (funcall (t--pget info :html-math-custom-render-function) frag info))
+    (o (error "Unknown LaTeX mode: %s" o))))
+
+(defun t-latex-fragment (latex-fragment _contents info)
+  "Transcode a LATEX-FRAGMENT object from Org to HTML."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (t--format-latex
+   (org-element-property :value latex-fragment)
+   (t--pget info :with-latex) info))
+
+(defun t-latex-environment (latex-environment _contents info)
+  "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (t--format-latex
+   (org-remove-indentation (org-element-property :value latex-environment))
+   (t--pget info :with-latex) info))
+
 ;;;; Paragraph
 
 (defsubst t--wrap-image (contents _info caption attrs)
@@ -2318,9 +2680,263 @@ is converted to non-breaking spaces; newlines become <br>."
     (let ((re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote "<br>"))))
       (replace-regexp-in-string re "<br>\n" (or contents ""))))))
 
+;;;; Engrave-faces subset
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+
+;; A self-contained subset of engrave-faces.el's HTML backend.
+;; See https://github.com/tecosaur/engrave-faces (v0.3.1,
+;; engrave-faces-html.el + engrave-faces.el).  The CSS for the slugs
+;; below lives in assets/style.css (".ef-*").
+;;
+;; Unlike engrave-faces, there is no inline-style fallback: unknown or
+;; unspecified faces are emitted as plain escaped text; the slug →
+;; colour mapping is the stylesheet's job.
+
+(defun t--engrave-buffer (&optional in-buffer out-buffer)
+  "Engrave the fontified text of IN-BUFFER into OUT-BUFFER.
+IN-BUFFER defaults to the current buffer; it must already be
+fontified (see `font-lock-ensure').  OUT-BUFFER defaults to a fresh
+\"*html*\" buffer and is returned."
+  (declare (ftype (function (&optional buffer buffer) buffer))
+           (important-return-value t))
+  (let ((ibuf (or in-buffer (current-buffer)))
+        (obuf (or out-buffer (generate-new-buffer "*html*")))
+        (completed nil))
+    (with-current-buffer ibuf
+      (unwind-protect
+          (let (next-change text)
+            (goto-char (point-min))
+            (while (not (eobp))
+              (setq next-change (t--engrave-next-face-change (point)))
+              (setq text (buffer-substring-no-properties (point) next-change))
+              (when (> (length text) 0)
+                (princ (t--engrave-face-transformer
+                        (get-text-property (point) 'face)
+                        text)
+                       obuf))
+              (goto-char next-change)))
+        (setq completed t)))
+    (if (not completed)
+        (if out-buffer t (kill-buffer obuf))
+      obuf)))
+
+(defun t--engrave-next-face-change (pos &optional limit)
+  "Return the position of the next face change after POS, up to LIMIT.
+Merges text-property and overlay faces, and extends over `display'
+properties.  Lifted from htmlize, via engrave-faces [2024-04-12]."
+  (declare (ftype (function (integer &optional integer) integer))
+           (important-return-value t))
+  (unless limit (setq limit (point-max)))
+  (let ((next-prop (next-single-property-change pos 'face nil limit))
+        (overlay-faces (t--engrave-overlay-faces-at pos)))
+    (while (progn
+             (setq pos (next-overlay-change pos))
+             (and (< pos next-prop)
+                  (equal overlay-faces (t--engrave-overlay-faces-at pos)))))
+    (setq pos (min pos next-prop))
+    (when (get-char-property pos 'display)
+      (setq pos (next-single-char-property-change pos 'display nil limit)))
+    pos))
+
+(defun t--engrave-overlay-faces-at (pos)
+  "Return the non-nil `face' values of overlays at POS."
+  (declare (ftype (function (integer) list))
+           (important-return-value t))
+  (delq nil (mapcar (lambda (o) (overlay-get o 'face)) (overlays-at pos))))
+
+(defun t--engrave-face-transformer (prop text)
+  "Transform TEXT with face property PROP into an HTML span.
+Whitespace-only runs and text without a known face are returned
+escaped but unwrapped."
+  (declare (ftype (function (t string) string))
+           (pure t) (important-return-value t))
+  (let ((escaped (t--encode-plain-text text))
+        (style (t--engrave-get-style prop)))
+    (if (or (string-match-p "\\`[\n[:space:]]+\\'" text)
+            (not style))
+        escaped
+      (concat "<span class=\"ef-" (plist-get (cdr style) :slug) "\">"
+              escaped "</span>"))))
+
+(defconst t--engrave-style-plist
+  '(;; faces.el --- excluding bold, italic, bold-italic, underline, …
+    (shadow  :slug "h")
+    (success :slug "sc")
+    (warning :slug "w")
+    (error   :slug "e")
+    ;; font-lock.el
+    (font-lock-comment-face :slug "c")
+    (font-lock-comment-delimiter-face :slug "cd")
+    (font-lock-string-face :slug "s")
+    (font-lock-doc-face :slug "d")
+    (font-lock-doc-markup-face :slug "m")
+    (font-lock-keyword-face :slug "k")
+    (font-lock-builtin-face :slug "b")
+    (font-lock-function-name-face :slug "f")
+    (font-lock-variable-name-face :slug "v")
+    (font-lock-type-face :slug "t")
+    (font-lock-constant-face :slug "o")
+    (font-lock-warning-face :slug "wr")
+    (font-lock-negation-char-face :slug "nc")
+    (font-lock-preprocessor-face :slug "pp")
+    (font-lock-regexp-grouping-construct :slug "rc")
+    (font-lock-regexp-grouping-backslash :slug "rb")
+    ;; css-mode: reuse the function-name / keyword colours.
+    (css-property :slug "f")
+    (css-selector :slug "k"))
+  "Face → slug alist used by the engraving engine.
+A slug is the compact CSS class emitted by `t--engrave-face-transformer';
+the colours live in assets/style.css under \".ef-SLUG\".  `default' is
+deliberately absent: bare (unfaced) text carries a nil face and is
+emitted as plain text, as engrave-faces does.")
+
+(defun t--engrave-get-style (prop)
+  "Return the style entry for face property PROP, or nil.
+PROP is a face name, a list of faces, or nil (no face).  A nil PROP
+returns nil, so bare text gets no span."
+  (declare (ftype (function (t) (or null cons)))
+           (pure t) (important-return-value t))
+  (cond
+   ((null prop) nil)
+   ((listp prop) (assoc (car prop) t--engrave-style-plist))
+   (t (assoc prop t--engrave-style-plist))))
+
+;;;; Source block
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+
+(defun t--engrave-fontify-code (code lang)
+  "Fontify CODE (a string) in LANG, returning bare fontified HTML.
+The result contains `<span>' runs only, with no wrapper element:
+callers wrap it in `<code>' as appropriate.  When LANG has no
+associated major mode, CODE is returned escaped but uncoloured."
+  (declare (ftype (function (string (or null string)) string))
+           (important-return-value t))
+  (let ((lang-mode (and lang (org-src-get-lang-mode lang))))
+    (if (not (functionp lang-mode))
+        (t--encode-plain-text code)
+      (let ((inhibit-read-only t))
+        (with-temp-buffer
+          (let ((inbuf (current-buffer)))
+            (funcall lang-mode)
+            (insert code)
+            (font-lock-ensure)
+            (set-buffer-modified-p nil)
+            (with-temp-buffer
+              (ignore (t--engrave-buffer inbuf (current-buffer)))
+              (buffer-string))))))))
+
+(defun t--textarea-block (element)
+  "Transcode ELEMENT into a textarea block.
+ELEMENT is either a source or an example block."
+  (let* ((code (car (org-export-unravel-code element)))
+         (attr (org-export-read-attribute :attr_html element)))
+    (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
+            (or (plist-get attr :width) 80)
+            (or (plist-get attr :height) (org-count-lines code))
+            code)))
+
+(defun t-fontify-code (code lang)
+  "Colorize CODE (a string) for LANG, returning bare fontified HTML.
+The result contains `<span>' runs only, with no wrapper element:
+callers wrap it in `<code>' as appropriate (block vs inline).  LANG
+is a language name as a string, or nil.  Uses `t-fontify-method';
+returns escaped plain text when it is nil or CODE is empty."
+  (declare (ftype (function (string (or null string)) string))
+           (important-return-value t))
+  (if (and (not (string-empty-p code)) lang (eq t-fontify-method 'engrave))
+      (t--engrave-fontify-code code lang)
+    (t--encode-plain-text code)))
+
+(defun t--src-code (src-block lang)
+  "Return bare fontified HTML for SRC-BLOCK's code in LANG.
+`org-export-unravel-code' also returns a coderef alist, which
+ox-w3ctr does not support; drop it (the car)."
+  (declare (ftype (function (t (or null string)) string))
+           (important-return-value t))
+  (t-fontify-code (car (org-export-unravel-code src-block)) lang))
+
+(defun t--src-code-tag (lang code)
+  "Wrap bare CODE in a `<code>' tag carrying LANG's class.
+A nil LANG yields a plain `<code>' without a language class."
+  (declare (ftype (function ((or null string) string) string))
+           (pure t) (important-return-value t))
+  (if lang
+      (format "<code class=\"src src-%s\">%s</code>" lang code)
+    (format "<code>%s</code>" code)))
+
+(defun t--src-block-attrs (src-block info captioned)
+  "Return the attribute string for SRC-BLOCK, as \" ATTRS\" or \"\".
+Attributes come from `:attr__' (`#+attr__:').  An `id' is added
+from the element reference unless the attributes already carry one.
+CAPTIONED non-nil prepends the default `example' class to the class
+list (class is written as a vector, e.g. `#+attr__: [foo]')."
+  (declare (ftype (function (t list boolean) string))
+           (important-return-value t))
+  (let* ((reference (t--reference src-block info (not captioned)))
+         (attributes (t--read-attr__ src-block)))
+    (when captioned
+      (let ((entry (or (assoc "class" attributes)
+                       (assoc 'class attributes))))
+        (if entry
+            (setcdr entry (list (concat "example " (cadr entry))))
+          (push (list "class" "example") attributes))))
+    (let ((a (t--make-attr__
+              (if (or (not reference)
+                      (cl-find 'id attributes :key #'car-safe))
+                  attributes
+                (cons `("id" ,reference) attributes)))))
+      (if (t--nw-p a) a ""))))
+
+(defun t-src-block (src-block _contents info)
+  "Transcode a SRC-BLOCK element from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information.
+
+A `:textarea' attribute yields a `<textarea>'; otherwise the code is
+wrapped in `<pre>', and a captioned block gets a `.example' `<div>'
+wrapper with a self-link."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (cond
+   ((org-export-read-attribute :attr_html src-block :textarea)
+    (t--textarea-block src-block))
+   ((org-element-property :caption src-block)
+    (let* ((lang (org-element-property :language src-block))
+           (code (t--src-code src-block lang))
+           (id (t--reference src-block info))
+           (caption (when-let* ((cap (org-export-get-caption src-block)))
+                      (org-trim (org-export-data cap info)))))
+      (format (concat "<div%s>\n"
+                      "<a class=\"self-link\" href=\"#%s\""
+                      " aria-label=\"source block\"></a>\n"
+                      "%s\n<pre>\n%s</pre></div>")
+              (t--src-block-attrs src-block info t)
+              id (or caption "") (t--src-code-tag lang code))))
+   (t
+    (let* ((lang (org-element-property :language src-block))
+           (code (t--src-code src-block lang)))
+      (format "<pre%s>\n%s</pre>"
+              (t--src-block-attrs src-block info nil)
+              (t--src-code-tag lang code))))))
+
+(defun t-inline-src-block (inline-src-block _contents info)
+  "Transcode an INLINE-SRC-BLOCK object from Org to HTML.
+CONTENTS is nil.  INFO is a plist holding contextual information.
+The code is fontified bare by `t-fontify-code' and wrapped here in a
+single `<code class=\"src-inline src-LANG\">' (no nesting)."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (let* ((lang (org-element-property :language inline-src-block))
+         (code (t-fontify-code
+                (org-element-property :value inline-src-block)
+                lang))
+         (label (if-let* ((lbl (t--reference inline-src-block info t)))
+                    (format " id=\"%s\"" lbl)
+                  "")))
+    (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
+
 ;;; Objects
-;; footnote-reference, inline-src-block are not here.
-;; latex-fragment, link and table-cell are not here.
 
 ;;;; Entity
 
@@ -2845,6 +3461,386 @@ is the info plist.  Return the formatted timestamp string."
                     (o (t-error "Unknown timestamp option: %s" o)))))
         (funcall fun timestamp info)))))
 
+;;;; Link
+
+;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+;; Options:
+;; - :html-link-org-files-as-html (`org-w3ctr-link-org-files-as-html')
+;; - :html-inline-images (`org-w3ctr-inline-images')
+;; - :html-inline-image-rules (`org-w3ctr-inline-image-rules')
+;; - :html-extension (`org-w3ctr-extension')
+;; - :html-equation-reference-format
+;;   (`org-w3ctr-equation-reference-format')
+
+(defun t-image-link-filter (data _backend info)
+  "Process image links that are inside descriptions.
+DATA is the parse tree.  INFO is an info plist.
+See `org-export-insert-image-links' for more details."
+  (declare (ftype (function (t t list) t))
+           (important-return-value t))
+  (org-export-insert-image-links data info t-inline-image-rules))
+
+;; The "exactly one link" rule below fixes an upstream Org bug found
+;; while refactoring `ox-html.el'; see
+;; https://lists.gnu.org/archive/html/emacs-orgmode/2026-09/msg00073.html
+(defun t--sole-image-link-p (objects link-image-p)
+  "Non-nil when OBJECTS hold white space and exactly one image link.
+
+OBJECTS is a list of elements or objects (a link's description, or a
+paragraph's contents).  LINK-IMAGE-P is called with each link object
+and must return non-nil when that link counts as an image.
+
+Links nested inside another link's description are not visited, so
+only the top-level links are counted."
+  (declare (ftype (function (list function) boolean))
+           (pure t) (important-return-value t))
+  (let ((link-count 0)
+        (clean t))
+    (org-element-map objects
+        (cons 'plain-text org-element-all-objects)
+      (lambda (obj)
+        (when (pcase (org-element-type obj)
+                (`plain-text (org-string-nw-p obj))
+                (`link (or (> (incf link-count) 1)
+                           (not (funcall link-image-p obj))))
+                (_ t))
+          (setq clean nil)))
+      nil nil 'link)
+    (and clean (= link-count 1))))
+
+(defun t--link-description-image-p (link rules)
+  "Non-nil when LINK's description is a single link to an image.
+
+The description may only hold white space and one link, and that
+link must target an image (see `t-inline-image-rules')."
+  (declare (ftype (function (t list) boolean))
+           (pure t) (important-return-value t))
+  (t--sole-image-link-p
+   (org-element-contents link)
+   (lambda (obj) (org-export-inline-image-p obj rules))))
+
+(defun t-inline-image-p (link info)
+  "Non-nil when LINK is meant to appear as an image.
+LINK is an inline image in either of two cases:
+  - it has no description and targets an image file (see
+    `org-w3ctr-inline-image-rules'); or
+  - its description is a single link to an image file.
+
+The second case is the \"clickable image\" construct.  Org does not
+parse nested links, so `[[URL][file:img.png]]' starts out as a link
+whose description is the plain text \"file:img.png\".  The
+`org-w3ctr-image-link-filter' parse-tree filter turns that text into a
+real nested link (see `org-export-insert-image-links'), after which the
+outer link is recognized here as an image.
+
+The description has to be link-like (\"file:...\", \"https://...\"); a
+bare file name such as `[[URL][img.png]]' is not enough."
+  (declare (ftype (function (t list) t))
+           (important-return-value t))
+  (let ((rules (t--pget info :html-inline-image-rules)))
+    (if (not (org-element-contents link))
+        (org-export-inline-image-p link rules)
+      (t--link-description-image-p link rules))))
+
+(defun t-standalone-image-p (element info &optional predicate)
+  "Non-nil if ELEMENT is a standalone image.
+INFO is a plist holding contextual information.
+
+PREDICATE, when non-nil, is called with the containing paragraph and
+must return non-nil for ELEMENT to count as a standalone image.
+
+An element or object is a standalone image when
+  - its type is `paragraph' and its sole content, save for white
+    spaces, is a link that qualifies as an inline image;
+  - its type is `link' and its containing paragraph has no other
+    content save white spaces."
+  (declare (ftype (function (t list &optional t) t))
+           (important-return-value t))
+  (let ((paragraph (pcase (org-element-type element)
+                     (`paragraph element)
+                     (`link (org-element-parent element)))))
+    (and (eq (org-element-type paragraph) 'paragraph)
+         (or (not predicate) (funcall predicate paragraph))
+         (t--sole-image-link-p
+          (org-element-contents paragraph)
+          (lambda (obj) (t-inline-image-p obj info))))))
+
+(defun t--link-image-p (link info)
+  "Non-nil when LINK should be exported as an inline image.
+Inline images must be enabled and LINK itself must target an image
+file (see `t-inline-image-p')."
+  (declare (ftype (function (t list) t))
+           (important-return-value t))
+  (and (t--pget info :html-inline-images)
+       (org-export-inline-image-p
+        link (t--pget info :html-inline-image-rules))))
+
+(defun t--format-image (source attributes)
+  "Return an \"img\" tag with given SOURCE and ATTRIBUTES.
+SOURCE is a string specifying the location of the image.
+ATTRIBUTES is a plist, as returned by `org-export-read-attribute'."
+  (declare (ftype (function (string list) string))
+           (important-return-value t))
+  (t--void-element
+   "img"
+   (t--make-attribute-string
+    (org-combine-plists
+     (list :src source :alt (file-name-nondirectory source))
+     attributes))))
+
+(defun t--link-org-files-as-html (raw-path info)
+  "Return RAW-PATH with a \".org\" extension turned into the
+configured `:html-extension' (usually \".html\").
+
+Only do so when `:html-link-org-files-as-html' is non-nil and
+RAW-PATH actually ends in \".org\"; otherwise return RAW-PATH
+unchanged."
+  (declare (ftype (function (string list) string))
+           (pure t) (important-return-value t))
+  (if-let* ((_ (t--pget info :html-link-org-files-as-html))
+            (src-ext (downcase (file-name-extension raw-path ".")))
+            (_ (string= ".org" src-ext)))
+      (let* ((ext (t--pget info :html-extension))
+             (dot (if (string-empty-p ext) "" ".")))
+        (concat (file-name-sans-extension raw-path) dot ext))
+    raw-path))
+
+(defun t--link-path (link info)
+  "Return the URL to use for LINK.
+
+A file link becomes a \"file:\" URI (relative during publishing),
+with its \".org\" extension rewritten to `:html-extension' (usually
+\".html\") when requested, and any search option appended.  Other
+link types get their \"TYPE:\" prefix and URL encoding."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (let ((type (org-element-property :type link))
+        (raw-path (org-element-property :path link)))
+    (if (not (string= "file" type))
+        (url-encode-url (concat type ":" raw-path))
+      ;; FIXME: Replace `org-publish-file-relative-name' with a local
+      ;; implementation (see the ox-publish non-goal in AGENTS.md).
+      (let* ((raw-path (org-publish-file-relative-name raw-path info))
+             ;; FIXME: Do we really need `:html-link-home' and
+             ;; `:html-link-use-abs-url'?  ox-html prepends the home
+             ;; directory to relative file paths here; ox-w3ctr has
+             ;; never implemented this.
+             (path (t--link-org-files-as-html
+                    (org-export-file-uri raw-path) info))
+             (option (org-element-property :search-option link)))
+        (if (not option) path
+          (concat path "#"
+                  ;; FIXME: Replace `org-publish-resolve-external-link'
+                  ;; with a local implementation (see the ox-publish
+                  ;; non-goal in AGENTS.md).
+                  (org-publish-resolve-external-link
+                   option (org-element-property :path link) t)))))))
+
+(defun t--link-attributes (link info)
+  "Return the HTML attribute plist for LINK.
+
+Attributes are read from LINK itself and, when LINK is the image of
+a standalone-image paragraph (i.e., it becomes the <img> element of
+a figure), from that paragraph as well, so that `#+attr_html' on
+the paragraph applies to the image.  In any other paragraph the
+attribute stays on the paragraph and is not duplicated onto every
+image it contains."
+  (declare (ftype (function (t list) list))
+           (important-return-value t))
+  (let ((parent (org-element-parent-element link)))
+    (org-combine-plists
+     ;; `org-element-parent-element' returns the nearest *element*
+     ;; (paragraph, item, ...), skipping intermediate objects, so the
+     ;; enclosing link of a clickable image is never consulted here.
+     ;; The parent's attribute is inherited only in a standalone-image
+     ;; paragraph; otherwise it belongs to the paragraph itself.
+     (and (org-export-inline-image-p
+           link (t--pget info :html-inline-image-rules))
+          (t-standalone-image-p parent info)
+          (org-export-read-attribute :attr_html parent))
+     ;; A link is an object, not an element, and `:attr_html' is an
+     ;; affiliated keyword, so this is almost always nil; it only has a
+     ;; value when a backend sets it programmatically.
+     (org-export-read-attribute :attr_html link))))
+
+(defun t--link-radio (link desc info attributes)
+  "Transcode a radio target LINK.
+DESC and ATTRIBUTES are as computed in `t-link'.  INFO is the
+export state."
+  (declare (ftype (function (t (or null string) list string) string))
+           (important-return-value t))
+  (let ((destination (org-export-resolve-radio-link link info)))
+    (if (not destination) desc
+      (format "<a href=\"#%s\"%s>%s</a>"
+              (t--reference destination info)
+              attributes
+              desc))))
+
+(defun t--link-to-file (destination path desc attributes info)
+  "Transcode an ID link pointing to an external file.
+DESTINATION is the target file name and PATH is the link's path.
+DESC and ATTRIBUTES are as computed in `t-link'.  INFO is the
+export state."
+  (declare (ftype (function (t string (or null string) string list) string))
+           (important-return-value t))
+  ;; FIXME: PATH is `t--link-path''s output, e.g. "id:xyz", but the
+  ;; fragment must match the anchor emitted for the ID ("ID-xyz").
+  ;; ox-html uses the raw path here, so this looks broken for
+  ;; `[[id:...]]' links pointing at another file.
+  (format "<a href=\"%s#%s\"%s>%s</a>"
+          (t--link-org-files-as-html destination info)
+          (concat t--id-attr-prefix path)
+          attributes
+          (or desc destination)))
+
+(defun t--link-broken (link desc info)
+  "Transcode LINK that points nowhere.
+DESC is the link's description.  INFO is the export state."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (format "<i>%s</i>"
+          (or desc
+              (org-export-data
+               (org-element-property :raw-link link) info))))
+
+(defun t--link-to-headline (destination desc attributes info)
+  "Transcode a link to headline DESTINATION.
+DESC and ATTRIBUTES are as computed in `t-link'.  INFO is the
+export state."
+  (declare (ftype (function (t (or null string) string list) string))
+           (important-return-value t))
+  ;; FIXME: Rethink the auto-generated section number below: links
+  ;; should carry an explicit description rather than a
+  ;; system-generated one (see the same decision for `t--link-target').
+  (let* ((href (t--reference destination info))
+         (desc (if (and (org-export-numbered-headline-p destination info)
+                        (not desc))
+                   (mapconcat #'number-to-string
+                              (org-export-get-headline-number destination info)
+                              ".")
+                 (or desc
+                     (org-export-data
+                      (org-element-property :title destination) info)))))
+    (format "<a href=\"#%s\"%s>%s</a>" href attributes desc)))
+
+(defun t--link-equation (destination info)
+  "Transcode a reference to a math latex-environment DESTINATION.
+The label lives inside the LaTeX, so client-side MathJax resolves
+the reference.  INFO is the export state."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  ;; FIXME: LaTeX handling is weak here.  This just emits the raw
+  ;; `:html-equation-reference-format' (default "\\eqref{%s}") and
+  ;; trusts MathJax to resolve it; nothing ensures the environment
+  ;; actually carries a matching \label.
+  (format (t--pget info :html-equation-reference-format)
+          (t--reference destination info)))
+
+(defun t--link-target (desc info destination attributes)
+  "Transcode a link whose fuzzy DESTINATION is a target or element.
+The description is the link's own DESC; no number is generated for
+it, so a link without a description falls back to a fixed string.
+DESC and ATTRIBUTES are as in `org-w3ctr-link'."
+  (declare (ftype (function ((or null string) list t string) string))
+           (important-return-value t))
+  ;; FIXME: Rethink whether to use information from the destination
+  ;; (image alt/caption, target value, ...) to build the description
+  ;; instead of the fixed string below.
+  (format "<a href=\"#%s\"%s>%s</a>"
+          (t--reference destination info)
+          attributes
+          (or desc "No description for this link")))
+
+(defun t--link-dispatch (link desc info path attributes)
+  "Transcode LINK resolved through its ID, custom ID or fuzzy target.
+PATH, DESC and ATTRIBUTES are as computed in `t-link'."
+  (declare (ftype (function (t (or null string) list string string) string))
+           (important-return-value t))
+  (let* ((type (org-element-property :type link))
+         (destination (if (string= type "fuzzy")
+                          (org-export-resolve-fuzzy-link link info)
+                        (org-export-resolve-id-link link info))))
+    (pcase (org-element-type destination)
+      (`plain-text (t--link-to-file destination path desc attributes info))
+      (`nil (t--link-broken link desc info))
+      (`headline (t--link-to-headline destination desc attributes info))
+      (_
+       ;; FIXME: LaTeX handling is weak here: only math
+       ;; `latex-environment's under the `mathjax' (and legacy `t')
+       ;; `:with-latex' mode reach `t--link-equation'.  The
+       ;; `mathml-by-mathjax' / `svg-by-mathjax' / `custom' modes and
+       ;; non-math environments fall through to `t--link-target'.
+       (if (and destination
+                (memq (t--pget info :with-latex) '(mathjax t))
+                (eq 'latex-environment (org-element-type destination))
+                (eq 'math (org-latex--environment-type destination)))
+           ;; The label lives inside the LaTeX; let client-side MathJax
+           ;; resolve the reference.
+           (t--link-equation destination info)
+         (t--link-target desc info destination attributes))))))
+
+(defun t--link-coderef (path desc info attributes)
+  "Transcode a coderef link with PATH, DESC and ATTRIBUTES."
+  (declare (ftype (function (string (or null string) list string) string))
+           (important-return-value t))
+  ;; FIXME: Consider removing coderef support altogether; it is kept
+  ;; for now only for compatibility with ox-html.el.
+  (let ((fragment (concat "coderef-" (t--encode-plain-text path))))
+    (format "<a href=\"#%s\" %s%s>%s</a>"
+            fragment
+            (format "class=\"coderef\" onmouseover=\"CodeHighlightOn(this, \
+'%s');\" onmouseout=\"CodeHighlightOff(this, '%s');\""
+                    fragment fragment)
+            attributes
+            (format (org-export-get-coderef-format path desc)
+                    (org-export-resolve-coderef path info)))))
+
+(defun t--link-external (path desc attributes)
+  "Transcode a plain external link with PATH, DESC and ATTRIBUTES.
+When DESC is nil, PATH doubles as the description."
+  (declare (ftype (function (string (or null string) string) string))
+           (important-return-value t))
+  (let ((path (t--encode-plain-text path)))
+    (format "<a href=\"%s\"%s>%s</a>" path attributes (or desc path))))
+
+(defun t-link (link desc info)
+  "Transcode a LINK object from Org to HTML.
+DESC is the description part of the link, or the empty string.
+INFO is a plist holding contextual information.  See
+`org-export-data'."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (let* ((type (org-element-property :type link))
+         (path (t--link-path link info))
+         ;; Ensure DESC really exists, or set it to nil.
+         (desc (org-string-nw-p desc))
+         (attributes-plist (t--link-attributes link info))
+         (attributes (let ((attr (t--make-attribute-string attributes-plist)))
+                       (if (org-string-nw-p attr) (concat " " attr) ""))))
+    (cond
+     ;; Link type is handled by a special function.
+     ((org-export-custom-protocol-maybe link desc 'w3ctr info))
+     ;; Image file.
+     ((t--link-image-p link info)
+      (t--format-image path attributes-plist))
+     ;; Radio target: Transcode target's contents and use them as
+     ;; link's description.
+     ((string= type "radio")
+      (t--link-radio link desc info attributes))
+     ;; Links pointing to a headline, a target or an element.
+     ((member type '("custom-id" "fuzzy" "id"))
+      (t--link-dispatch link desc info path attributes))
+     ;; Coderef: replace link with the reference name or the
+     ;; equivalent line number.
+     ((string= type "coderef")
+      (t--link-coderef path desc info attributes))
+     ;; External link.
+     (path
+      (t--link-external path desc attributes))
+     ;; No path, only description.  Try to do something useful.
+     (t
+      (format "<i>%s</i>" desc)))))
+
 ;;; Smallest objects
 ;; See (info "(org) Emphasis and Monospace")
 ;; Options:
@@ -2981,8 +3977,7 @@ Return the transcoded string."
              "<br>\n" output)))
     ;; Return value.
     output))
-
-
+
 ;;; Headline and Section
 
 ;;;; Section
@@ -4490,1007 +5485,6 @@ holding export options."
            (important-return-value t))
   (prog1 (t-template-1 contents info)
     (static-when t--oinfo-cache-p (t--oinfo-cleanup))))
-
-;;; Complex elements
-;;;; Table
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; Options:
-;; - :html-table-use-header-tags-for-first-column
-;;   (`org-w3ctr-table-use-header-tags-for-first-column')
-
-(defun t--table-column-cookie (table column info)
-  "Return the explicit alignment cookie for COLUMN in TABLE, or nil.
-
-The value is taken from the last special row providing an `<l>',
-`<c>', or `<r>' cookie for COLUMN.  A number in the cookie denotes
-a column width and is ignored; a width-only cookie (e.g. `<5>') is
-not an alignment."
-  (declare (ftype (function (t fixnum list) (or null symbol)))
-           (important-return-value t))
-  (let (align)
-    (dolist (row (org-element-contents table) align)
-      (when (org-export-table-row-is-special-p row info)
-        (let* ((cells (org-element-contents row))
-               (value (and (< column (length cells))
-                           (org-element-contents (nth column cells)))))
-          (when (and value (null (cdr value)) (stringp (car value))
-                     (string-match "\\`<\\([lrc]\\)?\\([0-9]+\\)?>\\'"
-                                   (car value))
-                     (match-string 1 (car value)))
-            (setq align (pcase (match-string 1 (car value))
-                          ("l" 'left) ("c" 'center) ("r" 'right)))))))))
-
-(defun t--table-cell-align (cell info)
-  "Return the explicit alignment for CELL's column, or nil.
-
-The alignment is taken from the last `<l>', `<c>', or `<r>' cookie
-in the column.  When the column has no explicit cookie, return nil
-so that the CSS decides; Org's number-fraction heuristic is not
-used.  Results are memoized per table in INFO under
-`:html-table-align-cache' (the symbol `none' marks a column that
-was computed and has no cookie)."
-  (declare (ftype (function (t list) (or null symbol)))
-           (important-return-value t))
-  (let* ((row (org-element-parent cell))
-         (table (org-export-get-parent-table cell))
-         (cells (org-element-contents row))
-         (column (- (length cells) (length (memq cell cells))))
-         (cache (or (t--pget info :html-table-align-cache)
-                    (let ((h (make-hash-table :test #'eq)))
-                      (t--pput info :html-table-align-cache h)
-                      h)))
-         (vector (or (gethash table cache)
-                     (puthash table (make-vector (length cells) nil) cache))))
-    (when (>= column (length vector))
-      (setq vector (vconcat vector
-                            (make-list (- (1+ column) (length vector)) nil)))
-      (puthash table vector cache))
-    (let ((cached (aref vector column)))
-      (if cached
-          (if (eq cached 'none) nil cached)
-        (let ((align (t--table-column-cookie table column info)))
-          (aset vector column (or align 'none))
-          align)))))
-
-(defun t--table-cell-attrs (cell info)
-  "Return CELL's inline alignment attribute, or the empty string.
-
-Only an explicit Org alignment cookie produces an attribute; a
-column without a cookie is left to the CSS."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (if-let* ((align (t--table-cell-align cell info)))
-      (format " style=\"text-align:%s\"" align) ""))
-
-(defun t--table-column-specs (table info)
-  "Return the <colgroup> markup describing TABLE's column groups.
-
-Each column group is emitted as a single <colgroup span=\"N\">
-element.  `<col>' children are omitted: alignment now lives on the
-cells, and no other per-column attribute is expressible in Org."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (let ((n 0) out)
-    (dolist (cell (t--table-first-row-data-cells table info))
-      (setq n (1+ n))
-      (when (org-export-table-cell-ends-colgroup-p cell info)
-        (push (format "\n<colgroup span=\"%d\">" n) out)
-        (setq n 0)))
-    (mapconcat #'identity (nreverse out) "")))
-
-(defun t--table-caption (table info)
-  "Return TABLE's <caption> element, or the empty string.
-
-The caption is emitted as the table's first child; its visual
-position is left to CSS (`caption-side')."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (if-let* ((caption (org-export-get-caption table)))
-      (format "<caption>%s</caption>" (org-export-data caption info))
-    ""))
-
-(defun t--table-first-row-data-cells (table info)
-  "Return the cells of TABLE's first non-rule row.
-When TABLE has a special column, its first cell is dropped."
-  (declare (ftype (function (t list) list))
-           (important-return-value t))
-  (let ((row (org-element-map table 'table-row
-               (lambda (r)
-                 (unless (eq (org-element-property :type r) 'rule) r))
-               info 'first-match)))
-    (if (not (org-export-table-has-special-column-p table))
-        (org-element-contents row)
-      (cdr (org-element-contents row)))))
-
-(defun t-table-cell (table-cell contents info)
-  "Transcode a TABLE-CELL element from Org to HTML.
-CONTENTS is the cell's contents.  INFO is a plist used as a
-communication channel."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (let* ((row (org-element-parent table-cell))
-         (table (org-export-get-parent-table table-cell))
-         (attrs (t--table-cell-attrs table-cell info))
-         (contents (if (or (not contents) (string= "" (org-trim contents)))
-                       "&#xa0;" contents)))
-    (cond
-     ((and (org-export-table-has-header-p table info)
-           (= 1 (org-export-table-row-group row info)))
-      (format "\n<th scope=\"col\"%s>%s</th>" attrs contents))
-     ((and (t--pget info :html-table-use-header-tags-for-first-column)
-           (zerop (cdr (org-export-table-cell-address table-cell info))))
-      (format "\n<th scope=\"row\"%s>%s</th>" attrs contents))
-     (t
-      (format "\n<td%s>%s</td>" attrs contents)))))
-
-(defun t-table-row (table-row contents info)
-  "Transcode a TABLE-ROW element from Org to HTML.
-CONTENTS is the contents of the row.  INFO is a plist used as a
-communication channel."
-  (declare (ftype (function (t (or null string) list) (or null string)))
-           (important-return-value t))
-  ;; Rules are ignored since table separators are deduced from the
-  ;; borders of the current row.
-  (when (eq (org-element-property :type table-row) 'standard)
-    (let* ((group (org-export-table-row-group table-row info))
-           (start (org-export-table-row-starts-rowgroup-p table-row info))
-           (end (org-export-table-row-ends-rowgroup-p table-row info))
-           (group-tags
-            (cond
-             ((not (= 1 group)) '("<tbody>" . "\n</tbody>"))
-             ((org-export-table-has-header-p
-               (org-export-get-parent-table table-row) info)
-              '("<thead>" . "\n</thead>"))
-             (t '("<tbody>" . "\n</tbody>")))))
-      (concat (and start (car group-tags))
-              (concat "\n<tr>" contents "\n</tr>")
-              (and end (cdr group-tags))))))
-
-(defun t-table (table contents info)
-  "Transcode a TABLE element from Org to HTML.
-CONTENTS is the contents of the table.  INFO is a plist holding
-contextual information."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (if (eq (org-element-property :type table) 'table.el)
-      ;; "table.el" table.  Convert it using appropriate tools.
-      ;; (Modern-HTML reimplementation pending.)
-      (t--table.el-table table info)
-    ;; Standard table.
-    (format "<table%s>\n%s\n%s\n%s</table>"
-            (t--make-attr__id* table info t)
-            (t--table-caption table info)
-            (t--table-column-specs table info)
-            contents)))
-
-(defun t--table.el-table (table _info)
-  "Format a table.el TABLE into HTML.
-INFO is a plist used as a communication channel.
-Output is delegated to `table-generate-source' for now; a
-modern-HTML reimplementation is planned."
-  (declare (ftype (function (t list) (or null string)))
-           (important-return-value t))
-  (when (eq (org-element-property :type table) 'table.el)
-    (require 'table)
-    (let ((outbuf (with-current-buffer
-                      (get-buffer-create "*org-export-table*")
-                    (erase-buffer) (current-buffer))))
-      (with-temp-buffer
-        (insert (org-element-property :value table))
-        (goto-char (point-min))
-        (re-search-forward "^[ \t]*|[^|]" nil t)
-        (table-generate-source 'html outbuf))
-      (with-current-buffer outbuf
-        (prog1 (org-trim (buffer-string))
-          (kill-buffer))))))
-
-;;;; LaTeX
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; Options:
-;; - :html-math-custom-render-function
-;;   (`org-w3ctr-math-custom-render-function')
-
-(defun t-math-custom-default-render-function (frag _info)
-  "Default value for `org-w3ctr-math-custom-render-function'."
-  (declare (ftype (function (string t) string))
-           (pure t) (important-return-value t))
-  frag)
-
-(defun t--normalize-latex (frag)
-  "Normalize the delimiters of LaTeX FRAG for client-side MathJax.
-
-Inline `$...$' becomes `\\(...\\)' and display `$$...$$' becomes
-`\\[...\\]'; anything else is returned unchanged."
-  (declare (ftype (function (string) string))
-           (pure t) (important-return-value t))
-  (cond
-   ((string-prefix-p "$$" frag) (concat "\\[" (substring frag 2 -2) "\\]"))
-   ((string-prefix-p "$" frag) (concat "\\(" (substring frag 1 -1) "\\)"))
-   (t frag)))
-
-(defun t--format-latex (frag mode info)
-  "Return the HTML for LaTeX fragment FRAG under MODE.
-MODE is the value of `:with-latex'; INFO is the export state."
-  (declare (ftype (function (string t list) string))
-           (important-return-value t))
-  (pcase mode
-    ((or `nil `verbatim) frag)
-    (`mathjax (t--normalize-latex frag))
-    (`mathml-by-mathjax
-     (t--jstools-call 'tex2mml (t--normalize-latex frag)))
-    (`svg-by-mathjax
-     (t--jstools-call 'tex2svg (t--normalize-latex frag)))
-    (`custom
-     (funcall (t--pget info :html-math-custom-render-function) frag info))
-    (o (error "Unknown LaTeX mode: %s" o))))
-
-(defun t-latex-fragment (latex-fragment _contents info)
-  "Transcode a LATEX-FRAGMENT object from Org to HTML."
-  (declare (ftype (function (t t list) string))
-           (important-return-value t))
-  (t--format-latex
-   (org-element-property :value latex-fragment)
-   (t--pget info :with-latex) info))
-
-(defun t-latex-environment (latex-environment _contents info)
-  "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
-  (declare (ftype (function (t t list) string))
-           (important-return-value t))
-  (t--format-latex
-   (org-remove-indentation (org-element-property :value latex-environment))
-   (t--pget info :with-latex) info))
-
-;;;; Link
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; Options:
-;; - :html-link-org-files-as-html (`org-w3ctr-link-org-files-as-html')
-;; - :html-inline-images (`org-w3ctr-inline-images')
-;; - :html-inline-image-rules (`org-w3ctr-inline-image-rules')
-;; - :html-extension (`org-w3ctr-extension')
-;; - :html-equation-reference-format
-;;   (`org-w3ctr-equation-reference-format')
-
-(defun t-image-link-filter (data _backend info)
-  "Process image links that are inside descriptions.
-DATA is the parse tree.  INFO is an info plist.
-See `org-export-insert-image-links' for more details."
-  (declare (ftype (function (t t list) t))
-           (important-return-value t))
-  (org-export-insert-image-links data info t-inline-image-rules))
-
-;; The "exactly one link" rule below fixes an upstream Org bug found
-;; while refactoring `ox-html.el'; see
-;; https://lists.gnu.org/archive/html/emacs-orgmode/2026-09/msg00073.html
-(defun t--sole-image-link-p (objects link-image-p)
-  "Non-nil when OBJECTS hold white space and exactly one image link.
-
-OBJECTS is a list of elements or objects (a link's description, or a
-paragraph's contents).  LINK-IMAGE-P is called with each link object
-and must return non-nil when that link counts as an image.
-
-Links nested inside another link's description are not visited, so
-only the top-level links are counted."
-  (declare (ftype (function (list function) boolean))
-           (pure t) (important-return-value t))
-  (let ((link-count 0)
-        (clean t))
-    (org-element-map objects
-        (cons 'plain-text org-element-all-objects)
-      (lambda (obj)
-        (when (pcase (org-element-type obj)
-                (`plain-text (org-string-nw-p obj))
-                (`link (or (> (incf link-count) 1)
-                           (not (funcall link-image-p obj))))
-                (_ t))
-          (setq clean nil)))
-      nil nil 'link)
-    (and clean (= link-count 1))))
-
-(defun t--link-description-image-p (link rules)
-  "Non-nil when LINK's description is a single link to an image.
-
-The description may only hold white space and one link, and that
-link must target an image (see `t-inline-image-rules')."
-  (declare (ftype (function (t list) boolean))
-           (pure t) (important-return-value t))
-  (t--sole-image-link-p
-   (org-element-contents link)
-   (lambda (obj) (org-export-inline-image-p obj rules))))
-
-(defun t-inline-image-p (link info)
-  "Non-nil when LINK is meant to appear as an image.
-LINK is an inline image in either of two cases:
-  - it has no description and targets an image file (see
-    `org-w3ctr-inline-image-rules'); or
-  - its description is a single link to an image file.
-
-The second case is the \"clickable image\" construct.  Org does not
-parse nested links, so `[[URL][file:img.png]]' starts out as a link
-whose description is the plain text \"file:img.png\".  The
-`org-w3ctr-image-link-filter' parse-tree filter turns that text into a
-real nested link (see `org-export-insert-image-links'), after which the
-outer link is recognized here as an image.
-
-The description has to be link-like (\"file:...\", \"https://...\"); a
-bare file name such as `[[URL][img.png]]' is not enough."
-  (declare (ftype (function (t list) t))
-           (important-return-value t))
-  (let ((rules (t--pget info :html-inline-image-rules)))
-    (if (not (org-element-contents link))
-        (org-export-inline-image-p link rules)
-      (t--link-description-image-p link rules))))
-
-(defun t-standalone-image-p (element info &optional predicate)
-  "Non-nil if ELEMENT is a standalone image.
-INFO is a plist holding contextual information.
-
-PREDICATE, when non-nil, is called with the containing paragraph and
-must return non-nil for ELEMENT to count as a standalone image.
-
-An element or object is a standalone image when
-  - its type is `paragraph' and its sole content, save for white
-    spaces, is a link that qualifies as an inline image;
-  - its type is `link' and its containing paragraph has no other
-    content save white spaces."
-  (declare (ftype (function (t list &optional t) t))
-           (important-return-value t))
-  (let ((paragraph (pcase (org-element-type element)
-                     (`paragraph element)
-                     (`link (org-element-parent element)))))
-    (and (eq (org-element-type paragraph) 'paragraph)
-         (or (not predicate) (funcall predicate paragraph))
-         (t--sole-image-link-p
-          (org-element-contents paragraph)
-          (lambda (obj) (t-inline-image-p obj info))))))
-
-(defun t--link-image-p (link info)
-  "Non-nil when LINK should be exported as an inline image.
-Inline images must be enabled and LINK itself must target an image
-file (see `t-inline-image-p')."
-  (declare (ftype (function (t list) t))
-           (important-return-value t))
-  (and (t--pget info :html-inline-images)
-       (org-export-inline-image-p
-        link (t--pget info :html-inline-image-rules))))
-
-(defun t--format-image (source attributes)
-  "Return an \"img\" tag with given SOURCE and ATTRIBUTES.
-SOURCE is a string specifying the location of the image.
-ATTRIBUTES is a plist, as returned by `org-export-read-attribute'."
-  (declare (ftype (function (string list) string))
-           (important-return-value t))
-  (t--void-element
-   "img"
-   (t--make-attribute-string
-    (org-combine-plists
-     (list :src source :alt (file-name-nondirectory source))
-     attributes))))
-
-(defun t--link-org-files-as-html (raw-path info)
-  "Return RAW-PATH with a \".org\" extension turned into the
-configured `:html-extension' (usually \".html\").
-
-Only do so when `:html-link-org-files-as-html' is non-nil and
-RAW-PATH actually ends in \".org\"; otherwise return RAW-PATH
-unchanged."
-  (declare (ftype (function (string list) string))
-           (pure t) (important-return-value t))
-  (if-let* ((_ (t--pget info :html-link-org-files-as-html))
-            (src-ext (downcase (file-name-extension raw-path ".")))
-            (_ (string= ".org" src-ext)))
-      (let* ((ext (t--pget info :html-extension))
-             (dot (if (string-empty-p ext) "" ".")))
-        (concat (file-name-sans-extension raw-path) dot ext))
-    raw-path))
-
-(defun t--link-path (link info)
-  "Return the URL to use for LINK.
-
-A file link becomes a \"file:\" URI (relative during publishing),
-with its \".org\" extension rewritten to `:html-extension' (usually
-\".html\") when requested, and any search option appended.  Other
-link types get their \"TYPE:\" prefix and URL encoding."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (let ((type (org-element-property :type link))
-        (raw-path (org-element-property :path link)))
-    (if (not (string= "file" type))
-        (url-encode-url (concat type ":" raw-path))
-      ;; FIXME: Replace `org-publish-file-relative-name' with a local
-      ;; implementation (see the ox-publish non-goal in AGENTS.md).
-      (let* ((raw-path (org-publish-file-relative-name raw-path info))
-             ;; FIXME: Do we really need `:html-link-home' and
-             ;; `:html-link-use-abs-url'?  ox-html prepends the home
-             ;; directory to relative file paths here; ox-w3ctr has
-             ;; never implemented this.
-             (path (t--link-org-files-as-html
-                    (org-export-file-uri raw-path) info))
-             (option (org-element-property :search-option link)))
-        (if (not option) path
-          (concat path "#"
-                  ;; FIXME: Replace `org-publish-resolve-external-link'
-                  ;; with a local implementation (see the ox-publish
-                  ;; non-goal in AGENTS.md).
-                  (org-publish-resolve-external-link
-                   option (org-element-property :path link) t)))))))
-
-(defun t--link-attributes (link info)
-  "Return the HTML attribute plist for LINK.
-
-Attributes are read from LINK itself and, when LINK is the image of
-a standalone-image paragraph (i.e., it becomes the <img> element of
-a figure), from that paragraph as well, so that `#+attr_html' on
-the paragraph applies to the image.  In any other paragraph the
-attribute stays on the paragraph and is not duplicated onto every
-image it contains."
-  (declare (ftype (function (t list) list))
-           (important-return-value t))
-  (let ((parent (org-element-parent-element link)))
-    (org-combine-plists
-     ;; `org-element-parent-element' returns the nearest *element*
-     ;; (paragraph, item, ...), skipping intermediate objects, so the
-     ;; enclosing link of a clickable image is never consulted here.
-     ;; The parent's attribute is inherited only in a standalone-image
-     ;; paragraph; otherwise it belongs to the paragraph itself.
-     (and (org-export-inline-image-p
-           link (t--pget info :html-inline-image-rules))
-          (t-standalone-image-p parent info)
-          (org-export-read-attribute :attr_html parent))
-     ;; A link is an object, not an element, and `:attr_html' is an
-     ;; affiliated keyword, so this is almost always nil; it only has a
-     ;; value when a backend sets it programmatically.
-     (org-export-read-attribute :attr_html link))))
-
-(defun t--link-radio (link desc info attributes)
-  "Transcode a radio target LINK.
-DESC and ATTRIBUTES are as computed in `t-link'.  INFO is the
-export state."
-  (declare (ftype (function (t (or null string) list string) string))
-           (important-return-value t))
-  (let ((destination (org-export-resolve-radio-link link info)))
-    (if (not destination) desc
-      (format "<a href=\"#%s\"%s>%s</a>"
-              (t--reference destination info)
-              attributes
-              desc))))
-
-(defun t--link-to-file (destination path desc attributes info)
-  "Transcode an ID link pointing to an external file.
-DESTINATION is the target file name and PATH is the link's path.
-DESC and ATTRIBUTES are as computed in `t-link'.  INFO is the
-export state."
-  (declare (ftype (function (t string (or null string) string list) string))
-           (important-return-value t))
-  ;; FIXME: PATH is `t--link-path''s output, e.g. "id:xyz", but the
-  ;; fragment must match the anchor emitted for the ID ("ID-xyz").
-  ;; ox-html uses the raw path here, so this looks broken for
-  ;; `[[id:...]]' links pointing at another file.
-  (format "<a href=\"%s#%s\"%s>%s</a>"
-          (t--link-org-files-as-html destination info)
-          (concat t--id-attr-prefix path)
-          attributes
-          (or desc destination)))
-
-(defun t--link-broken (link desc info)
-  "Transcode LINK that points nowhere.
-DESC is the link's description.  INFO is the export state."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (format "<i>%s</i>"
-          (or desc
-              (org-export-data
-               (org-element-property :raw-link link) info))))
-
-(defun t--link-to-headline (destination desc attributes info)
-  "Transcode a link to headline DESTINATION.
-DESC and ATTRIBUTES are as computed in `t-link'.  INFO is the
-export state."
-  (declare (ftype (function (t (or null string) string list) string))
-           (important-return-value t))
-  ;; FIXME: Rethink the auto-generated section number below: links
-  ;; should carry an explicit description rather than a
-  ;; system-generated one (see the same decision for `t--link-target').
-  (let* ((href (t--reference destination info))
-         (desc (if (and (org-export-numbered-headline-p destination info)
-                        (not desc))
-                   (mapconcat #'number-to-string
-                              (org-export-get-headline-number destination info)
-                              ".")
-                 (or desc
-                     (org-export-data
-                      (org-element-property :title destination) info)))))
-    (format "<a href=\"#%s\"%s>%s</a>" href attributes desc)))
-
-(defun t--link-equation (destination info)
-  "Transcode a reference to a math latex-environment DESTINATION.
-The label lives inside the LaTeX, so client-side MathJax resolves
-the reference.  INFO is the export state."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  ;; FIXME: LaTeX handling is weak here.  This just emits the raw
-  ;; `:html-equation-reference-format' (default "\\eqref{%s}") and
-  ;; trusts MathJax to resolve it; nothing ensures the environment
-  ;; actually carries a matching \label.
-  (format (t--pget info :html-equation-reference-format)
-          (t--reference destination info)))
-
-(defun t--link-target (desc info destination attributes)
-  "Transcode a link whose fuzzy DESTINATION is a target or element.
-The description is the link's own DESC; no number is generated for
-it, so a link without a description falls back to a fixed string.
-DESC and ATTRIBUTES are as in `org-w3ctr-link'."
-  (declare (ftype (function ((or null string) list t string) string))
-           (important-return-value t))
-  ;; FIXME: Rethink whether to use information from the destination
-  ;; (image alt/caption, target value, ...) to build the description
-  ;; instead of the fixed string below.
-  (format "<a href=\"#%s\"%s>%s</a>"
-          (t--reference destination info)
-          attributes
-          (or desc "No description for this link")))
-
-(defun t--link-dispatch (link desc info path attributes)
-  "Transcode LINK resolved through its ID, custom ID or fuzzy target.
-PATH, DESC and ATTRIBUTES are as computed in `t-link'."
-  (declare (ftype (function (t (or null string) list string string) string))
-           (important-return-value t))
-  (let* ((type (org-element-property :type link))
-         (destination (if (string= type "fuzzy")
-                          (org-export-resolve-fuzzy-link link info)
-                        (org-export-resolve-id-link link info))))
-    (pcase (org-element-type destination)
-      (`plain-text (t--link-to-file destination path desc attributes info))
-      (`nil (t--link-broken link desc info))
-      (`headline (t--link-to-headline destination desc attributes info))
-      (_
-       ;; FIXME: LaTeX handling is weak here: only math
-       ;; `latex-environment's under the `mathjax' (and legacy `t')
-       ;; `:with-latex' mode reach `t--link-equation'.  The
-       ;; `mathml-by-mathjax' / `svg-by-mathjax' / `custom' modes and
-       ;; non-math environments fall through to `t--link-target'.
-       (if (and destination
-                (memq (t--pget info :with-latex) '(mathjax t))
-                (eq 'latex-environment (org-element-type destination))
-                (eq 'math (org-latex--environment-type destination)))
-           ;; The label lives inside the LaTeX; let client-side MathJax
-           ;; resolve the reference.
-           (t--link-equation destination info)
-         (t--link-target desc info destination attributes))))))
-
-(defun t--link-coderef (path desc info attributes)
-  "Transcode a coderef link with PATH, DESC and ATTRIBUTES."
-  (declare (ftype (function (string (or null string) list string) string))
-           (important-return-value t))
-  ;; FIXME: Consider removing coderef support altogether; it is kept
-  ;; for now only for compatibility with ox-html.el.
-  (let ((fragment (concat "coderef-" (t--encode-plain-text path))))
-    (format "<a href=\"#%s\" %s%s>%s</a>"
-            fragment
-            (format "class=\"coderef\" onmouseover=\"CodeHighlightOn(this, \
-'%s');\" onmouseout=\"CodeHighlightOff(this, '%s');\""
-                    fragment fragment)
-            attributes
-            (format (org-export-get-coderef-format path desc)
-                    (org-export-resolve-coderef path info)))))
-
-(defun t--link-external (path desc attributes)
-  "Transcode a plain external link with PATH, DESC and ATTRIBUTES.
-When DESC is nil, PATH doubles as the description."
-  (declare (ftype (function (string (or null string) string) string))
-           (important-return-value t))
-  (let ((path (t--encode-plain-text path)))
-    (format "<a href=\"%s\"%s>%s</a>" path attributes (or desc path))))
-
-(defun t-link (link desc info)
-  "Transcode a LINK object from Org to HTML.
-DESC is the description part of the link, or the empty string.
-INFO is a plist holding contextual information.  See
-`org-export-data'."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (let* ((type (org-element-property :type link))
-         (path (t--link-path link info))
-         ;; Ensure DESC really exists, or set it to nil.
-         (desc (org-string-nw-p desc))
-         (attributes-plist (t--link-attributes link info))
-         (attributes (let ((attr (t--make-attribute-string attributes-plist)))
-                       (if (org-string-nw-p attr) (concat " " attr) ""))))
-    (cond
-     ;; Link type is handled by a special function.
-     ((org-export-custom-protocol-maybe link desc 'w3ctr info))
-     ;; Image file.
-     ((t--link-image-p link info)
-      (t--format-image path attributes-plist))
-     ;; Radio target: Transcode target's contents and use them as
-     ;; link's description.
-     ((string= type "radio")
-      (t--link-radio link desc info attributes))
-     ;; Links pointing to a headline, a target or an element.
-     ((member type '("custom-id" "fuzzy" "id"))
-      (t--link-dispatch link desc info path attributes))
-     ;; Coderef: replace link with the reference name or the
-     ;; equivalent line number.
-     ((string= type "coderef")
-      (t--link-coderef path desc info attributes))
-     ;; External link.
-     (path
-      (t--link-external path desc attributes))
-     ;; No path, only description.  Try to do something useful.
-     (t
-      (format "<i>%s</i>" desc)))))
-
-;;;; Footnote
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; Options:
-;; - :html-footnotes-section (`org-w3ctr-footnotes-section')
-;; - :html-footnote-format (`org-w3ctr-footnote-format')
-;; - :html-footnote-separator (`org-w3ctr-footnote-separator')
-;; - :html-footnote-section-function
-;;   (`org-w3ctr-footnote-section-function')
-
-(defun t--footnote-key (label n)
-  "Return the key of a footnote with LABEL and number N.
-A nil or purely numeric LABEL is ignored, so that `[fn:1]' and an
-anonymous footnote do not share a key."
-  (declare (ftype (function ((or null string) integer) (or string integer)))
-           (pure t) (important-return-value t))
-  (if (and label (not (string-match-p "\\`[0-9]+\\'" label)))
-      label n))
-
-(defun t--footnote-id (label n)
-  "Return the HTML id for a footnote with LABEL and number N."
-  (declare (ftype (function ((or null string) integer) string))
-           (pure t) (important-return-value t))
-  (format "fn-%s" (t--footnote-key label n)))
-
-(defun t-footnote-reference (footnote-reference _contents info)
-  "Transcode a FOOTNOTE-REFERENCE object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information."
-  (declare (ftype (function (t t list) string))
-           (important-return-value t))
-  (concat
-   ;; Insert separator between two footnotes in a row.
-   (let ((prev (org-export-get-previous-element footnote-reference info)))
-     (when (org-element-type-p prev 'footnote-reference)
-       (t--pget info :html-footnote-separator)))
-   (let* ((label (org-element-property :label footnote-reference))
-          (n (org-export-get-footnote-number footnote-reference info)))
-     (format (t--pget info :html-footnote-format)
-             (format "<a href=\"#%s\">%s</a>"
-                     (t--footnote-id label n)
-                     (t--footnote-key label n))))))
-
-(defun t--footnote-definition (definition info)
-  "Format a footnote DEFINITION.
-DEFINITION is a (NUMBER LABEL DEF) tuple, as returned by
-`org-export-collect-footnote-definitions'.  INFO is the export
-state."
-  (declare (ftype (function (list list) string))
-           (important-return-value t))
-  (pcase-let ((`(,n ,label ,def) definition))
-    (format "<dt id=\"%s\">%s</dt>\n<dd>\n%s\n</dd>"
-            (t--footnote-id label n)
-            (format (t--pget info :html-footnote-format)
-                    (t--footnote-key label n))
-            (t--trim (org-export-data def info)))))
-
-(defun t-footnote-section-default-function (definitions info)
-  "Default function to build the footnotes section.
-DEFINITIONS is the list returned by
-`org-export-collect-footnote-definitions'.  INFO is the export
-state."
-  (declare (ftype (function (list list) string))
-           (important-return-value t))
-  (format (t--pget info :html-footnotes-section)
-          "References"
-          (format "\n%s\n"
-                  (mapconcat (lambda (d) (t--footnote-definition d info))
-                             definitions "\n"))))
-
-(defun t-footnote-section (info)
-  "Format the footnote section.
-INFO is a plist used as a communication channel."
-  (declare (ftype (function (list) t))
-           (important-return-value t))
-  (when-let* ((definitions (org-export-collect-footnote-definitions info)))
-    (funcall (t--pget info :html-footnote-section-function) definitions info)))
-
-;;;; Engrave-faces subset
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-
-;; A self-contained subset of engrave-faces.el's HTML backend.
-;; See https://github.com/tecosaur/engrave-faces (v0.3.1,
-;; engrave-faces-html.el + engrave-faces.el).  The CSS for the slugs
-;; below lives in assets/style.css (".ef-*").
-;;
-;; Unlike engrave-faces, there is no inline-style fallback: unknown or
-;; unspecified faces are emitted as plain escaped text; the slug →
-;; colour mapping is the stylesheet's job.
-
-(defun t--engrave-buffer (&optional in-buffer out-buffer)
-  "Engrave the fontified text of IN-BUFFER into OUT-BUFFER.
-IN-BUFFER defaults to the current buffer; it must already be
-fontified (see `font-lock-ensure').  OUT-BUFFER defaults to a fresh
-\"*html*\" buffer and is returned."
-  (declare (ftype (function (&optional buffer buffer) buffer))
-           (important-return-value t))
-  (let ((ibuf (or in-buffer (current-buffer)))
-        (obuf (or out-buffer (generate-new-buffer "*html*")))
-        (completed nil))
-    (with-current-buffer ibuf
-      (unwind-protect
-          (let (next-change text)
-            (goto-char (point-min))
-            (while (not (eobp))
-              (setq next-change (t--engrave-next-face-change (point)))
-              (setq text (buffer-substring-no-properties (point) next-change))
-              (when (> (length text) 0)
-                (princ (t--engrave-face-transformer
-                        (get-text-property (point) 'face)
-                        text)
-                       obuf))
-              (goto-char next-change)))
-        (setq completed t)))
-    (if (not completed)
-        (if out-buffer t (kill-buffer obuf))
-      obuf)))
-
-(defun t--engrave-next-face-change (pos &optional limit)
-  "Return the position of the next face change after POS, up to LIMIT.
-Merges text-property and overlay faces, and extends over `display'
-properties.  Lifted from htmlize, via engrave-faces [2024-04-12]."
-  (declare (ftype (function (integer &optional integer) integer))
-           (important-return-value t))
-  (unless limit (setq limit (point-max)))
-  (let ((next-prop (next-single-property-change pos 'face nil limit))
-        (overlay-faces (t--engrave-overlay-faces-at pos)))
-    (while (progn
-             (setq pos (next-overlay-change pos))
-             (and (< pos next-prop)
-                  (equal overlay-faces (t--engrave-overlay-faces-at pos)))))
-    (setq pos (min pos next-prop))
-    (when (get-char-property pos 'display)
-      (setq pos (next-single-char-property-change pos 'display nil limit)))
-    pos))
-
-(defun t--engrave-overlay-faces-at (pos)
-  "Return the non-nil `face' values of overlays at POS."
-  (declare (ftype (function (integer) list))
-           (important-return-value t))
-  (delq nil (mapcar (lambda (o) (overlay-get o 'face)) (overlays-at pos))))
-
-(defun t--engrave-face-transformer (prop text)
-  "Transform TEXT with face property PROP into an HTML span.
-Whitespace-only runs and text without a known face are returned
-escaped but unwrapped."
-  (declare (ftype (function (t string) string))
-           (pure t) (important-return-value t))
-  (let ((escaped (t--encode-plain-text text))
-        (style (t--engrave-get-style prop)))
-    (if (or (string-match-p "\\`[\n[:space:]]+\\'" text)
-            (not style))
-        escaped
-      (concat "<span class=\"ef-" (plist-get (cdr style) :slug) "\">"
-              escaped "</span>"))))
-
-(defconst t--engrave-style-plist
-  '(;; faces.el --- excluding bold, italic, bold-italic, underline, …
-    (shadow  :slug "h")
-    (success :slug "sc")
-    (warning :slug "w")
-    (error   :slug "e")
-    ;; font-lock.el
-    (font-lock-comment-face :slug "c")
-    (font-lock-comment-delimiter-face :slug "cd")
-    (font-lock-string-face :slug "s")
-    (font-lock-doc-face :slug "d")
-    (font-lock-doc-markup-face :slug "m")
-    (font-lock-keyword-face :slug "k")
-    (font-lock-builtin-face :slug "b")
-    (font-lock-function-name-face :slug "f")
-    (font-lock-variable-name-face :slug "v")
-    (font-lock-type-face :slug "t")
-    (font-lock-constant-face :slug "o")
-    (font-lock-warning-face :slug "wr")
-    (font-lock-negation-char-face :slug "nc")
-    (font-lock-preprocessor-face :slug "pp")
-    (font-lock-regexp-grouping-construct :slug "rc")
-    (font-lock-regexp-grouping-backslash :slug "rb")
-    ;; css-mode: reuse the function-name / keyword colours.
-    (css-property :slug "f")
-    (css-selector :slug "k"))
-  "Face → slug alist used by the engraving engine.
-A slug is the compact CSS class emitted by `t--engrave-face-transformer';
-the colours live in assets/style.css under \".ef-SLUG\".  `default' is
-deliberately absent: bare (unfaced) text carries a nil face and is
-emitted as plain text, as engrave-faces does.")
-
-(defun t--engrave-get-style (prop)
-  "Return the style entry for face property PROP, or nil.
-PROP is a face name, a list of faces, or nil (no face).  A nil PROP
-returns nil, so bare text gets no span."
-  (declare (ftype (function (t) (or null cons)))
-           (pure t) (important-return-value t))
-  (cond
-   ((null prop) nil)
-   ((listp prop) (assoc (car prop) t--engrave-style-plist))
-   (t (assoc prop t--engrave-style-plist))))
-
-;;;; Source block
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-
-(defun t--engrave-fontify-code (code lang)
-  "Fontify CODE (a string) in LANG, returning bare fontified HTML.
-The result contains `<span>' runs only, with no wrapper element:
-callers wrap it in `<code>' as appropriate.  When LANG has no
-associated major mode, CODE is returned escaped but uncoloured."
-  (declare (ftype (function (string (or null string)) string))
-           (important-return-value t))
-  (let ((lang-mode (and lang (org-src-get-lang-mode lang))))
-    (if (not (functionp lang-mode))
-        (t--encode-plain-text code)
-      (let ((inhibit-read-only t))
-        (with-temp-buffer
-          (let ((inbuf (current-buffer)))
-            (funcall lang-mode)
-            (insert code)
-            (font-lock-ensure)
-            (set-buffer-modified-p nil)
-            (with-temp-buffer
-              (ignore (t--engrave-buffer inbuf (current-buffer)))
-              (buffer-string))))))))
-
-(defun t--textarea-block (element)
-  "Transcode ELEMENT into a textarea block.
-ELEMENT is either a source or an example block."
-  (let* ((code (car (org-export-unravel-code element)))
-         (attr (org-export-read-attribute :attr_html element)))
-    (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
-            (or (plist-get attr :width) 80)
-            (or (plist-get attr :height) (org-count-lines code))
-            code)))
-
-(defun t-fontify-code (code lang)
-  "Colorize CODE (a string) for LANG, returning bare fontified HTML.
-The result contains `<span>' runs only, with no wrapper element:
-callers wrap it in `<code>' as appropriate (block vs inline).  LANG
-is a language name as a string, or nil.  Uses `t-fontify-method';
-returns escaped plain text when it is nil or CODE is empty."
-  (declare (ftype (function (string (or null string)) string))
-           (important-return-value t))
-  (if (and (not (string-empty-p code)) lang (eq t-fontify-method 'engrave))
-      (t--engrave-fontify-code code lang)
-    (t--encode-plain-text code)))
-
-(defun t--src-code (src-block lang)
-  "Return bare fontified HTML for SRC-BLOCK's code in LANG.
-`org-export-unravel-code' also returns a coderef alist, which
-ox-w3ctr does not support; drop it (the car)."
-  (declare (ftype (function (t (or null string)) string))
-           (important-return-value t))
-  (t-fontify-code (car (org-export-unravel-code src-block)) lang))
-
-(defun t--src-code-tag (lang code)
-  "Wrap bare CODE in a `<code>' tag carrying LANG's class.
-A nil LANG yields a plain `<code>' without a language class."
-  (declare (ftype (function ((or null string) string) string))
-           (pure t) (important-return-value t))
-  (if lang
-      (format "<code class=\"src src-%s\">%s</code>" lang code)
-    (format "<code>%s</code>" code)))
-
-(defun t--src-block-attrs (src-block info captioned)
-  "Return the attribute string for SRC-BLOCK, as \" ATTRS\" or \"\".
-Attributes come from `:attr__' (`#+attr__:').  An `id' is added
-from the element reference unless the attributes already carry one.
-CAPTIONED non-nil prepends the default `example' class to the class
-list (class is written as a vector, e.g. `#+attr__: [foo]')."
-  (declare (ftype (function (t list boolean) string))
-           (important-return-value t))
-  (let* ((reference (t--reference src-block info (not captioned)))
-         (attributes (t--read-attr__ src-block)))
-    (when captioned
-      (let ((entry (or (assoc "class" attributes)
-                       (assoc 'class attributes))))
-        (if entry
-            (setcdr entry (list (concat "example " (cadr entry))))
-          (push (list "class" "example") attributes))))
-    (let ((a (t--make-attr__
-              (if (or (not reference)
-                      (cl-find 'id attributes :key #'car-safe))
-                  attributes
-                (cons `("id" ,reference) attributes)))))
-      (if (t--nw-p a) a ""))))
-
-(defun t-src-block (src-block _contents info)
-  "Transcode a SRC-BLOCK element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information.
-
-A `:textarea' attribute yields a `<textarea>'; otherwise the code is
-wrapped in `<pre>', and a captioned block gets a `.example' `<div>'
-wrapper with a self-link."
-  (declare (ftype (function (t t list) string))
-           (important-return-value t))
-  (cond
-   ((org-export-read-attribute :attr_html src-block :textarea)
-    (t--textarea-block src-block))
-   ((org-element-property :caption src-block)
-    (let* ((lang (org-element-property :language src-block))
-           (code (t--src-code src-block lang))
-           (id (t--reference src-block info))
-           (caption (when-let* ((cap (org-export-get-caption src-block)))
-                      (org-trim (org-export-data cap info)))))
-      (format (concat "<div%s>\n"
-                      "<a class=\"self-link\" href=\"#%s\""
-                      " aria-label=\"source block\"></a>\n"
-                      "%s\n<pre>\n%s</pre></div>")
-              (t--src-block-attrs src-block info t)
-              id (or caption "") (t--src-code-tag lang code))))
-   (t
-    (let* ((lang (org-element-property :language src-block))
-           (code (t--src-code src-block lang)))
-      (format "<pre%s>\n%s</pre>"
-              (t--src-block-attrs src-block info nil)
-              (t--src-code-tag lang code))))))
-
-(defun t-inline-src-block (inline-src-block _contents info)
-  "Transcode an INLINE-SRC-BLOCK object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information.
-The code is fontified bare by `t-fontify-code' and wrapped here in a
-single `<code class=\"src-inline src-LANG\">' (no nesting)."
-  (declare (ftype (function (t t list) string))
-           (important-return-value t))
-  (let* ((lang (org-element-property :language inline-src-block))
-         (code (t-fontify-code
-                (org-element-property :value inline-src-block)
-                lang))
-         (label (if-let* ((lbl (t--reference inline-src-block info t)))
-                    (format " id=\"%s\"" lbl)
-                  "")))
-    (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
-
-;;;; Special Block
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; FIXME
-;; See (info "(org)HTML doctypes")
-(defconst t-html5-elements
-  '("article" "aside" "audio" "canvas" "details" "figcaption"
-    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
-    "output" "progress" "section" "summary" "video")
-  "Elements in html5.
-
-For blocks that should contain headlines, use the HTML_CONTAINER
-property on the headline itself.")
-
-(defun t-special-block (special-block contents info)
-  "Transcode a SPECIAL-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information."
-  (let* ((block-type (org-element-property :type special-block))
-         (html5-fancy (member block-type t-html5-elements))
-         (attributes (org-export-read-attribute :attr_html special-block)))
-    (unless html5-fancy
-      (let ((class (plist-get attributes :class)))
-        (setq attributes (plist-put attributes :class
-                                    (if class (concat class " " block-type)
-                                      block-type)))))
-    (let* ((contents (or contents ""))
-           (reference (t--reference special-block info t))
-           (a (t--make-attribute-string
-               (if (or (not reference) (plist-member attributes :id))
-                   attributes
-                 (plist-put attributes :id reference))))
-           (str (if (org-string-nw-p a) (concat " " a) "")))
-      (if html5-fancy
-          (format "<%s%s>\n%s</%s>" block-type str contents block-type)
-        (format "<div%s>\n%s\n</div>" str contents)))))
 
 ;;; Filter Functions
 
