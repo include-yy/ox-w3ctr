@@ -4022,7 +4022,19 @@ int a = 1;</code></p>\n</details>")
     ($l (t--build-toc 2 (list :html-toc-element 'ul
                               :html-toc-headline-format-function
                               (lambda (h _i) (format "HOOK %s" h))))
-        "\n<ul class=\"toc\">\n<li>HOOK h1</li>\n</ul>\n")))
+        "\n<ul class=\"toc\">\n<li>HOOK h1</li>\n</ul>\n"))
+  ;; SCOPE also shifts the nesting start: a scoped table begins one
+  ;; level below its first entry, a full one at level zero.
+  (cl-letf (((symbol-function 'org-export-collect-headlines)
+             (lambda (_i _d &optional _s) '(h1)))
+            ((symbol-function 'org-export-get-relative-level)
+             (lambda (_h _i) 2))
+            ((symbol-function 't-toc-headline-default-format-function)
+             (lambda (h _i) (symbol-name h))))
+    ($l (t--build-toc 2 '(:html-toc-element ul))
+        "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n<li>h1</li>\n</ul>\n</li>\n</ul>\n")
+    ($l (t--build-toc 2 '(:html-toc-element ul) 'scope-el)
+        "\n<ul class=\"toc\">\n<li>h1</li>\n</ul>\n")))
 
 (ert-deftest t--build-table-of-contents ()
   "Tests for `org-w3ctr--build-table-of-contents'."

@@ -5343,23 +5343,25 @@ wrapper."
 (defun t--build-toc (depth info &optional scope)
   "Build the innards of a table of contents.
 
-DEPTH is the headline depth `org-export-collect-headlines' takes,
-and INFO is the export options plist.  Optional argument SCOPE is
-an element that limits the collection to its own subtree.  Return
-the nested list as a string, or nil when no headline falls within
-DEPTH."
+DEPTH is the headline depth `org-export-collect-headlines' takes;
+nil collects every level up to `org-export-headline-levels'.  INFO
+is the export options plist.  Optional argument SCOPE is an
+element that limits the collection to its own subtree; it also
+shifts the nesting start, a scoped table beginning one level below
+its first entry while a full one begins at level zero.  Each entry
+is rendered by the `:html-toc-headline-format-function' hook.
+Return the nested list as a string, or nil when no headline falls
+within DEPTH."
   (declare (ftype (function ((or null integer) list &optional t)
                             (or null string)))
            (important-return-value t))
-  (let ((fn (lambda (h)
-              (cons (funcall (or (t--pget info
-                                         :html-toc-headline-format-function)
-                                 #'t-toc-headline-default-format-function)
-                             h info)
-                    (org-export-get-relative-level h info)))))
-    (when-let* ((hs (org-export-collect-headlines info depth scope))
-                (entries (mapcar fn hs)))
-      (t--toc-alist-to-text entries info (not scope)))))
+  (let* ((fmt (or (t--pget info :html-toc-headline-format-function)
+                  #'t-toc-headline-default-format-function))
+         (entry (lambda (h)
+                  (cons (funcall fmt h info)
+                        (org-export-get-relative-level h info)))))
+    (when-let* ((hs (org-export-collect-headlines info depth scope)))
+      (t--toc-alist-to-text (mapcar entry hs) info (not scope)))))
 
 (defun t--build-table-of-contents (info)
   "Build the document table of contents for export INFO.
