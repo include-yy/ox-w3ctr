@@ -1961,7 +1961,7 @@ unexposed.")
                 nil t--jstools-methods)
   "The JSON-RPC client for the node MathJax helper.")
 
-(defun t-toggle-jstools-debug ()
+(defun t-show-jstools-events ()
   "Show the JSON-RPC event log for the jstools connection."
   (interactive)
   (pop-to-buffer (jsonrpc-events-buffer (t--jrpc-ensure t--jstools))))

@@ -263,6 +263,21 @@ Web Component after it.
   `svg-by-mathjax` are therefore thin one-line RPC calls on the Emacs side.
   The helper loads `ui/safe`, without which the auto-loaded `html' TeX
   extension lets `\href{javascript:...}`, `\style` and `\class` through.
+- **JSON-RPC transport (`jsonrpc.el`).**  The `jstools` connection is a
+  callable `org-w3ctr--jrpc' oclosure over a `jsonrpc-process-connection';
+  two measured facts to keep:
+  - **No restart.**  `jsonrpc.el` sets the process once in
+    `initialize-instance` (buffer, filter, sentinel, coding and stderr
+    are all installed there), and `jsonrpc-shutdown` only tears down.  To
+    restart, discard the connection and build a fresh one
+    (`org-w3ctr--jrpc-ensure` / `-restart`).  Never `setf`
+    `jsonrpc--process`.
+  - **`:process` must be a function, and it must pass `:stderr`.**  The
+    `:process` initarg is called from `initialize-instance` *after* a
+    `*NAME stderr*` buffer is created, so the factory has to hand that
+    buffer to `make-process` as `:stderr` (the "bad coupling" jsonrpc.el
+    itself flags with a FIXME).  Passing a ready process silently loses
+    stderr separation and merges it into stdout, corrupting the stream.
 - **Error signaling: `t-error` over `error`.**  All transcoder error
   paths use `t-error` (the package's custom error type), not the generic
   `error`.  Inside a `condition-case` handler, re-signal with `(signal e)`
