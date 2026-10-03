@@ -989,7 +989,13 @@ replacements."
   :type 'string)
 
 (defcustom t-toc-element 'ul
-  "List element of table of contents."
+  "List element of the table of contents.
+
+The default `ul' keeps the extreme no-CSS display clean: `ol'
+would add browser numbering on top of the inlined section
+numbers.  With the stylesheet applied both render alike (it drops
+the markers), so `ol' is the better choice for list semantics
+wherever a stylesheet is guaranteed."
   :group 'org-export-w3ctr
   :type '(choice (const ul) (const ol)))
 
