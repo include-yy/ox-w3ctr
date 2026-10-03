@@ -4123,12 +4123,22 @@ int a = 1;</code></p>\n</details>")
     ($l (t--keyword-toc nil "listings" nil) "LISTINGS")
     ($l (t--keyword-toc nil "headlines" nil) "TOC nil nil")
     ($l (t--keyword-toc nil "headlines 3" nil) "TOC 3 nil")
+    ;; Case is not significant for the list kinds or "headlines".
+    ($l (t--keyword-toc nil "Tables" nil) "TABLES")
+    ($l (t--keyword-toc nil "HEADLINES 2" nil) "TOC 2 nil")
     ;; :target resolves the link; local scopes to KEYWORD.
     (cl-letf (((symbol-function 'org-export-resolve-link)
                (lambda (l _i) (format "RESOLVED %s" l))))
       ($l (t--keyword-toc 'kw "headlines 2 :target \"file:foo.org\"" nil)
           "TOC 2 \"RESOLVED file:foo.org\"")
-      ($l (t--keyword-toc 'kw "headlines local" nil) "TOC nil kw"))
+      ($l (t--keyword-toc 'kw "headlines local" nil) "TOC nil kw")
+      ;; The depth is the number right after "headlines", not any
+      ;; number in the value (a :target path may carry some).
+      ($l (t--keyword-toc nil "headlines :target \"report-2.org\"" nil)
+          "TOC nil \"RESOLVED report-2.org\"")
+      ;; A :target takes precedence over local.
+      ($l (t--keyword-toc 'kw "headlines local :target \"x\"" nil)
+          "TOC nil \"RESOLVED x\""))
     ;; No match, no output.
     ($n (t--keyword-toc nil "nothing" nil))))
 

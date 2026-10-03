@@ -5447,17 +5447,22 @@ return nil when there is no table."
            (important-return-value t))
   (t--list-of-elements #'org-export-collect-tables info))
 
-;; copied from `org-html-keyword'.
+;; Adapted from `org-html-keyword', with its quirks fixed: the list
+;; kinds and "headlines" match regardless of case and surrounding
+;; blanks, and the depth is the number right after "headlines", not
+;; the first number anywhere in the value.
 (defun t--keyword-toc (keyword value info)
   "Transcode the TOC keyword VALUE.
 
 KEYWORD is the keyword element holding VALUE; it serves as the
-scope when VALUE asks for a \"local\" table.  VALUE determines the
-list to generate:
+scope when VALUE asks for a \"local\" table.  VALUE, matched
+without regard to case, determines the list to generate:
 - \"tables\": a list of tables.
 - \"listings\": a list of source code listings.
 - \"headlines\": a table of contents, optionally followed by a
-  depth number and by \":target LINK\" or \"local\" for scope.
+  depth number and by \":target LINK\" or \"local\" for scope.  The
+  depth is the number right after \"headlines\"; a \":target\"
+  takes precedence over \"local\".
 
 INFO is the export options plist.  Return the list as a string,
 or nil when VALUE selects none of the three."
@@ -5465,15 +5470,17 @@ or nil when VALUE selects none of the three."
            (important-return-value t))
   (let ((case-fold-search t))
     (cond
-     ((string= "listings" value) (t--list-of-listings info))
-     ((string= "tables" value) (t--list-of-tables info))
-     ((string-match "\\<headlines\\>" value)
-      (let ((depth (and (string-match "\\<[0-9]+\\>" value)
-                        (string-to-number (match-string 0 value))))
+     ((string-match-p "\\`\\s-*listings\\s-*\\'" value)
+      (t--list-of-listings info))
+     ((string-match-p "\\`\\s-*tables\\s-*\\'" value)
+      (t--list-of-tables info))
+     ((string-match "\\`\\s-*headlines\\(?:\\s-+\\([0-9]+\\)\\)?" value)
+      (let ((depth (and (match-string 1 value)
+                        (string-to-number (match-string 1 value))))
             (scope
              (cond
               ;; link
-              ((string-match ":target +\\(\".+?\"\\|\\S-+\\)" value)
+              ((string-match ":target\\s-+\\(\".+?\"\\|\\S-+\\)" value)
                (org-export-resolve-link
                 (org-strip-quotes (match-string 1 value)) info))
               ;; local headline
