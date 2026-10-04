@@ -1906,14 +1906,15 @@ wired as its stderr.  Passing an already-made process would leave the
 child's stderr merged into stdout and corrupt the protocol."
   (declare (ftype (function (string list) t))
            (important-return-value t))
-  (make-instance 'jsonrpc-process-connection
-    :name name
-    :process (lambda (_conn)
-               (make-process
-                :name name
-                :command command
-                :stderr (get-buffer (format "*%s stderr*" name))
-                :noquery t :coding 'binary))))
+  (make-instance
+   'jsonrpc-process-connection
+   :name name
+   :process (lambda (_conn)
+              (make-process
+               :name name
+               :command command
+               :stderr (get-buffer (format "*%s stderr*" name))
+               :noquery t :coding 'binary))))
 
 (defun t--jrpc-shutdown (client)
   "Shut down CLIENT's connection and clear its `conn' slot.

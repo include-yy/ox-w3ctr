@@ -643,7 +643,7 @@ the OINFO cache is off."
       " id=\"1\" something=\"&lt;=&gt;\"")
      ;; explicit id in attr__ overrides auto-generated reference
      ("#+name:auto\n#+attr__:(id \"custom\")\ntest" " id=\"custom\""))
-     nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t--make-attr_html ()
   "Tests for `org-w3ctr--make-attr_html'."
@@ -659,7 +659,7 @@ the OINFO cache is off."
       " id=\"2\" class=\"data two\"")
      ("#+attr_html: :data-id < > ? 2 =\ntest"
       " data-id=\"&lt; &gt; ? 2 =\""))
-      nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t--make-attr__id* ()
   "Tests for `org-w3ctr--make-attr__id*'."
@@ -982,7 +982,7 @@ int a = 1;</code></p>\n</details>")
       "<details><summary>test</summary></details>")
      ("#+caption:         \t\n:test:\n:end:"
       "<details><summary>test</summary></details>"))
-      nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-dynamic-block ()
   "Tests for `org-w3ctr-dynamic-block'."
@@ -1255,7 +1255,7 @@ int a = 1;</code></p>\n</details>")
      ("1. 123\n   - 2 3 4"
       "<ol>\n<li>123\n<ul>\n<li>2 3 4</li>\n</ul></li>\n</ol>"
       "<ul>\n<li>2 3 4</li>\n</ul>"))
-      nil '(:html-prefer-user-labels t))
+   nil '(:html-prefer-user-labels t))
   ($e! (t-plain-list nil "123" nil)))
 
 (ert-deftest t-quote-block ()
@@ -1309,7 +1309,7 @@ int a = 1;</code></p>\n</details>")
       "<table class=\"data\">\n\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
      ("| / | < | > | < | > |\n|   | a | b | c | d |"
       "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>"))
-      nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-example-block ()
   "Tests for `org-w3ctr-example-block'."
@@ -1325,7 +1325,7 @@ int a = 1;</code></p>\n</details>")
       "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
      ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
       "<div id=\"t\" class=\"example\">\n<pre>\n\n\n\n</pre>\n</div>"))
-      nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-export-block ()
   "Tests for `org-w3ctr-export-block'."
@@ -1367,11 +1367,11 @@ int a = 1;</code></p>\n</details>")
   ;; Error handling: malformed Lisp signals t-error with line number.
   ($e!l (org-export-string-as
          "#+begin_export emacs-lisp\n(broken\n#+end_export\n"
-                              'w3ctr t)
-         '(org-w3ctr-error "EMACS-LISP block at line 1: End of file during parsing"))
+         'w3ctr t)
+        '(org-w3ctr-error "EMACS-LISP block at line 1: End of file during parsing"))
   ($e!l (org-export-string-as "text\n#+begin_export lisp-data\n(broken\n#+end_export\n"
                               'w3ctr t)
-         '(org-w3ctr-error "LISP-DATA block at line 2: End of file during parsing")))
+        '(org-w3ctr-error "LISP-DATA block at line 2: End of file during parsing")))
 
 (ert-deftest t-fixed-width ()
   "Tests for `org-w3ctr-fixed-width'."
@@ -1385,7 +1385,7 @@ int a = 1;</code></p>\n</details>")
      ("#+name: t\n#+attr__: [test]\n: 1\n : 2\n: 3"
       "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>")
      (":\n:\n:\n:\n" "<pre>\n\n\n</pre>"))
-     nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-horizontal-rule ()
   "Tests for `org-w3ctr-horizontal-rule'."
@@ -1430,9 +1430,9 @@ int a = 1;</code></p>\n</details>")
    t)
   ;; Error handling: malformed Lisp signals t-error.
   ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
-         '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
+        '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
   ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)
-         '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing")))
+        '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing")))
 
 (ert-deftest t-latex-fragment ()
   "Tests for `org-w3ctr-latex-fragment'."
@@ -1501,7 +1501,7 @@ int a = 1;</code></p>\n</details>")
      ;; `:attr__' applies to the figure
      ("#+attr__: [bar]\n[[https://example.com/1.jpg][file:1.jpg]]"
       "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
-      nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-verse-block ()
   "Tests for `org-w3ctr-verse-block'."
@@ -1516,7 +1516,7 @@ int a = 1;</code></p>\n</details>")
       "<p id=\"this\">\n</p>")
      ("#+attr__:[hi]\n#+begin_verse\n\n\n#+end_verse"
       "<p class=\"hi\">\n<br>\n<br>\n</p>"))
-      nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t--engrave-buffer ()
   "Tests for `org-w3ctr--engrave-buffer'."
@@ -1615,7 +1615,7 @@ int a = 1;</code></p>\n</details>")
       " class=\"foo\"")
      ("#+name: nm\n#+begin_src emacs-lisp\nx\n#+end_src"
       " id=\"nm\""))
-      nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t-src-block ()
   "Tests for `org-w3ctr-src-block'."
@@ -1677,9 +1677,9 @@ int a = 1;</code></p>\n</details>")
    t)
   ;; Error handling: malformed Lisp signals t-error.
   ($e!l (org-export-string-as "@@e:(broken@@" 'w3ctr t)
-         '(org-w3ctr-error "@@e snippet at line 1: End of file during parsing"))
+        '(org-w3ctr-error "@@e snippet at line 1: End of file during parsing"))
   ($e!l (org-export-string-as "@@d:(broken@@" 'w3ctr t)
-         '(org-w3ctr-error "@@d snippet at line 1: End of file during parsing")))
+        '(org-w3ctr-error "@@d snippet at line 1: End of file during parsing")))
 
 (ert-deftest t-line-break ()
   "Tests for `org-w3ctr-line-break'."
@@ -2854,7 +2854,7 @@ int a = 1;</code></p>\n</details>")
           "<span class=\"org-tag-b\">b</span></span>"))
   ;; custom format function
   ($l (t--tags '("a" "b") '(:html-tags-format-function
-                             (lambda (tags _i) (string-join tags ","))))
+                            (lambda (tags _i) (string-join tags ","))))
       "a,b"))
 
 (ert-deftest t--headline-todo ()
@@ -2907,16 +2907,16 @@ int a = 1;</code></p>\n</details>")
      ("* DONE b" "DONE|done|nil|b|nil")
      ("* text" "nil|nil|nil|text|nil"))
    t '(:with-todo-keywords t :with-priority t :with-tags t
-       :html-format-headline-function
-       (lambda (todo todo-type priority text tags _info)
-         (format "%s|%s|%s|%s|%s" todo todo-type priority text tags))
-       :with-toc nil))
+                           :html-format-headline-function
+                           (lambda (todo todo-type priority text tags _info)
+                             (format "%s|%s|%s|%s|%s" todo todo-type priority text tags))
+                           :with-toc nil))
   ;; A nil format function falls back to the default.
   (t-check-element-values
    #'t--build-bare-headline
    '(("* TODO a" "<span class=\"todo TODO\">TODO</span> a"))
    t '(:with-todo-keywords t :with-toc nil
-       :html-format-headline-function nil)))
+                           :html-format-headline-function nil)))
 
 (ert-deftest t--build-base-headline ()
   "Tests for `org-w3ctr--build-base-headline'."
@@ -3567,11 +3567,11 @@ int a = 1;</code></p>\n</details>")
   ;; normalized to exactly one trailing newline.
   ($l (t--format-legacy-navbar
        '(:html-link-up "u" :html-link-home "h"
-         :html-home/up-format "[%s][%s]"))
+                       :html-home/up-format "[%s][%s]"))
       "[u][h]\n")
   ($l (t--format-legacy-navbar
        '(:html-link-up "u" :html-link-home "h"
-         :html-home/up-format "<%s %s>\n\n\n"))
+                       :html-home/up-format "<%s %s>\n\n\n"))
       "<u h>\n")
   ;; A bad format string errors when the bar is built, and goes
   ;; unnoticed when it is not.
@@ -4146,13 +4146,13 @@ int a = 1;</code></p>\n</details>")
         ($c "\n<ul class=\"toc\">\n<li>a\n<ul class=\"toc\">\n<li>b"
             "</li>\n</ul>\n</li>\n<li>c</li>\n</ul>\n"))
     ;; The two cases of Org commit 332695e85, where the scope semantics
-  ;; was fixed upstream.
-  ($l (t--toc-alist-to-text '(("1" . 1) ("1.1" . 2) ("2" . 1)) info t)
-      "\n<ul class=\"toc\">\n<li>1\n<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n<li>2</li>\n</ul>\n")
-  ;; A first entry below the top level wraps in empty lists.
-  ($l (t--toc-alist-to-text '(("1" . 2) ("1.1" . 3) ("2" . 1)) info t)
-      "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n<li>1\n<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n</ul>\n</li>\n<li>2</li>\n</ul>\n")
-  ;; Without top, the first entry's level sets the depth.
+    ;; was fixed upstream.
+    ($l (t--toc-alist-to-text '(("1" . 1) ("1.1" . 2) ("2" . 1)) info t)
+        "\n<ul class=\"toc\">\n<li>1\n<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n<li>2</li>\n</ul>\n")
+    ;; A first entry below the top level wraps in empty lists.
+    ($l (t--toc-alist-to-text '(("1" . 2) ("1.1" . 3) ("2" . 1)) info t)
+        "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n<li>1\n<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n</ul>\n</li>\n<li>2</li>\n</ul>\n")
+    ;; Without top, the first entry's level sets the depth.
     ($l (t--toc-alist-to-text '(("a" . 3)) info)
         "\n<ul class=\"toc\">\n<li>a</li>\n</ul>\n")))
 
