@@ -40,10 +40,9 @@
 ;;; Code:
 
 ;;;; Dependencies
-(require 'cl-lib)
+(require 'seq)
 (require 'map)
 (require 'format-spec)
-(require 'xml)
 (require 'jsonrpc)
 (require 'ox)
 (require 'ox-publish)
@@ -1447,10 +1446,12 @@ A symbol contributes its `symbol-name' (a keyword keeps its colon); nil
 returns nil."
   (declare (ftype (function (t) (or null string)))
            (pure t) (important-return-value t))
-  (cl-typecase s
-    (null nil) (symbol (symbol-name s))
-    (string s) (number (number-to-string s))
-    (otherwise nil)))
+  (pcase s
+    ('nil nil)
+    ((pred symbolp) (symbol-name s))
+    ((pred stringp) s)
+    ((pred numberp) (number-to-string s))
+    (_ nil)))
 
 (defsubst t--trim (s &optional keep-lead)
   "Remove whitespace from the beginning and end of string S.
@@ -1631,7 +1632,8 @@ attributes into a single string."
          (attributes (t--read-attr__ element))
          (a (t--make-attr__
              (if (or (not reference)
-                     (cl-find 'id attributes :key #'car-safe))
+                     (seq-find (lambda (x) (eq 'id (car-safe x)))
+                               attributes))
                  attributes
                (cons `("id" ,reference) attributes)))))
     (if (t--nw-p a) a "")))
@@ -1777,11 +1779,11 @@ sanitizes string content using `org-w3ctr--encode-plain-text'.
 Signal `org-w3ctr-error' when a list's first element is not a symbol."
   (declare (ftype (function (t) string))
            (important-return-value t))
-  (cl-typecase data
-    (null "")
-    ((or symbol string number)
+  (pcase data
+    ('nil "")
+    ((or (pred symbolp) (pred stringp) (pred numberp))
      (t--encode-plain-text (t--2str data)))
-    (list
+    ((pred listp)
      (let ((tag (nth 0 data)))
        (unless (and tag (symbolp tag))
          (t-error "Invalid S-expression tag: %S" tag))
@@ -1795,7 +1797,7 @@ Signal `org-w3ctr-error' when a list's first element is not a symbol."
            (let ((children (mapconcat #'t--sexp2html (cddr data))))
              (format "<%s%s>%s</%s>"
                      tag attrs children tag))))))
-    (otherwise "")))
+    (_ "")))
 
 ;;;; References
 
@@ -3012,7 +3014,8 @@ list (class is written as a vector, e.g. `#+attr__: [foo]')."
           (push (list "class" "example") attributes))))
     (let ((a (t--make-attr__
               (if (or (not reference)
-                      (cl-find 'id attributes :key #'car-safe))
+                      (seq-find (lambda (x) (eq 'id (car-safe x)))
+                                attributes))
                   attributes
                 (cons `("id" ,reference) attributes)))))
       (if (t--nw-p a) a ""))))
@@ -4589,9 +4592,9 @@ non-whitespace, format them as key=value pairs separated by commas,
 and return nil when nothing remains."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
-  (when-let* ((opts (cl-remove-if-not
-                     #'t--nw-p (t--pget info :html-viewport)
-                     :key #'cadr)))
+  (when-let* ((opts (seq-filter
+                     (lambda (x) (t--nw-p (cadr x)))
+                     (t--pget info :html-viewport))))
     (t--build-meta-entry
      "name" "viewport"
      (mapconcat (pcase-lambda (`(,k ,v)) (format "%s=%s" k v))
@@ -4907,7 +4910,7 @@ when an entry is not a (URL . NAME) cons of strings."
   (if (equal pairs []) ""
     (let ((valid-p (lambda (x) (and (stringp (car-safe x))
                                     (stringp (cdr-safe x))))))
-      (unless (cl-every valid-p pairs)
+      (unless (seq-every-p valid-p pairs)
         (t-error "Invalid navbar vector: %s" pairs))
       (t--wrap-navbar
        (mapconcat
@@ -5432,14 +5435,14 @@ wrapper."
          (levels (mapcar #'cdr toc-entries))
          ;; Each entry deepens or climbs from its predecessor; the
          ;; first compares against the base level.
-         (deltas (cl-mapcar #'- levels (cons base levels)))
+         (deltas (seq-mapn #'- levels (cons base levels)))
          (step (pcase-lambda (`(,title . ,delta))
                  (if (> delta 0)
                      (concat (t--make-string delta open) title)
                    (concat (t--make-string (- delta) close)
                            "</li>\n<li>" title)))))
     (concat
-     (mapconcat step (cl-mapcar #'cons (mapcar #'car toc-entries) deltas))
+     (mapconcat step (seq-mapn #'cons (mapcar #'car toc-entries) deltas))
      (t--make-string (- (car (last levels)) base) close))))
 
 (defun t--build-toc (depth info &optional scope)

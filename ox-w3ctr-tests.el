@@ -1,6 +1,7 @@
 ;;; -*- lexical-binding:t; no-byte-compile:t; -*-
 
 (require 'ert)
+(require 'cl-lib)
 (load "ox-w3ctr")
 
 ;; Org's error messages quote with `...'; keep it as backticks so the
