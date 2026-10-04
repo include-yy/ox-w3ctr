@@ -78,6 +78,25 @@ Two tests read `ox-w3ctr.el` next to the loaded file and skip without it
 `org-w3ctr--oinfo-props-go-through-pget`); `org-w3ctr--load-file` reads it
 too but fails rather than skipping.
 
+### Stricter checks
+
+Beyond the suite, helpers under `tools/rpctest/` (gitignored) cover what
+it cannot: `strict-compile.el` (byte-compile with `byte-compile-error-on-warn'
+and `byte-compile-warnings' at `t'), `checkdoc.el`, `pure-scan.el` (a
+call-graph scan for `(pure t)' functions reaching `t--pget'/`t--pput',
+which this file forbids), `fuzz.el` (property checks: encoding leaves no
+raw specials, `t--sexp2html' renders to a string or signals only
+`org-w3ctr-error', the OINFO cache agrees with `plist-get'), and
+`indent-tests.el` / `indent-w3ctr.el` (`indent-region' under
+`emacs-lisp-mode').  Two gotchas they cost real time on:
+
+- **Indentation: load the file first.**  Without it the helper macros'
+  `(declare (indent ...))' specs are missing and `indent-region' reports
+  hundreds of false deviations (523 vs 32 on the test file).
+- **`byte-compile-file`'s second argument is `LOAD`, not an output path.**
+  `(byte-compile-file "ox-w3ctr.el" "x")` still writes `ox-w3ctr.elc'
+  beside the source and then tries to load `"x"'.
+
 ## Conventions
 
 - Symbols in `ox-w3ctr.el` use the shorthand `t-` for `org-w3ctr-`
