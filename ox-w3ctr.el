@@ -3661,7 +3661,7 @@ Only do so when `:html-link-org-files-as-html' is non-nil and
 RAW-PATH actually ends in \".org\"; otherwise return RAW-PATH
 unchanged."
   (declare (ftype (function (string list) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (if-let* ((_ (t--pget info :html-link-org-files-as-html))
             (src-ext (downcase (file-name-extension raw-path ".")))
             (_ (string= ".org" src-ext)))
