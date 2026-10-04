@@ -961,6 +961,22 @@ implemented by an `addMethod' call in jstools/index.js."
      ("#+name: my-block\n#+begin_center\nhello\n#+end_center"
       "<div style=\"text-align:center;\">\n<p>hello</p>\n</div>"))))
 
+(ert-deftest t-drawer-format-function ()
+  "The drawer goes through `org-w3ctr-drawer-format-function'."
+  (let ((org-w3ctr-drawer-format-function
+         (lambda (name summary attrs _contents _info)
+           (format "<DRAWER name=%s summary=%s attrs=%s/>"
+                   name summary attrs))))
+    (t-check-element-values
+     #'t-drawer
+     '((":hello:\n:end:"
+        "<DRAWER name=hello summary=hello attrs=/>")
+       ("#+caption: what can i say\n:test:\n:end:"
+        "<DRAWER name=test summary=what can i say attrs=/>")
+       ("#+name: id\n#+attr__: [example]\n:h:\n:end:"
+        "<DRAWER name=h summary=h attrs= id=\"id\" class=\"example\"/>"))
+     nil '(:html-prefer-user-labels t))))
+
 (ert-deftest t-drawer ()
   "Tests for `org-w3ctr-drawer'."
   (t-check-element-values

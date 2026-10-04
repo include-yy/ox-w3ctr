@@ -161,6 +161,8 @@
   :options-alist
   '(;; Reference
     (:html-prefer-user-labels nil nil t-prefer-user-labels)
+    ;; Drawer
+    (:html-format-drawer-function nil nil t-drawer-format-function)
     ;; Footnote
     (:html-footnotes-section nil nil t-footnotes-section)
     (:html-footnote-format nil nil t-footnote-format)
@@ -272,6 +274,25 @@ reference."
 (defvar t--id-attr-prefix "ID-"
   "Prefix to use in ID attributes.
 This affects IDs that are determined from the ID property.")
+
+;;;; Drawer
+(defcustom t-drawer-format-function #'t-drawer-default-format-function
+  "Function to format a drawer in HTML.
+
+It is called with five arguments:
+- NAME     the drawer name (a string).
+- SUMMARY  the <summary> text (a string): the caption when one is
+           present, NAME otherwise.
+- ATTRS    the HTML attribute string (a string, possibly empty),
+           including the leading space when non-empty.
+- CONTENTS the transcoded drawer contents (a string or nil).
+- INFO     the export options (a plist).
+
+It should return the complete HTML for the drawer.  The default is
+`org-w3ctr-drawer-default-format-function', which emits a
+`<details>' element with a `<summary>'."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 ;;;; Footnote
 (defcustom t-footnotes-section "<div id=\"references\">
@@ -2019,21 +2040,36 @@ string."
 ;; `<details>' is the semantic HTML5 element for collapsible content.
 ;; Supports `#+attr__:' / `#+attr_html:' for custom attributes.
 ;; Caption becomes the `<summary>' text; falls back to drawer name.
+;; Options:
+;; - :html-format-drawer-function (`org-w3ctr-drawer-format-function')
+(defun t-drawer-default-format-function (_name summary attrs contents _info)
+  "Return a <details> element holding the drawer summary and contents.
+
+See `org-w3ctr-drawer-format-function' for the descriptions of
+NAME, SUMMARY, ATTRS, CONTENTS, and INFO."
+  (declare (ftype (function (string string string (or null string) list)
+                            string))
+           (important-return-value t))
+  (format "<details%s><summary>%s</summary>%s</details>"
+          attrs summary (t--prepend-newline contents)))
+
 (defun t-drawer (drawer contents info)
   "Transcode a DRAWER element from Org to HTML.
 
 CONTENTS holds the contents of the block.  INFO is the info plist.
 Return the formatted <details> element as a string.  The caption
-becomes the <summary> text; falls back to the drawer name."
+becomes the <summary> text; falls back to the drawer name.  The
+markup is built by the function in `:html-format-drawer-function'."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((name (org-element-property :drawer-name drawer))
-         (cap (if-let* ((cap (org-export-get-caption drawer))
-                        (exp (t--nw-p (org-export-data cap info))))
-                  exp name))
+         (summary (if-let* ((cap (org-export-get-caption drawer))
+                            (exp (t--nw-p (org-export-data cap info))))
+                      exp name))
          (attrs (t--make-attr__id* drawer info t)))
-    (format "<details%s><summary>%s</summary>%s</details>"
-            attrs cap (t--prepend-newline contents))))
+    (funcall (or (t--pget info :html-format-drawer-function)
+                 #'t-drawer-default-format-function)
+             name summary attrs contents info)))
 
 ;;;; Dynamic Block
 
