@@ -1756,24 +1756,28 @@ For example, the expression (p ((class \"foo\")) \"Hello\") is
 converted to \"<p class=\\\"foo\\\">Hello</p>\".
 
 The function correctly handles void elements (like `br') and
-sanitizes string content using `org-w3ctr--encode-plain-text'."
+sanitizes string content using `org-w3ctr--encode-plain-text'.
+Signal `org-w3ctr-error' when a list's first element is not a symbol."
   (declare (ftype (function (t) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (cl-typecase data
     (null "")
     ((or symbol string number)
      (t--encode-plain-text (t--2str data)))
     (list
-     ;; always use lowercase tagname.
-     (let* ((tag (downcase (t--2str (nth 0 data))))
-            (attr-ls (nth 1 data))
-            (attrs (if (booleanp attr-ls) ""
-                     (t--make-attr__ attr-ls))))
-       (if (string-match-p t--void-element-regexp tag)
-           (t--void-element tag attrs)
-         (let ((children (mapconcat #'t--sexp2html (cddr data))))
-           (format "<%s%s>%s</%s>"
-                   tag attrs children tag)))))
+     (let ((tag (nth 0 data)))
+       (unless (and tag (symbolp tag))
+         (t-error "Invalid S-expression tag: %S" tag))
+       ;; always use lowercase tagname.
+       (let* ((tag (downcase (symbol-name tag)))
+              (attr-ls (nth 1 data))
+              (attrs (if (booleanp attr-ls) ""
+                       (t--make-attr__ attr-ls))))
+         (if (string-match-p t--void-element-regexp tag)
+             (t--void-element tag attrs)
+           (let ((children (mapconcat #'t--sexp2html (cddr data))))
+             (format "<%s%s>%s</%s>"
+                     tag attrs children tag))))))
     (otherwise "")))
 
 ;;;; References
@@ -2543,7 +2547,12 @@ read or eval failure; CONTEXT labels the error message."
               ((error (lambda (err)
                         (t-error "%s at line %d: %s"
                                  context line
-                                 (error-message-string err)))))
+                                 ;; A nested `org-w3ctr-error' has a clean
+                                 ;; message already; do not re-render it with
+                                 ;; its type name and quotes.
+                                 (if (eq (car err) 't-error)
+                                     (cadr err)
+                                   (error-message-string err))))))
             (let ((data (read s)))
               (if proc (t--2str (funcall proc data))
                 (t--sexp2html data))))

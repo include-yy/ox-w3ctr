@@ -720,7 +720,11 @@ the OINFO cache is off."
   ($l (t--sexp2html '(hr)) "<hr>")
   ;; Escape
   ($l (t--sexp2html '(p () "123<456>")) "<p>123&lt;456&gt;</p>")
-  ($l (t--sexp2html '(p () (b () "a&b"))) "<p><b>a&amp;b</b></p>"))
+  ($l (t--sexp2html '(p () (b () "a&b"))) "<p><b>a&amp;b</b></p>")
+  ;; A list's first element must be a non-nil symbol.
+  ($e! (t--sexp2html '(nil)))
+  ($e! (t--sexp2html '(1.5 () "x")))
+  ($e! (t--sexp2html '("div" () "x"))))
 
 (ert-deftest t--target-reference ()
   "Tests for `org-w3ctr--target-reference'."
