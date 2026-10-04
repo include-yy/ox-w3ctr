@@ -1669,17 +1669,6 @@ the same file reads identically on every machine."
     (buffer-substring-no-properties
      (point-min) (point-max))))
 
-(defun t--insert-file (file)
-  "Insert the contents of FILE at point in the current buffer.
-
-This function uses `insert-file-contents-literally' to place
-the full contents of FILE into the current buffer.  It signals
-an `org-w3ctr-error' if FILE does not exist or is a directory."
-  (declare (ftype (function (string) t)))
-  (unless (and (file-exists-p file) (not (file-directory-p file)))
-    (t-error "Invalid file: %s" file))
-  (insert-file-contents-literally file))
-
 (defun t--find-all (regexp str &optional start)
   "Return a list of all non-overlapping matches for REGEXP in STR.
 
@@ -4990,10 +4979,13 @@ no line breaks.  Signal `org-w3ctr-error' when the file does not
 exist."
   (declare (ftype (function (string) string))
            (important-return-value t))
-  (with-temp-buffer
-    (t--insert-file (file-name-concat t--dir "assets" (concat name ".svg")))
-    (base64-encode-region (point-min) (point-max) t)
-    (buffer-substring-no-properties (point-min) (point-max))))
+  ;; Base64 needs bytes, and `org-w3ctr--load-file' decodes UTF-8, so
+  ;; encode the string back to UTF-8 to get a unibyte string.
+  (base64-encode-string
+   (encode-coding-string
+    (t--load-file (file-name-concat t--dir "assets" (concat name ".svg")))
+    'utf-8)
+   t))
 
 (defun t--load-cc-svg-once (name)
   "Return the base64 SVG of the icon NAME, reading it at most once.

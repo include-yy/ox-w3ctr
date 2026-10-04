@@ -651,11 +651,6 @@ the OINFO cache is off."
     ($l ox (t--load-file "ox-w3ctr.el")))
   ($e! (t--load-file "not-exist")))
 
-(ert-deftest t--insert-file ()
-  "Tests for `org-w3ctr--insert-file'."
-  ($e! (t--insert-file default-directory))
-  ($e! (t--insert-file "no-exist")))
-
 (ert-deftest t--find-all ()
   "Tests for `org-w3ctr--find-all."
   ($l (t--find-all "[0-9]" "114514") '("1" "1" "4" "5" "1" "4"))
@@ -3676,6 +3671,13 @@ int a = 1;</code></p>\n</details>")
   ;; A missing icon is an error.
   ($q (car (should-error (t--load-cc-svg "no-such-icon")))
       'org-w3ctr-error))
+
+(ert-deftest t--load-cc-svg-utf8 ()
+  "Non-ASCII SVG bytes survive the base64 step."
+  (let ((svg "<svg>\u00e9</svg>"))
+    (cl-letf (((symbol-function 't--load-file) (lambda (_file) svg)))
+      ($l (base64-decode-string (t--load-cc-svg "fake"))
+          (encode-coding-string svg 'utf-8)))))
 
 (ert-deftest t--load-cc-svg-once ()
   "Tests for `org-w3ctr--load-cc-svg-once'."
