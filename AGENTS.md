@@ -201,53 +201,21 @@ section of `README.org` (larger), rather than a plan of its own.  There
 is no fixed task list and no "underway" moment: those two lists *are*
 the plan.
 
-Sections below `;;;; OINFO oclosure` that are not yet refined carry
+The `;;; Template and Inner Template` part was finished on 2026-10-04 and
+`;;; Basic utilities` has had its pass.  The latter is stable: it carries
+unit, source-scanning and property tests and the JSON-RPC rewrite,
+verified end to end — touch it only for a concrete reason, with a test,
+never as a drive-by while refining another section.  The work now is the
+earlier parts (the 2026-10 section refile scrambled their source order).
+
+The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
-source.  The `;;; Template and Inner Template` part was finished on
-2026-10-04; the work now is the earlier parts (the 2026-10 section
-refile scrambled source order).  The seven `REFINE:` sections left, in
-source order: Footnote, Special Block, Table, LaTeX, Engrave-faces
-subset, Source block, Link.  Within a part, take each section in source
-order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass —
-docstring, `declare`, `important-return-value`/`pure`, helper use,
-tests — and remove the marker when the section is done.
-What a pass turns up goes to `## Tasks` or `README.org` Roadmap.
-
-`;;; Basic utilities` has had its pass: every section is refined, and
-the part carries unit, source-scanning and property tests (plus the
-JSON-RPC rewrite, verified end to end).  Treat it as stable — touch it
-only for a concrete reason, with a test, never as a drive-by while
-refining another section.
-
-A section deferred to a later round carries `;; REFINE2:` instead of
-`;; REFINE:`, so the `grep -n 'REFINE:'` recipe skips it (the `2` breaks
-the exact match).  Take the remaining `REFINE:` sections first; the
-`REFINE2:` ones come afterwards.
-
-Its one **precondition**: the two local skills
-(`.agents/skills/ox-w3ctr-verify`, `.agents/skills/elisp-docstring`) get
-refactored until they are actually usable — the owner reads their code
-and takes part, so this is a dialogue, not a batch job.  They are
-untracked (`.agents/` is), so what a round settles goes into this file
-rather than into a commit.  "Usable" means:
-
-- **The documented recipe covers a routine run.**  Needing a wrapper
-  written somewhere else is a missing step in the recipe (2026-09: five
-  such wrappers, three extra corpus passes, and a baseline that could not
-  work).
-- **Numbers, not adjectives** — hashes, counts, seconds, and the command
-  that produced them — and **one** place for them (this file), referred
-  to rather than copied, so the copies cannot drift.
-- **A checker can disagree, and is itself checked**: a differential or a
-  third-party parser over the corpus, a self-check (one build, twice), and
-  its false alarms written down in `references/checker-design.md` instead
-  of quietly fixed.
-- **Costs are stated**: what each script exports, how long a pass takes,
-  and which cross-checks a routine run skips (the nil flavour: OINFO
-  changes only).
-
-A skill round is done when the next run can follow it without asking a
-question the files do not answer.
+source.  Seven remain, in source order: Footnote, Special Block, Table,
+LaTeX, Engrave-faces subset, Source block, Link.  Take them in source
+order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass — docstring,
+`declare`, `important-return-value`/`pure`, helper use, tests — and
+remove the marker when the section is done.  What a pass turns up goes to
+`## Tasks` or `README.org` Roadmap.
 
 The first tasks, then: the options tidy-up in `README.org` Roadmap (the
 `*-function` replacement and the ox-html compatibility chart), and the
