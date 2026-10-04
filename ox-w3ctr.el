@@ -2078,8 +2078,11 @@ element as a string."
 ;; Org-internal extension mechanism; exported as-is.
 (defun t-dynamic-block (_dynamic-block contents _info)
   "Transcode a DYNAMIC-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block."
-  (declare (ftype (function (t (or null string) t) string))
+
+CONTENTS holds the transcoded contents of the block.  INFO is
+unused.  Return CONTENTS as-is, or the empty string when it is
+nil."
+  (declare (ftype (function (t (or null string) list) string))
            (pure t) (important-return-value t))
   (or contents ""))
 
