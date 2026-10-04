@@ -2043,29 +2043,30 @@ string."
 ;; Options:
 ;; - :html-format-drawer-function (`org-w3ctr-drawer-format-function')
 (defun t-drawer-default-format-function (_name summary attrs contents _info)
-  "Return a <details> element holding the drawer summary and contents.
+  "Return the <details> element holding the drawer summary and contents.
 
 See `org-w3ctr-drawer-format-function' for the descriptions of
 NAME, SUMMARY, ATTRS, CONTENTS, and INFO."
   (declare (ftype (function (string string string (or null string) list)
                             string))
-           (important-return-value t))
+           (pure t) (important-return-value t))
   (format "<details%s><summary>%s</summary>%s</details>"
           attrs summary (t--prepend-newline contents)))
 
 (defun t-drawer (drawer contents info)
   "Transcode a DRAWER element from Org to HTML.
 
-CONTENTS holds the contents of the block.  INFO is the info plist.
-Return the formatted <details> element as a string.  The caption
-becomes the <summary> text; falls back to the drawer name.  The
-markup is built by the function in `:html-format-drawer-function'."
+CONTENTS holds the contents of the drawer.  INFO is the info plist.
+The <summary> text is the caption when one is present, and the
+drawer name otherwise.  The markup is built by the function in
+`:html-format-drawer-function'.  Return the formatted <details>
+element as a string."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((name (org-element-property :drawer-name drawer))
-         (summary (if-let* ((cap (org-export-get-caption drawer))
-                            (exp (t--nw-p (org-export-data cap info))))
-                      exp name))
+         (caption (org-export-get-caption drawer))
+         (summary (or (and caption (t--nw-p (org-export-data caption info)))
+                      name))
          (attrs (t--make-attr__id* drawer info t)))
     (funcall (or (t--pget info :html-format-drawer-function)
                  #'t-drawer-default-format-function)
