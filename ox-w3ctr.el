@@ -2004,13 +2004,12 @@ Without user attributes, center the contents with an inline style.
 With user attributes, drop the centering style and let the user
 control all attributes.  Return the formatted <div> element as a
 string."
-  (declare (ftype (function (t (or null string) t) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((has-user-attrs (or (org-element-property :attr__ center-block)
                              (org-element-property :attr_html center-block)))
          (attrs (t--make-attr__id* center-block info t)))
-    (format "<div%s%s>%s</div>"
-            (if (t--nw-p attrs) attrs "")
+    (format "<div%s%s>%s</div>" attrs
             (if has-user-attrs "" " style=\"text-align:center;\"")
             (t--prepend-newline contents))))
 
