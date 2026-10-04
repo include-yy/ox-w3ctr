@@ -784,6 +784,27 @@ the OINFO cache is off."
                            'paragraph #'identity)))))
       ($n (t--reference para (list :html-prefer-user-labels nil) t)))))
 
+(ert-deftest t-image-link-filter ()
+  "Tests for `org-w3ctr-image-link-filter'."
+  (let (seen)
+    (cl-letf (((symbol-function 'org-export-insert-image-links)
+               (lambda (data info rules)
+                 (setq seen (list data info rules))
+                 'TREE)))
+      ($q (t-image-link-filter 'DATA 'backend 'INFO) 'TREE)
+      ($l seen (list 'DATA 'INFO t-inline-image-rules)))))
+
+(ert-deftest t-final-function ()
+  "Tests for `org-w3ctr-final-function'."
+  ;; indent off: CONTENTS comes back unchanged.
+  ($l (t-final-function "<ul>\n   <li>a</li>\n</ul>" nil '(:html-indent nil))
+      "<ul>\n   <li>a</li>\n</ul>")
+  ;; indent on: the major mode is set and the region indented.
+  ($l (t-final-function "<ul>\n   <li>a</li>\n</ul>" nil '(:html-indent t))
+      "<ul>\n<li>a</li>\n</ul>")
+  ;; a single line has nothing to reindent.
+  ($l (t-final-function "<p>x</p>" nil '(:html-indent t)) "<p>x</p>"))
+
 (ert-deftest t--jrpc-make ()
   "Tests for `org-w3ctr--jrpc-make'."
   (let ((client (t--jrpc-make "test" '("true") nil '(tex2mml))))

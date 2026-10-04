@@ -172,9 +172,9 @@ Sections below `;;;; OINFO oclosure` that are not yet refined carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
 source.  The `;;; Template and Inner Template` part was finished on
 2026-10-04; the work now is the earlier parts (the 2026-10 section
-refile scrambled source order).  The eight `REFINE:` sections left, in
-source order: Filter Functions, Footnote, Special Block, Table, LaTeX,
-Engrave-faces subset, Source block, Link.  Within a part, take each
+refile scrambled source order).  The seven `REFINE:` sections left, in
+source order: Footnote, Special Block, Table, LaTeX, Engrave-faces
+subset, Source block, Link.  Within a part, take each
 section in source order (`grep -n 'REFINE:' ox-w3ctr.el`),
 one section
 per pass — docstring, `declare`, `important-return-value`/`pure`,
@@ -332,10 +332,10 @@ same session.  Larger or planned work is in the =Roadmap= section of
 =README.org=.
 
 - **Docstring & layout leftovers (from the tidy pass).**
-  - Add `(declare (ftype …))` to the 4 functions that still lack it
+  - Add `(declare (ftype …))` to the 3 functions that still lack it
     (excluding `defsubst`, interactive, and end-user commands; count as
-    of 2026-10-04): `t-final-function`, `t-special-block`,
-    `t--textarea-block` and `t-preamble-default-function`.
+    of 2026-10-04): `t-special-block`, `t--textarea-block` and
+    `t-preamble-default-function`.
 
 - **Shorthand symbol names in docstrings and comments.**  They are
   string literals and get no `read-symbol-shorthands`; write the full

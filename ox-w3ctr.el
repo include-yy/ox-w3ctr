@@ -1820,12 +1820,14 @@ nil.  This doesn't apply to radio targets and targets."
 
 ;;;; Filter Functions
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-
 (defun t-image-link-filter (data _backend info)
-  "Process image links that are inside descriptions.
-DATA is the parse tree.  INFO is an info plist.
-See `org-export-insert-image-links' for more details."
+  "Filter to insert image links inside link descriptions.
+
+DATA is the parse tree, BACKEND the backend symbol (unused), and INFO
+the export options plist.  Return DATA with any image that is a link's
+description turned into a proper nested link; `org-w3ctr-inline-image-rules'
+decides which links count as images.  See
+`org-export-insert-image-links'."
   (declare (ftype (function (t t list) t))
            (important-return-value t))
   (org-export-insert-image-links data info t-inline-image-rules))
@@ -1836,6 +1838,8 @@ See `org-export-insert-image-links' for more details."
 CONTENTS is the exported HTML string and INFO the export plist.  The
 major mode is set only when indenting, so that the HTML indentation
 rules apply; its hooks are delayed, as in `org-html-final-function'."
+  (declare (ftype (function ((or null string) t list) string))
+           (important-return-value t))
   (with-temp-buffer
     (insert contents)
     (when (t--pget info :html-indent)
