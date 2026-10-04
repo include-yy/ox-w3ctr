@@ -181,6 +181,12 @@ per pass — docstring, `declare`, `important-return-value`/`pure`,
 helper use, tests — and remove the marker when the section is done.
 What a pass turns up goes to `## Tasks` or `README.org` Roadmap.
 
+`;;; Basic utilities` has had its pass: every section is refined, and
+the part carries unit, source-scanning and property tests (plus the
+JSON-RPC rewrite, verified end to end).  Treat it as stable — touch it
+only for a concrete reason, with a test, never as a drive-by while
+refining another section.
+
 A section deferred to a later round carries `;; REFINE2:` instead of
 `;; REFINE:`, so the `grep -n 'REFINE:'` recipe skips it (the `2` breaks
 the exact match).  Take the remaining `REFINE:` sections first; the
