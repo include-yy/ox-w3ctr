@@ -1838,7 +1838,7 @@ decides which links count as images.  See
 CONTENTS is the exported HTML string and INFO the export plist.  The
 major mode is set only when indenting, so that the HTML indentation
 rules apply; its hooks are delayed, as in `org-html-final-function'."
-  (declare (ftype (function ((or null string) t list) string))
+  (declare (ftype (function (string t list) string))
            (important-return-value t))
   (with-temp-buffer
     (insert contents)

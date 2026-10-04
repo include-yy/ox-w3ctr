@@ -162,6 +162,18 @@ Only literal keys are checked: a computed key cannot be seen here."
                     offenders))))
         ($l offenders nil)))))
 
+(ert-deftest t--oinfo-cache-property ()
+  "A cached read matches `plist-get'; a cached write reads back."
+  (skip-unless t--oinfo-cache-p)
+  (let ((key (car t--oinfo-cache-props)))
+    (dotimes (v 100)
+      (let ((info (list key (1+ v))))
+        ($l (t--pget info key) (plist-get info key))
+        (t--pput info key 'NEW)
+        ($q (t--pget info key) 'NEW)
+        (t--pput info :plain v)
+        ($l (t--pget info :plain) v)))))
+
 (ert-deftest $oinfo-cache-macro ()
   "Smoke test for the `$oinfo-cache' test helper macro.
 Verifies setup, body evaluation, and cleanup of throwaway closures."
@@ -496,6 +508,23 @@ the OINFO cache is off."
   ($l (t--encode-plain-text* "\"'&\"")
       "&quot;&apos;&amp;&quot;"))
 
+(ert-deftest t--encode-plain-text-property ()
+  "Encoding leaves no raw specials and only well-formed entities."
+  (random "org-w3ctr-encode")
+  (let ((chars "abc&<>'\" \n\t/_="))
+    (dotimes (_ 1000)
+      (let ((s ""))
+        (dotimes (_ (random 20))
+          (setq s (concat s (string (aref chars (random (length chars)))))))
+        (let ((b (t--encode-plain-text* s)))
+          ($n (string-match-p "[<>'\"]" b))
+          (let ((i 0))
+            (while (string-match "&" b i)
+              (let ((pos (match-beginning 0)))
+                ($s (cl-some (lambda (e) (string-prefix-p e (substring b pos)))
+                             '("&amp;" "&lt;" "&gt;" "&apos;" "&quot;")))
+                (setq i (1+ pos))))))))))
+
 (ert-deftest t--read-attr ()
   "Tests for `org-w3ctr--read-attr'."
   ;; `org-element-property' use `org-element--property'
@@ -723,6 +752,24 @@ the OINFO cache is off."
   ($e! (t--sexp2html '(nil)))
   ($e! (t--sexp2html '(1.5 () "x")))
   ($e! (t--sexp2html '("div" () "x"))))
+
+(ert-deftest t--sexp2html-property ()
+  "A random S-expression renders to a string, or signals `org-w3ctr-error'."
+  (random "org-w3ctr-sexp2html")
+  (let* ((chars "abc01 &<>'\"-_")
+         (rs (lambda (n)
+               (let (s)
+                 (dotimes (_ n)
+                   (setq s (concat s (string (aref chars (random (length chars)))))))
+                 s))))
+    (dotimes (_ 500)
+      (let* ((tag (if (zerop (random 6))
+                      (pcase (random 3) (0 nil) (1 (random 9)) (2 (funcall rs 2)))
+                    (intern (concat "t" (number-to-string (random 3))))))
+             (x (list tag (list (list 'id (funcall rs 2))) (funcall rs 3))))
+        ($s (condition-case nil
+                (stringp (t--sexp2html x))
+              (org-w3ctr-error t)))))))
 
 (ert-deftest t--target-reference ()
   "Tests for `org-w3ctr--target-reference'."
