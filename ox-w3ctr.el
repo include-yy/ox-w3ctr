@@ -1301,8 +1301,8 @@ Nil when the cache is off, which makes every OINFO helper a no-op.")
     "Return the value of property PROP in the export INFO plist.
 
 Like `plist-get', except that the keys listed in
-`org-w3ctr--oinfo-cache-props' are read through a cache when
-`org-w3ctr-oinfo-enabled' says there is one.  Nil means PROP is absent.
+`org-w3ctr--oinfo-cache-props' are read through a cache when this build
+has one (see `org-w3ctr--oinfo-cache-p').  Nil means PROP is absent.
 
 A key that `org-w3ctr--pput' wrote while the cache is on is read back from
 the cache, so it can differ from what `plist-get' returns for that key."
@@ -1335,7 +1335,7 @@ Unlike `plist-put', return VALUE rather than the plist."
         (inline-quote (prog1 ,value (plist-put ,info ,prop ,value)))))))
 
 (defun t--oinfo-cleanup ()
-  "Clear the cached value of every OINFO oclosure, releasing its INFO plist.
+  "Clear every OINFO oclosure's cached value, freeing its INFO plist.
 
 A finished export should not stay reachable through the oclosures that
 cached it.  This is a memory measure, not an invalidation: an oclosure
@@ -1421,7 +1421,9 @@ Otherwise, return nil."
   (and (stringp s) (string-match-p "[^ \r\t\n]" s) s))
 
 (defsubst t--2str (s)
-  "Return S as a string, or nil if S is not a symbol, number, or string."
+  "Return S as a string, or nil if S is not a symbol, number, or string.
+A symbol contributes its `symbol-name' (a keyword keeps its colon); nil
+returns nil."
   (declare (ftype (function (t) (or null string)))
            (pure t) (important-return-value t))
   (cl-typecase s
@@ -1577,7 +1579,8 @@ HTML attributes (for example, \\='id=\"foo\" class=\"bar\"\\=').
 
 ATTRIBUTES should be a plist where keys are attribute names (as
 keywords or plain symbols) and values are strings.  A key with a nil
-value will be omitted from the result."
+value is omitted; values are escaped for an attribute with
+`org-w3ctr--encode-plain-text*'."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (let (output)
@@ -1641,8 +1644,10 @@ the main function for generating an element's complete attribute
 string.  It first checks for the custom `:attr__' property and
 processes it with `org-w3ctr--make-attr__id'.
 
-If `:attr__' is not found, it falls back to processing the
-standard `:attr_html' property using `org-w3ctr--make-attr_html'."
+If `:attr__' is absent, it falls back to processing the standard
+`:attr_html' property using `org-w3ctr--make-attr_html'.  A present
+`#+attr__:', even empty, wins: its presence alone selects the
+`:attr__' syntax, so `#+attr_html:' is ignored."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   ;; `#+attr__:' takes priority even when empty — its presence alone
@@ -1654,11 +1659,12 @@ standard `:attr_html' property using `org-w3ctr--make-attr_html'."
 ;;;; File and regexp
 
 (defun t--load-file (file)
-  "Read the entire contents of FILE into a string.
+  "Read the entire contents of FILE into a string, verbatim.
 
 Signal `org-w3ctr-error' if FILE does not exist or is a directory.
 FILE is decoded as UTF-8 regardless of the locale coding system, so
-the same file reads identically on every machine."
+the same file reads identically on every machine; nothing is added or
+removed."
   (declare (ftype (function (string) string))
            (important-return-value t))
   (unless (and (file-exists-p file) (not (file-directory-p file)))
@@ -1672,8 +1678,8 @@ the same file reads identically on every machine."
 (defun t--find-all (regexp str &optional start)
   "Return a list of all non-overlapping matches for REGEXP in STR.
 
-The search begins at position START, which defaults to the
-beginning of the string.
+The search begins at character position START, which defaults to
+the beginning of the string.
 
 For example:
   (org-w3ctr--find-all \"[a-z]+\" \"1a-b2-cde\")
@@ -1721,7 +1727,7 @@ identify such tags during HTML generation.")
 TAG is the element name, as a string.  ATTRS is a string of
 pre-formatted attributes, with or without surrounding whitespace,
 or nil.  Void elements have no closing tag, so the result has the
-form \"<TAG ...>\"."
+form \"<TAG ...>\", or \"<TAG>\" when ATTRS is blank."
   (declare (ftype (function (string (or null string)) string))
            (pure t) (important-return-value t))
   (let ((attrs (t--trim (or attrs ""))))
@@ -1777,8 +1783,8 @@ Signal `org-w3ctr-error' when a list's first element is not a symbol."
 
 (defun t--target-reference (datum)
   "Return the value of a target or radio-target as a reference string.
-Return nil if DATUM is not a target type, or if the value does
-not look like a valid HTML identifier."
+Return nil if DATUM is not a target type, or if the value is not a
+letter followed by letters, digits, hyphens or underscores."
   (declare (ftype (function (t) (or null string)))
            (pure t) (important-return-value t))
   (when (memq (org-element-type datum) '(radio-target target))
@@ -1823,11 +1829,11 @@ nil.  This doesn't apply to radio targets and targets."
 (defun t-image-link-filter (data _backend info)
   "Filter to insert image links inside link descriptions.
 
-DATA is the parse tree, BACKEND the backend symbol (unused), and INFO
-the export options plist.  Return DATA with any image that is a link's
-description turned into a proper nested link; `org-w3ctr-inline-image-rules'
-decides which links count as images.  See
-`org-export-insert-image-links'."
+This is the backend's `:filter-parse-tree' filter.  DATA is the parse
+tree, BACKEND the backend symbol (unused), and INFO the export options
+plist.  Return DATA with any image that is a link's description turned
+into a proper nested link; `org-w3ctr-inline-image-rules' decides which
+links count as images.  See `org-export-insert-image-links'."
   (declare (ftype (function (t t list) t))
            (important-return-value t))
   (org-export-insert-image-links data info t-inline-image-rules))
@@ -1835,9 +1841,10 @@ decides which links count as images.  See
 (defun t-final-function (contents _backend info)
   "Indent the HTML when `:html-indent' is non-nil, and return it.
 
-CONTENTS is the exported HTML string and INFO the export plist.  The
-major mode is set only when indenting, so that the HTML indentation
-rules apply; its hooks are delayed, as in `org-html-final-function'."
+This is the backend's `:filter-final-output' filter.  CONTENTS is the
+exported HTML string and INFO the export plist.  The major mode is set
+only when indenting, so that the HTML indentation rules apply; its hooks
+are delayed, as in `org-html-final-function'."
   (declare (ftype (function (string t list) string))
            (important-return-value t))
   (with-temp-buffer
@@ -1875,7 +1882,9 @@ METHODS - the method names this side exposes; nil disables the check."
 NAME is the client and connection name.  COMMAND is the argv of the
 server process.  TIMEOUT is the default per-request timeout in seconds,
 10.0 when nil.  METHODS is the list of method names the client accepts,
-or nil to accept any."
+or nil to accept any.  The client is called as
+`(METHOD PARAMS &optional TIMEOUT)'; `org-w3ctr--jcall' wraps that with
+the connection check."
   (declare (ftype (function (string list &optional number list) function))
            (important-return-value t))
   (oclosure-lambda (t--jrpc (name name)
@@ -1943,7 +1952,9 @@ CLIENT is a `org-w3ctr--jrpc' object."
 
 CLIENT is a `org-w3ctr--jrpc' object.  METHOD is a method name and
 PARAMS the JSON-RPC params value.  TIMEOUT overrides CLIENT's default.
-Signal `org-w3ctr-error' when METHOD is outside CLIENT's METHODS."
+Return the decoded `result' of the response.  Signal `org-w3ctr-error'
+when METHOD is outside CLIENT's METHODS; a remote error or a timeout
+surfaces as `jsonrpc-error'."
   (declare (ftype (function (t symbol t &optional number) t))
            (important-return-value t))
   (let ((allowed (t--jrpc--methods client)))
