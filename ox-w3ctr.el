@@ -1576,15 +1576,16 @@ It converts a property list, ATTRIBUTES, into a single string of
 HTML attributes (for example, \\='id=\"foo\" class=\"bar\"\\=').
 
 ATTRIBUTES should be a plist where keys are attribute names (as
-keywords) and values are strings.  A key with a nil value will be
-omitted from the result."
+keywords or plain symbols) and values are strings.  A key with a nil
+value will be omitted from the result."
   (declare (ftype (function (list) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (let (output)
     (dolist (item attributes (mapconcat 'identity (nreverse output) " "))
       (cond
        ((null item) (pop output))
-       ((symbolp item) (push (substring (symbol-name item) 1) output))
+       ((keywordp item) (push (substring (symbol-name item) 1) output))
+       ((symbolp item) (push (symbol-name item) output))
        (t (let ((key (car output))
                 (value (t--encode-plain-text* item)))
             (setcar output (format "%s=\"%s\"" key value))))))))

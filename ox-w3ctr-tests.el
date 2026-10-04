@@ -586,6 +586,9 @@ the OINFO cache is off."
       "open=\"open\"")
   ($l (t--make-attribute-string '(:test "'\"'"))
       "test=\"&apos;&quot;&apos;\"")
+  ;; A plain symbol key is accepted too (there is no colon to strip).
+  ($l (t--make-attribute-string '(open "open"))
+      "open=\"open\"")
   (t-check-element-values
    #'t--make-attribute-string
    '(("#+attr_html: :open open :class a\ntest"
