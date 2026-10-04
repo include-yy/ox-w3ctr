@@ -54,7 +54,7 @@ From the repo root:
 "/d/emacs-build/bin/emacs.exe" --batch -L . --eval "(setq load-prefer-newer t system-time-locale (symbol-name 'C))" -l ox-w3ctr-tests.el -f ert-run-tests-batch-and-exit
 ```
 
-Two gotchas:
+Three gotchas:
 
 - `load-prefer-newer t` — a stale `ox-w3ctr.elc` exists; without this,
   `load` picks the compiled file over the source.
@@ -193,11 +193,10 @@ source.  The `;;; Template and Inner Template` part was finished on
 2026-10-04; the work now is the earlier parts (the 2026-10 section
 refile scrambled source order).  The seven `REFINE:` sections left, in
 source order: Footnote, Special Block, Table, LaTeX, Engrave-faces
-subset, Source block, Link.  Within a part, take each
-section in source order (`grep -n 'REFINE:' ox-w3ctr.el`),
-one section
-per pass — docstring, `declare`, `important-return-value`/`pure`,
-helper use, tests — and remove the marker when the section is done.
+subset, Source block, Link.  Within a part, take each section in source
+order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass —
+docstring, `declare`, `important-return-value`/`pure`, helper use,
+tests — and remove the marker when the section is done.
 What a pass turns up goes to `## Tasks` or `README.org` Roadmap.
 
 `;;; Basic utilities` has had its pass: every section is refined, and
@@ -238,8 +237,7 @@ question the files do not answer.
 
 The first tasks, then: the options tidy-up in `README.org` Roadmap (the
 `*-function` replacement and the ox-html compatibility chart), and the
-special-block
-Web Component after it.
+special-block Web Component after it.
 
 ## Notes
 
@@ -260,8 +258,9 @@ Web Component after it.
     is expanded into every call site.
 - **Table column groups.**  Org's `/`-row (`<`/`>`/`<>`) only marks group
   boundaries; it cannot carry attributes, because its cells must be exactly
-  those markers or Org's own colgroup detection (`org-export-table-cell-borders`)
-  breaks.  ox-w3ctr emits `<colgroup span="N">` and does **not** invent a
+  those markers or Org's own colgroup detection
+  (`org-export-table-cell-borders`) breaks.  ox-w3ctr emits
+  `<colgroup span="N">` and does **not** invent a
   per-group class syntax.  To style a group, put a class on the table
   (`#+attr__: [foo]` or `#+attr_html: :class foo`) and use a CSS positional
   selector, e.g. `.foo colgroup:nth-of-type(2) { ... }`.  Only
@@ -329,13 +328,14 @@ Web Component after it.
 ## Known issues
 
 - **Link leftovers.**  The refactor is done, but a few spots are still weak
-  or suspect (each carries a `FIXME` in the source): the cross-file ID
-  fragment is built from `t--link-path`'s output instead of the raw path
-  (`t--link-to-file`); `:html-link-home` / `:html-link-use-abs-url` are not
-  implemented (`t--link-path`); `.org.gpg` files are not rewritten to
-  `.html` (`t--link-org-files-as-html`); LaTeX equation references only
-  cover math environments under `mathjax`/`t`; and coderef support is kept
-  only for ox-html compatibility.
+  or suspect.  Each of these carries a `FIXME` in the source: the
+  cross-file ID fragment is built from `t--link-path`'s output instead of
+  the raw path (`t--link-to-file`); `:html-link-home` /
+  `:html-link-use-abs-url` are not implemented (`t--link-path`); LaTeX
+  equation references only cover math environments under `mathjax`/`t`;
+  and coderef support is kept only for ox-html compatibility.  One more
+  divergence has no marker: `.org.gpg` files are not rewritten to
+  `.html` (`t--link-org-files-as-html`), though ox-html does rewrite them.
 - `t--link-broken` looks unreachable (Org handles broken links before the
   transcoder); it is `FIXME`-marked.  (`t--math-environment-p`, likewise
   FIXME-marked, was removed — its ordinal purpose is long gone.)
