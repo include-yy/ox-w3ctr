@@ -157,7 +157,9 @@ raw specials, `t--sexp2html' renders to a string or signals only
 
 An AI author can afford to write everything down, so the refactor
 favours "fix at generation time" over "infer at runtime": explicit
-beats implicit, and the back-end should trust explicit input.
+beats implicit.  The back-end trusts the author to have supplied every
+fact — no guessing, no fallback — and checks that what was supplied is
+well-formed.
 
 - **Explicit over implicit.**  Prefer writing things down over
   computing them later: explicit `CUSTOM_ID`s and anchors instead of
@@ -170,8 +172,20 @@ beats implicit, and the back-end should trust explicit input.
   colours) varies with the environment — keep it deferred rather
   than baking it into the document.
 - **The back-end degrades to a verifier.**  Its value shifts from
-  "deriving the result" to "checking the explicit input"; simpler
-  transcoders that trust explicit markup beat large rule engines.
+  "deriving the result" to checking the explicit input: emit the markup
+  the author wrote instead of re-deriving it, and reject what is
+  malformed instead of guessing.  Simpler transcoders that trust
+  explicit markup beat large rule engines.
+- **Fail loudly, with context.**  When explicit input is malformed,
+  signal `org-w3ctr-error` with enough context — the offending value
+  and, where the caller has one, the source line — to fix it.  Never
+  degrade silently: dropping the input, or emitting something
+  plausible, hides the mistake.
+- **Design checkers that can disagree.**  Verification is part of the
+  design: prefer invariants, source-scanning drift checks,
+  property/fuzz tests and independent parsers over restating the
+  implementation's own assumption.  A check that cannot fail is not a
+  check.
 - **The AI is the maintainer.**  Explicit things drift (a renamed
   heading, a stale id).  A human cannot afford to keep them in sync;
   an AI can — prefer explicitness wherever drift is catchable by a
