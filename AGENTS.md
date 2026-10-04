@@ -122,8 +122,8 @@ raw specials, `t--sexp2html' renders to a string or signals only
   ```
 
   Do not use `grep -c $'\r'` for this: in this MSYS2 environment it
-  reports the line count for *any* file (a pure-LF 5672-line
-  `ox-w3ctr.el` gives 5672), so it always looks like a failure.
+  reports the line count for *any* file (a pure-LF `ox-w3ctr.el` reports
+  as many hits as it has lines), so it always looks like a failure.
 - Do not commit changes unless explicitly asked.
 - **Docstring**: every `defun`/`defsubst` gets a full docstring — a
   one-line summary first, then parameter / return-value notes where
