@@ -1071,6 +1071,33 @@ int a = 1;</code></p>\n</details>")
   ($l (t--footnote-id "1" 3) "fn-3")
   ($l (t--footnote-id nil 3) "fn-3"))
 
+(ert-deftest t--footnote-definition ()
+  "Tests for `org-w3ctr--footnote-definition'."
+  (cl-letf (((symbol-function 'org-export-data)
+             (lambda (data _info)
+               (if (stringp data)
+                   data
+                 (let ((text (string-trim-right
+                              (org-element-interpret-data data))))
+                   (format "<p>%s</p>" text))))))
+    (cl-flet ((p (s) (car (t-get-parsed-elements s 'paragraph))))
+      (let ((info '(:html-footnote-format "[%s]")))
+        ;; Numbered footnote with paragraph
+        ($l (t--footnote-definition (list 1 nil (p "The definition.")) info)
+            "<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>The definition.</p>\n</dd>")
+        ;; Named footnote with paragraph
+        ($l (t--footnote-definition (list 1 "name" (p "The definition.")) info)
+            "<dt id=\"fn-name\">[name]</dt>\n<dd>\n<p>The definition.</p>\n</dd>")
+        ;; Purely numeric label uses number
+        ($l (t--footnote-definition (list 3 "1" (p "Text.")) info)
+            "<dt id=\"fn-3\">[3]</dt>\n<dd>\n<p>Text.</p>\n</dd>")
+        ;; Inline definition (no paragraph wrapper, just string)
+        ($l (t--footnote-definition (list 1 "name" "text") info)
+            "<dt id=\"fn-name\">[name]</dt>\n<dd>\ntext\n</dd>")
+        ;; Whitespace trimming on string
+        ($l (t--footnote-definition (list 1 nil "\n  text  \n") info)
+            "<dt id=\"fn-1\">[1]</dt>\n<dd>\ntext\n</dd>")))))
+
 (ert-deftest t-footnote-reference ()
   "Tests for `org-w3ctr-footnote-reference'."
   (t-check-element-values
@@ -1099,6 +1126,34 @@ int a = 1;</code></p>\n</details>")
      ("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
       "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>one.</p>\n</dd>\n<dt id=\"fn-2\">[2]</dt>\n<dd>\n<p>two.</p>\n</dd>\n</dl>\n</div>\n"))
    nil '(:with-latex verbatim)))
+
+(ert-deftest t-footnote-section-default-function ()
+  "Tests for `org-w3ctr-footnote-section-default-function'."
+  (cl-letf (((symbol-function 'org-export-data)
+             (lambda (data _info)
+               (if (stringp data)
+                   data
+                 (let ((text (string-trim-right
+                              (org-element-interpret-data data))))
+                   (format "<p>%s</p>" text))))))
+    (cl-flet ((p (s) (car (t-get-parsed-elements s 'paragraph))))
+      (let ((info '(:html-footnotes-section "<div id=\"references\">\n<h2>%s</h2>\n<dl>%s</dl>\n</div>\n"
+                    :html-footnote-format "[%s]")))
+        ;; Single footnote
+        ($l (t-footnote-section-default-function
+             (list (list 1 nil (p "Text."))) info)
+            "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>Text.</p>\n</dd>\n</dl>\n</div>\n")
+        ;; Multiple footnotes
+        ($l (t-footnote-section-default-function
+             (list (list 1 nil (p "One."))
+                   (list 2 "name" (p "Two."))) info)
+            "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>One.</p>\n</dd>\n<dt id=\"fn-name\">[name]</dt>\n<dd>\n<p>Two.</p>\n</dd>\n</dl>\n</div>\n")
+        ;; Custom footnote format
+        (let ((info2 (plist-put (copy-sequence info)
+                                :html-footnote-format "<sup>%s</sup>")))
+          ($l (t-footnote-section-default-function
+               (list (list 1 nil "text")) info2)
+              "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\"><sup>1</sup></dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n"))))))
 
 (ert-deftest t--checkbox ()
   "Tests for `org-w3ctr-checkbox'."
