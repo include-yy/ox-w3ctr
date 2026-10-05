@@ -275,7 +275,7 @@ reference."
   :type 'boolean
   :safe #'booleanp)
 
-(defvar t--id-attr-prefix "ID-"
+(defconst t--id-attr-prefix "ID-"
   "Prefix to use in ID attributes.
 This affects IDs that are determined from the ID property.")
 
@@ -302,7 +302,7 @@ It should return the complete HTML for the drawer.  The default is
 (defcustom t-footnotes-section "<div id=\"references\">
 <h2>%s</h2>
 <dl>%s</dl>\n</div>\n"
-  "Format for the footnotes section.
+  "Format string for the footnotes section.
 Should contain two instances of %s.  The first will be replaced with the
 section heading (e.g. \"References\"), the second one with the footnote
 definitions themselves."
@@ -316,7 +316,7 @@ definitions themselves."
   :type 'string)
 
 (defcustom t-footnote-separator ", "
-  "Text used to separate footnotes."
+  "Text used to separate consecutive footnote references."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -385,10 +385,11 @@ It should return a string, or nil for nothing.  The default is
 
 ;;;; Table
 (defcustom t-table-use-header-tags-for-first-column nil
-  "Non-nil means format column one in tables with header tags.
-When nil, also column one will use data tags."
+  "Non-nil means the first column of a table becomes row headers.
+The cells use <th scope=\"row\"> instead of <td>."
   :group 'org-export-w3ctr
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 ;;;; LaTeX
 (defcustom t-math-custom-render-function
@@ -2422,6 +2423,12 @@ Return the formatted <blockquote> element as a string."
 ;; `org-w3ctr--special-block-builtin', which follows ox-html.
 ;; <head> scripts for used custom elements are injected by
 ;; `org-w3ctr--build-head' via `:html-special-block-head-function'.
+
+;; Options:
+;; - :html-special-block-custom-elements
+;;   (`org-w3ctr-special-block-custom-elements')
+;; - :html-special-block-head-function
+;;   (`org-w3ctr-special-block-head-function')
 
 (defconst t-html5-elements
   '("article" "aside" "audio" "canvas" "details" "figcaption"
