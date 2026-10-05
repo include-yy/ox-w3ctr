@@ -1510,7 +1510,13 @@ Malformed registry entries signal `org-w3ctr-error'."
   ;; non-string name: signals
   ($e! (org-export-string-as
         "#+begin_x-bad\nhi\n#+end_x-bad" 'w3ctr t
-        '(:html-special-block-custom-elements ((42 :src "x.js"))))))
+        '(:html-special-block-custom-elements ((42 :src "x.js")))))
+  ;; malformed entry with no special block used: the <head> scan still
+  ;; validates the registry, so the clean error is raised (not a
+  ;; wrong-type-argument).
+  ($e!l (org-export-string-as "hello" 'w3ctr nil
+          '(:html-special-block-custom-elements (42)))
+        '(org-w3ctr-error "Malformed custom element registry entry: 42")))
 
 (ert-deftest t-special-block-head-default-function ()
   "Tests for `org-w3ctr-special-block-head-default-function'."

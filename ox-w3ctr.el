@@ -2453,6 +2453,16 @@ that class, so an empty `#+attr__:' gives a plain <div>."
                   (format " class=\"%s\"" (t--encode-plain-text* type)))
                 attrs contents)))))
 
+(defun t--special-block-validate-registry (registry)
+  "Signal `org-w3ctr-error' if REGISTRY has a malformed entry.
+REGISTRY is the value of `:html-special-block-custom-elements': a
+list whose entries must each be a cons with a string car.  Return
+nil when every entry is well-formed."
+  (declare (ftype (function (list) null)))
+  (dolist (entry registry)
+    (unless (and (consp entry) (stringp (car entry)))
+      (t-error "Malformed custom element registry entry: %S" entry))))
+
 (defun t--special-block-spec (type info)
   "Return the spec of custom element TYPE in INFO, or nil.
 TYPE is a string.  The spec is a (PLIST . NAME) cons from
@@ -2465,9 +2475,7 @@ so `car' retrieves the plist."
   (declare (ftype (function (string list) list))
            (important-return-value t))
   (let ((registry (t--pget info :html-special-block-custom-elements)))
-    (dolist (entry registry)
-      (unless (and (consp entry) (stringp (car entry)))
-        (t-error "Malformed custom element registry entry: %S" entry)))
+    (t--special-block-validate-registry registry)
     (when-let* ((entry (assoc type registry)))
       (cons (cdr entry) (car entry)))))
 
@@ -2528,10 +2536,12 @@ Scan the parse tree for special blocks, skipping what the export
 ignores, and return the matching (NAME . PLIST) entries of
 `:html-special-block-custom-elements' in registry order, without
 duplicates.  Registry order keeps the result stable when blocks move
-in the document."
+in the document.  Signal `org-w3ctr-error' if the registry contains
+a malformed entry."
   (declare (ftype (function (list) list))
            (important-return-value t))
   (when-let* ((registry (t--pget info :html-special-block-custom-elements)))
+    (t--special-block-validate-registry registry)
     (let ((used (org-element-map (t--pget info :parse-tree) 'special-block
                   (lambda (b) (org-element-property :type b))
                   info)))
