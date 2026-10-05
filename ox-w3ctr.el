@@ -2537,6 +2537,27 @@ in the document."
                   info)))
       (seq-filter (lambda (entry) (member (car entry) used)) registry))))
 
+(defun t--special-block-head-entry (entry seen)
+  "Generate <script> markup for one custom element ENTRY.
+ENTRY is (NAME . PLIST).  SEEN is a list of :src values already
+emitted.  Return (MARKUP . SEEN) where MARKUP is the generated
+string (possibly empty) and SEEN is the updated seen-list.
+Mutates SEEN as a side effect."
+  (declare (ftype (function (cons list) cons))
+           (important-return-value t))
+  (let ((plist (cdr entry))
+        (parts nil))
+    (when-let* ((src (plist-get plist :src))
+                ((not (member src seen))))
+      (push src seen)
+      (push (format "<script type=\"module\" src=\"%s\"></script>\n"
+                    (t--encode-plain-text* src))
+            parts))
+    (when-let* ((js (plist-get plist :script)))
+      (push (format "<script type=\"module\">\n%s\n</script>\n" js)
+            parts))
+    (cons (apply #'concat (nreverse parts)) seen)))
+
 (defun t-special-block-head-default-function (specs _info)
   "Return <script> elements for the custom elements in SPECS.
 
@@ -2548,21 +2569,14 @@ The :script text is inserted verbatim, so it must be trusted.  Return
 nil when nothing is produced."
   (declare (ftype (function (list t) (or null string)))
            (important-return-value t))
-  (let* ((seen nil)
-         (s (mapconcat
-             (lambda (entry)
-               (let ((plist (cdr entry)))
-                 (concat
-                  (when-let* ((src (plist-get plist :src))
-                              ((not (member src seen))))
-                    (push src seen)
-                    (format "<script type=\"module\" src=\"%s\"></script>\n"
-                            (t--encode-plain-text* src)))
-                  (when-let* ((js (plist-get plist :script)))
-                    (format "<script type=\"module\">\n%s\n</script>\n"
-                            js)))))
-             specs)))
-    (and (t--nw-p s) s)))
+  (let ((seen nil)
+        (parts nil))
+    (dolist (entry specs)
+      (let ((result (t--special-block-head-entry entry seen)))
+        (setq seen (cdr result))
+        (push (car result) parts)))
+    (let ((s (apply #'concat (nreverse parts))))
+      (and (t--nw-p s) s))))
 
 (defun t--special-block-head (info)
   "Return the <head> contents for the custom elements used in INFO.
