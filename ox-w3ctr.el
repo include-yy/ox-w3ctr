@@ -1410,13 +1410,16 @@ exports; `org-w3ctr-clear-oinfo-statistics' zeroes them.
 
 Interactive; useful for judging which keys are worth caching at all."
   (interactive)
-  (let ((stats (cl-loop for (key . sym) in t--oinfo-cache-alist
-                        for oclosure = (symbol-function sym)
-                        for cnt = (t--oinfo--cnt oclosure)
-                        collect (list key
-                                      (vector (symbol-name key)
-                                              (propertize (format "%6d" cnt)
-                                                          'count cnt))))))
+  (let ((stats (mapcar (lambda (pair)
+                         (let* ((key (car pair))
+                                (sym (cdr pair))
+                                (oclosure (symbol-function sym))
+                                (cnt (t--oinfo--cnt oclosure)))
+                           (list key
+                                 (vector (symbol-name key)
+                                         (propertize (format "%6d" cnt)
+                                                     'count cnt)))))
+                       t--oinfo-cache-alist)))
     (with-current-buffer (get-buffer-create "*ox-w3ctr-oinfo*")
       (tabulated-list-mode)
       (setq tabulated-list-format

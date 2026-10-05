@@ -133,6 +133,15 @@ too but fails rather than skipping.
   or top-down by call layer — pick one per section and keep it.
 - **Header hygiene**: correct spelling, no author names, no arithmetic
   comments that drift out of date.
+- **No `cl-lib`.**  This package does not depend on `cl-lib`; use
+  traditional Emacs Lisp constructs (`mapcar`, `let`, `dolist`) instead of
+  `cl-loop`, `cl-destructuring-bind`, etc.  The one historic dependency was
+  dropped in commit 8b6d5be.
+- **Temporary files.**  Use the project's `tools/tmp/` directory for
+  scratch files, not the system temp directory (`$TMPDIR` / `%TEMP%`).
+  Create `tools/tmp/` if it does not exist (it is gitignored).  This keeps
+  project-related debris together and avoids polluting the system temp with
+  Org export artifacts.
 
 ## Methodology
 
