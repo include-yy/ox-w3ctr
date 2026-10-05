@@ -2312,6 +2312,11 @@ formatted <dt>...</dt><dd>...</dd> pair as a string."
 ;;;; Item
 
 ;; See (info "(org)Plain Lists")
+;; Org decides the type of a whole list from its first item, and each
+;; item is exported under that type.  An item that does not match is
+;; exported as is, without an error:
+;; - in a descriptive list, an item without " :: " gets an empty <dt>;
+;; - in an ordered or unordered list, an item's " :: " tag is dropped.
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML.
 
