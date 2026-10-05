@@ -1174,7 +1174,12 @@ int a = 1;</code></p>\n</details>")
   (let ((info '(:html-checkbox-type html)))
     ($l (t--checkbox 'off info) "<input type=\"checkbox\">")
     ($l (t--checkbox 'on info) "<input type=\"checkbox\" checked>")
-    ($l (t--checkbox 'trans info) "<input type=\"checkbox\">")))
+    ($l (t--checkbox 'trans info) "<input type=\"checkbox\">"))
+  ;; An unknown checkbox type is an error, not a dropped checkbox;
+  ;; with no checkbox there is nothing to format, so no error.
+  (let ((info '(:html-checkbox-type unicod)))
+    ($e! (t--checkbox 'on info))
+    ($l (t--checkbox nil info) nil)))
 
 (ert-deftest t--format-checkbox ()
   "Tests for `org-w3ctr--format-checkbox.'"
@@ -1368,6 +1373,10 @@ int a = 1;</code></p>\n</details>")
       "<ol>\n<li>123\n<ul>\n<li>2 3 4</li>\n</ul></li>\n</ol>"
       "<ul>\n<li>2 3 4</li>\n</ul>"))
    nil '(:html-prefer-user-labels t))
+  ;; nil CONTENTS (e.g. from `org-export-with-backend') is empty.
+  ($l (t-plain-list (car (t-get-parsed-elements "- 123" 'plain-list))
+                    nil nil)
+      "<ul>\n</ul>")
   ($e! (t-plain-list nil "123" nil)))
 
 (ert-deftest t-quote-block ()

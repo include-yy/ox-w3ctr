@@ -2241,14 +2241,20 @@ Choices are:
   "Format CHECKBOX into HTML.
 
 CHECKBOX is nil or one of the symbols `on', `off', or `trans'.
-INFO is the info plist.  See `org-w3ctr-checkbox-types' for the
-customization options.  Return nil when CHECKBOX does not match one
-of those three."
+INFO is the info plist; its `:html-checkbox-type' (the option
+`org-w3ctr-checkbox-type') selects an entry of
+`org-w3ctr-checkbox-types'.  Return nil when CHECKBOX does not match
+one of those three.  Signal `org-w3ctr-error' when CHECKBOX is
+non-nil and the checkbox type has no entry in
+`org-w3ctr-checkbox-types'."
   (declare (ftype (function (t list) (or null string)))
            (important-return-value t))
-  (cdr (assq checkbox
-             (cdr (assq (t--pget info :html-checkbox-type)
-                        t-checkbox-types)))))
+  (when checkbox
+    (let* ((type (t--pget info :html-checkbox-type))
+           (states (assq type t-checkbox-types)))
+      (unless states
+        (t-error "Unknown checkbox type: %S" type))
+      (cdr (assq checkbox (cdr states))))))
 
 (defsubst t--format-checkbox (checkbox info)
   "Format CHECKBOX into HTML, followed by a space.
@@ -2334,15 +2340,16 @@ the info plist.  Return the formatted item as a string."
 (defun t-plain-list (plain-list contents info)
   "Transcode a PLAIN-LIST element from Org to HTML.
 
-CONTENTS is the contents of the list.  INFO is the info plist.
-Return the formatted <ol>, <ul>, or <dl> element as a string."
+CONTENTS is the contents of the list, nil or a string; nil is
+treated as empty.  INFO is the info plist.  Return the formatted
+<ol>, <ul>, or <dl> element as a string."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((type (pcase (org-element-property :type plain-list)
                  (`ordered "ol") (`unordered "ul") (`descriptive "dl")
                  (other (t-error "Unknown HTML list type: %s" other))))
          (attributes (t--make-attr__id* plain-list info t)))
-    (format "<%s%s>\n%s</%s>" type attributes contents type)))
+    (format "<%s%s>\n%s</%s>" type attributes (or contents "") type)))
 
 ;;;; Quote Block
 
