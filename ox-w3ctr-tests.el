@@ -1471,6 +1471,65 @@ Uppercase names are rejected even when `case-fold-search' is on."
     (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""))
       ($n (t--custom-element-name-p s)))))
 
+(ert-deftest t-special-block-head-default-function ()
+  "Tests for `org-w3ctr-special-block-head-default-function'."
+  ($l (t-special-block-head-default-function
+       '(("a-b" :src "js/a.js")) nil)
+      "<script type=\"module\" src=\"js/a.js\"></script>\n")
+  ($l (t-special-block-head-default-function
+       '(("a-b" :script "x()")) nil)
+      "<script type=\"module\">\nx()\n</script>\n")
+  ;; :src is escaped for the attribute
+  ($l (t-special-block-head-default-function
+       '(("a-b" :src "a.js?x=1&y=\"2\"")) nil)
+      "<script type=\"module\" src=\"a.js?x=1&amp;y=&quot;2&quot;\"></script>\n")
+  ;; entries without known keys produce nothing
+  ($n (t-special-block-head-default-function '(("a-b")) nil))
+  ($n (t-special-block-head-default-function
+       '(("a-b" :template "<template></template>")) nil)))
+
+(ert-deftest t--special-block-head ()
+  "Tests for the custom element scripts in <head>."
+  (let ((registry '(("x-one" :src "one.js")
+                    ("x-two" :src "two.js")
+                    ("x-unused" :src "unused.js")))
+        (doc "#+begin_x-two\nb\n#+end_x-two\n\n\
+#+begin_x-one\na\n#+end_x-one\n\n#+begin_x-two\nc\n#+end_x-two\n"))
+    (cl-flet ((head (str &optional plist)
+                (let ((out (org-export-string-as
+                            str 'w3ctr nil
+                            (append plist
+                                    (list :html-special-block-custom-elements
+                                          registry)))))
+                  (substring out 0 (string-search "</head>" out)))))
+      ;; used entries, registry order, no duplicates, unused skipped
+      (let ((h (head doc)))
+        ($l (t--find-all "src=\"[a-z]+\\.js\"" h)
+            '("src=\"one.js\"" "src=\"two.js\"")))
+      ;; blocks in a :noexport: subtree do not count
+      ($n (string-search
+           "one.js"
+           (head "* a :noexport:\n#+begin_x-one\na\n#+end_x-one\n")))
+      ;; no registered element used: nothing added
+      ($n (string-search "<script type=\"module\"" (head "hello")))
+      ;; the hook receives the used entries and its result is inserted
+      (let ((h (head doc
+                     (list :html-special-block-head-function
+                           (lambda (specs _info)
+                             (format "<!-- %s -->"
+                                     (mapconcat #'car specs " ")))))))
+        ($s (string-search "<!-- x-one x-two -->\n" h)))
+      ;; after the user's own <head> contents
+      (let ((h (head doc '(:html-head "<!-- user -->"))))
+        ($s (< (string-search "<!-- user -->" h)
+               (string-search "one.js" h)))))
+    ;; body-only exports have no <head>
+    ($n (string-search
+         "one.js"
+         (org-export-string-as
+          doc 'w3ctr t
+          (list :html-special-block-custom-elements registry))))))
+
 (ert-deftest t--table-cell-align ()
   "Tests for `org-w3ctr--table-cell-align'."
   (with-temp-buffer

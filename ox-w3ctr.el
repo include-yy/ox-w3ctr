@@ -172,6 +172,7 @@
     ;; Special Block
     (:html-special-block-custom-elements
      nil nil t-special-block-custom-elements)
+    (:html-special-block-head-function nil nil t-special-block-head-function)
     ;; Table
     (:html-table-use-header-tags-for-first-column
      nil nil t-table-use-header-tags-for-first-column)
@@ -357,6 +358,23 @@ An empty PLIST is equivalent to registering just the name.  Future
 keys recognized by the exporter include :src, :script, and :template."
   :group 'org-export-w3ctr
   :type '(alist :key-type string :value-type plist))
+
+(defcustom t-special-block-head-function
+  #'t-special-block-head-default-function
+  "Function returning the <head> contents for the custom elements used.
+
+It is called with two arguments:
+- SPECS  the entries of `org-w3ctr-special-block-custom-elements'
+         whose NAME is used by a special block in the document, as
+         (NAME . PLIST), in registry order and without duplicates.
+         It is never called with an empty SPECS.
+- INFO   the export options (a plist).
+
+It should return a string, or nil for nothing.  The default is
+`org-w3ctr-special-block-head-default-function', which reads the
+:src and :script keys."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 ;;;; Table
 (defcustom t-table-use-header-tags-for-first-column nil
@@ -2474,6 +2492,56 @@ elements."
     (if (t--special-block-spec type info)
         (t--special-block-custom special-block contents info)
       (t--special-block-builtin special-block contents info))))
+
+(defun t--special-block-used-elements (info)
+  "Return the registry entries of the custom elements used in INFO.
+
+Scan the parse tree for special blocks, skipping what the export
+ignores, and return the matching (NAME . PLIST) entries of
+`:html-special-block-custom-elements' in registry order, without
+duplicates.  Registry order keeps the result stable when blocks move
+in the document."
+  (declare (ftype (function (list) list))
+           (important-return-value t))
+  (when-let* ((registry (t--pget info :html-special-block-custom-elements)))
+    (let ((used (org-element-map (t--pget info :parse-tree) 'special-block
+                  (lambda (b) (org-element-property :type b))
+                  info)))
+      (seq-filter (lambda (entry) (member (car entry) used)) registry))))
+
+(defun t-special-block-head-default-function (specs _info)
+  "Return <script> elements for the custom elements in SPECS.
+
+SPECS and INFO are as for `org-w3ctr-special-block-head-function'.
+For each entry, :src becomes <script type=\"module\" src=...> and
+:script an inline module script.  The :script text is inserted
+verbatim, so it must be trusted.  Return nil when nothing is
+produced."
+  (declare (ftype (function (list t) (or null string)))
+           (important-return-value t))
+  (let ((s (mapconcat
+            (lambda (entry)
+              (let ((plist (cdr entry)))
+                (concat
+                 (when-let* ((src (plist-get plist :src)))
+                   (format "<script type=\"module\" src=\"%s\"></script>\n"
+                           (t--encode-plain-text* src)))
+                 (when-let* ((js (plist-get plist :script)))
+                   (format "<script type=\"module\">\n%s\n</script>\n"
+                           js)))))
+            specs)))
+    (and (t--nw-p s) s)))
+
+(defun t--special-block-head (info)
+  "Return the <head> contents for the custom elements used in INFO.
+Call `:html-special-block-head-function' with the used entries, or
+return nil when no registered element is used."
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
+  (when-let* ((specs (t--special-block-used-elements info)))
+    (funcall (or (t--pget info :html-special-block-head-function)
+                 #'t-special-block-head-default-function)
+             specs info)))
 
 ;;;; Table
 
@@ -4941,6 +5009,9 @@ contents, wrapped in a <head> element."
    ;; User defined <head> contents
    (t--normalize-string-or-function (t--pget info :html-head) info)
    (t--normalize-string-or-function (t--pget info :html-head-extra) info)
+   ;; Custom element scripts come last, so that an import map given in
+   ;; the user's <head> contents precedes them.
+   (org-element-normalize-string (t--special-block-head info))
    "</head>\n"))
 
 ;;;; Navbar
