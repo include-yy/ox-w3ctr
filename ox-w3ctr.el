@@ -2372,40 +2372,47 @@ Return the formatted <blockquote> element as a string."
 
 ;;;; Special Block
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-;; FIXME
-;; See (info "(org)HTML doctypes")
+;; See (info "(org)Special blocks") and (info "(org)HTML doctypes")
+;; The ox-html behavior is kept as the compatibility path, in
+;; `org-w3ctr--special-block-compat'; `org-w3ctr-special-block' only
+;; dispatches, so that other paths (Web Components) can be added in
+;; front of it later.
 (defconst t-html5-elements
   '("article" "aside" "audio" "canvas" "details" "figcaption"
-    "figure" "footer" "header" "menu" "meter" "nav" "noscript"
-    "output" "progress" "section" "summary" "video")
-  "Elements in html5.
+    "figure" "footer" "header" "menu" "meter" "nav" "output"
+    "progress" "section" "summary" "video")
+  "Special block types exported as the HTML element of the same name.
+Copied from `org-html-html5-elements' for compatibility; matched
+case-sensitively.")
 
-For blocks that should contain headlines, use the HTML_CONTAINER
-property on the headline itself.")
+(defun t--special-block-compat (special-block contents info)
+  "Transcode SPECIAL-BLOCK as an HTML element or a <div>.
+
+CONTENTS is the block contents and INFO the info plist.  A type in
+`org-w3ctr-html5-elements' becomes that element; any other type
+becomes a <div> with the type as its class.  User attributes replace
+that class, so an empty `#+attr__:' gives a plain <div>."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (let* ((type (org-element-property :type special-block))
+         (contents (or contents ""))
+         (attrs (t--make-attr__id* special-block info t)))
+    (if (member type t-html5-elements)
+        (format "<%s%s>\n%s</%s>" type attrs contents type)
+      (let ((user-attrs-p
+             (or (org-element-property :attr__ special-block)
+                 (org-element-property :attr_html special-block))))
+        (format "<div%s%s>\n%s\n</div>"
+                (if user-attrs-p ""
+                  (format " class=\"%s\"" (t--encode-plain-text* type)))
+                attrs contents)))))
 
 (defun t-special-block (special-block contents info)
   "Transcode a SPECIAL-BLOCK element from Org to HTML.
-CONTENTS holds the contents of the block.  INFO is a plist
-holding contextual information."
-  (let* ((block-type (org-element-property :type special-block))
-         (html5-fancy (member block-type t-html5-elements))
-         (attributes (org-export-read-attribute :attr_html special-block)))
-    (unless html5-fancy
-      (let ((class (plist-get attributes :class)))
-        (setq attributes (plist-put attributes :class
-                                    (if class (concat class " " block-type)
-                                      block-type)))))
-    (let* ((contents (or contents ""))
-           (reference (t--reference special-block info t))
-           (a (t--make-attribute-string
-               (if (or (not reference) (plist-member attributes :id))
-                   attributes
-                 (plist-put attributes :id reference))))
-           (str (if (org-string-nw-p a) (concat " " a) "")))
-      (if html5-fancy
-          (format "<%s%s>\n%s</%s>" block-type str contents block-type)
-        (format "<div%s>\n%s\n</div>" str contents)))))
+CONTENTS is the block contents and INFO the info plist."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (t--special-block-compat special-block contents info))
 
 ;;;; Table
 

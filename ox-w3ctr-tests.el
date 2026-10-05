@@ -1393,6 +1393,44 @@ int a = 1;</code></p>\n</details>")
      ("#+begin_quote\n\n\n\n\n\n\n\n\n\n#+end_quote"
       "<blockquote>\n\n</blockquote>"))))
 
+(ert-deftest t-special-block ()
+  "Tests for `org-w3ctr-special-block'.
+The extra blank line before </div> and the case-sensitive type match
+are ox-html's behavior, kept for compatibility."
+  (t-check-element-values
+   #'t-special-block
+   '(;; listed type: the element itself
+     ("#+begin_section\nhello\n#+end_section"
+      "<section>\n<p>hello</p>\n</section>")
+     ;; other type: a <div> carrying the type as class
+     ("#+begin_foo\nhello\n#+end_foo"
+      "<div class=\"foo\">\n<p>hello</p>\n\n</div>")
+     ("#+begin_foo\n#+end_foo" "<div class=\"foo\">\n\n</div>")
+     ;; case-sensitive, as in ox-html
+     ("#+begin_SECTION\nhello\n#+end_SECTION"
+      "<div class=\"SECTION\">\n<p>hello</p>\n\n</div>")
+     ;; user attributes (#+attr_html: or #+attr__:): full control,
+     ;; no class added, as for center blocks
+     ("#+attr_html: :class bar\n#+begin_foo\nhello\n#+end_foo"
+      "<div class=\"bar\">\n<p>hello</p>\n\n</div>")
+     ("#+attr_html: :class bar\n#+begin_section\nhello\n#+end_section"
+      "<section class=\"bar\">\n<p>hello</p>\n</section>")
+     ("#+attr__: [bar]\n#+begin_foo\nhello\n#+end_foo"
+      "<div class=\"bar\">\n<p>hello</p>\n\n</div>")
+     ;; an empty #+attr__: gives a plain <div>
+     ("#+attr__:\n#+begin_div\nhello\n#+end_div"
+      "<div>\n<p>hello</p>\n\n</div>")
+     ("#+attr__: [bar]\n#+begin_section\nhello\n#+end_section"
+      "<section class=\"bar\">\n<p>hello</p>\n</section>")
+     ;; named blocks get an id, unless one is given explicitly
+     ("#+name: nm\n#+begin_foo\nhello\n#+end_foo"
+      "<div class=\"foo\" id=\"nm\">\n<p>hello</p>\n\n</div>")
+     ("#+name: nm\n#+attr_html: :id own\n#+begin_foo\nhello\n#+end_foo"
+      "<div id=\"own\">\n<p>hello</p>\n\n</div>")
+     ("#+name: nm\n#+attr__: [bar]\n#+begin_aside\nhello\n#+end_aside"
+      "<aside id=\"nm\" class=\"bar\">\n<p>hello</p>\n</aside>"))
+   nil '(:html-prefer-user-labels t)))
+
 (ert-deftest t--table-cell-align ()
   "Tests for `org-w3ctr--table-cell-align'."
   (with-temp-buffer
