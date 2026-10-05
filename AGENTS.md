@@ -89,7 +89,7 @@ too but fails rather than skipping.
 - A refactored function has: a full docstring, `(declare (ftype ...))`,
   `(important-return-value t)` / `(pure t)` where applicable, uses the
   `t--*` helpers, reads and writes INFO through `t--pget` / `t--pput`
-  (never `plist-get` / `plist-put` for a cached key), and has ERT tests.
+  (never `plist-get` / `plist-put`), and has ERT tests.
 - Workflow: write proposals to `zhua.el`, review in Emacs, then merge into
   `ox-w3ctr.el`.  `zhua.el` is gitignored — do not commit it.
 - **LF line endings.**  Any script or tool that rewrites a source file
@@ -136,7 +136,7 @@ too but fails rather than skipping.
 - **No `cl-lib`.**  This package does not depend on `cl-lib`; use
   traditional Emacs Lisp constructs (`mapcar`, `let`, `dolist`) instead of
   `cl-loop`, `cl-destructuring-bind`, etc.  The one historic dependency was
-  dropped in commit 8b6d5be.
+  dropped.
 - **Temporary files.**  Use the project's `tools/tmp/` directory for
   scratch files, not the system temp directory (`$TMPDIR` / `%TEMP%`).
   Create `tools/tmp/` if it does not exist (it is gitignored).  This keeps
@@ -191,16 +191,19 @@ section of `README.org` (larger), rather than a plan of its own.  There
 is no fixed task list and no "underway" moment: those two lists *are*
 the plan.
 
-The `;;; Template and Inner Template` part was finished on 2026-10-04 and
+The `;;; Template and Inner Template` part is finished and
 `;;; Basic utilities` has had its pass.  The latter is stable: it carries
 unit, source-scanning and property tests and the JSON-RPC rewrite,
 verified end to end — touch it only for a concrete reason, with a test,
-never as a drive-by while refining another section.  The work now is the
-earlier parts (the 2026-10 section refile scrambled their source order).
+never as a drive-by while refining another section.  The `;;; Greater
+elements` part has had its fine pass too (Table was the last section);
+the current task is to review it in detail and then freeze it, like
+`;;; Basic utilities`.  The remaining refinement work is in the earlier
+parts (a section refile scrambled their source order).
 
 The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
-source.  Five remain, in source order: Table, LaTeX, Engrave-faces
+source.  Four remain, in source order: LaTeX, Engrave-faces
 subset, Source block, Link.  Take them in source
 order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass — docstring,
 `declare`, `important-return-value`/`pure`, helper use, tests — and
@@ -289,13 +292,9 @@ Besides the passes: the options tidy-up in `README.org` Roadmap (the
   paths use `t-error` (the package's custom error type), not the generic
   `error`.  Inside a `condition-case` handler, re-signal with `(signal e)`
   (Emacs 31 syntax) instead of `(signal (car e) (cdr e))`.
-- **`pure t` and the OINFO cache.**  Never mark a function `(pure t)` or
-  side-effect-free when its call chain reaches `t--pget` or `t--pput`,
-  even on a key outside `t--oinfo-cache-props`.  These are the cache
-  interface: a cached key's oclosure mutates `cnt`/`pid`/`val` (observed
-  by `t-collect-oinfo-statistics`), and a plain key may join the cache
-  later, silently breaking the declaration.  Rule out any
-  `t--pget`/`t--pput` use outright.
+- **OINFO.**  INFO access goes through `t--pget`/`t--pput`, never
+  `plist-get`/`plist-put`; and a function reaching either is never
+  marked `(pure t)`.  The cache has been verified end to end.
 - **Docstring parameter references.**  Unused parameters carry a `_`
   prefix in the function signature (e.g., `_info`), but docstrings
   reference them without the prefix (write INFO, not _INFO).
@@ -343,14 +342,14 @@ same session.  Larger or planned work is in the =Roadmap= section of
 
 - **Docstring & layout leftovers (from the tidy pass).**
   - Add `(declare (ftype …))` to the 2 functions that still lack it
-    (excluding `defsubst`, interactive, and end-user commands; count as
-    of 2026-10-06): `t--textarea-block` and
+    (excluding `defsubst`, interactive, and end-user commands):
+    `t--textarea-block` and
     `t-preamble-default-function`.
 
 - **Shorthand symbol names in docstrings and comments.**  They are
   string literals and get no `read-symbol-shorthands`; write the full
-  `org-w3ctr-*` name.  Fix per section in the passes.  As of
-  2026-10-04, grep `` `t- `` in `ox-w3ctr.el` finds, outside the
+  `org-w3ctr-*` name.  Fix per section in the passes.  grep
+  `` `t- `` in `ox-w3ctr.el` finds, outside the
   `REFINE:` sections, only `t-style` / `t-style-file` (<head>).
   The rest sit inside sections the pass will fix:
   `t--engrave-face-transformer` (Engrave-faces subset);
