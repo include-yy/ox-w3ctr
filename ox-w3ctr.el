@@ -1342,13 +1342,20 @@ left untouched: later `org-w3ctr--pget' calls with the same INFO plist
 return it, while Org and `plist-get' still see the old value.  Any other
 PROP is written with `plist-put'.
 
-Unlike `plist-put', return VALUE rather than the plist."
+Unlike `plist-put', return VALUE rather than the plist.
+
+VALUE is evaluated before the oclosure or plist is modified, so it can
+safely read from INFO (including the same PROP) without seeing a stale
+cached value."
     (static-if t--oinfo-cache-p
         (if-let* ((f (alist-get (inline-const-val prop)
                                 t--oinfo-cache-alist)))
-            (inline-quote
-             (let ((o (symbol-function #',f)))
-               (setf (t--oinfo--pid o) ,info (t--oinfo--val o) ,value)))
+            (inline-letevals (info value)
+              (inline-quote
+               (let ((o (symbol-function #',f)))
+                 (setf (t--oinfo--pid o) ,info)
+                 (setf (t--oinfo--val o) ,value)
+                 ,value)))
           (inline-letevals (value)
             (inline-quote (prog1 ,value (plist-put ,info ,prop ,value)))))
       (inline-letevals (value)
@@ -1369,7 +1376,8 @@ the cache off this does nothing."
   (map-do
    (lambda (_k v)
      (let ((o (symbol-function v)))
-       (setf (t--oinfo--pid o) nil (t--oinfo--val o) nil)))
+       (setf (t--oinfo--pid o) nil)
+       (setf (t--oinfo--val o) nil)))
    t--oinfo-cache-alist))
 
 (defun t-oinfo-cleanup-before-export (&rest _)

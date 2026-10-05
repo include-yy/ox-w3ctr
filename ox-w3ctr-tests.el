@@ -296,6 +296,33 @@ oclosure with the correct key."
       ($l (eval '(t--pput info :c (incf val))) 3)
       ($l (plist-get info :c) 3))))
 
+(ert-deftest t--oinfo-pput-value-evaluation-order ()
+  "`org-w3ctr--pput' evaluates VALUE before updating the oclosure.
+VALUE can safely read from INFO (including the same PROP) without
+seeing a stale cached value, and a signal during VALUE evaluation
+leaves the cache unchanged."
+  (skip-unless t--oinfo-cache-p)
+  ($oinfo-cache '(:a)
+    (dlet ((info-a (list :a "A"))
+           (info-b (list :a "B")))
+      ;; Prime the cache with info-a.
+      ($l (eval '(t--pget info-a :a)) "A")
+      ;; VALUE reads the same key of a different INFO.
+      ($l (eval '(t--pput info-b :a
+                          (format "seen=%s" (t--pget info-b :a))))
+          "seen=B")
+      ($l (eval '(t--pget info-b :a)) "seen=B")
+      ;; Cleanup before the error test.
+      (t--oinfo-cleanup)
+      ($l (eval '(t--pget info-a :a)) "A")
+      ;; VALUE signals: the cache must not be half-updated.
+      (should-error (eval '(t--pput info-b :a (error "boom"))))
+      ;; The oclosure should still hold info-a, or be cleared.
+      (let ((cached-pid (t--oinfo--pid (t--oinfo-oget :a))))
+        (should (or (eq cached-pid info-a) (null cached-pid))))
+      ;; Reading info-b must return "B" from the plist, not a stale "A".
+      ($l (eval '(t--pget info-b :a)) "B"))))
+
 (ert-deftest t--oinfo-cache-is-per-plist ()
   "A copy of the plist is a cache miss: oclosures compare with `eq'.
 `plist-get' works on any plist with matching keys, but the cache
