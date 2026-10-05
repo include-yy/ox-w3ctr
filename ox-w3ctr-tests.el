@@ -1446,14 +1446,21 @@ are ox-html's behavior, kept for compatibility."
      ("#+begin_foo-bar\nhello\n#+end_foo-bar"
       "<div class=\"foo-bar\">\n<p>hello</p>\n\n</div>"))
    nil '(:html-prefer-user-labels t
-         :html-special-block-custom-elements ("my-card")))
+         :html-special-block-custom-elements (("my-card"))))
+  ;; empty plist is equivalent to just registering the name
+  (t-check-element-values
+   #'t-special-block
+   '(("#+begin_my-card\nhello\n#+end_my-card"
+      "<my-card>\n<p>hello</p>\n</my-card>"))
+   nil '(:html-prefer-user-labels t
+         :html-special-block-custom-elements (("my-card" . nil))))
   ;; a listed type that is not a valid custom element name
   ($e! (org-export-string-as
         "#+begin_card\nx\n#+end_card" 'w3ctr t
-        '(:html-special-block-custom-elements ("card"))))
+        '(:html-special-block-custom-elements (("card")))))
   ($e! (org-export-string-as
         "#+begin_My-Card\nx\n#+end_My-Card" 'w3ctr t
-        '(:html-special-block-custom-elements ("My-Card")))))
+        '(:html-special-block-custom-elements (("My-Card"))))))
 
 (ert-deftest t--custom-element-name-p ()
   "Tests for `org-w3ctr--custom-element-name-p'.

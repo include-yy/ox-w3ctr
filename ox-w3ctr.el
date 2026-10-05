@@ -345,14 +345,18 @@ See `org-w3ctr-checkbox-types' for details."
 
 ;;;; Special Block
 (defcustom t-special-block-custom-elements nil
-  "List of special block types exported as custom elements.
+  "Alist of special block types exported as custom elements.
 
-A special block whose type is in this list becomes the element of the
-same name, as in <my-card>...</my-card>, instead of a <div> or an
-HTML5 element.  Each type must be a valid custom element name:
-lowercase, starting with a letter, and containing a hyphen."
+Each entry is (NAME . PLIST) where NAME is a string and PLIST holds
+configuration for that custom element.  A special block whose type
+matches NAME becomes <NAME>...</NAME> instead of a <div> or an HTML5
+element.  Each NAME must be a valid custom element name: lowercase,
+starting with a letter, and containing a hyphen.
+
+An empty PLIST is equivalent to registering just the name.  Future
+keys recognized by the exporter include :src, :script, and :template."
   :group 'org-export-w3ctr
-  :type '(repeat string))
+  :type '(alist :key-type string :value-type plist))
 
 ;;;; Table
 (defcustom t-table-use-header-tags-for-first-column nil
@@ -2391,6 +2395,16 @@ Return the formatted <blockquote> element as a string."
 ;; in `:html-special-block-custom-elements' go to
 ;; `org-w3ctr--special-block-custom'; all others go to
 ;; `org-w3ctr--special-block-builtin', which follows ox-html.
+
+(defun t--special-block-spec (type info)
+  "Return the registry entry of custom element TYPE in INFO, or nil.
+TYPE is a string.  The entry is (NAME . PLIST) from
+`:html-special-block-custom-elements'; it is non-nil even when PLIST
+is empty, so a nil result means TYPE is not registered."
+  (declare (ftype (function (string list) list))
+           (important-return-value t))
+  (assoc type (t--pget info :html-special-block-custom-elements)))
+
 (defconst t-html5-elements
   '("article" "aside" "audio" "canvas" "details" "figcaption"
     "figure" "footer" "header" "menu" "meter" "nav" "output"
@@ -2451,14 +2465,15 @@ CONTENTS is the block contents and INFO the info plist.  Signal
 
 (defun t-special-block (special-block contents info)
   "Transcode a SPECIAL-BLOCK element from Org to HTML.
-CONTENTS is the block contents and INFO the info plist.  Types listed
-in `:html-special-block-custom-elements' become custom elements."
+CONTENTS is the block contents and INFO the info plist.  Types
+registered in `:html-special-block-custom-elements' become custom
+elements."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (if (member (org-element-property :type special-block)
-              (t--pget info :html-special-block-custom-elements))
-      (t--special-block-custom special-block contents info)
-    (t--special-block-builtin special-block contents info)))
+  (let ((type (org-element-property :type special-block)))
+    (if (t--special-block-spec type info)
+        (t--special-block-custom special-block contents info)
+      (t--special-block-builtin special-block contents info))))
 
 ;;;; Table
 
