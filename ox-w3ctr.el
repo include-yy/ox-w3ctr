@@ -2591,7 +2591,6 @@ return nil when no registered element is used."
 
 ;;;; Table
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-table-use-header-tags-for-first-column
 ;;   (`org-w3ctr-table-use-header-tags-for-first-column')
@@ -2660,6 +2659,19 @@ column without a cookie is left to the CSS."
   (if-let* ((align (t--table-cell-align cell info)))
       (format " style=\"text-align:%s\"" align) ""))
 
+(defun t--table-first-row-data-cells (table info)
+  "Return the cells of TABLE's first non-rule row.
+When TABLE has a special column, its first cell is dropped."
+  (declare (ftype (function (t list) list))
+           (important-return-value t))
+  (let ((row (org-element-map table 'table-row
+               (lambda (r)
+                 (unless (eq (org-element-property :type r) 'rule) r))
+               info 'first-match)))
+    (if (not (org-export-table-has-special-column-p table))
+        (org-element-contents row)
+      (cdr (org-element-contents row)))))
+
 (defun t--table-column-specs (table info)
   "Return the <colgroup> markup describing TABLE's column groups.
 
@@ -2686,19 +2698,6 @@ position is left to CSS (`caption-side')."
   (if-let* ((caption (org-export-get-caption table)))
       (format "<caption>%s</caption>" (org-export-data caption info))
     ""))
-
-(defun t--table-first-row-data-cells (table info)
-  "Return the cells of TABLE's first non-rule row.
-When TABLE has a special column, its first cell is dropped."
-  (declare (ftype (function (t list) list))
-           (important-return-value t))
-  (let ((row (org-element-map table 'table-row
-               (lambda (r)
-                 (unless (eq (org-element-property :type r) 'rule) r))
-               info 'first-match)))
-    (if (not (org-export-table-has-special-column-p table))
-        (org-element-contents row)
-      (cdr (org-element-contents row)))))
 
 (defun t-table-cell (table-cell contents info)
   "Transcode a TABLE-CELL element from Org to HTML.
