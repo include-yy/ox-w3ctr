@@ -3,6 +3,7 @@
 *-autoloads.el
 *-pkg.el
 zhua.el
+/.agents/
 /jstools/node_modules
 /jstools/*.py
 /material/
