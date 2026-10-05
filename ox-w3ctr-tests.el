@@ -1623,6 +1623,175 @@ Malformed registry entries signal `org-w3ctr-error'."
       "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>"))
    nil '(:html-prefer-user-labels t)))
 
+(ert-deftest t--table-column-cookie ()
+  "Tests for `org-w3ctr--table-column-cookie'."
+  ;; Basic alignment cookies
+  (with-temp-buffer
+    (insert "| <l> | <c> | <r> |\n| a | b | c |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t)))
+      ($q (t--table-column-cookie table 0 info) 'left)
+      ($q (t--table-column-cookie table 1 info) 'center)
+      ($q (t--table-column-cookie table 2 info) 'right)))
+  ;; Width-only cookie (no alignment)
+  (with-temp-buffer
+    (insert "| <5> | <10> |\n| a | b |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t)))
+      ($n (t--table-column-cookie table 0 info))
+      ($n (t--table-column-cookie table 1 info))))
+  ;; Combined cookie (alignment + width)
+  (with-temp-buffer
+    (insert "| <l5> | <r10> | <c3> |\n| a | b | c |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t)))
+      ($q (t--table-column-cookie table 0 info) 'left)
+      ($q (t--table-column-cookie table 1 info) 'right)
+      ($q (t--table-column-cookie table 2 info) 'center)))
+  ;; Multiple special rows: last one wins
+  (with-temp-buffer
+    (insert "| <l> | <c> |\n| <r> | <l> |\n| a | b |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t)))
+      ($q (t--table-column-cookie table 0 info) 'right)
+      ($q (t--table-column-cookie table 1 info) 'left)))
+  ;; No cookie
+  (with-temp-buffer
+    (insert "| a | b |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t)))
+      ($n (t--table-column-cookie table 0 info))
+      ($n (t--table-column-cookie table 1 info))))
+  ;; Column index out of bounds
+  (with-temp-buffer
+    (insert "| <l> |\n| a |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t)))
+      ($n (t--table-column-cookie table 5 info)))))
+
+(ert-deftest t--table-column-specs ()
+  "Tests for `org-w3ctr--table-column-specs'."
+  ;; Single column group
+  (with-temp-buffer
+    (insert "| a | b |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t)))
+      ($l (t--table-column-specs table info)
+          "\n<colgroup span=\"2\">")))
+  ;; Column groups from a `/'-row
+  (with-temp-buffer
+    (insert "| / | < | > | < | > |\n|   | a | b | c | d |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t)))
+      ($l (t--table-column-specs table info)
+          "\n<colgroup span=\"2\">\n<colgroup span=\"2\">"))))
+
+(ert-deftest t--table-caption ()
+  "Tests for `org-w3ctr--table-caption'."
+  ;; With caption
+  (let ((result (org-export-string-as "#+caption: Test caption\n| a |" 'w3ctr)))
+    ($s (string-match-p "<caption>Test caption</caption>" result)))
+  ;; Without caption
+  (let ((result (org-export-string-as "| a |" 'w3ctr)))
+    ($n (string-match-p "<caption>" result)))
+  ;; Caption with formatting
+  (let ((result (org-export-string-as "#+caption: *Bold* and /italic/\n| a |" 'w3ctr)))
+    ($s (string-match-p "<caption><b>Bold</b> and <i>italic</i></caption>" result))))
+
+(ert-deftest t-table-row ()
+  "Tests for `org-w3ctr-table-row'."
+  ;; Header row (first row before hrule)
+  (with-temp-buffer
+    (insert "| a | b |\n|---+---|\n| 1 | 2 |")
+    (org-mode)
+    (let* ((info (org-export-get-environment 'w3ctr))
+           (rows (org-element-map (org-element-parse-buffer) 'table-row
+                   #'identity)))
+      ;; First row should have <thead>
+      ($l (t-table-row (car rows) "<th scope=\"col\">a</th><th scope=\"col\">b</th>" info)
+          "<thead>\n<tr><th scope=\"col\">a</th><th scope=\"col\">b</th>\n</tr>\n</thead>")
+      ;; Third row (after hrule) should have <tbody>
+      ($l (t-table-row (nth 2 rows) "<td>1</td><td>2</td>" info)
+          "<tbody>\n<tr><td>1</td><td>2</td>\n</tr>\n</tbody>")))
+  ;; Row without header
+  (with-temp-buffer
+    (insert "| a | b |")
+    (org-mode)
+    (let* ((info (org-export-get-environment 'w3ctr))
+           (row (org-element-map (org-element-parse-buffer) 'table-row
+                  #'identity nil t)))
+      ($l (t-table-row row "<td>a</td><td>b</td>" info)
+          "<tbody>\n<tr><td>a</td><td>b</td>\n</tr>\n</tbody>"))))
+
+(ert-deftest t-table-cell ()
+  "Tests for `org-w3ctr-table-cell'."
+  ;; Header cell with scope="col"
+  (with-temp-buffer
+    (insert "| Name |\n|------|\n| foo |")
+    (org-mode)
+    (let* ((info (org-export-get-environment 'w3ctr))
+           (cells (org-element-map (org-element-parse-buffer) 'table-cell
+                    #'identity)))
+      ;; First cell is in header row
+      ($l (t-table-cell (car cells) "Name" info)
+          "\n<th scope=\"col\">Name</th>")))
+  ;; Regular data cell
+  (with-temp-buffer
+    (insert "| a |")
+    (org-mode)
+    (let* ((info (org-export-get-environment 'w3ctr))
+           (cell (org-element-map (org-element-parse-buffer) 'table-cell
+                   #'identity nil t)))
+      ($l (t-table-cell cell "a" info)
+          "\n<td>a</td>")))
+  ;; Cell with alignment
+  (with-temp-buffer
+    (insert "| <l> |\n| a |")
+    (org-mode)
+    (let* ((info (org-export-get-environment 'w3ctr))
+           (cells (org-element-map (org-element-parse-buffer) 'table-cell
+                    #'identity)))
+      ;; Second cell (after the <l> cookie)
+      ($l (t-table-cell (nth 1 cells) "a" info)
+          "\n<td style=\"text-align:left\">a</td>")))
+  ;; Empty cell (becomes &nbsp;)
+  (with-temp-buffer
+    (insert "| |")
+    (org-mode)
+    (let* ((info (org-export-get-environment 'w3ctr))
+           (cell (org-element-map (org-element-parse-buffer) 'table-cell
+                   #'identity nil t)))
+      ($l (t-table-cell cell "" info)
+          "\n<td>&#xa0;</td>")))
+  ;; First column with :html-table-use-header-tags-for-first-column
+  (with-temp-buffer
+    (insert "| Name | Value |\n| foo | bar |")
+    (org-mode)
+    (let* ((info (org-export-get-environment
+                  'w3ctr nil
+                  '(:html-table-use-header-tags-for-first-column t)))
+           (cells (org-element-map (org-element-parse-buffer) 'table-cell
+                    #'identity)))
+      ;; Third cell (first data row, first column)
+      ($l (t-table-cell (nth 2 cells) "foo" info)
+          "\n<th scope=\"row\">foo</th>"))))
+
 (ert-deftest t-example-block ()
   "Tests for `org-w3ctr-example-block'."
   (t-check-element-values
