@@ -2482,24 +2482,24 @@ with `org-w3ctr--custom-element-name-p', which turns off case folding.")
 (defun t--custom-element-name-p (name)
   "Return non-nil if string NAME is a valid custom element name."
   (declare (ftype (function (string) boolean))
-           (important-return-value t))
+           (pure t) (important-return-value t))
   (let ((case-fold-search nil))
     (and (string-match-p t--custom-element-name-regexp name) t)))
 
-(defun t--special-block-custom (special-block contents info)
+(defun t--special-block-custom (special-block contents info spec)
   "Transcode SPECIAL-BLOCK as the custom element named by its type.
 
-CONTENTS is the block contents and INFO the info plist.  When the
-registry entry has a :template, it is inserted verbatim before
-CONTENTS, so it must be trusted; it is meant to hold a whole
+CONTENTS is the block contents and INFO the info plist.  SPEC is
+the registry spec from `org-w3ctr--special-block-spec'.  When the
+entry has a :template, it is inserted verbatim before CONTENTS, so
+it must be trusted; it is meant to hold a whole
 <template shadowrootmode=...> element (Declarative Shadow DOM).
 Signal `org-w3ctr-error' if the type is not a valid custom element
 name."
-  (declare (ftype (function (t (or null string) list) string))
+  (declare (ftype (function (t (or null string) list list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type special-block))
-         (template (plist-get (car (t--special-block-spec type info))
-                              :template)))
+         (template (plist-get (car spec) :template)))
     (unless (t--custom-element-name-p type)
       (t-error "Invalid custom element name: %s" type))
     (format "<%s%s>\n%s%s</%s>" type
@@ -2517,8 +2517,8 @@ elements."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let ((type (org-element-property :type special-block)))
-    (if (t--special-block-spec type info)
-        (t--special-block-custom special-block contents info)
+    (if-let* ((spec (t--special-block-spec type info)))
+        (t--special-block-custom special-block contents info spec)
       (t--special-block-builtin special-block contents info))))
 
 (defun t--special-block-used-elements (info)
@@ -2541,8 +2541,7 @@ in the document."
   "Generate <script> markup for one custom element ENTRY.
 ENTRY is (NAME . PLIST).  SEEN is a list of :src values already
 emitted.  Return (MARKUP . SEEN) where MARKUP is the generated
-string (possibly empty) and SEEN is the updated seen-list.
-Mutates SEEN as a side effect."
+string (possibly empty) and SEEN is the updated seen-list."
   (declare (ftype (function (cons list) cons))
            (important-return-value t))
   (let ((plist (cdr entry))
@@ -2653,7 +2652,8 @@ was computed and has no cookie)."
   "Return CELL's inline alignment attribute, or the empty string.
 
 Only an explicit Org alignment cookie produces an attribute; a
-column without a cookie is left to the CSS."
+column without a cookie is left to the CSS.  INFO is the info
+plist."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (if-let* ((align (t--table-cell-align cell info)))
@@ -2661,7 +2661,8 @@ column without a cookie is left to the CSS."
 
 (defun t--table-first-row-data-cells (table info)
   "Return the cells of TABLE's first non-rule row.
-When TABLE has a special column, its first cell is dropped."
+When TABLE has a special column, its first cell is dropped.  INFO
+is the info plist."
   (declare (ftype (function (t list) list))
            (important-return-value t))
   (let ((row (org-element-map table 'table-row
@@ -2677,7 +2678,8 @@ When TABLE has a special column, its first cell is dropped."
 
 Each column group is emitted as a single <colgroup span=\"N\">
 element.  `<col>' children are omitted: alignment now lives on the
-cells, and no other per-column attribute is expressible in Org."
+cells, and no other per-column attribute is expressible in Org.
+INFO is the info plist."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((n 0) out)
@@ -2692,7 +2694,7 @@ cells, and no other per-column attribute is expressible in Org."
   "Return TABLE's <caption> element, or the empty string.
 
 The caption is emitted as the table's first child; its visual
-position is left to CSS (`caption-side')."
+position is left to CSS (`caption-side').  INFO is the info plist."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (if-let* ((caption (org-export-get-caption table)))
@@ -2750,8 +2752,9 @@ contextual information."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (if (eq (org-element-property :type table) 'table.el)
-      ;; "table.el" table.  Convert it using appropriate tools.
-      ;; (Modern-HTML reimplementation pending.)
+      ;; FIXME: table.el tables still go through
+      ;; `table-generate-source'; reimplement the conversion in modern
+      ;; HTML.
       (t--table.el-table table info)
     ;; Standard table.
     (format "<table%s>\n%s\n%s\n%s</table>"
