@@ -227,6 +227,18 @@ Besides the passes: the options tidy-up in `README.org` Roadmap (the
   - inside a `define-inline`, a flag test must sit *outside* the
     `inline-quote`: inside it is a runtime branch, and the whole machinery
     is expanded into every call site.
+- **Custom elements (special-block).**  The design is explicit over
+  implicit: every custom element must be registered in
+  `org-w3ctr-special-block-custom-elements`, a `(NAME . PLIST)` alist.
+  The back-end does not guess by name pattern.  Keys in the PLIST are
+  read by two separate components: `:template` (Declarative Shadow DOM)
+  is inserted by the transcoder (`org-w3ctr--special-block-custom`);
+  `:src` and `:script` are read by the default head function
+  (`org-w3ctr-special-block-head-default-function`) to build `<script>`
+  tags.  Other keys are left to a custom head function.  The scan for
+  used elements (`org-w3ctr--special-block-used-elements`) runs at
+  template stage, takes INFO, and has no global state; `:noexport:`
+  subtrees are excluded.
 - **Table column groups.**  Org's `/`-row (`<`/`>`/`<>`) only marks group
   boundaries; it cannot carry attributes, because its cells must be exactly
   those markers or Org's own colgroup detection

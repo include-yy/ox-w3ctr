@@ -85,10 +85,6 @@ now).
 
 Explicitly out of scope for now.
 
-- *special-block Web Component extras.*  Custom elements are in
-  (=org-w3ctr-special-block-custom-elements=); injecting component
-  scripts into =<head>= and Declarative Shadow DOM templates are not,
-  until a real component needs them.
 - *Dependency analysis.*  Charting how far ox-w3ctr leans on Org and
   mapping the internal =t-*= call graph.  Final global-optimization
   and cleanup task.

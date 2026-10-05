@@ -1496,6 +1496,22 @@ Uppercase names are rejected even when `case-fold-search' is on."
     (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""))
       ($n (t--custom-element-name-p s)))))
 
+(ert-deftest t--special-block-spec ()
+  "Tests for `org-w3ctr--special-block-spec'.
+Malformed registry entries signal `org-w3ctr-error'."
+  ;; old string-list format: signals
+  ($e! (org-export-string-as
+        "#+begin_x-old\nhi\n#+end_x-old" 'w3ctr t
+        '(:html-special-block-custom-elements ("x-old"))))
+  ;; non-cons entry: signals
+  ($e! (org-export-string-as
+        "#+begin_x-bad\nhi\n#+end_x-bad" 'w3ctr t
+        '(:html-special-block-custom-elements (42))))
+  ;; non-string name: signals
+  ($e! (org-export-string-as
+        "#+begin_x-bad\nhi\n#+end_x-bad" 'w3ctr t
+        '(:html-special-block-custom-elements ((42 :src "x.js"))))))
+
 (ert-deftest t-special-block-head-default-function ()
   "Tests for `org-w3ctr-special-block-head-default-function'."
   ($l (t-special-block-head-default-function

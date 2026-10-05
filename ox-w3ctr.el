@@ -2420,15 +2420,22 @@ Return the formatted <blockquote> element as a string."
 ;; in `:html-special-block-custom-elements' go to
 ;; `org-w3ctr--special-block-custom'; all others go to
 ;; `org-w3ctr--special-block-builtin', which follows ox-html.
+;; <head> scripts for used custom elements are injected by
+;; `org-w3ctr--build-head' via `:html-special-block-head-function'.
 
 (defun t--special-block-spec (type info)
   "Return the registry entry of custom element TYPE in INFO, or nil.
 TYPE is a string.  The entry is (NAME . PLIST) from
 `:html-special-block-custom-elements'; it is non-nil even when PLIST
-is empty, so a nil result means TYPE is not registered."
+is empty, so a nil result means TYPE is not registered.  Signal
+`org-w3ctr-error' if the registry contains a malformed entry."
   (declare (ftype (function (string list) list))
            (important-return-value t))
-  (assoc type (t--pget info :html-special-block-custom-elements)))
+  (let ((registry (t--pget info :html-special-block-custom-elements)))
+    (dolist (entry registry)
+      (unless (and (consp entry) (stringp (car entry)))
+        (t-error "Malformed custom element registry entry: %S" entry)))
+    (assoc type registry)))
 
 (defconst t-html5-elements
   '("article" "aside" "audio" "canvas" "details" "figcaption"
