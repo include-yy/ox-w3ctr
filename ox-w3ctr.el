@@ -2468,7 +2468,7 @@ so `car' retrieves the plist."
     (dolist (entry registry)
       (unless (and (consp entry) (stringp (car entry)))
         (t-error "Malformed custom element registry entry: %S" entry)))
-    (when-let ((entry (assoc type registry)))
+    (when-let* ((entry (assoc type registry)))
       (cons (cdr entry) (car entry)))))
 
 (defconst t--custom-element-name-regexp
