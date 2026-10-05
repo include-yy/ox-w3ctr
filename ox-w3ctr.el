@@ -1401,25 +1401,41 @@ dead INFO plist and its parse tree."
 (defun t-collect-oinfo-statistics ()
   "Display how often each cached OINFO key has been looked up.
 
-Read the `cnt' slot of every oclosure in `org-w3ctr--oinfo-cache-alist',
-sort the keys by lookup count, print them as (KEY CNT) in the buffer
-*ox-w3ctr-oinfo* and display that buffer.
+Present the statistics in a `tabulated-list-mode' buffer where you can
+click column headers to re-sort, or press \\[tabulated-list-sort] on a
+column.  Press \\[revert-buffer] to refresh the statistics.
 
 The counts begin when the file is loaded and keep growing across
 exports; `org-w3ctr-clear-oinfo-statistics' zeroes them.
 
 Interactive; useful for judging which keys are worth caching at all."
   (interactive)
-  (let* ((buf (get-buffer-create "*ox-w3ctr-oinfo*"))
-         (ls (mapcar
-              (lambda (x) (let ((key (car x))
-                                (o (symbol-function (cdr x))))
-                            (cons key (t--oinfo--cnt o))))
-              t--oinfo-cache-alist))
-         (sorted (sort ls :key #'cdr :reverse t)))
-    (with-current-buffer buf (erase-buffer))
-    (pp sorted buf)
-    (switch-to-buffer-other-window buf)))
+  (let ((stats (cl-loop for (key . sym) in t--oinfo-cache-alist
+                        for oclosure = (symbol-function sym)
+                        for cnt = (t--oinfo--cnt oclosure)
+                        collect (list key
+                                      (vector (symbol-name key)
+                                              (propertize (format "%6d" cnt)
+                                                          'count cnt))))))
+    (with-current-buffer (get-buffer-create "*ox-w3ctr-oinfo*")
+      (tabulated-list-mode)
+      (setq tabulated-list-format
+            [("Property" 40 t) ("Count" 10 org-w3ctr--oinfo-compare-count
+                               :right-align t)]
+            tabulated-list-entries stats
+            tabulated-list-sort-key (cons "Count" t))
+      (setq-local revert-buffer-function
+                  (lambda (&rest _) (t-collect-oinfo-statistics)))
+      (tabulated-list-init-header)
+      (tabulated-list-print)
+      (goto-char (point-min))
+      (switch-to-buffer-other-window (current-buffer)))))
+
+(defun org-w3ctr--oinfo-compare-count (a b)
+  "Compare two OINFO statistic entries A and B by count.
+The count is stored as a text property on the Count column string."
+  (< (get-text-property 0 'count (aref (cadr a) 1))
+     (get-text-property 0 'count (aref (cadr b) 1))))
 
 (defun t-clear-oinfo-statistics ()
   "Clear the OINFO caches and reset their lookup counters.

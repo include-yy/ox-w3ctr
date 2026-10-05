@@ -424,10 +424,23 @@ uses object identity, so an equal but distinct plist is a miss."
           ($l (eval '(t--pget info :a)) 1)
           (t-collect-oinfo-statistics)
           (with-current-buffer "*ox-w3ctr-oinfo*"
-            (let* ((s (buffer-string))
-                   (ls (car (read-from-string s))))
-              ($l (car ls) '(:b . 2))
-              ($l (cadr ls) '(:a . 1))))))
+            ;; Check that buffer uses tabulated-list-mode
+            ($l major-mode 'tabulated-list-mode)
+            ;; Check entries: should be sorted by count descending
+            (let ((entries tabulated-list-entries))
+              ($l (length entries) 2)
+              ;; First entry: :b with count 2
+              ($l (nth 0 (car entries)) :b)
+              ($l (aref (nth 1 (car entries)) 0) ":b")
+              (let ((count-str (aref (nth 1 (car entries)) 1)))
+                (should (string-match "2" count-str))  ; formatted string contains "2"
+                ($l (get-text-property 0 'count count-str) 2))  ; text property holds numeric count
+              ;; Second entry: :a with count 1
+              ($l (nth 0 (cadr entries)) :a)
+              ($l (aref (nth 1 (cadr entries)) 0) ":a")
+              (let ((count-str (aref (nth 1 (cadr entries)) 1)))
+                (should (string-match "1" count-str))  ; formatted string contains "1"
+                ($l (get-text-property 0 'count count-str) 1))))))  ; text property holds numeric count
     (when (get-buffer "*ox-w3ctr-oinfo*")
       (kill-buffer "*ox-w3ctr-oinfo*"))))
 
