@@ -200,16 +200,15 @@ earlier parts (the 2026-10 section refile scrambled their source order).
 
 The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
-source.  Seven remain, in source order: Footnote, Special Block, Table,
-LaTeX, Engrave-faces subset, Source block, Link.  Take them in source
+source.  Five remain, in source order: Table, LaTeX, Engrave-faces
+subset, Source block, Link.  Take them in source
 order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass — docstring,
 `declare`, `important-return-value`/`pure`, helper use, tests — and
 remove the marker when the section is done.  What a pass turns up goes to
 `## Tasks` or `README.org` Roadmap.
 
-The first tasks, then: the options tidy-up in `README.org` Roadmap (the
-`*-function` replacement and the ox-html compatibility chart), and the
-special-block Web Component after it.
+Besides the passes: the options tidy-up in `README.org` Roadmap (the
+`*-function` replacement and the ox-html compatibility chart).
 
 ## Notes
 
@@ -331,9 +330,9 @@ same session.  Larger or planned work is in the =Roadmap= section of
 =README.org=.
 
 - **Docstring & layout leftovers (from the tidy pass).**
-  - Add `(declare (ftype …))` to the 3 functions that still lack it
+  - Add `(declare (ftype …))` to the 2 functions that still lack it
     (excluding `defsubst`, interactive, and end-user commands; count as
-    of 2026-10-04): `t-special-block`, `t--textarea-block` and
+    of 2026-10-06): `t--textarea-block` and
     `t-preamble-default-function`.
 
 - **Shorthand symbol names in docstrings and comments.**  They are
