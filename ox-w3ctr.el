@@ -1434,9 +1434,12 @@ Interactive; useful for judging which keys are worth caching at all."
       (goto-char (point-min))
       (switch-to-buffer-other-window (current-buffer)))))
 
-(defun org-w3ctr--oinfo-compare-count (a b)
+(defun t--oinfo-compare-count (a b)
   "Compare two OINFO statistic entries A and B by count.
 The count is stored as a text property on the Count column string."
+  (declare (ftype (function (list list) boolean))
+           (pure t)
+           (important-return-value t))
   (< (get-text-property 0 'count (aref (cadr a) 1))
      (get-text-property 0 'count (aref (cadr b) 1))))
 
