@@ -2423,20 +2423,6 @@ Return the formatted <blockquote> element as a string."
 ;; <head> scripts for used custom elements are injected by
 ;; `org-w3ctr--build-head' via `:html-special-block-head-function'.
 
-(defun t--special-block-spec (type info)
-  "Return the registry entry of custom element TYPE in INFO, or nil.
-TYPE is a string.  The entry is (NAME . PLIST) from
-`:html-special-block-custom-elements'; it is non-nil even when PLIST
-is empty, so a nil result means TYPE is not registered.  Signal
-`org-w3ctr-error' if the registry contains a malformed entry."
-  (declare (ftype (function (string list) list))
-           (important-return-value t))
-  (let ((registry (t--pget info :html-special-block-custom-elements)))
-    (dolist (entry registry)
-      (unless (and (consp entry) (stringp (car entry)))
-        (t-error "Malformed custom element registry entry: %S" entry)))
-    (assoc type registry)))
-
 (defconst t-html5-elements
   '("article" "aside" "audio" "canvas" "details" "figcaption"
     "figure" "footer" "header" "menu" "meter" "nav" "output"
@@ -2467,6 +2453,24 @@ that class, so an empty `#+attr__:' gives a plain <div>."
                   (format " class=\"%s\"" (t--encode-plain-text* type)))
                 attrs contents)))))
 
+(defun t--special-block-spec (type info)
+  "Return the spec of custom element TYPE in INFO, or nil.
+TYPE is a string.  The spec is a (PLIST . NAME) cons from
+`:html-special-block-custom-elements'; it is non-nil even when PLIST
+is empty, so a nil result means TYPE is not registered.  Signal
+`org-w3ctr-error' if the registry contains a malformed entry.
+
+The result is (PLIST . NAME) rather than the registry's (NAME . PLIST)
+so `car' retrieves the plist."
+  (declare (ftype (function (string list) list))
+           (important-return-value t))
+  (let ((registry (t--pget info :html-special-block-custom-elements)))
+    (dolist (entry registry)
+      (unless (and (consp entry) (stringp (car entry)))
+        (t-error "Malformed custom element registry entry: %S" entry)))
+    (when-let ((entry (assoc type registry)))
+      (cons (cdr entry) (car entry)))))
+
 (defconst t--custom-element-name-regexp
   (rx string-start (any "a-z") (* (any "a-z0-9._-"))
       "-" (* (any "a-z0-9._-")) string-end)
@@ -2494,7 +2498,7 @@ name."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type special-block))
-         (template (plist-get (cdr (t--special-block-spec type info))
+         (template (plist-get (car (t--special-block-spec type info))
                               :template)))
     (unless (t--custom-element-name-p type)
       (t-error "Invalid custom element name: %s" type))
