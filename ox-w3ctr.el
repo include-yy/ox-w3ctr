@@ -355,8 +355,14 @@ matches NAME becomes <NAME>...</NAME> instead of a <div> or an HTML5
 element.  Each NAME must be a valid custom element name: lowercase,
 starting with a letter, and containing a hyphen.
 
-An empty PLIST is equivalent to registering just the name.  Future
-keys recognized by the exporter include :src, :script, and :template."
+An empty PLIST is equivalent to registering just the name.  Keys:
+- :template  inserted verbatim at the start of the element, e.g. a
+             <template shadowrootmode=\"open\"> for Declarative
+             Shadow DOM.
+- :src, :script  read by the default
+             `org-w3ctr-special-block-head-function' to build the
+             <head> scripts.
+Other keys are left to a custom head function."
   :group 'org-export-w3ctr
   :type '(alist :key-type string :value-type plist))
 
@@ -2471,15 +2477,25 @@ with `org-w3ctr--custom-element-name-p', which turns off case folding.")
 
 (defun t--special-block-custom (special-block contents info)
   "Transcode SPECIAL-BLOCK as the custom element named by its type.
-CONTENTS is the block contents and INFO the info plist.  Signal
-`org-w3ctr-error' if the type is not a valid custom element name."
+
+CONTENTS is the block contents and INFO the info plist.  When the
+registry entry has a :template, it is inserted verbatim before
+CONTENTS, so it must be trusted; it is meant to hold a whole
+<template shadowrootmode=...> element (Declarative Shadow DOM).
+Signal `org-w3ctr-error' if the type is not a valid custom element
+name."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (let ((type (org-element-property :type special-block)))
+  (let* ((type (org-element-property :type special-block))
+         (template (plist-get (cdr (t--special-block-spec type info))
+                              :template)))
     (unless (t--custom-element-name-p type)
       (t-error "Invalid custom element name: %s" type))
-    (format "<%s%s>\n%s</%s>" type
+    (format "<%s%s>\n%s%s</%s>" type
             (t--make-attr__id* special-block info t)
+            (if (t--nw-p template)
+                (org-element-normalize-string template)
+              "")
             (or contents "") type)))
 
 (defun t-special-block (special-block contents info)

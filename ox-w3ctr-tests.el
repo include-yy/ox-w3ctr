@@ -1462,6 +1462,31 @@ are ox-html's behavior, kept for compatibility."
         "#+begin_My-Card\nx\n#+end_My-Card" 'w3ctr t
         '(:html-special-block-custom-elements (("My-Card"))))))
 
+(ert-deftest t--special-block-custom-template ()
+  "Tests for the :template key of custom elements."
+  (let ((tpl "<template shadowrootmode=\"open\"><slot></slot></template>"))
+    (t-check-element-values
+     #'t-special-block
+     `(("#+begin_x-tpl\nhello\n#+end_x-tpl"
+        ,(concat "<x-tpl>\n" tpl "\n<p>hello</p>\n</x-tpl>"))
+       ;; empty block: the template alone
+       ("#+begin_x-tpl\n#+end_x-tpl"
+        ,(concat "<x-tpl>\n" tpl "\n</x-tpl>"))
+       ;; entries without :template are unchanged
+       ("#+begin_x-plain\nhello\n#+end_x-plain"
+        "<x-plain>\n<p>hello</p>\n</x-plain>"))
+     nil `(:html-special-block-custom-elements
+           (("x-tpl" :template ,tpl :src "x.js") ("x-plain")))))
+  ;; :template and :src coexist: template in the body, script in <head>
+  (let ((out (org-export-string-as
+              "#+begin_x-tpl\nhi\n#+end_x-tpl" 'w3ctr nil
+              '(:html-special-block-custom-elements
+                (("x-tpl" :template "<template shadowrootmode=\"closed\"></template>"
+                  :src "x.js"))))))
+    ($s (< (string-search "src=\"x.js\"" out)
+           (string-search "</head>" out)
+           (string-search "shadowrootmode=\"closed\"" out)))))
+
 (ert-deftest t--custom-element-name-p ()
   "Tests for `org-w3ctr--custom-element-name-p'.
 Uppercase names are rejected even when `case-fold-search' is on."
