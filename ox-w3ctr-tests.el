@@ -1431,6 +1431,39 @@ are ox-html's behavior, kept for compatibility."
       "<aside id=\"nm\" class=\"bar\">\n<p>hello</p>\n</aside>"))
    nil '(:html-prefer-user-labels t)))
 
+(ert-deftest t-special-block-custom-elements ()
+  "Tests for `:html-special-block-custom-elements'."
+  (t-check-element-values
+   #'t-special-block
+   '(;; listed type: the custom element itself, no class added
+     ("#+begin_my-card\nhello\n#+end_my-card"
+      "<my-card>\n<p>hello</p>\n</my-card>")
+     ("#+begin_my-card\n#+end_my-card" "<my-card>\n</my-card>")
+     ;; attributes as for other elements
+     ("#+name: nm\n#+attr__: [x]\n#+begin_my-card\nhello\n#+end_my-card"
+      "<my-card id=\"nm\" class=\"x\">\n<p>hello</p>\n</my-card>")
+     ;; unlisted types are unaffected
+     ("#+begin_foo-bar\nhello\n#+end_foo-bar"
+      "<div class=\"foo-bar\">\n<p>hello</p>\n\n</div>"))
+   nil '(:html-prefer-user-labels t
+         :html-special-block-custom-elements ("my-card")))
+  ;; a listed type that is not a valid custom element name
+  ($e! (org-export-string-as
+        "#+begin_card\nx\n#+end_card" 'w3ctr t
+        '(:html-special-block-custom-elements ("card"))))
+  ($e! (org-export-string-as
+        "#+begin_My-Card\nx\n#+end_My-Card" 'w3ctr t
+        '(:html-special-block-custom-elements ("My-Card")))))
+
+(ert-deftest t--custom-element-name-p ()
+  "Tests for `org-w3ctr--custom-element-name-p'.
+Uppercase names are rejected even when `case-fold-search' is on."
+  (dolist (s '("my-card" "x-" "a-b-c" "a1-b.c_d"))
+    ($s (t--custom-element-name-p s)))
+  (let ((case-fold-search t))
+    (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""))
+      ($n (t--custom-element-name-p s)))))
+
 (ert-deftest t--table-cell-align ()
   "Tests for `org-w3ctr--table-cell-align'."
   (with-temp-buffer

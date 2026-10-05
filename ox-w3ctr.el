@@ -169,6 +169,9 @@
     (:html-footnote-section-function nil nil t-footnote-section-function)
     ;; Item and Plain Lists
     (:html-checkbox-type nil nil t-checkbox-type)
+    ;; Special Block
+    (:html-special-block-custom-elements
+     nil nil t-special-block-custom-elements)
     ;; Table
     (:html-table-use-header-tags-for-first-column
      nil nil t-table-use-header-tags-for-first-column)
@@ -339,6 +342,17 @@ See `org-w3ctr-checkbox-types' for details."
   :type '(choice (const :tag "Unicode symbols" unicode)
                  (const :tag "ASCII characters" ascii)
                  (const :tag "HTML <input> elements" html)))
+
+;;;; Special Block
+(defcustom t-special-block-custom-elements nil
+  "List of special block types exported as custom elements.
+
+A special block whose type is in this list becomes the element of the
+same name, as in <my-card>...</my-card>, instead of a <div> or an
+HTML5 element.  Each type must be a valid custom element name:
+lowercase, starting with a letter, and containing a hyphen."
+  :group 'org-export-w3ctr
+  :type '(repeat string))
 
 ;;;; Table
 (defcustom t-table-use-header-tags-for-first-column nil
@@ -2407,12 +2421,44 @@ that class, so an empty `#+attr__:' gives a plain <div>."
                   (format " class=\"%s\"" (t--encode-plain-text* type)))
                 attrs contents)))))
 
-(defun t-special-block (special-block contents info)
-  "Transcode a SPECIAL-BLOCK element from Org to HTML.
-CONTENTS is the block contents and INFO the info plist."
+(defconst t--custom-element-name-regexp
+  (rx string-start (any "a-z") (* (any "a-z0-9._-"))
+      "-" (* (any "a-z0-9._-")) string-end)
+  "Regexp matching a valid custom element name.
+See https://html.spec.whatwg.org/#valid-custom-element-name; the
+non-ASCII characters it also allows are not accepted here.  Match it
+with `org-w3ctr--custom-element-name-p', which turns off case folding.")
+
+(defun t--custom-element-name-p (name)
+  "Return non-nil if string NAME is a valid custom element name."
+  (declare (ftype (function (string) boolean))
+           (important-return-value t))
+  (let ((case-fold-search nil))
+    (and (string-match-p t--custom-element-name-regexp name) t)))
+
+(defun t--special-block-custom (special-block contents info)
+  "Transcode SPECIAL-BLOCK as the custom element named by its type.
+CONTENTS is the block contents and INFO the info plist.  Signal
+`org-w3ctr-error' if the type is not a valid custom element name."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (t--special-block-compat special-block contents info))
+  (let ((type (org-element-property :type special-block)))
+    (unless (t--custom-element-name-p type)
+      (t-error "Invalid custom element name: %s" type))
+    (format "<%s%s>\n%s</%s>" type
+            (t--make-attr__id* special-block info t)
+            (or contents "") type)))
+
+(defun t-special-block (special-block contents info)
+  "Transcode a SPECIAL-BLOCK element from Org to HTML.
+CONTENTS is the block contents and INFO the info plist.  Types listed
+in `:html-special-block-custom-elements' become custom elements."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (if (member (org-element-property :type special-block)
+              (t--pget info :html-special-block-custom-elements))
+      (t--special-block-custom special-block contents info)
+    (t--special-block-compat special-block contents info)))
 
 ;;;; Table
 
