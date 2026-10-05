@@ -80,6 +80,21 @@ now).
   or nil (server-side).  Planned: further server-side backends, or
   client-side (e.g. highlight.js) by emitting bare
   =<code class="language-LANG">=.
+- *Special-block custom elements: a component cookbook.*  The
+  =:html-special-block-custom-elements= registry (=:template= for
+  Declarative Shadow DOM, =:src= and =:script= for the =<head>=
+  scripts) is the declared seam for authoring W3C components, and
+  that is where the mechanism stops: no =org-special-block-extras=-
+  style block DSL (a =defblock= macro that =read=s the block header
+  and =eval=s raw HTML) is planned.  What belongs in the docs instead
+  is a cookbook of correct component patterns for Org's always
+  block-level =<p>= light content: style =:host= and reset
+  =::slotted(p)= for inline components, wrap =<slot>= in a flow
+  container for block components, route named slots with
+  =#+attr_html: :slot NAME=, and choose =:src= vs =:script=.  Theme
+  through CSS custom properties (=--w3c-*=), and, as optional sugar,
+  map a block's =:parameters= (=#+begin_x-badge :variant warn=) onto
+  element attributes.
 
 *** Non-goals
 
