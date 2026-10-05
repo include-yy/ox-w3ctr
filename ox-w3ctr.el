@@ -2387,10 +2387,10 @@ Return the formatted <blockquote> element as a string."
 ;;;; Special Block
 
 ;; See (info "(org)Special blocks") and (info "(org)HTML doctypes")
-;; The ox-html behavior is kept as the compatibility path, in
-;; `org-w3ctr--special-block-compat'; `org-w3ctr-special-block' only
-;; dispatches, so that other paths (Web Components) can be added in
-;; front of it later.
+;; `org-w3ctr-special-block' dispatches between two paths: types listed
+;; in `:html-special-block-custom-elements' go to
+;; `org-w3ctr--special-block-custom'; all others go to
+;; `org-w3ctr--special-block-builtin', which follows ox-html.
 (defconst t-html5-elements
   '("article" "aside" "audio" "canvas" "details" "figcaption"
     "figure" "footer" "header" "menu" "meter" "nav" "output"
@@ -2399,7 +2399,7 @@ Return the formatted <blockquote> element as a string."
 Copied from `org-html-html5-elements' for compatibility; matched
 case-sensitively.")
 
-(defun t--special-block-compat (special-block contents info)
+(defun t--special-block-builtin (special-block contents info)
   "Transcode SPECIAL-BLOCK as an HTML element or a <div>.
 
 CONTENTS is the block contents and INFO the info plist.  A type in
@@ -2458,7 +2458,7 @@ in `:html-special-block-custom-elements' become custom elements."
   (if (member (org-element-property :type special-block)
               (t--pget info :html-special-block-custom-elements))
       (t--special-block-custom special-block contents info)
-    (t--special-block-compat special-block contents info)))
+    (t--special-block-builtin special-block contents info)))
 
 ;;;; Table
 
