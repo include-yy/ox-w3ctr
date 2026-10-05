@@ -1483,6 +1483,19 @@ Uppercase names are rejected even when `case-fold-search' is on."
   ($l (t-special-block-head-default-function
        '(("a-b" :src "a.js?x=1&y=\"2\"")) nil)
       "<script type=\"module\" src=\"a.js?x=1&amp;y=&quot;2&quot;\"></script>\n")
+  ;; a shared :src is emitted once, at its first entry
+  ($l (t-special-block-head-default-function
+       '(("a-b" :src "all.js") ("c-d" :src "c.js") ("e-f" :src "all.js"))
+       nil)
+      "<script type=\"module\" src=\"all.js\"></script>
+<script type=\"module\" src=\"c.js\"></script>\n")
+  ;; deduplication does not touch :script
+  ($l (t-special-block-head-default-function
+       '(("a-b" :src "all.js" :script "a()") ("c-d" :src "all.js" :script "c()"))
+       nil)
+      "<script type=\"module\" src=\"all.js\"></script>
+<script type=\"module\">\na()\n</script>
+<script type=\"module\">\nc()\n</script>\n")
   ;; entries without known keys produce nothing
   ($n (t-special-block-head-default-function '(("a-b")) nil))
   ($n (t-special-block-head-default-function

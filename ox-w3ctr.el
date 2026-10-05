@@ -172,7 +172,8 @@
     ;; Special Block
     (:html-special-block-custom-elements
      nil nil t-special-block-custom-elements)
-    (:html-special-block-head-function nil nil t-special-block-head-function)
+    (:html-special-block-head-function
+     nil nil t-special-block-head-function)
     ;; Table
     (:html-table-use-header-tags-for-first-column
      nil nil t-table-use-header-tags-for-first-column)
@@ -2514,22 +2515,26 @@ in the document."
 
 SPECS and INFO are as for `org-w3ctr-special-block-head-function'.
 For each entry, :src becomes <script type=\"module\" src=...> and
-:script an inline module script.  The :script text is inserted
-verbatim, so it must be trusted.  Return nil when nothing is
-produced."
+:script an inline module script.  A :src already emitted for an
+earlier entry is skipped, so several elements can share one script.
+The :script text is inserted verbatim, so it must be trusted.  Return
+nil when nothing is produced."
   (declare (ftype (function (list t) (or null string)))
            (important-return-value t))
-  (let ((s (mapconcat
-            (lambda (entry)
-              (let ((plist (cdr entry)))
-                (concat
-                 (when-let* ((src (plist-get plist :src)))
-                   (format "<script type=\"module\" src=\"%s\"></script>\n"
-                           (t--encode-plain-text* src)))
-                 (when-let* ((js (plist-get plist :script)))
-                   (format "<script type=\"module\">\n%s\n</script>\n"
-                           js)))))
-            specs)))
+  (let* ((seen nil)
+         (s (mapconcat
+             (lambda (entry)
+               (let ((plist (cdr entry)))
+                 (concat
+                  (when-let* ((src (plist-get plist :src))
+                              ((not (member src seen))))
+                    (push src seen)
+                    (format "<script type=\"module\" src=\"%s\"></script>\n"
+                            (t--encode-plain-text* src)))
+                  (when-let* ((js (plist-get plist :script)))
+                    (format "<script type=\"module\">\n%s\n</script>\n"
+                            js)))))
+             specs)))
     (and (t--nw-p s) s)))
 
 (defun t--special-block-head (info)
