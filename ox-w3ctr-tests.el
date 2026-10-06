@@ -316,8 +316,7 @@ otherwise its cached assertions fail in the nil build."
   "The closure symbol is the struct name followed by the keyword."
   (dolist (key t--oinfo-cache-props)
     ($l (t--oinfo-oclosure key)
-        (intern (concat "org-w3ctr--oinfo" (symbol-name key)))))
-  ($l (t--oinfo-oclosure :title) 'org-w3ctr--oinfo:title))
+        (intern (concat "org-w3ctr--oinfo" (symbol-name key))))))
 
 (ert-deftest t--oinfo-cache-alist-matches-props ()
   "Structural check: `org-w3ctr--oinfo-cache-alist' keys match
