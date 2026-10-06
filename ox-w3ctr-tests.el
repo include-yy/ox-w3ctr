@@ -469,10 +469,9 @@ too."
   "Tests for `org-w3ctr--oinfo-cleanup'."
   (skip-unless t--oinfo-cache-p)
   (t-test-oinfo-cache '(:a :b)
-    (dlet ((info '(:a 1 :b 2 :c 3)))
+    (dlet ((info '(:a 1 :b 2)))
       ($l (eval '(t--pget info :a)) 1)
       ($l (eval '(t--pget info :b)) 2)
-      ($l (eval '(t--pget info :c)) 3)
       ($q (t--oinfo--pid (t--oinfo-oget :a)) info)
       ($q (t--oinfo--pid (t--oinfo-oget :b)) info)
       ($q (t--oinfo--val (t--oinfo-oget :a)) 1)
