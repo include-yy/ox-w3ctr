@@ -40,10 +40,14 @@
 ;;; Code:
 
 ;;;; Dependencies
+(require 'subr-x)
+(require 'inline)
+(require 'pcase)
 (require 'seq)
 (require 'map)
 (require 'format-spec)
 (require 'jsonrpc)
+(require 'url-util)
 (require 'ox)
 (require 'ox-publish)
 (require 'ox-html)
