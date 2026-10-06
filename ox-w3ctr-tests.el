@@ -2,7 +2,7 @@
 
 (require 'ert)
 (require 'cl-lib)
-(load "ox-w3ctr")
+(require 'ox-w3ctr)
 
 ;; Org's error messages quote with `...'; keep it as backticks so the
 ;; tests match whether they run under --batch or an interactive Emacs.
