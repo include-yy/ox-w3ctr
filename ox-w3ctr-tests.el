@@ -153,8 +153,9 @@ a literal second argument to `org-w3ctr--pget' in the source file."
                  nil t))))))
 
 (ert-deftest t--oinfo-props-go-through-pget ()
-  "Static check: no `org-w3ctr--oinfo-cache-props' key is reached
-with a literal `plist-get' or `plist-put' in the source file.
+  "Static check: no `org-w3ctr--oinfo-cache-props' key is read or
+written with a literal `plist-get', `plist-put' or
+`setf (plist-get ...)' in the source file.
 Only literal keys are checked: a computed key cannot be seen here."
   (let* ((build (symbol-file 'org-w3ctr--pget 'defun))
          (source (and build (concat (file-name-sans-extension build) ".el"))))
@@ -162,10 +163,16 @@ Only literal keys are checked: a computed key cannot be seen here."
     (with-temp-buffer
       (insert-file-contents source)
       (let ((offenders nil)
-            (patterns '("[(]plist-get[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"
-                        "[(]plist-put[ \t\n]+info[ \t\n]+%s"
-                        "[(]\\(?:cl-\\)?incf[ \t\n]+[(]plist-get[ \t\n]+%s[)]"
-                        "[(]setf[ \t\n]+[(]plist-get[ \t\n]+%s[)]")))
+            (patterns
+             '("[(]plist-get[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"
+               "[(]plist-put[ \t\n]+info[ \t\n]+%s"
+               "[(]setf[ \t\n]+[(]plist-get[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"))
+            (samples '("(plist-get info :k)"
+                       "(plist-put info :k v)"
+                       "(setf (plist-get info :k) v)")))
+        ;; Self-check: a pattern that misses its own sample is dead.
+        (dolist (pair (cl-mapcar #'cons patterns samples))
+          ($s (string-match-p (format (car pair) ":k") (cdr pair))))
         (dolist (key t--oinfo-cache-props)
           (dolist (pat patterns)
             (goto-char (point-min))
