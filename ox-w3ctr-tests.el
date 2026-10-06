@@ -104,8 +104,8 @@ closures these tests install can never replace a real one."
   "Run BODY with a throwaway OINFO cache for the property keys KEYS.
 
 Binds `org-w3ctr--oinfo-cache-props' and `org-w3ctr--oinfo-cache-alist'
-to closures named by `t-test-oinfo-oclosure', and removes those names again
-when BODY exits: `fset' is not undone by `dlet'.
+to closures named by `org-w3ctr-test-oinfo-oclosure', and removes those
+names again when BODY exits: `fset' is not undone by `dlet'.
 
 Inside BODY call `org-w3ctr--pget'/`org-w3ctr--pput' through `eval':
 both are `define-inline', expanded at call time against the current
@@ -189,7 +189,7 @@ Only literal keys are checked: a computed key cannot be seen here."
         ($l (t--pget info :plain) v)))))
 
 (ert-deftest t-test-oinfo-cache-macro ()
-  "Smoke test for the `t-test-oinfo-cache' test helper macro.
+  "Smoke test for the `org-w3ctr-test-oinfo-cache' test helper macro.
 Verifies setup, body evaluation, and cleanup of throwaway closures."
   (skip-unless t--oinfo-cache-p)
   (let ((sym (t-test-oinfo-oclosure :test-x)))
@@ -216,6 +216,36 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
     ($n (eq (t-test-oinfo-oclosure key) (t--oinfo-oclosure key))))
   ($n (memq (t-test-oinfo-oclosure :a)
             (mapcar #'cdr t--oinfo-cache-alist))))
+
+(ert-deftest t-test-oinfo-cache-guarded ()
+  "Static check: every test that installs a throwaway cache skips too.
+`org-w3ctr-test-oinfo-cache' only makes sense when the cache is on, so
+a test that uses it must also `skip-unless' `org-w3ctr-oinfo-cache-p';
+otherwise its cached assertions fail in the nil build."
+  (let* ((build (symbol-file 'org-w3ctr-test-oinfo-cache 'defun))
+         (source (and build (concat (file-name-sans-extension build) ".el")))
+         ;; Built so this file does not itself match the pattern below.
+         (use (concat "(t-test-oinfo" "-cache\\_>"))
+         (guard "skip-unless t--oinfo-cache-p"))
+    (skip-unless (and source (file-readable-p source)))
+    (with-temp-buffer
+      (insert-file-contents source)
+      (let (starts)
+        (goto-char (point-min))
+        (while (re-search-forward
+                "^[ \t]*(ert-deftest[ \t]+\\([^ \t\n()]+\\)" nil t)
+          (push (cons (match-string 1) (match-beginning 0)) starts))
+        (let ((offenders nil)
+              (last (point-max)))
+          (dolist (cell (nreverse starts))
+            (let ((name (car cell))
+                  (beg (cdr cell)))
+              (let ((body (buffer-substring-no-properties beg last)))
+                (when (and (string-match-p use body)
+                           (not (string-match-p guard body)))
+                  (push name offenders)))
+              (setq last beg)))
+          ($l (nreverse offenders) nil))))))
 
 (ert-deftest t--make-cache-oclosure ()
   "Tests for `org-w3ctr--make-cache-oclosure'."
