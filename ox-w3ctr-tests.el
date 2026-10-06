@@ -128,12 +128,13 @@ throwaway cache this macro installs."
 
 (ert-deftest t--oinfo-switch-is-compile-time ()
   "Tests for `org-w3ctr-oinfo-enabled'.
-The switch is resolved at compile time: the flag never appears
-in compiled output, and the oclosure is inlined when the cache is on."
-  (let ((code (prin1-to-string
-               (byte-compile '(lambda (info) (t--pget info :title))))))
-    ($n (string-match-p "org-w3ctr-oinfo-enabled" code))
-    ($l (and (string-match-p "org-w3ctr--oinfo:title" code) t)
+The switch is resolved at macro-expansion time: the flag never reaches
+the expanded call, and the oclosure is inlined when the cache is on.
+`macroexpand-all' runs `org-w3ctr--pget''s compiler macro, the same
+mechanism the byte compiler uses."
+  (let ((symbols (flatten-tree (macroexpand-all '(t--pget info :title)))))
+    ($n (memq 'org-w3ctr-oinfo-enabled symbols))
+    ($l (and (memq 'org-w3ctr--oinfo:title symbols) t)
         t--oinfo-cache-p)))
 
 (ert-deftest t--oinfo-props-are-looked-up ()
