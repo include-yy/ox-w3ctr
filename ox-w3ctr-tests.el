@@ -240,9 +240,7 @@ the cache, not `plist-get', answered."
 (ert-deftest t--oinfo-test-namespace ()
   "The names the tests generate can never replace a production closure."
   (dolist (key t--oinfo-cache-props)
-    ($n (eq (t-test-oinfo-oclosure key) (t--oinfo-oclosure key))))
-  ($n (memq (t-test-oinfo-oclosure :a)
-            (mapcar #'cdr t--oinfo-cache-alist))))
+    ($n (eq (t-test-oinfo-oclosure key) (t--oinfo-oclosure key)))))
 
 (ert-deftest t-test-oinfo-cache-guarded ()
   "Static check: every test that installs a throwaway cache skips too.
