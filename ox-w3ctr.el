@@ -2564,7 +2564,7 @@ ENTRY is (NAME . PLIST).  SEEN is a list of :src values already
 emitted.  Return (MARKUP . SEEN) where MARKUP is the generated
 string (possibly empty) and SEEN is the updated seen-list."
   (declare (ftype (function (cons list) cons))
-           (important-return-value t))
+           (pure t) (important-return-value t))
   (let ((plist (cdr entry))
         (parts nil))
     (when-let* ((src (plist-get plist :src))
@@ -2588,7 +2588,7 @@ earlier entry is skipped, so several elements can share one script.
 The :script text is inserted verbatim, so it must be trusted.  Return
 nil when nothing is produced."
   (declare (ftype (function (list t) (or null string)))
-           (important-return-value t))
+           (pure t) (important-return-value t))
   (let ((seen nil)
         (parts nil))
     (dolist (entry specs)
