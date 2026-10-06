@@ -243,7 +243,7 @@ the cache, not `plist-get', answered."
     ($n (eq (t-test-oinfo-oclosure key) (t--oinfo-oclosure key)))))
 
 (ert-deftest t-test-oinfo-cache-guarded ()
-  "Static check: every test that installs a throwaway cache skips too.
+  "Static check: every throwaway-cache test is guarded by `skip-unless'.
 `org-w3ctr-test-oinfo-cache' only makes sense when the cache is on, so
 a test that uses it must also `skip-unless' `org-w3ctr-oinfo-cache-p';
 otherwise its cached assertions fail in the nil build."
