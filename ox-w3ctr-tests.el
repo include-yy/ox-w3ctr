@@ -83,6 +83,40 @@ symbol (such as \\='headline, \\='paragraph, etc)."
     (save-excursion (insert str))
     (t-parse1 type)))
 
+;;;; `t-check-element-values'
+
+(ert-deftest t-check-element-values ()
+  "Tests for `org-w3ctr-check-element-values'.
+It catches FN's return values through the advice, compares them to
+EXPECTED, signals `ert-test-failed' with the input/expected/actual on a
+mismatch, and removes the advice in either case."
+  (let ((in "#+begin_quote\n123\n#+end_quote")
+        (out "<blockquote>\n<p>123</p>\n</blockquote>"))
+    ;; A matching case passes and returns t.
+    ($q (t-check-element-values #'t-quote-block (list (cons in (list out)))) t)
+    ($n (advice-member-p #'t-advice-return-value 't-quote-block))
+    ;; EXPECTED is in reverse call order: `org-w3ctr-test-values' is
+    ;; push-accumulated, so two blocks come back as (SECOND FIRST).
+    ($q (t-check-element-values
+         #'t-quote-block
+         (list (cons (concat "#+begin_quote\n1\n#+end_quote\n\n"
+                             "#+begin_quote\n2\n#+end_quote")
+                     (list "<blockquote>\n<p>2</p>\n</blockquote>"
+                           "<blockquote>\n<p>1</p>\n</blockquote>"))))
+        t)
+    ($n (advice-member-p #'t-advice-return-value 't-quote-block))
+    ;; A mismatch signals `ert-test-failed' with the diagnostic data.
+    (let* ((err (should-error
+                 (t-check-element-values #'t-quote-block
+                                         (list (cons in (list "WRONG"))))))
+           (data (cadr err)))
+      ($q (car err) 'ert-test-failed)
+      ($l (plist-get data :input) in)
+      ($l (plist-get data :expected) '("WRONG"))
+      ($l (plist-get data :actual) (list out)))
+    ;; The advice must not leak after the failure either.
+    ($n (advice-member-p #'t-advice-return-value 't-quote-block))))
+
 ;;; Fundamental utilities
 
 (ert-deftest t-error ()
