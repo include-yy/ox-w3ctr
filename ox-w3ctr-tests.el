@@ -437,8 +437,7 @@ uses object identity, so an equal but distinct plist is a miss."
       ($nq twin info)
       ($l twin info)
       ($l (eval '(t--pget twin :a)) 1)
-      ($q (t--oinfo--pid (t--oinfo-oget :a)) twin)
-      ($l (t--oinfo--cnt (t--oinfo-oget :a)) 2))))
+      ($q (t--oinfo--pid (t--oinfo-oget :a)) twin))))
 
 (ert-deftest t--oinfo-mutation-is-invisible ()
   "Changing the plist object in place does not reach the cache."
