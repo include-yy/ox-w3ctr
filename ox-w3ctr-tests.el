@@ -126,6 +126,38 @@ throwaway cache this macro installs."
          (dolist (name names)
            (when (fboundp name) (fmakunbound name)))))))
 
+;; Directly under its subject.
+(ert-deftest t-test-oinfo-cache-macro ()
+  "Smoke test for the `org-w3ctr-test-oinfo-cache' test helper macro.
+Verifies setup, body evaluation, cleanup, and restore of throwaway
+closures, and that both the read and the write go through them."
+  (skip-unless t--oinfo-cache-p)
+  (let ((sym (t-test-oinfo-oclosure :test-x))
+        (alist t--oinfo-cache-alist))
+    ;; Before: the symbol must not be a function.
+    ($n (fboundp sym))
+    (t-test-oinfo-cache '(:test-x)
+      ;; Inside: cache alist is populated and callable.
+      ($l (mapcar #'car t--oinfo-cache-alist) '(:test-x))
+      ($q (cdr (assq :test-x t--oinfo-cache-alist)) sym)
+      ($s (fboundp sym))
+      ($l (eval '(t--pget (list :test-x 42) :test-x)) 42)
+      ;; A write goes through the closure too, not the plist.
+      (dlet ((info (list :test-x 1)))
+        ($l (eval '(t--pput info :test-x 'NEW)) 'NEW)
+        ($q (eval '(t--pget info :test-x)) 'NEW)))
+    ;; After: the symbol is unbound and the real alist is restored.
+    ($n (fboundp sym))
+    ($q t--oinfo-cache-alist alist))
+  ;; The `unwind-protect' cleanup also runs when BODY signals.
+  (let ((sym (t-test-oinfo-oclosure :boom))
+        (alist t--oinfo-cache-alist))
+    ($e! (t-test-oinfo-cache '(:boom)
+           ($s (fboundp sym))
+           (error "boom")))
+    ($n (fboundp sym))
+    ($q t--oinfo-cache-alist alist)))
+
 (ert-deftest t--oinfo-switch-is-compile-time ()
   "Tests for `org-w3ctr-oinfo-enabled'.
 The switch is resolved at macro-expansion time: the flag never reaches
@@ -204,28 +236,6 @@ the cache, not `plist-get', answered."
     ($l (t--pget info :plain) 2))
   ;; do not leave the real oclosure holding this test's plist
   (t--oinfo-cleanup))
-
-(ert-deftest t-test-oinfo-cache-macro ()
-  "Smoke test for the `org-w3ctr-test-oinfo-cache' test helper macro.
-Verifies setup, body evaluation, and cleanup of throwaway closures."
-  (skip-unless t--oinfo-cache-p)
-  (let ((sym (t-test-oinfo-oclosure :test-x)))
-    ;; Before: the symbol must not be a function.
-    ($n (fboundp sym))
-    (t-test-oinfo-cache '(:test-x)
-      ;; Inside: cache alist is populated and callable.
-      ($l (mapcar #'car t--oinfo-cache-alist) '(:test-x))
-      ($q (cdr (assq :test-x t--oinfo-cache-alist)) sym)
-      ($s (fboundp sym))
-      ($l (eval '(t--pget (list :test-x 42) :test-x)) 42))
-    ;; After: the symbol is unbound again.
-    ($n (fboundp sym)))
-  ;; The `unwind-protect' cleanup also runs when BODY signals.
-  (let ((sym (t-test-oinfo-oclosure :boom)))
-    ($e! (t-test-oinfo-cache '(:boom)
-           ($s (fboundp sym))
-           (error "boom")))
-    ($n (fboundp sym))))
 
 (ert-deftest t--oinfo-test-namespace ()
   "The names the tests generate can never replace a production closure."
