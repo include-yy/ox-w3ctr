@@ -1885,6 +1885,11 @@ or when its attribute list is neither nil, t, nor a proper list."
 ;; Options:
 ;; - :html-prefer-user-labels (`org-w3ctr-prefer-user-labels')
 
+;; The identifier-shaped restriction is deliberate, kept for ox-html
+;; compatibility: a value that does not match is not used verbatim as a
+;; reference — `org-w3ctr--reference' falls through to
+;; `org-export-get-reference' for it.  Do not relax the regexp without
+;; revisiting that fallback.
 (defun t--target-reference (datum)
   "Return the value of a target or radio-target as a reference string.
 Return nil if DATUM is not a target type, or if the value is not a

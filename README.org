@@ -52,7 +52,10 @@ now).
   ox-html keyword compatibility (=HTML_HOME/UP_FORMAT=, =newline=).
   =org-w3ctr-metadata-timestamp-format= drops ox-html's =%a= weekday
   abbreviation (deliberate).  =org-w3ctr-home/up-format=, a bare
-  =format= string, is the natural =*-function= candidate.
+  =format= string, is the natural =*-function= candidate.  Special
+  blocks: with user attributes =org-w3ctr--special-block-builtin=
+  replaces the type class instead of concatenating it as ox-html does
+  (=class="user TYPE"=) — deliberate (explicit over implicit).
 - *Src-block feature gaps vs ox-html.*  Dropped when forking (judged
   low-value for W3C TR output).  Revisit later:
   - Line numbers, coderef, =retain-labels=.

@@ -191,15 +191,15 @@ section of `README.org` (larger), rather than a plan of its own.  There
 is no fixed task list and no "underway" moment: those two lists *are*
 the plan.
 
-The `;;; Template and Inner Template` part is finished and
-`;;; Basic utilities` has had its pass.  The latter is stable: it carries
-unit, source-scanning and property tests and the JSON-RPC rewrite,
-verified end to end — touch it only for a concrete reason, with a test,
-never as a drive-by while refining another section.  The `;;; Greater
-elements` part has had its fine pass too (Table was the last section);
-the current task is to review it in detail and then freeze it, like
-`;;; Basic utilities`.  The remaining refinement work is in the earlier
-parts (a section refile scrambled their source order).
+The `;;; Template and Inner Template` part is finished; `;;; Basic
+utilities` and `;;; Greater elements` are frozen.  Both are stable:
+they carry unit, source-scanning and property tests and the JSON-RPC
+rewrite, verified end to end — touch them only for a concrete reason,
+with a test, never as a drive-by while refining another section.  Their
+one deliberate test gap, `org-w3ctr--table.el-table` (its markup comes
+from `table-generate-source`), is annotated in the source.  The
+remaining refinement work is in the earlier parts (a section refile
+scrambled their source order): the `REFINE` sections below.
 
 The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
