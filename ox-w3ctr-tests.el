@@ -444,6 +444,15 @@ uses object identity, so an equal but distinct plist is a miss."
     (when (get-buffer "*ox-w3ctr-oinfo*")
       (kill-buffer "*ox-w3ctr-oinfo*"))))
 
+(ert-deftest t--oinfo-compare-count ()
+  "Tests for `org-w3ctr--oinfo-compare-count'."
+  (let ((entry (lambda (n)
+                 (list n (vector (format "%d" n)
+                                 (propertize (format "%d" n) 'count n))))))
+    ($s (t--oinfo-compare-count (funcall entry 1) (funcall entry 2)))
+    ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 1)))
+    ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 2)))))
+
 (ert-deftest t--oinfo-plain-flavor ()
   "Tests for `org-w3ctr--pget' and `org-w3ctr--pput' when
 the OINFO cache is off."
@@ -818,6 +827,15 @@ the OINFO cache is off."
                 (stringp (t--sexp2html x))
               (org-w3ctr-error t)))))))
 
+(ert-deftest t--void-element ()
+  "Tests for `org-w3ctr--void-element'."
+  ($l (t--void-element "br" nil) "<br>")
+  ($l (t--void-element "br" "") "<br>")
+  ;; surrounding whitespace in ATTRS is trimmed
+  ($l (t--void-element "br" "   ") "<br>")
+  ($l (t--void-element "img" "src=\"x\"") "<img src=\"x\">")
+  ($l (t--void-element "img" "  src=\"x\"  ") "<img src=\"x\">"))
+
 (ert-deftest t--target-reference ()
   "Tests for `org-w3ctr--target-reference'."
   (let ((get-target (lambda (val)
@@ -871,6 +889,14 @@ the OINFO cache is off."
       ($l (t--reference para with-labels) "my-name")
       ;; NAME with prefer-user-labels=nil → falls through to random.
       ($s (string-match-p "org[0-9a-f]+" (t--reference para no-labels))))
+    ;; ID property with prefer-user-labels=t → the "ID-" prefix.
+    (let ((h (with-temp-buffer
+               (insert "* H\n:PROPERTIES:\n:ID: my-uid\n:END:")
+               (car (org-element-map (org-element-parse-buffer)
+                        'headline #'identity)))))
+      ($l (t--reference h with-labels) "ID-my-uid")
+      ;; ID with prefer-user-labels=nil → falls through to random.
+      ($s (string-match-p "org[0-9a-f]+" (t--reference h no-labels))))
     ;; named-only + no name + not headline → nil.
     (let ((para (with-temp-buffer
                   (insert "hello")
@@ -944,6 +970,30 @@ the OINFO cache is off."
       ($q (t--jrpc-restart client) 'new)
       ($s shut)
       ($q (t--jrpc--conn client) 'new))))
+
+(ert-deftest t--jrpc-shutdown ()
+  "Tests for `org-w3ctr--jrpc-shutdown'."
+  ;; a live connection is shut down and the slot cleared
+  (let ((client (t--jrpc-make "test" '("true"))) shut)
+    (setf (t--jrpc--conn client) 'conn)
+    (cl-letf (((symbol-function 'jsonrpc-shutdown)
+               (lambda (_conn &rest _) (setq shut t))))
+      (t--jrpc-shutdown client)
+      ($s shut)
+      ($q (t--jrpc--conn client) nil)))
+  ;; no connection: nothing is shut down
+  (let ((client (t--jrpc-make "test" '("true"))))
+    (cl-letf (((symbol-function 'jsonrpc-shutdown)
+               (lambda (&rest _) (error "should not run"))))
+      (t--jrpc-shutdown client)
+      ($q (t--jrpc--conn client) nil)))
+  ;; a failing shutdown is swallowed and the slot is still cleared
+  (let ((client (t--jrpc-make "test" '("true"))))
+    (setf (t--jrpc--conn client) 'conn)
+    (cl-letf (((symbol-function 'jsonrpc-shutdown)
+               (lambda (&rest _) (error "boom"))))
+      (t--jrpc-shutdown client)
+      ($q (t--jrpc--conn client) nil))))
 
 (ert-deftest t--jcall ()
   "Tests for `org-w3ctr--jcall'."
@@ -1045,7 +1095,21 @@ int a = 1;</code></p>\n</details>")
       "<details><summary>test</summary></details>")
      ("#+caption:         \t\n:test:\n:end:"
       "<details><summary>test</summary></details>"))
-   nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t))
+  ;; a nil format function falls back to the default
+  (t-check-element-values
+   #'t-drawer
+   '((":hello:\n:end:" "<details><summary>hello</summary></details>"))
+   nil '(:html-format-drawer-function nil)))
+
+(ert-deftest t-drawer-default-format-function ()
+  "Tests for `org-w3ctr-drawer-default-format-function'."
+  ($l (t-drawer-default-format-function "name" "sum" "" nil nil)
+      "<details><summary>sum</summary></details>")
+  ($l (t-drawer-default-format-function "name" "sum" "" "body" nil)
+      "<details><summary>sum</summary>\nbody</details>")
+  ($l (t-drawer-default-format-function "name" "sum" " id=\"d\"" "body" nil)
+      "<details id=\"d\"><summary>sum</summary>\nbody</details>"))
 
 (ert-deftest t-dynamic-block ()
   "Tests for `org-w3ctr-dynamic-block'."
@@ -1131,7 +1195,13 @@ int a = 1;</code></p>\n</details>")
       "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n")
      ("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
       "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>one.</p>\n</dd>\n<dt id=\"fn-2\">[2]</dt>\n<dd>\n<p>two.</p>\n</dd>\n</dl>\n</div>\n"))
-   nil '(:with-latex verbatim)))
+   nil '(:with-latex verbatim))
+  ;; a nil section function falls back to the default
+  (t-check-element-values
+   #'t-footnote-section
+   '(("A[fn:1].\n\n[fn:1] The definition."
+      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>The definition.</p>\n</dd>\n</dl>\n</div>\n"))
+   nil '(:with-latex verbatim :html-footnote-section-function nil)))
 
 (ert-deftest t-footnote-section-default-function ()
   "Tests for `org-w3ctr-footnote-section-default-function'."
@@ -1520,6 +1590,28 @@ Uppercase names are rejected even when `case-fold-search' is on."
     (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""))
       ($n (t--custom-element-name-p s)))))
 
+(ert-deftest t--special-block-custom ()
+  "Tests for `org-w3ctr--special-block-custom'."
+  (let* ((mk (lambda (type)
+               (with-temp-buffer
+                 (insert (format "#+begin_%s\nhi\n#+end_%s" type type))
+                 (org-mode)
+                 (car (org-element-map (org-element-parse-buffer)
+                          'special-block #'identity)))))
+         (info '(:html-prefer-user-labels t)))
+    ;; no :template: the contents follow the opening tag directly
+    ($l (t--special-block-custom (funcall mk "my-card") "<p>hi</p>\n"
+                                 info '(nil . "my-card"))
+        "<my-card>\n<p>hi</p>\n</my-card>")
+    ;; a :template is normalized and inserted before the contents
+    ($l (t--special-block-custom
+         (funcall mk "my-card") "<p>hi</p>\n" info
+         '((:template "<template shadowrootmode=\"open\"></template>") . "my-card"))
+        "<my-card>\n<template shadowrootmode=\"open\"></template>\n<p>hi</p>\n</my-card>")
+    ;; a type that is not a valid custom element name signals
+    ($e!l (t--special-block-custom (funcall mk "card") "x" info '(nil . "card"))
+          '(org-w3ctr-error "Invalid custom element name: card"))))
+
 (ert-deftest t--special-block-spec ()
   "Tests for `org-w3ctr--special-block-spec'.
 Malformed registry entries signal `org-w3ctr-error'."
@@ -1637,7 +1729,11 @@ The result is (MARKUP . SEEN); a :src already in SEEN is skipped."
       ;; after the user's own <head> contents
       (let ((h (head doc '(:html-head "<!-- user -->"))))
         ($s (< (string-search "<!-- user -->" h)
-               (string-search "one.js" h)))))
+               (string-search "one.js" h))))
+      ;; a nil hook falls back to the default head function
+      (let ((h (head doc (list :html-special-block-head-function nil))))
+        ($l (t--find-all "src=\"[a-z]+\\.js\"" h)
+            '("src=\"one.js\"" "src=\"two.js\""))))
     ;; body-only exports have no <head>
     ($n (string-search
          "one.js"
@@ -1689,6 +1785,67 @@ registry is validated even when nothing matches."
                       'table-cell #'identity)))
       ($n (t--table-cell-align (car cells) info))
       ($n (t--table-cell-align (cadr cells) info)))))
+
+(ert-deftest t--table-cell-align-memo ()
+  "Tests for the per-table memoization of `org-w3ctr--table-cell-align'.
+A second lookup must come from the cache, `t--table-column-cookie' is
+consulted once per column, and a cookie-less column is remembered as
+the `none' marker."
+  (with-temp-buffer
+    (insert "| <l> | <r> |\n| a | b |\n| c | d |\n")
+    (org-mode)
+    (let* ((info (list :html-table-align-cache nil))
+           (cells (org-element-map (org-element-parse-buffer)
+                      'table-cell #'identity))
+           (orig (symbol-function 't--table-column-cookie))
+           (calls 0))
+      ;; Cells in order: <l>, <r>, a, b, c, d.
+      (cl-letf (((symbol-function 't--table-column-cookie)
+                 (lambda (table column info)
+                   (setq calls (1+ calls))
+                   (funcall orig table column info))))
+        ;; first call computes and stores; the second hits the cache
+        ($q (t--table-cell-align (nth 2 cells) info) 'left)
+        ($q (t--table-cell-align (nth 2 cells) info) 'left)
+        ($q (t--table-cell-align (nth 3 cells) info) 'right)
+        ($q (t--table-cell-align (nth 3 cells) info) 'right)
+        ($l calls 2)
+        ;; a later row's cell shares its column's cached value
+        ($q (t--table-cell-align (nth 4 cells) info) 'left)
+        ($q (t--table-cell-align (nth 5 cells) info) 'right)
+        ($l calls 2))))
+  ;; A cookie-less column is remembered as `none' and still returns nil.
+  (with-temp-buffer
+    (insert "| a | b |\n| c | d |\n")
+    (org-mode)
+    (let* ((info (list :html-table-align-cache nil))
+           (cells (org-element-map (org-element-parse-buffer)
+                      'table-cell #'identity))
+           (orig (symbol-function 't--table-column-cookie))
+           (calls 0))
+      (cl-letf (((symbol-function 't--table-column-cookie)
+                 (lambda (table column info)
+                   (setq calls (1+ calls))
+                   (funcall orig table column info))))
+        ($n (t--table-cell-align (car cells) info))
+        ($n (t--table-cell-align (car cells) info))
+        ($l calls 1)
+        (let* ((table (org-export-get-parent-table (car cells)))
+               (vec (gethash table (plist-get info :html-table-align-cache))))
+          ($q (aref vec 0) 'none)))))
+  ;; A ragged row reaches a column past the first row's width; the
+  ;; cache vector is extended for it.
+  (with-temp-buffer
+    (insert "| a | b |\n| c | d | e |\n")
+    (org-mode)
+    (let* ((info (list :html-table-align-cache nil))
+           (cells (org-element-map (org-element-parse-buffer)
+                      'table-cell #'identity))
+           (table (org-export-get-parent-table (car cells))))
+      ($n (t--table-cell-align (car cells) info))
+      ($l (length (gethash table (plist-get info :html-table-align-cache))) 2)
+      ($n (t--table-cell-align (nth 4 cells) info))
+      ($l (length (gethash table (plist-get info :html-table-align-cache))) 3))))
 
 (ert-deftest t--table-cell-attrs ()
   "Tests for `org-w3ctr--table-cell-attrs'."
