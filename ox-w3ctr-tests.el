@@ -497,7 +497,7 @@ too."
       ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
       ($l (t--oinfo--val (t--oinfo-oget :a)) nil))))
 
-(ert-deftest t--oinfo-clear-statistics ()
+(ert-deftest t-clear-oinfo-statistics ()
   "Tests for `org-w3ctr-clear-oinfo-statistics'."
   (skip-unless t--oinfo-cache-p)
   (t-test-oinfo-cache '(:a :b)
@@ -514,7 +514,7 @@ too."
       ($l (eval '(t--pget info :a)) 1)
       ($l (t--oinfo--cnt (t--oinfo-oget :a)) 1))))
 
-(ert-deftest t--oinfo-collect-statistics ()
+(ert-deftest t-collect-oinfo-statistics ()
   "Tests for `org-w3ctr-collect-oinfo-statistics'."
   (skip-unless t--oinfo-cache-p)
   (unwind-protect
