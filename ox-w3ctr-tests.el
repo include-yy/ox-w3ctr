@@ -182,17 +182,28 @@ Only literal keys are checked: a computed key cannot be seen here."
                     offenders))))
         ($l offenders nil)))))
 
-(ert-deftest t--oinfo-cache-property ()
-  "A cached read matches `plist-get'; a cached write reads back."
+(ert-deftest t--oinfo-non-inlined-call ()
+  "A variable KEY falls back to the non-inlined cache lookup.
+`org-w3ctr--pget'/`org-w3ctr--pput' cannot inline a non-literal key, so
+they run their function definitions and look KEY up in
+`org-w3ctr--oinfo-cache-alist' at run time -- the path
+`org-w3ctr--build-pre/postamble' uses.  The written value must read
+back while the plist keeps the old one; that divergence is what shows
+the cache, not `plist-get', answered."
   (skip-unless t--oinfo-cache-p)
-  (let ((key (car t--oinfo-cache-props)))
-    (dotimes (v 100)
-      (let ((info (list key (1+ v))))
-        ($l (t--pget info key) (plist-get info key))
-        (t--pput info key 'NEW)
-        ($q (t--pget info key) 'NEW)
-        (t--pput info :plain v)
-        ($l (t--pget info :plain) v)))))
+  (let* ((key (car t--oinfo-cache-props))
+         (info (list key 1)))
+    ;; a cached read matches `plist-get' before any write
+    ($l (t--pget info key) (plist-get info key))
+    ;; a cached write reads back, but leaves the plist untouched
+    (t--pput info key 'NEW)
+    ($q (t--pget info key) 'NEW)
+    ($l (plist-get info key) 1)
+    ;; a non-cached key goes through the plist
+    (t--pput info :plain 2)
+    ($l (t--pget info :plain) 2))
+  ;; do not leave the real oclosure holding this test's plist
+  (t--oinfo-cleanup))
 
 (ert-deftest t-test-oinfo-cache-macro ()
   "Smoke test for the `org-w3ctr-test-oinfo-cache' test helper macro.
