@@ -4684,6 +4684,92 @@ Malformed registry entries signal `org-w3ctr-error'."
     ($l (t--build-toc 2 '(:html-toc-element ul) 'scope-el)
         "\n<ul class=\"toc\">\n<li>h1</li>\n</ul>\n")))
 
+(ert-deftest t--build-toc-restores-channel-slots ()
+  "`org-w3ctr--build-toc' restores the swapped channel slots."
+  (with-temp-buffer
+    (insert "* One\n")
+    (org-mode)
+    (let* ((env (org-export-get-environment 'w3ctr))
+           (tree (org-element-parse-buffer))
+           (backend (org-export-get-backend 'w3ctr))
+           (alist (org-export-get-all-transcoders 'w3ctr))
+           (make-info
+            (lambda ()
+              (org-combine-plists
+               env
+               (list :parse-tree tree
+                     :back-end backend
+                     :translate-alist alist
+                     :exported-data (make-hash-table :test 'eq)
+                     :internal-references nil)))))
+      ;; Normal return: the three slots come back unchanged.
+      (let* ((info (funcall make-info))
+             (hash (plist-get info :exported-data)))
+        (t--build-toc 1 info)
+        ($q (plist-get info :back-end) backend)
+        ($q (plist-get info :translate-alist) alist)
+        ($q (plist-get info :exported-data) hash))
+      ;; A signal mid-loop still restores them.
+      (let* ((info (funcall make-info))
+             (hash (plist-get info :exported-data)))
+        (plist-put info :html-toc-headline-format-function
+                   (lambda (_h _i) (error "boom")))
+        ($e! (t--build-toc 1 info))
+        ($q (plist-get info :back-end) backend)
+        ($q (plist-get info :translate-alist) alist)
+        ($q (plist-get info :exported-data) hash)))))
+
+(ert-deftest t--build-toc-keeps-oinfo-pid ()
+  "`org-w3ctr--build-toc' keeps INFO's identity, so OINFO pids stay put.
+
+A title rendered for the TOC reads cached keys through the same INFO
+plist, so the cache hits and the oclosure's pid does not flip."
+  (skip-unless t--oinfo-cache-p)
+  (with-temp-buffer
+    (insert "* One\n")
+    (org-mode)
+    (let* ((info (org-combine-plists
+                  (org-export-get-environment 'w3ctr)
+                  (list :parse-tree (org-element-parse-buffer)
+                        :back-end (org-export-get-backend 'w3ctr)
+                        :translate-alist (org-export-get-all-transcoders 'w3ctr)
+                        :exported-data (make-hash-table :test 'eq)
+                        :internal-references nil)))
+           (o (t--oinfo-oget :with-smart-quotes)))
+      (t--pget info :with-smart-quotes)
+      ($q (t--oinfo--pid o) info)
+      (t--build-toc 1 info)
+      ($q (t--oinfo--pid o) info))))
+
+(ert-deftest t--toc-entry-channel-assumptions ()
+  "The TOC-entry swap in `org-w3ctr--build-toc' leans on ox.el internals.
+
+Guard the cheap properties the swap relies on, so an Org version bump
+that changes them fails here instead of corrupting a TOC silently."
+  ;; The three swapped slots must stay outside the OINFO cache; a
+  ;; cached slot would make `org-w3ctr--pput' write to the oclosure
+  ;; instead of the plist.
+  ($n (memq :back-end t--oinfo-cache-props))
+  ($n (memq :translate-alist t--oinfo-cache-props))
+  ($n (memq :exported-data t--oinfo-cache-props))
+  ;; The TOC-entry backend is unnamed, so filters get nil -- the same
+  ;; as through `org-export-data-with-backend'.
+  ($n (org-export-backend-name t--toc-entry-backend))
+  ;; Its full table puts the overrides before the inherited transcoders,
+  ;; which `org-export-transcoder' picks with `assq'.  The link override
+  ;; is a compiled function here, not a symbol, so check it is a function
+  ;; and not the w3ctr link transcoder.
+  ($s (functionp (cdr (assq 'link t--toc-entry-translate-alist))))
+  ($nq (cdr (assq 'link t--toc-entry-translate-alist)) 't-link)
+  ($l (cdr (assq 'footnote-reference t--toc-entry-translate-alist))
+      'ignore)
+  ($l (cdr (assq 'target t--toc-entry-translate-alist))
+      'ignore)
+  ($s (functionp (cdr (assq 'radio-target t--toc-entry-translate-alist))))
+  ;; The w3ctr transcoders still follow the overrides.
+  ($l (cdr (assq 'plain-text t--toc-entry-translate-alist))
+      't-plain-text))
+
 (ert-deftest t--build-table-of-contents ()
   "Tests for `org-w3ctr--build-table-of-contents'."
   (let (seen)

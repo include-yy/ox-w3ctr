@@ -5627,10 +5627,13 @@ nil when HEADLINE is unnumbered."
 (defun t--build-toc-headline (headline info)
   "Build a headline string for the Table of Contents.
 
-HEADLINE is the headline element and INFO is the info plist.  Retrieve
-HEADLINE's alternative title, falling back to the regular title when
-none is set, format it for export with the TOC entry backend, and pass
-it to `org-w3ctr--build-bare-headline' for final assembly."
+HEADLINE is the headline element and INFO is the info plist, which
+`org-w3ctr--build-toc' has put in TOC-entry state: `:back-end' and
+`:translate-alist' carry the TOC-entry backend and `:exported-data' is
+a fresh hash.  Retrieve HEADLINE's alternative title, falling back to
+the regular title when none is set, format it for export against that
+same INFO, and pass it to `org-w3ctr--build-bare-headline' for final
+assembly."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   ;; FIXME: The default TOC entry backend turns links into text, so an
@@ -5639,10 +5642,8 @@ it to `org-w3ctr--build-bare-headline' for final assembly."
   ;; images in TOC for HTML export") overrides the link transcoder to
   ;; render such images with `org-html-link'.  Decide whether to follow
   ;; it; for W3C TR output the text is likely preferable.
-  (let ((text (org-export-data-with-backend
-               (org-export-get-alt-title headline info)
-               (org-export-toc-entry-backend 'w3ctr)
-               info)))
+  (let ((text (org-export-data
+               (org-export-get-alt-title headline info) info)))
     (t--build-bare-headline headline text info)))
 
 (defun t-toc-headline-default-format-function (headline info)
@@ -5705,6 +5706,40 @@ wrapper."
      (mapconcat step (seq-mapn #'cons (mapcar #'car toc-entries) deltas))
      (t--make-string (- (car (last levels)) base) close))))
 
+;; The TOC-entry swap below leans on ox.el internals.  Re-check them
+;; when Org changes version; the drift test
+;; `org-w3ctr--toc-entry-channel-assumptions' guards the cheap ones.
+;;
+;;   * `:back-end', `:translate-alist' and `:exported-data' are the
+;;     channel slots `org-export--annotate-info' fills and that
+;;     `org-export-data', `org-export-transcoder' and
+;;     `org-export-filter-apply-functions' consume.  Swapping them in
+;;     place is what `org-export-data-with-backend' does by copying.
+;;   * `org-export-toc-entry-backend' returns an UNNAMED backend
+;;     (`org-export-backend-name' is nil), so filters get nil as the
+;;     backend name -- the same as through
+;;     `org-export-data-with-backend'.
+;;   * `org-export-transcoder' picks the first `assq' match, so the
+;;     overrides must precede the inherited w3ctr transcoders.
+;;   * `plist-put' must keep a non-empty plist's head cell (checked at
+;;     load time at the top of this file), or the swap would change
+;;     INFO's identity and defeat the zero-flip OINFO cache.
+(defconst t--toc-entry-backend
+  (org-export-toc-entry-backend 'w3ctr)
+  "The TOC-entry backend derived from the w3ctr backend.
+
+It inherits every w3ctr transcoder and overrides link, footnote-reference,
+radio-target and target, exactly as `org-export-toc-entry-backend' defines
+them.  Immutable; built once at load time, after the w3ctr backend is
+registered.")
+
+(defconst t--toc-entry-translate-alist
+  (org-export-get-all-transcoders t--toc-entry-backend)
+  "The full translation table of `org-w3ctr--toc-entry-backend'.
+
+The TOC-entry overrides come first, then every w3ctr transcoder.
+Immutable; built once at load time.")
+
 (defun t--build-toc (depth info &optional scope)
   "Build the innards of a table of contents.
 
@@ -5716,7 +5751,14 @@ shifts the nesting start, a scoped table beginning one level below
 its first entry while a full one begins at level zero.  Each entry
 is rendered by the `:html-toc-headline-format-function' hook.
 Return the nested list as a string, or nil when no headline falls
-within DEPTH."
+within DEPTH.
+
+While the entries render, the TOC-entry backend's `:back-end' and
+`:translate-alist' and a fresh `:exported-data' hash are swapped
+into INFO in place, so the title objects transcode against the
+flattening backend yet keep INFO's identity: the OINFO cache's
+`eq' check stays true and cached-key lookups keep hitting.  The
+three slots are restored on the way out, error or not."
   (declare (ftype (function ((or null integer) list &optional t)
                             (or null string)))
            (important-return-value t))
@@ -5726,7 +5768,21 @@ within DEPTH."
                   (cons (funcall fmt h info)
                         (org-export-get-relative-level h info)))))
     (when-let* ((hs (org-export-collect-headlines info depth scope)))
-      (t--toc-alist-to-text (mapcar entry hs) info (not scope)))))
+      ;; `:back-end', `:translate-alist' and `:exported-data' are ox's
+      ;; channel slots, read by Org with `plist-get'; they are not
+      ;; OINFO-cached keys, so `org-w3ctr--pget'/`org-w3ctr--pput'
+      ;; inline to plain `plist-get'/`plist-put' here.
+      (let* ((main-backend (t--pget info :back-end))
+             (main-alist (t--pget info :translate-alist))
+             (main-hash (t--pget info :exported-data)))
+        (t--pput info :back-end t--toc-entry-backend)
+        (t--pput info :translate-alist t--toc-entry-translate-alist)
+        (t--pput info :exported-data (make-hash-table :test 'eq))
+        (unwind-protect
+            (t--toc-alist-to-text (mapcar entry hs) info (not scope))
+          (t--pput info :back-end main-backend)
+          (t--pput info :translate-alist main-alist)
+          (t--pput info :exported-data main-hash))))))
 
 (defun t--build-table-of-contents (info)
   "Build the document table of contents for export INFO.
