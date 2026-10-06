@@ -121,10 +121,6 @@ when BODY exits: `fset' is not undone by `dlet'."
          (dolist (name names)
            (when (fboundp name) (fmakunbound name)))))))
 
-;; TODO: t--oinfo-cache-props invariants — all keywords, no duplicates.
-;; TODO: t--oinfo-pget/t--oinfo-pput on nil INFO plist.
-;; TODO: t-oinfo-cache unwind-protect cleanup on signal.
-
 (ert-deftest t--oinfo-switch-is-compile-time ()
   "Tests for `org-w3ctr-oinfo-enabled'.
 The switch is resolved at compile time: the flag never appears
@@ -148,7 +144,7 @@ a literal second argument to `org-w3ctr--pget' in the source file."
       (dolist (key t--oinfo-cache-props)
         (goto-char (point-min))
         (should (re-search-forward
-                 (format "[(]t--pget[ \t\n]+info[ \t\n]+%s[)]"
+                 (format "[(]t--pget[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"
                          (regexp-quote (symbol-name key)))
                  nil t))))))
 
@@ -162,7 +158,7 @@ Only literal keys are checked: a computed key cannot be seen here."
     (with-temp-buffer
       (insert-file-contents source)
       (let ((offenders nil)
-            (patterns '("[(]plist-get[ \t\n]+info[ \t\n]+%s[)]"
+            (patterns '("[(]plist-get[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"
                         "[(]plist-put[ \t\n]+info[ \t\n]+%s"
                         "[(]\\(?:cl-\\)?incf[ \t\n]+[(]plist-get[ \t\n]+%s[)]"
                         "[(]setf[ \t\n]+[(]plist-get[ \t\n]+%s[)]")))
@@ -201,6 +197,12 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
       ($s (fboundp sym))
       ($l (eval '(t--pget (list :test-x 42) :test-x)) 42))
     ;; After: the symbol is unbound again.
+    ($n (fboundp sym)))
+  ;; The `unwind-protect' cleanup also runs when BODY signals.
+  (let ((sym (t-oinfo-oclosure :boom)))
+    ($e! (t-oinfo-cache '(:boom)
+           ($s (fboundp sym))
+           (error "boom")))
     ($n (fboundp sym))))
 
 (ert-deftest t--oinfo-test-namespace ()
@@ -268,6 +270,14 @@ oclosure with the correct key."
       ($l (functionp (symbol-function name)) t)
       ($l (t--oinfo--key (symbol-function name)) key))))
 
+(ert-deftest t--oinfo-cache-props-invariants ()
+  "Every cached property is a keyword, with no duplicates.
+A non-keyword or a duplicate would break `org-w3ctr--oinfo-oclosure'\='s
+naming and the alist built from it."
+  ($s (cl-every #'keywordp t--oinfo-cache-props))
+  ($l (length t--oinfo-cache-props)
+      (length (delete-dups (copy-sequence t--oinfo-cache-props)))))
+
 (ert-deftest t--oinfo-pget ()
   "Tests for `org-w3ctr--pget'."
   (skip-unless t--oinfo-cache-p)
@@ -284,6 +294,20 @@ oclosure with the correct key."
       ($l (t--oinfo--cnt (t--oinfo-oget :a)) 2)
       ;; non-cached key absent from plist: nil
       ($l (eval '(t--pget (list :x 1) :d)) nil))))
+
+(ert-deftest t--oinfo-pget-nil-info ()
+  "`org-w3ctr--pget'/`org-w3ctr--pput' tolerate a nil INFO plist.
+A cached key written for nil INFO is read back from the cache, since
+nil is `eq' to itself, so the write is invisible to `plist-get'."
+  (skip-unless t--oinfo-cache-p)
+  (t-oinfo-cache '(:a)
+    ;; a non-cached key behaves like `plist-get' on nil
+    ($l (eval '(t--pget nil :none)) nil)
+    ;; a cached key is held by the oclosure, not the plist
+    ($l (eval '(t--pput nil :a 5)) 5)
+    ($l (eval '(t--pget nil :a)) 5)
+    (t--oinfo-cleanup)
+    ($l (eval '(t--pget nil :a)) nil)))
 
 (ert-deftest t--oinfo-pput ()
   "Tests for `org-w3ctr--pput'."
@@ -474,7 +498,7 @@ the OINFO cache is off."
     ($l (eval '(t--pput info :a 2)) 2)
     ($l (plist-get info :a) 2)
     ($l (eval '(t--pget info :a)) 2)))
-
+
 (ert-deftest t--nw-p ()
   "Tests for `org-w3ctr--nw-p'."
   ($l (t--nw-p "123") "123")
