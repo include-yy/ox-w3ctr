@@ -304,9 +304,13 @@ otherwise its cached assertions fail in the nil build."
     ($q (t--oinfo--pid od) info3)
     ($l (t--oinfo--val od) nil)
     ($l (t--oinfo--cnt od) 1)
-    ;; same plist: cache hit on nil
+    ;; same plist: a hit on the cached nil, not a re-read.  Mutating the
+    ;; plist proves it -- a miss would return the new value.
     ($l (funcall od info3) nil)
-    ($l (t--oinfo--cnt od) 2)))
+    ($l (t--oinfo--cnt od) 2)
+    (plist-put info3 :z 'present)
+    ($l (funcall od info3) nil)
+    ($l (t--oinfo--cnt od) 3)))
 
 (ert-deftest t--oinfo-oclosure-names ()
   "The closure symbol is the struct name followed by the keyword."
