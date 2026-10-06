@@ -2773,9 +2773,6 @@ contextual information."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (if (eq (org-element-property :type table) 'table.el)
-      ;; FIXME: table.el tables still go through
-      ;; `table-generate-source'; reimplement the conversion in modern
-      ;; HTML.
       (t--table.el-table table info)
     ;; Standard table.
     (format "<table%s>\n%s\n%s\n%s</table>"
@@ -2787,12 +2784,10 @@ contextual information."
 (defun t--table.el-table (table _info)
   "Format a table.el TABLE into HTML.
 INFO is a plist used as a communication channel.
-Output is delegated to `table-generate-source' for now; a
-modern-HTML reimplementation is planned."
+Output is delegated to the autoloaded `table-generate-source'."
   (declare (ftype (function (t list) (or null string)))
            (important-return-value t))
   (when (eq (org-element-property :type table) 'table.el)
-    (require 'table)
     (let ((outbuf (with-current-buffer
                       (get-buffer-create "*org-export-table*")
                     (erase-buffer) (current-buffer))))
