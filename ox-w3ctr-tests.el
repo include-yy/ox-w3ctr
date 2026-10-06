@@ -365,8 +365,9 @@ A cached key written for nil INFO is read back from the cache, since
 nil is `eq' to itself, so the write is invisible to `plist-get'."
   (skip-unless t--oinfo-cache-p)
   (t-test-oinfo-cache '(:a)
-    ;; a non-cached key behaves like `plist-get' on nil
+    ;; a non-cached key behaves like `plist-get' on nil, and is not cached
     ($l (eval '(t--pget nil :none)) nil)
+    ($n (alist-get :none t--oinfo-cache-alist))
     ;; a cached key is held by the oclosure, not the plist
     ($l (eval '(t--pput nil :a 5)) 5)
     ($l (eval '(t--pget nil :a)) 5)
