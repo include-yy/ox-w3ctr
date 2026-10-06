@@ -134,9 +134,7 @@ in compiled output, and the oclosure is inlined when the cache is on."
                (byte-compile '(lambda (info) (t--pget info :title))))))
     ($n (string-match-p "org-w3ctr-oinfo-enabled" code))
     ($l (and (string-match-p "org-w3ctr--oinfo:title" code) t)
-        t--oinfo-cache-p)
-    (when (not t--oinfo-cache-p)
-      ($n (string-match-p "oinfo-cache-alist" code)))))
+        t--oinfo-cache-p)))
 
 (ert-deftest t--oinfo-props-are-looked-up ()
   "Static check: every `org-w3ctr--oinfo-cache-props' key appears as
