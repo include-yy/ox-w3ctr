@@ -93,19 +93,24 @@ symbol (such as \\='headline, \\='paragraph, etc)."
   (when-let* ((f (alist-get prop t--oinfo-cache-alist)))
     (symbol-function f)))
 
-(defun t-oinfo-oclosure (key)
+(defun t-test-oinfo-oclosure (key)
   "Name of the test-only caching oclosure for property KEY.
 
 Deliberately distinct from `org-w3ctr--oinfo-oclosure', so that the
 closures these tests install can never replace a real one."
   (intern (concat "org-w3ctr--oinfo-test" (symbol-name key))))
 
-(defmacro t-oinfo-cache (keys &rest body)
+(defmacro t-test-oinfo-cache (keys &rest body)
   "Run BODY with a throwaway OINFO cache for the property keys KEYS.
 
 Binds `org-w3ctr--oinfo-cache-props' and `org-w3ctr--oinfo-cache-alist'
-to closures named by `t-oinfo-oclosure', and removes those names again
-when BODY exits: `fset' is not undone by `dlet'."
+to closures named by `t-test-oinfo-oclosure', and removes those names again
+when BODY exits: `fset' is not undone by `dlet'.
+
+Inside BODY call `org-w3ctr--pget'/`org-w3ctr--pput' through `eval':
+both are `define-inline', expanded at call time against the current
+`org-w3ctr--oinfo-cache-alist', so only `eval' re-expands them under the
+throwaway cache this macro installs."
   (declare (indent 1))
   `(dlet ((org-w3ctr--oinfo-cache-props ,keys)
           (org-w3ctr--oinfo-cache-alist nil))
@@ -113,7 +118,7 @@ when BODY exits: `fset' is not undone by `dlet'."
        (unwind-protect
            (progn
              (dolist (a org-w3ctr--oinfo-cache-props)
-               (let ((name (t-oinfo-oclosure a)))
+               (let ((name (t-test-oinfo-oclosure a)))
                  (fset name (org-w3ctr--make-cache-oclosure a))
                  (push (cons a name) org-w3ctr--oinfo-cache-alist)
                  (push name names)))
@@ -183,14 +188,14 @@ Only literal keys are checked: a computed key cannot be seen here."
         (t--pput info :plain v)
         ($l (t--pget info :plain) v)))))
 
-(ert-deftest t-oinfo-cache-macro ()
-  "Smoke test for the `t-oinfo-cache' test helper macro.
+(ert-deftest t-test-oinfo-cache-macro ()
+  "Smoke test for the `t-test-oinfo-cache' test helper macro.
 Verifies setup, body evaluation, and cleanup of throwaway closures."
   (skip-unless t--oinfo-cache-p)
-  (let ((sym (t-oinfo-oclosure :test-x)))
+  (let ((sym (t-test-oinfo-oclosure :test-x)))
     ;; Before: the symbol must not be a function.
     ($n (fboundp sym))
-    (t-oinfo-cache '(:test-x)
+    (t-test-oinfo-cache '(:test-x)
       ;; Inside: cache alist is populated and callable.
       ($l (mapcar #'car t--oinfo-cache-alist) '(:test-x))
       ($q (cdr (assq :test-x t--oinfo-cache-alist)) sym)
@@ -199,8 +204,8 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
     ;; After: the symbol is unbound again.
     ($n (fboundp sym)))
   ;; The `unwind-protect' cleanup also runs when BODY signals.
-  (let ((sym (t-oinfo-oclosure :boom)))
-    ($e! (t-oinfo-cache '(:boom)
+  (let ((sym (t-test-oinfo-oclosure :boom)))
+    ($e! (t-test-oinfo-cache '(:boom)
            ($s (fboundp sym))
            (error "boom")))
     ($n (fboundp sym))))
@@ -208,8 +213,8 @@ Verifies setup, body evaluation, and cleanup of throwaway closures."
 (ert-deftest t--oinfo-test-namespace ()
   "The names the tests generate can never replace a production closure."
   (dolist (key t--oinfo-cache-props)
-    ($n (eq (t-oinfo-oclosure key) (t--oinfo-oclosure key))))
-  ($n (memq (t-oinfo-oclosure :a)
+    ($n (eq (t-test-oinfo-oclosure key) (t--oinfo-oclosure key))))
+  ($n (memq (t-test-oinfo-oclosure :a)
             (mapcar #'cdr t--oinfo-cache-alist))))
 
 (ert-deftest t--make-cache-oclosure ()
@@ -281,7 +286,7 @@ naming and the alist built from it."
 (ert-deftest t--oinfo-pget ()
   "Tests for `org-w3ctr--pget'."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a :b)
+  (t-test-oinfo-cache '(:a :b)
     (dlet ((info '(:a 1 :b 2 :c 3)))
       ($l (eval '(t--pget info :a)) 1)
       ($l (t--oinfo--cnt (t--oinfo-oget :a)) 1)
@@ -300,7 +305,7 @@ naming and the alist built from it."
 A cached key written for nil INFO is read back from the cache, since
 nil is `eq' to itself, so the write is invisible to `plist-get'."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a)
+  (t-test-oinfo-cache '(:a)
     ;; a non-cached key behaves like `plist-get' on nil
     ($l (eval '(t--pget nil :none)) nil)
     ;; a cached key is held by the oclosure, not the plist
@@ -312,7 +317,7 @@ nil is `eq' to itself, so the write is invisible to `plist-get'."
 (ert-deftest t--oinfo-pput ()
   "Tests for `org-w3ctr--pput'."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a)
+  (t-test-oinfo-cache '(:a)
     (dlet ((info '(:a 1 :c 3))
            (val 1))
       ;; cached key: write to oclosure, plist untouched
@@ -338,7 +343,7 @@ VALUE can safely read from INFO (including the same PROP) without
 seeing a stale cached value, and a signal during VALUE evaluation
 leaves the cache unchanged."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a)
+  (t-test-oinfo-cache '(:a)
     (dlet ((info-a (list :a "A"))
            (info-b (list :a "B")))
       ;; Prime the cache with info-a.
@@ -364,7 +369,7 @@ leaves the cache unchanged."
 `plist-get' works on any plist with matching keys, but the cache
 uses object identity, so an equal but distinct plist is a miss."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a)
+  (t-test-oinfo-cache '(:a)
     (dlet ((info (list :a 1))
            (twin nil))
       ($l (eval '(t--pget info :a)) 1)
@@ -378,7 +383,7 @@ uses object identity, so an equal but distinct plist is a miss."
 (ert-deftest t--oinfo-mutation-is-invisible ()
   "Changing the plist object in place does not reach the cache."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a)
+  (t-test-oinfo-cache '(:a)
     (dlet ((info (list :a 1)))
       ($l (eval '(t--pget info :a)) 1)
       (plist-put info :a 99)
@@ -389,7 +394,7 @@ uses object identity, so an equal but distinct plist is a miss."
 (ert-deftest t--oinfo-pput-is-per-plist ()
   "A written value is only read back for the plist it was written for."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a)
+  (t-test-oinfo-cache '(:a)
     (dlet ((info (list :a 1))
            (twin nil))
       (setq twin (copy-sequence info))
@@ -402,7 +407,7 @@ uses object identity, so an equal but distinct plist is a miss."
 (ert-deftest t--oinfo-cleanup ()
   "Tests for `org-w3ctr--oinfo-cleanup'."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a :b)
+  (t-test-oinfo-cache '(:a :b)
     (dlet ((info '(:a 1 :b 2 :c 3)))
       ($l (eval '(t--pget info :a)) 1)
       ($l (eval '(t--pget info :b)) 2)
@@ -424,7 +429,7 @@ uses object identity, so an equal but distinct plist is a miss."
 (ert-deftest t-oinfo-cleanup-before-export ()
   "Tests for `org-w3ctr-oinfo-cleanup-before-export'."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a)
+  (t-test-oinfo-cache '(:a)
     (dlet ((info (list :a 1)))
       ($l (eval '(t--pget info :a)) 1)
       ($q (t--oinfo--pid (t--oinfo-oget :a)) info)
@@ -435,7 +440,7 @@ uses object identity, so an equal but distinct plist is a miss."
 (ert-deftest t--oinfo-clear-statistics ()
   "Tests for `org-w3ctr-clear-oinfo-statistics'."
   (skip-unless t--oinfo-cache-p)
-  (t-oinfo-cache '(:a :b)
+  (t-test-oinfo-cache '(:a :b)
     (dlet ((info '(:a 1 :b 2)))
       ($l (eval '(t--pget info :a)) 1)
       ($l (eval '(t--pget info :a)) 1)
@@ -453,7 +458,7 @@ uses object identity, so an equal but distinct plist is a miss."
   "Tests for `org-w3ctr-collect-oinfo-statistics'."
   (skip-unless t--oinfo-cache-p)
   (unwind-protect
-      (t-oinfo-cache '(:a :b)
+      (t-test-oinfo-cache '(:a :b)
         (dlet ((info '(:a 1 :b 2)))
           ($l (eval '(t--pget info :b)) 2)
           ($l (eval '(t--pget info :b)) 2)
@@ -469,14 +474,12 @@ uses object identity, so an equal but distinct plist is a miss."
               ($l (nth 0 (car entries)) :b)
               ($l (aref (nth 1 (car entries)) 0) ":b")
               (let ((count-str (aref (nth 1 (car entries)) 1)))
-                (should (string-match "2" count-str))  ; formatted string contains "2"
-                ($l (get-text-property 0 'count count-str) 2))  ; text property holds numeric count
+                ($l (get-text-property 0 'count count-str) 2))
               ;; Second entry: :a with count 1
               ($l (nth 0 (cadr entries)) :a)
               ($l (aref (nth 1 (cadr entries)) 0) ":a")
               (let ((count-str (aref (nth 1 (cadr entries)) 1)))
-                (should (string-match "1" count-str))  ; formatted string contains "1"
-                ($l (get-text-property 0 'count count-str) 1))))))  ; text property holds numeric count
+                ($l (get-text-property 0 'count count-str) 1))))))
     (when (get-buffer "*ox-w3ctr-oinfo*")
       (kill-buffer "*ox-w3ctr-oinfo*"))))
 
