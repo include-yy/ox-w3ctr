@@ -306,28 +306,30 @@ It should return the complete HTML for the drawer.  The default is
 <h2>%s</h2>
 <dl>%s</dl>\n</div>\n"
   "Format string for the footnotes section.
-Should contain two instances of %s.  The first will be replaced with the
-section heading (e.g. \"References\"), the second one with the footnote
-definitions themselves."
+Contains two %s placeholders: the first for the section heading
+(e.g. \"References\"), the second for the footnote definitions."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-footnote-format "[%s]"
-  "The format for the footnote reference.
-%s will be replaced by the footnote reference itself."
+  "Format string for footnote references.
+%s is replaced by the reference label."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-footnote-separator ", "
   "Text used to separate consecutive footnote references."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-footnote-section-function #'t-footnote-section-default-function
-  "Function used to build the footnotes section.
+  "Function to build the footnotes section.
 
-It is called with the list of footnote definitions, as returned by
-`org-export-collect-footnote-definitions', and INFO; it should return
+Called with the list of footnote definitions (as returned by
+`org-export-collect-footnote-definitions') and INFO.  Should return
 the complete HTML for the section.  See
 `org-w3ctr-footnote-section-default-function' for an example."
   :group 'org-export-w3ctr
