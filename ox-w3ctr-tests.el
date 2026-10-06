@@ -60,16 +60,28 @@ the advice onto subsequent tests."
                             :actual t-test-values)))))
     (advice-remove fn #'t-advice-return-value)))
 
+(defun t-parse (type)
+  "Return every element of TYPE in the current buffer."
+  (org-element-map (org-element-parse-buffer) type #'identity))
+
+(defun t-parse1 (type)
+  "Return the first element of TYPE in the current buffer, or nil."
+  (car (t-parse type)))
+
 (defun t-get-parsed-elements (str type)
   "Parse STR as an Org buffer and return a list of elements of TYPE.
 
 STR is a string containing Org content.  TYPE is an Org element type
 symbol (such as \\='headline, \\='paragraph, etc)."
-  (thread-first
-    (with-temp-buffer
-      (save-excursion (insert str))
-      (org-element-parse-buffer))
-    (org-element-map type #'identity)))
+  (with-temp-buffer
+    (save-excursion (insert str))
+    (t-parse type)))
+
+(defun t-get-element (str type)
+  "Parse STR and return its first element of TYPE, or nil."
+  (with-temp-buffer
+    (save-excursion (insert str))
+    (t-parse1 type)))
 
 (ert-deftest t-error ()
   "Tests for `org-w3ctr-error'."
@@ -839,27 +851,15 @@ the OINFO cache is off."
 (ert-deftest t--target-reference ()
   "Tests for `org-w3ctr--target-reference'."
   (let ((get-target (lambda (val)
-                      (with-temp-buffer
-                        (insert (format "<<%s>>" val))
-                        (car (org-element-map (org-element-parse-buffer)
-                                 'target #'identity))))))
+                      (t-get-element (format "<<%s>>" val) 'target))))
     ;; valid target
     ($l (t--target-reference (funcall get-target "foo")) "foo")
     ;; valid radio-target
-    ($l (t--target-reference
-         (with-temp-buffer
-           (insert "<<<bar>>>")
-           (car (org-element-map (org-element-parse-buffer)
-                    'radio-target #'identity))))
-        "bar")
+    ($l (t--target-reference (t-get-element "<<<bar>>>" 'radio-target)) "bar")
     ;; hyphens and underscores allowed
     ($l (t--target-reference (funcall get-target "my-tag_1")) "my-tag_1")
     ;; non-target element → nil
-    ($n (t--target-reference
-         (with-temp-buffer
-           (insert "hello")
-           (car (org-element-map (org-element-parse-buffer)
-                    'paragraph #'identity)))))
+    ($n (t--target-reference (t-get-element "hello" 'paragraph)))
     ;; space in value → nil
     ($n (t--target-reference (funcall get-target "my target")))
     ;; starts with digit → nil
@@ -874,34 +874,23 @@ the OINFO cache is off."
   (let ((no-labels nil)
         (with-labels '(:html-prefer-user-labels t)))
     ;; CUSTOM_ID always wins.
-    (let ((h (with-temp-buffer
-               (insert "* H\n:PROPERTIES:\n:CUSTOM_ID: my-id\n:END:")
-               (car (org-element-map (org-element-parse-buffer)
-                        'headline #'identity)))))
+    (let ((h (t-get-element "* H\n:PROPERTIES:\n:CUSTOM_ID: my-id\n:END:"
+                            'headline)))
       ($l (t--reference h no-labels) "my-id")
       ($l (t--reference h with-labels) "my-id"))
     ;; NAME with prefer-user-labels=t (paragraph, since #+name: does not
     ;; set :name on headlines).
-    (let ((para (with-temp-buffer
-                  (insert "#+name: my-name\nhello")
-                  (car (org-element-map (org-element-parse-buffer)
-                           'paragraph #'identity)))))
+    (let ((para (t-get-element "#+name: my-name\nhello" 'paragraph)))
       ($l (t--reference para with-labels) "my-name")
       ;; NAME with prefer-user-labels=nil → falls through to random.
       ($s (string-match-p "org[0-9a-f]+" (t--reference para no-labels))))
     ;; ID property with prefer-user-labels=t → the "ID-" prefix.
-    (let ((h (with-temp-buffer
-               (insert "* H\n:PROPERTIES:\n:ID: my-uid\n:END:")
-               (car (org-element-map (org-element-parse-buffer)
-                        'headline #'identity)))))
+    (let ((h (t-get-element "* H\n:PROPERTIES:\n:ID: my-uid\n:END:" 'headline)))
       ($l (t--reference h with-labels) "ID-my-uid")
       ;; ID with prefer-user-labels=nil → falls through to random.
       ($s (string-match-p "org[0-9a-f]+" (t--reference h no-labels))))
     ;; named-only + no name + not headline → nil.
-    (let ((para (with-temp-buffer
-                  (insert "hello")
-                  (car (org-element-map (org-element-parse-buffer)
-                           'paragraph #'identity)))))
+    (let ((para (t-get-element "hello" 'paragraph)))
       ($n (t--reference para (list :html-prefer-user-labels nil) t)))))
 
 (ert-deftest t-image-link-filter ()
@@ -1150,7 +1139,7 @@ int a = 1;</code></p>\n</details>")
                  (let ((text (string-trim-right
                               (org-element-interpret-data data))))
                    (format "<p>%s</p>" text))))))
-    (cl-flet ((p (s) (car (t-get-parsed-elements s 'paragraph))))
+    (cl-flet ((p (s) (t-get-element s 'paragraph)))
       (let ((info '(:html-footnote-format "[%s]")))
         ;; Numbered footnote with paragraph
         ($l (t--footnote-definition (list 1 nil (p "The definition.")) info)
@@ -1212,7 +1201,7 @@ int a = 1;</code></p>\n</details>")
                  (let ((text (string-trim-right
                               (org-element-interpret-data data))))
                    (format "<p>%s</p>" text))))))
-    (cl-flet ((p (s) (car (t-get-parsed-elements s 'paragraph))))
+    (cl-flet ((p (s) (t-get-element s 'paragraph)))
       (let ((info '(:html-footnotes-section "<div id=\"references\">\n<h2>%s</h2>\n<dl>%s</dl>\n</div>\n"
                                             :html-footnote-format "[%s]")))
         ;; Single footnote
@@ -1258,7 +1247,7 @@ int a = 1;</code></p>\n</details>")
     ($l (t--checkbox nil info) nil)))
 
 (ert-deftest t--format-checkbox ()
-  "Tests for `org-w3ctr--format-checkbox.'"
+  "Tests for `org-w3ctr--format-checkbox'."
   (let ((info '(:html-checkbox-type unicode)))
     ($l (t--format-checkbox 'off info) "&#x2610; ")
     ($l (t--format-checkbox 'on info) "&#x2611; ")
@@ -1335,105 +1324,109 @@ int a = 1;</code></p>\n</details>")
         "<dt>&#x2612;  test </dt><dd>123</dd>")))
 
 (ert-deftest t-item-unordered ()
-  "Tests for `org-w3ctr-item' ordered clause."
-  (let ((t-checkbox-type 'unicode))
-    (t-check-element-values
-     #'t-item
-     '(("- 123" "<li>123</li>")
-       ("- hello \n 123" "<li>hello \n123</li>")
-       ("- hello \n\n123" "<li>hello</li>")
-       ("- hello \n\n 123" "<li>hello\n\n<p>123</p></li>")
-       ("- hello \n\n     \t123" "<li>hello\n\n<p>123</p></li>")
-       ("- [ ] 123" "<li>&#x2610; 123</li>")
-       ("- [X] 123" "<li>&#x2611; 123</li>")
-       ("- [ ] 123   \n 234" "<li>&#x2610; 123   \n234</li>")
-       ("- [ ] 123 \n\n234" "<li>&#x2610; 123</li>")
-       ("- [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>")
-       ("- [ ] [@1] 123" "<li>&#x2610; [@1] 123</li>")
-       ("- [ ] [@1]123" "<li>&#x2610; [@1]123</li>")
-       ("- [@2] 123" "<li>123</li>")
-       ("- [@1]123"  "<li>123</li>")
-       ("- [@a] 123" "<li>123</li>")
-       ("- [@1] [ ] 123" "<li>&#x2610; 123</li>")
-       ("- [@a] [ ] 123" "<li>&#x2610; 123</li>")
-       ("- [@pp] [ ] 123" "<li>[@pp] [ ] 123</li>")
-       ;; zero width space
-       ("- [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>")))))
+  "Tests for `org-w3ctr-item' unordered clause."
+
+  (t-check-element-values
+   #'t-item
+   '(("- 123" "<li>123</li>")
+     ("- hello \n 123" "<li>hello \n123</li>")
+     ("- hello \n\n123" "<li>hello</li>")
+     ("- hello \n\n 123" "<li>hello\n\n<p>123</p></li>")
+     ("- hello \n\n     \t123" "<li>hello\n\n<p>123</p></li>")
+     ("- [ ] 123" "<li>&#x2610; 123</li>")
+     ("- [X] 123" "<li>&#x2611; 123</li>")
+     ("- [ ] 123   \n 234" "<li>&#x2610; 123   \n234</li>")
+     ("- [ ] 123 \n\n234" "<li>&#x2610; 123</li>")
+     ("- [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>")
+     ("- [ ] [@1] 123" "<li>&#x2610; [@1] 123</li>")
+     ("- [ ] [@1]123" "<li>&#x2610; [@1]123</li>")
+     ("- [@2] 123" "<li>123</li>")
+     ("- [@1]123"  "<li>123</li>")
+     ("- [@a] 123" "<li>123</li>")
+     ("- [@1] [ ] 123" "<li>&#x2610; 123</li>")
+     ("- [@a] [ ] 123" "<li>&#x2610; 123</li>")
+     ("- [@pp] [ ] 123" "<li>[@pp] [ ] 123</li>")
+     ;; zero width space
+     ("- [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>"))
+   nil '(:html-checkbox-type unicode)))
 
 (ert-deftest t-item-ordered ()
-  "Tests for `org-w3ctr-item' ordered item."
-  (let ((t-checkbox-type 'unicode))
-    (t-check-element-values
-     #'t-item
-     '(("1. 123" "<li>123</li>")
-       ("1. hello \n 123" "<li>hello \n123</li>")
-       ("1. hello \n\n123" "<li>hello</li>")
-       ("1. hello \n\n 123" "<li>hello\n\n<p>123</p></li>")
-       ("1. hello \n\n     \t123" "<li>hello\n\n<p>123</p></li>")
-       ("1. [ ] 123" "<li>&#x2610; 123</li>")
-       ("1. [X] 123" "<li>&#x2611; 123</li>")
-       ("1. [ ] 123   \n 234" "<li>&#x2610; 123   \n234</li>")
-       ("1. [ ] 123 \n\n234" "<li>&#x2610; 123</li>")
-       ("1. [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>")
-       ("1. [ ] [@1] 123" "<li>&#x2610; [@1] 123</li>")
-       ("1. [ ] [@1]123" "<li>&#x2610; [@1]123</li>")
-       ("1. [@2] 123" "<li value=\"2\">123</li>")
-       ("1. [@1]123"  "<li value=\"1\">123</li>")
-       ("1. [@a] 123" "<li value=\"1\">123</li>")
-       ("1. [@1] [ ] 123" "<li value=\"1\">&#x2610; 123</li>")
-       ("1. [@a] [ ] 123" "<li value=\"1\">&#x2610; 123</li>")
-       ("1. [@z] [ ] 123" "<li value=\"26\">&#x2610; 123</li>")
-       ("1. [@pp] [ ] 123" "<li>[@pp] [ ] 123</li>")
-       ;; zero width space
-       ("1. [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>")))))
+  "Tests for `org-w3ctr-item' ordered clause."
+
+  (t-check-element-values
+   #'t-item
+   '(("1. 123" "<li>123</li>")
+     ("1. hello \n 123" "<li>hello \n123</li>")
+     ("1. hello \n\n123" "<li>hello</li>")
+     ("1. hello \n\n 123" "<li>hello\n\n<p>123</p></li>")
+     ("1. hello \n\n     \t123" "<li>hello\n\n<p>123</p></li>")
+     ("1. [ ] 123" "<li>&#x2610; 123</li>")
+     ("1. [X] 123" "<li>&#x2611; 123</li>")
+     ("1. [ ] 123   \n 234" "<li>&#x2610; 123   \n234</li>")
+     ("1. [ ] 123 \n\n234" "<li>&#x2610; 123</li>")
+     ("1. [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>")
+     ("1. [ ] [@1] 123" "<li>&#x2610; [@1] 123</li>")
+     ("1. [ ] [@1]123" "<li>&#x2610; [@1]123</li>")
+     ("1. [@2] 123" "<li value=\"2\">123</li>")
+     ("1. [@1]123"  "<li value=\"1\">123</li>")
+     ("1. [@a] 123" "<li value=\"1\">123</li>")
+     ("1. [@1] [ ] 123" "<li value=\"1\">&#x2610; 123</li>")
+     ("1. [@a] [ ] 123" "<li value=\"1\">&#x2610; 123</li>")
+     ("1. [@z] [ ] 123" "<li value=\"26\">&#x2610; 123</li>")
+     ("1. [@pp] [ ] 123" "<li>[@pp] [ ] 123</li>")
+     ;; zero width space
+     ("1. [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>"))
+   nil '(:html-checkbox-type unicode)))
 
 (ert-deftest t-item-descriptive ()
   "Tests for `org-w3ctr-item' descriptive clause."
-  (let ((t-checkbox-type 'unicode))
-    (t-check-element-values
-     #'t-item
-     '(("- 123 :: tag" "<dt>123</dt><dd>tag</dd>")
-       ("- hello :: test \n 123" "<dt>hello</dt><dd>test \n123</dd>")
-       ("- hello :: \n\n123" "<dt>hello</dt><dd></dd>")
-       ("- hello :: \n\n 123" "<dt>hello</dt><dd>123</dd>")
-       ("- hello :: \n\n  123" "<dt>hello</dt><dd>123</dd>")
-       ("- hello :: \n\n\n  123" "<dt>hello</dt><dd></dd>")
-       ("- hello :: \n\n     \t123" "<dt>hello</dt><dd>123</dd>")
-       ("- hello :: world 123" "<dt>hello</dt><dd>world 123</dd>")
-       ("- h :: w \n123" "<dt>h</dt><dd>w</dd>")
-       ("- h :: w \n 123" "<dt>h</dt><dd>w \n123</dd>")
-       ("- h :: w \n\n123" "<dt>h</dt><dd>w</dd>")
-       ("- h :: w \n\n 123" "<dt>h</dt><dd>w\n\n<p>123</p></dd>")
-       ("- h :: w \n\n 123\n 456" "<dt>h</dt><dd>w\n\n<p>123\n456</p></dd>")
-       ("- [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
-       ("- [X] 123 ::" "<dt>&#x2611; 123</dt><dd></dd>")
-       ("- [ ] 123 ::  \n 234" "<dt>&#x2610; 123</dt><dd>234</dd>")
-       ("- [ ] 123 :: \n\n234" "<dt>&#x2610; 123</dt><dd></dd>")
-       ("- [ ] 123 :: \n\n 234" "<dt>&#x2610; 123</dt><dd>234</dd>")
-       ("- [ ] [@1] 123 ::" "<dt>&#x2610; [@1] 123</dt><dd></dd>")
-       ("- [ ] [@1]123 ::" "<dt>&#x2610; [@1]123</dt><dd></dd>")
-       ("- [@2] 123 ::" "<dt>123</dt><dd></dd>")
-       ("- [@1]123 ::"  "<dt>123</dt><dd></dd>")
-       ("- [@1]123::" "<li>123::</li>")
-       ("- [@a] 123 ::" "<dt>123</dt><dd></dd>")
-       ("- [@1] [ ] 123 ::" "<dt>&#x2610; 123</dt><dd></dd>")
-       ("- [@a] [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
-       ("- [@pp] [ ] :: 123" "<dt>[@pp] [ ]</dt><dd>123</dd>")
-       ;; zero width space
-       ("- [​@1] [ ] 123 :: " "<dt>[​@1] [ ] 123</dt><dd></dd>")
-       ("- a ::" "<dt>a</dt><dd></dd>")
-       ("- :: 3" "<li>:: 3</li>")
-       ("- a :: b\n- c" "<dt></dt><dd>c</dd>"
-        "<dt>a</dt><dd>b</dd>")))))
+
+  (t-check-element-values
+   #'t-item
+   '(("- 123 :: tag" "<dt>123</dt><dd>tag</dd>")
+     ("- hello :: test \n 123" "<dt>hello</dt><dd>test \n123</dd>")
+     ("- hello :: \n\n123" "<dt>hello</dt><dd></dd>")
+     ("- hello :: \n\n 123" "<dt>hello</dt><dd>123</dd>")
+     ("- hello :: \n\n  123" "<dt>hello</dt><dd>123</dd>")
+     ("- hello :: \n\n\n  123" "<dt>hello</dt><dd></dd>")
+     ("- hello :: \n\n     \t123" "<dt>hello</dt><dd>123</dd>")
+     ("- hello :: world 123" "<dt>hello</dt><dd>world 123</dd>")
+     ("- h :: w \n123" "<dt>h</dt><dd>w</dd>")
+     ("- h :: w \n 123" "<dt>h</dt><dd>w \n123</dd>")
+     ("- h :: w \n\n123" "<dt>h</dt><dd>w</dd>")
+     ("- h :: w \n\n 123" "<dt>h</dt><dd>w\n\n<p>123</p></dd>")
+     ("- h :: w \n\n 123\n 456" "<dt>h</dt><dd>w\n\n<p>123\n456</p></dd>")
+     ("- [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
+     ("- [X] 123 ::" "<dt>&#x2611; 123</dt><dd></dd>")
+     ("- [ ] 123 ::  \n 234" "<dt>&#x2610; 123</dt><dd>234</dd>")
+     ("- [ ] 123 :: \n\n234" "<dt>&#x2610; 123</dt><dd></dd>")
+     ("- [ ] 123 :: \n\n 234" "<dt>&#x2610; 123</dt><dd>234</dd>")
+     ("- [ ] [@1] 123 ::" "<dt>&#x2610; [@1] 123</dt><dd></dd>")
+     ("- [ ] [@1]123 ::" "<dt>&#x2610; [@1]123</dt><dd></dd>")
+     ("- [@2] 123 ::" "<dt>123</dt><dd></dd>")
+     ("- [@1]123 ::"  "<dt>123</dt><dd></dd>")
+     ("- [@1]123::" "<li>123::</li>")
+     ("- [@a] 123 ::" "<dt>123</dt><dd></dd>")
+     ("- [@1] [ ] 123 ::" "<dt>&#x2610; 123</dt><dd></dd>")
+     ("- [@a] [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
+     ("- [@pp] [ ] :: 123" "<dt>[@pp] [ ]</dt><dd>123</dd>")
+     ;; zero width space
+     ("- [​@1] [ ] 123 :: " "<dt>[​@1] [ ] 123</dt><dd></dd>")
+     ("- a ::" "<dt>a</dt><dd></dd>")
+     ("- :: 3" "<li>:: 3</li>")
+     ("- a :: b\n- c" "<dt></dt><dd>c</dd>"
+      "<dt>a</dt><dd>b</dd>"))
+   nil '(:html-checkbox-type unicode)))
 
 (ert-deftest t-item ()
   "Tests for `org-w3ctr-item'."
-  (let ((t-checkbox-type 'unicode))
-    (t-check-element-values
-     #'t-item
-     '(("- [@a] [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
-       ("1. [@1] [ ] 123" "<li value=\"1\">&#x2610; 123</li>")
-       ("- [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>"))))
+
+  (t-check-element-values
+   #'t-item
+   '(("- [@a] [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
+     ("1. [@1] [ ] 123" "<li value=\"1\">&#x2610; 123</li>")
+     ("- [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>"))
+   nil '(:html-checkbox-type unicode))
   ($e! (t-item nil "123" nil)))
 
 (ert-deftest t-plain-list ()
@@ -1450,7 +1443,7 @@ int a = 1;</code></p>\n</details>")
       "<ul>\n<li>2 3 4</li>\n</ul>"))
    nil '(:html-prefer-user-labels t))
   ;; nil CONTENTS (e.g. from `org-export-with-backend') is empty.
-  ($l (t-plain-list (car (t-get-parsed-elements "- 123" 'plain-list))
+  ($l (t-plain-list (t-get-element "- 123" 'plain-list)
                     nil nil)
       "<ul>\n</ul>")
   ($e! (t-plain-list nil "123" nil)))
@@ -1593,11 +1586,8 @@ Uppercase names are rejected even when `case-fold-search' is on."
 (ert-deftest t--special-block-custom ()
   "Tests for `org-w3ctr--special-block-custom'."
   (let* ((mk (lambda (type)
-               (with-temp-buffer
-                 (insert (format "#+begin_%s\nhi\n#+end_%s" type type))
-                 (org-mode)
-                 (car (org-element-map (org-element-parse-buffer)
-                          'special-block #'identity)))))
+               (t-get-element (format "#+begin_%s\nhi\n#+end_%s" type type)
+                              'special-block)))
          (info '(:html-prefer-user-labels t)))
     ;; no :template: the contents follow the opening tag directly
     ($l (t--special-block-custom (funcall mk "my-card") "<p>hi</p>\n"
@@ -1771,8 +1761,7 @@ registry is validated even when nothing matches."
     (insert "| <l> | <r> |\n| a | b |\n")
     (org-mode)
     (let* ((info (list :html-table-align-cache nil))
-           (cells (org-element-map (org-element-parse-buffer)
-                      'table-cell #'identity)))
+           (cells (t-parse 'table-cell)))
       ;; Cells in order: <l>, <r>, a, b.
       ($q (t--table-cell-align (nth 2 cells) info) 'left)
       ($q (t--table-cell-align (nth 3 cells) info) 'right)
@@ -1781,8 +1770,7 @@ registry is validated even when nothing matches."
     (insert "| a | b |\n")
     (org-mode)
     (let* ((info (list :html-table-align-cache nil))
-           (cells (org-element-map (org-element-parse-buffer)
-                      'table-cell #'identity)))
+           (cells (t-parse 'table-cell)))
       ($n (t--table-cell-align (car cells) info))
       ($n (t--table-cell-align (cadr cells) info)))))
 
@@ -1795,8 +1783,7 @@ the `none' marker."
     (insert "| <l> | <r> |\n| a | b |\n| c | d |\n")
     (org-mode)
     (let* ((info (list :html-table-align-cache nil))
-           (cells (org-element-map (org-element-parse-buffer)
-                      'table-cell #'identity))
+           (cells (t-parse 'table-cell))
            (orig (symbol-function 't--table-column-cookie))
            (calls 0))
       ;; Cells in order: <l>, <r>, a, b, c, d.
@@ -1819,8 +1806,7 @@ the `none' marker."
     (insert "| a | b |\n| c | d |\n")
     (org-mode)
     (let* ((info (list :html-table-align-cache nil))
-           (cells (org-element-map (org-element-parse-buffer)
-                      'table-cell #'identity))
+           (cells (t-parse 'table-cell))
            (orig (symbol-function 't--table-column-cookie))
            (calls 0))
       (cl-letf (((symbol-function 't--table-column-cookie)
@@ -1839,8 +1825,7 @@ the `none' marker."
     (insert "| a | b |\n| c | d | e |\n")
     (org-mode)
     (let* ((info (list :html-table-align-cache nil))
-           (cells (org-element-map (org-element-parse-buffer)
-                      'table-cell #'identity))
+           (cells (t-parse 'table-cell))
            (table (org-export-get-parent-table (car cells))))
       ($n (t--table-cell-align (car cells) info))
       ($l (length (gethash table (plist-get info :html-table-align-cache))) 2)
@@ -1853,8 +1838,7 @@ the `none' marker."
     (insert "| <l> | <r> |\n| a | b |\n")
     (org-mode)
     (let* ((info (list :html-table-align-cache nil))
-           (cells (org-element-map (org-element-parse-buffer)
-                      'table-cell #'identity)))
+           (cells (t-parse 'table-cell)))
       ;; Cells in order: <l>, <r>, a, b.
       ($l (t--table-cell-attrs (nth 2 cells) info) " style=\"text-align:left\"")
       ($l (t--table-cell-attrs (nth 3 cells) info) " style=\"text-align:right\"")))
@@ -1863,8 +1847,7 @@ the `none' marker."
     (insert "| a | b |\n")
     (org-mode)
     (let* ((info (list :html-table-align-cache nil))
-           (cell (org-element-map (org-element-parse-buffer)
-                     'table-cell #'identity nil t)))
+           (cell (t-parse1 'table-cell)))
       ($l (t--table-cell-attrs cell info) ""))))
 
 (ert-deftest t--table-first-row-data-cells ()
@@ -1874,8 +1857,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| a | b |\n|---+---|\n| 1 | 2 |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t))
+           (table (t-parse1 'table))
            (row (org-element-map table 'table-row #'identity nil t)))
       ($l (t--table-first-row-data-cells table info)
           (org-element-contents row))))
@@ -1883,8 +1865,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| ! | a | b |\n|   | 1 | 2 |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t))
+           (table (t-parse1 'table))
            (row (org-element-map table 'table-row #'identity nil t)))
       ($l (t--table-first-row-data-cells table info)
           (cdr (org-element-contents row))))))
@@ -1914,8 +1895,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| <l> | <c> | <r> |\n| a | b | c |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t)))
+           (table (t-parse1 'table)))
       ($q (t--table-column-cookie table 0 info) 'left)
       ($q (t--table-column-cookie table 1 info) 'center)
       ($q (t--table-column-cookie table 2 info) 'right)))
@@ -1924,8 +1904,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| <5> | <10> |\n| a | b |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t)))
+           (table (t-parse1 'table)))
       ($n (t--table-column-cookie table 0 info))
       ($n (t--table-column-cookie table 1 info))))
   ;; Combined cookie (alignment + width)
@@ -1933,8 +1912,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| <l5> | <r10> | <c3> |\n| a | b | c |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t)))
+           (table (t-parse1 'table)))
       ($q (t--table-column-cookie table 0 info) 'left)
       ($q (t--table-column-cookie table 1 info) 'right)
       ($q (t--table-column-cookie table 2 info) 'center)))
@@ -1943,8 +1921,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| <l> | <c> |\n| <r> | <l> |\n| a | b |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t)))
+           (table (t-parse1 'table)))
       ($q (t--table-column-cookie table 0 info) 'right)
       ($q (t--table-column-cookie table 1 info) 'left)))
   ;; No cookie
@@ -1952,8 +1929,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| a | b |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t)))
+           (table (t-parse1 'table)))
       ($n (t--table-column-cookie table 0 info))
       ($n (t--table-column-cookie table 1 info))))
   ;; Column index out of bounds
@@ -1961,8 +1937,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| <l> |\n| a |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t)))
+           (table (t-parse1 'table)))
       ($n (t--table-column-cookie table 5 info)))))
 
 (ert-deftest t--table-column-specs ()
@@ -1972,8 +1947,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| a | b |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t)))
+           (table (t-parse1 'table)))
       ($l (t--table-column-specs table info)
           "\n<colgroup span=\"2\">")))
   ;; Column groups from a `/'-row
@@ -1981,8 +1955,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| / | < | > | < | > |\n|   | a | b | c | d |\n")
     (org-mode)
     (let* ((info (list))
-           (table (org-element-map (org-element-parse-buffer) 'table
-                    #'identity nil t)))
+           (table (t-parse1 'table)))
       ($l (t--table-column-specs table info)
           "\n<colgroup span=\"2\">\n<colgroup span=\"2\">"))))
 
@@ -2005,8 +1978,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| a | b |\n|---+---|\n| 1 | 2 |")
     (org-mode)
     (let* ((info (org-export-get-environment 'w3ctr))
-           (rows (org-element-map (org-element-parse-buffer) 'table-row
-                   #'identity)))
+           (rows (t-parse 'table-row)))
       ;; First row should have <thead>
       ($l (t-table-row (car rows) "<th scope=\"col\">a</th><th scope=\"col\">b</th>" info)
           "<thead>\n<tr><th scope=\"col\">a</th><th scope=\"col\">b</th>\n</tr>\n</thead>")
@@ -2018,8 +1990,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| a | b |")
     (org-mode)
     (let* ((info (org-export-get-environment 'w3ctr))
-           (row (org-element-map (org-element-parse-buffer) 'table-row
-                  #'identity nil t)))
+           (row (t-parse1 'table-row)))
       ($l (t-table-row row "<td>a</td><td>b</td>" info)
           "<tbody>\n<tr><td>a</td><td>b</td>\n</tr>\n</tbody>"))))
 
@@ -2030,8 +2001,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| Name |\n|------|\n| foo |")
     (org-mode)
     (let* ((info (org-export-get-environment 'w3ctr))
-           (cells (org-element-map (org-element-parse-buffer) 'table-cell
-                    #'identity)))
+           (cells (t-parse 'table-cell)))
       ;; First cell is in header row
       ($l (t-table-cell (car cells) "Name" info)
           "\n<th scope=\"col\">Name</th>")))
@@ -2040,8 +2010,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| a |")
     (org-mode)
     (let* ((info (org-export-get-environment 'w3ctr))
-           (cell (org-element-map (org-element-parse-buffer) 'table-cell
-                   #'identity nil t)))
+           (cell (t-parse1 'table-cell)))
       ($l (t-table-cell cell "a" info)
           "\n<td>a</td>")))
   ;; Cell with alignment
@@ -2049,8 +2018,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| <l> |\n| a |")
     (org-mode)
     (let* ((info (org-export-get-environment 'w3ctr))
-           (cells (org-element-map (org-element-parse-buffer) 'table-cell
-                    #'identity)))
+           (cells (t-parse 'table-cell)))
       ;; Second cell (after the <l> cookie)
       ($l (t-table-cell (nth 1 cells) "a" info)
           "\n<td style=\"text-align:left\">a</td>")))
@@ -2059,8 +2027,7 @@ Rule rows are skipped, and a special column is dropped."
     (insert "| |")
     (org-mode)
     (let* ((info (org-export-get-environment 'w3ctr))
-           (cell (org-element-map (org-element-parse-buffer) 'table-cell
-                   #'identity nil t)))
+           (cell (t-parse1 'table-cell)))
       ($l (t-table-cell cell "" info)
           "\n<td>&#xa0;</td>")))
   ;; First column with :html-table-use-header-tags-for-first-column
@@ -2070,8 +2037,7 @@ Rule rows are skipped, and a special column is dropped."
     (let* ((info (org-export-get-environment
                   'w3ctr nil
                   '(:html-table-use-header-tags-for-first-column t)))
-           (cells (org-element-map (org-element-parse-buffer) 'table-cell
-                    #'identity)))
+           (cells (t-parse 'table-cell)))
       ;; Third cell (first data row, first column)
       ($l (t-table-cell (nth 2 cells) "foo" info)
           "\n<th scope=\"row\">foo</th>"))))
@@ -2359,7 +2325,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--src-code ()
   "Tests for `org-w3ctr--src-code'."
-  (cl-flet ((f (str) (car (t-get-parsed-elements str 'src-block))))
+  (cl-flet ((f (str) (t-get-element str 'src-block)))
     (let ((out (t--src-code (f "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src")
                             "emacs-lisp")))
       (should (string-match-p "ef-k" out))
@@ -2819,7 +2785,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--interpret-timestamp ()
   "Tests for `org-w3ctr--interpret-timestamp'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (g (x) (t--interpret-timestamp (f x))))
     ($l (g "[2000-01-01]") "[2000-01-01 Sat]")
     ($l (g "[1970-01-02]") "[1970-01-02 Fri]")
@@ -2866,14 +2832,14 @@ Rule rows are skipped, and a special column is dropped."
         "[1999-01-01 Fri]--[1999-01-02 Sat 12:00]")
     ($l (g "[1999-01-01 12:00-13:00]--[2000-01-01 13:00-14:00]")
         "[1999-01-01 Fri 12:00]--[2000-01-01 Sat 13:00]"))
-  (cl-flet ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet ((f (s) (t-get-element s 'timestamp))
             (g (x) (t--interpret-timestamp x)))
     ($e!l (g (f "[1949-10-01]"))
           '(org-w3ctr-error "Invalid timestamp: [1949-10-01]"))
     ($e! (let ((ts (f "[2000-01-01]")))
            (setf (org-element-property :year-start ts) nil)
            (g ts))))
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (g (x) (t--interpret-timestamp (f x))))
     ($l (g "<2007-05-16 12:30 +1h>") "<2007-05-16 Wed 12:30 +1h>")
     ($l (g "<2007-05-16 12:30 +1d>") "<2007-05-16 Wed 12:30 +1d>")
@@ -2883,7 +2849,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--format-timestamp-diary ()
   "Tests for `org-w3ctr--format-timestamp-diary'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (g (x info) (t--format-timestamp-diary (f x) info))
              (mk (w o) `( :html-timestamp-wrapper ,w
                           :html-timestamp-option ,o)))
@@ -2931,7 +2897,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--format-timestamp-raw-1 ()
   "Tests for `org-w3ctr--format-timestamp-raw-1'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (g (x y info) (t--format-timestamp-raw-1 (f x) y info))
              (p (w) `( :html-timestamp-wrapper ,w))
              (c (&rest args) (apply #'concat args)))
@@ -3015,7 +2981,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--format-timestamp-raw ()
   "Tests for `org-w3ctr--format-timestamp-raw'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (g (x info) (t--format-timestamp-raw (f x) info))
              (p (w) `( :html-timestamp-wrapper ,w
                        :html-datetime-option T-none-zulu
@@ -3065,7 +3031,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--format-timestamp-int ()
   "Tests for `org-w3ctr--format-timestamp-int'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (p (w) `( :html-timestamp-wrapper ,w
                        :html-datetime-option T-none-zulu
                        :html-timezone 0))
@@ -3104,7 +3070,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--format-timestamp-fmt ()
   "Tests for `org-w3ctr--format-timestamp-fmt'"
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (p (m) `( :html-timestamp-wrapper none
                        :html-datetime-option T-none-zulu
                        :html-timezone 0
@@ -3131,7 +3097,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--format-timestamp-fix ()
   "Tests for `org-w3ctr--format-timestamp-fix'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (p (w) `( :html-timestamp-wrapper ,w
                        :html-datetime-option T-none-zulu
                        :html-timezone 0))
@@ -3170,7 +3136,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--format-timestamp-org ()
   "Tests for `org-w3ctr--format-timestamp-org'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (p (w) `( :html-timestamp-wrapper ,w
                        :html-datetime-option T-none-zulu
                        :html-timezone 0))
@@ -3215,7 +3181,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--format-timestamp-cus ()
   "Tests for `org-w3ctr--format-timestamp-cus'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp)))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (p (w f) `( :html-timestamp-wrapper ,w
                          :html-datetime-option T-none-zulu
                          :html-timestamp-formats ,f
@@ -3242,7 +3208,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t-ts-default-format-function ()
   "Tests for `org-w3ctr-ts-default-format-function'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp))))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp)))
     (let ((t1 "[2011-11-18]")
           (t2 "<2011-11-18 14:54>")
           (t3 "[2011-11-18 06:54-14:54]")
@@ -3255,7 +3221,7 @@ Rule rows are skipped, and a special column is dropped."
 
 (ert-deftest t--format-timestamp-fun ()
   "Tests for `org-w3ctr--format-timestamp-fun'."
-  (cl-flet* ((f (s) (car (t-get-parsed-elements s 'timestamp))))
+  (cl-flet* ((f (s) (t-get-element s 'timestamp)))
     (let ((t1 "[2011-11-18]")
           (t2 "<2011-11-18 14:54>")
           (t3 "[2011-11-18 06:54-14:54]")
@@ -3331,8 +3297,7 @@ Rule rows are skipped, and a special column is dropped."
                 (org-mode)
                 (insert s)
                 (org-w3ctr-inline-image-p
-                 (car (org-element-map (org-element-parse-buffer)
-                          'link #'identity))
+                 (t-parse1 'link)
                  info)))))
     ($s (funcall p "[[file:img.png]]"))
     ($n (funcall p "[[https://example.com][ ]]"))
@@ -3559,7 +3524,7 @@ Rule rows are skipped, and a special column is dropped."
      ("* test2\n\n#+a:b\n\n456\n" "<p>456</p>\n")
      ("* test3\n\n\n\n" . nil)))
   ;; The zeroth section returns nil and stores its output in INFO.
-  (let* ((sec (car (t-get-parsed-elements "zeroth" 'section)))
+  (let* ((sec (t-get-element "zeroth" 'section))
          (info '(:html-toc-element ul)))
     ($n (t-section sec "<p>567</p>
 " info))
@@ -3746,7 +3711,7 @@ Rule rows are skipped, and a special column is dropped."
           (i2 '( :html-toplevel-hlevel 2
                  :html-honor-ox-headline-levels t
                  :headline-levels 4)))
-      (cl-flet ((f (str) (car (t-get-parsed-elements str 'headline))))
+      (cl-flet ((f (str) (t-get-element str 'headline)))
         ;; i1
         ($l (it (f "* a") i1) nil)
         ($l (it (f "** a") i1) nil)
@@ -3791,9 +3756,9 @@ Rule rows are skipped, and a special column is dropped."
       ;; Classes: :HTML_CONTAINER_CLASS: on the <li>, :HTML_HEADLINE_CLASS:
       ;; wrapping the text in a <span>.
       (cl-flet ((hl (props)
-                  (car (t-get-parsed-elements
-                        (concat "* x\n:PROPERTIES:\n" props ":END:\n")
-                        'headline))))
+                  (t-get-element
+                   (concat "* x\n:PROPERTIES:\n" props ":END:\n")
+                   'headline)))
         ($l (it (hl ":HTML_CONTAINER_CLASS: cc\n") nil nil)
             "<ol>\n<li id=\"0\" class=\"cc\">test</li>\n</ol>\n")
         ($l (it (hl ":HTML_HEADLINE_CLASS: hc\n") nil nil)
