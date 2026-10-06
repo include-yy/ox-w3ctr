@@ -83,11 +83,17 @@ symbol (such as \\='headline, \\='paragraph, etc)."
     (save-excursion (insert str))
     (t-parse1 type)))
 
+;;; Fundamental utilities
+
 (ert-deftest t-error ()
   "Tests for `org-w3ctr-error'."
   ($e!l (t-error "Hello world") '(org-w3ctr-error "Hello world"))
   ($e!l (signal '(t-error 1)) '(t-error 1)))
 
+;;; Basic utilities
+
+;;;; OINFO helpers
+
 (defun t--oinfo-oget (prop)
   "Return the oclosure object for cached property PROP, or nil.
 Return nil when PROP has no entry in `org-w3ctr--oinfo-cache-alist'."
@@ -128,6 +134,7 @@ throwaway cache this macro installs."
            (when (fboundp name) (fmakunbound name)))))))
 
 ;; Directly under its subject.
+
 (ert-deftest t-test-oinfo-cache-macro ()
   "Smoke test for the `org-w3ctr-test-oinfo-cache' test helper macro.
 Verifies setup, body evaluation, cleanup, and restore of throwaway
@@ -158,6 +165,48 @@ closures, and that both the read and the write go through them."
            (error "boom")))
     ($n (fboundp sym))
     ($q t--oinfo-cache-alist alist)))
+
+(ert-deftest t--make-cache-oclosure ()
+  "Tests for `org-w3ctr--make-cache-oclosure'."
+  (let ((info '(:a 1 :b 2 :c 3))
+        (info2 '(:a 3 :b 2 :c 1))
+        (info3 (list :x 99))
+        (oa (t--make-cache-oclosure :a))
+        (ob (t--make-cache-oclosure :b))
+        (od (t--make-cache-oclosure :z)))
+    ;; initial state
+    ($l (t--oinfo--cnt oa) 0)
+    ($l (t--oinfo--pid oa) nil)
+    ($l (t--oinfo--val oa) nil)
+    ;; first lookup: correct value, pid/val set, cnt=1
+    ($l (funcall oa info) 1)
+    ($q (t--oinfo--pid oa) info)
+    ($l (t--oinfo--val oa) 1)
+    ($l (t--oinfo--cnt oa) 1)
+    ;; independent keys
+    ($l (funcall ob info) 2)
+    ($l (t--oinfo--cnt ob) 1)
+    ;; cache hit: same plist, cnt increments
+    ($l (funcall oa info) 1)
+    ($l (t--oinfo--cnt oa) 2)
+    ;; cache miss: different plist, value updates
+    ($l (funcall oa info2) 3)
+    ($q (t--oinfo--pid oa) info2)
+    ($l (t--oinfo--val oa) 3)
+    ;; key absent: val is nil, pid still set, cnt increments
+    ($l (funcall od info3) nil)
+    ($q (t--oinfo--pid od) info3)
+    ($l (t--oinfo--val od) nil)
+    ($l (t--oinfo--cnt od) 1)
+    ;; same plist: a hit on the cached nil, not a re-read.  Mutating the
+    ;; plist proves it -- a miss would return the new value.
+    ($l (funcall od info3) nil)
+    ($l (t--oinfo--cnt od) 2)
+    (plist-put info3 :z 'present)
+    ($l (funcall od info3) nil)
+    ($l (t--oinfo--cnt od) 3)))
+
+;;;; OINFO structural checks
 
 (ert-deftest t--oinfo-switch-is-compile-time ()
   "Tests for `org-w3ctr-oinfo-enabled'.
@@ -215,29 +264,6 @@ Only literal keys are checked: a computed key cannot be seen here."
                     offenders))))
         ($l offenders nil)))))
 
-(ert-deftest t--oinfo-non-inlined-call ()
-  "A variable KEY falls back to the non-inlined cache lookup.
-`org-w3ctr--pget'/`org-w3ctr--pput' cannot inline a non-literal key, so
-they run their function definitions and look KEY up in
-`org-w3ctr--oinfo-cache-alist' at run time -- the path
-`org-w3ctr--build-pre/postamble' uses.  The written value must read
-back while the plist keeps the old one; that divergence is what shows
-the cache, not `plist-get', answered."
-  (skip-unless t--oinfo-cache-p)
-  (let* ((key (car t--oinfo-cache-props))
-         (info (list key 1)))
-    ;; a cached read matches `plist-get' before any write
-    ($l (t--pget info key) (plist-get info key))
-    ;; a cached write reads back, but leaves the plist untouched
-    (t--pput info key 'NEW)
-    ($q (t--pget info key) 'NEW)
-    ($l (plist-get info key) 1)
-    ;; a non-cached key goes through the plist
-    (t--pput info :plain 2)
-    ($l (t--pget info :plain) 2))
-  ;; do not leave the real oclosure holding this test's plist
-  (t--oinfo-cleanup))
-
 (ert-deftest t--oinfo-test-namespace ()
   "The names the tests generate can never replace a production closure."
   (dolist (key t--oinfo-cache-props)
@@ -273,46 +299,6 @@ otherwise its cached assertions fail in the nil build."
               (setq last beg)))
           ($l (nreverse offenders) nil))))))
 
-(ert-deftest t--make-cache-oclosure ()
-  "Tests for `org-w3ctr--make-cache-oclosure'."
-  (let ((info '(:a 1 :b 2 :c 3))
-        (info2 '(:a 3 :b 2 :c 1))
-        (info3 (list :x 99))
-        (oa (t--make-cache-oclosure :a))
-        (ob (t--make-cache-oclosure :b))
-        (od (t--make-cache-oclosure :z)))
-    ;; initial state
-    ($l (t--oinfo--cnt oa) 0)
-    ($l (t--oinfo--pid oa) nil)
-    ($l (t--oinfo--val oa) nil)
-    ;; first lookup: correct value, pid/val set, cnt=1
-    ($l (funcall oa info) 1)
-    ($q (t--oinfo--pid oa) info)
-    ($l (t--oinfo--val oa) 1)
-    ($l (t--oinfo--cnt oa) 1)
-    ;; independent keys
-    ($l (funcall ob info) 2)
-    ($l (t--oinfo--cnt ob) 1)
-    ;; cache hit: same plist, cnt increments
-    ($l (funcall oa info) 1)
-    ($l (t--oinfo--cnt oa) 2)
-    ;; cache miss: different plist, value updates
-    ($l (funcall oa info2) 3)
-    ($q (t--oinfo--pid oa) info2)
-    ($l (t--oinfo--val oa) 3)
-    ;; key absent: val is nil, pid still set, cnt increments
-    ($l (funcall od info3) nil)
-    ($q (t--oinfo--pid od) info3)
-    ($l (t--oinfo--val od) nil)
-    ($l (t--oinfo--cnt od) 1)
-    ;; same plist: a hit on the cached nil, not a re-read.  Mutating the
-    ;; plist proves it -- a miss would return the new value.
-    ($l (funcall od info3) nil)
-    ($l (t--oinfo--cnt od) 2)
-    (plist-put info3 :z 'present)
-    ($l (funcall od info3) nil)
-    ($l (t--oinfo--cnt od) 3)))
-
 (ert-deftest t--oinfo-oclosure-names ()
   "The closure symbol is the struct name followed by the keyword."
   (dolist (key t--oinfo-cache-props)
@@ -341,6 +327,8 @@ naming and the alist built from it."
   ($s (cl-every #'keywordp t--oinfo-cache-props))
   ($l (length t--oinfo-cache-props)
       (length (delete-dups (copy-sequence t--oinfo-cache-props)))))
+
+;;;; OINFO reading and writing
 
 (ert-deftest t--oinfo-pget ()
   "Tests for `org-w3ctr--pget'."
@@ -424,6 +412,29 @@ leaves the cache unchanged."
       ;; Reading info-b must return "B" from the plist, not a stale "A".
       ($l (eval '(t--pget info-b :a)) "B"))))
 
+(ert-deftest t--oinfo-non-inlined-call ()
+  "A variable KEY falls back to the non-inlined cache lookup.
+`org-w3ctr--pget'/`org-w3ctr--pput' cannot inline a non-literal key, so
+they run their function definitions and look KEY up in
+`org-w3ctr--oinfo-cache-alist' at run time -- the path
+`org-w3ctr--build-pre/postamble' uses.  The written value must read
+back while the plist keeps the old one; that divergence is what shows
+the cache, not `plist-get', answered."
+  (skip-unless t--oinfo-cache-p)
+  (let* ((key (car t--oinfo-cache-props))
+         (info (list key 1)))
+    ;; a cached read matches `plist-get' before any write
+    ($l (t--pget info key) (plist-get info key))
+    ;; a cached write reads back, but leaves the plist untouched
+    (t--pput info key 'NEW)
+    ($q (t--pget info key) 'NEW)
+    ($l (plist-get info key) 1)
+    ;; a non-cached key goes through the plist
+    (t--pput info :plain 2)
+    ($l (t--pget info :plain) 2))
+  ;; do not leave the real oclosure holding this test's plist
+  (t--oinfo-cleanup))
+
 (ert-deftest t--oinfo-cache-is-per-plist ()
   "A copy of the plist is a cache miss: oclosures compare with `eq'.
 `plist-get' works on any plist with matching keys, but the cache
@@ -464,6 +475,18 @@ too."
       ($l (eval '(t--pget twin :a)) 1)
       ($q (t--oinfo--pid (t--oinfo-oget :a)) twin)
       ($l (eval '(t--pget info :a)) 1))))
+
+(ert-deftest t--oinfo-plain-flavor ()
+  "Tests for `org-w3ctr--pget' and `org-w3ctr--pput' when
+the OINFO cache is off."
+  (skip-when t--oinfo-cache-p)
+  (dlet ((info (list :a 1)))
+    ($l (eval '(t--pget info :a)) 1)
+    ($l (eval '(t--pput info :a 2)) 2)
+    ($l (plist-get info :a) 2)
+    ($l (eval '(t--pget info :a)) 2)))
+
+;;;; OINFO cleanup and statistics
 
 (ert-deftest t--oinfo-cleanup ()
   "Tests for `org-w3ctr--oinfo-cleanup'."
@@ -551,17 +574,9 @@ too."
     ($s (t--oinfo-compare-count (funcall entry 1) (funcall entry 2)))
     ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 1)))
     ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 2)))))
-
-(ert-deftest t--oinfo-plain-flavor ()
-  "Tests for `org-w3ctr--pget' and `org-w3ctr--pput' when
-the OINFO cache is off."
-  (skip-when t--oinfo-cache-p)
-  (dlet ((info (list :a 1)))
-    ($l (eval '(t--pget info :a)) 1)
-    ($l (eval '(t--pput info :a 2)) 2)
-    ($l (plist-get info :a) 2)
-    ($l (eval '(t--pget info :a)) 2)))
 
+;;;; String helpers
+
 (ert-deftest t--nw-p ()
   "Tests for `org-w3ctr--nw-p'."
   ($l (t--nw-p "123") "123")
@@ -632,6 +647,8 @@ the OINFO cache is off."
   ($e! (t--make-string 3 [?a ?b]))
   ($e! (t--make-string "a" "a")))
 
+;;;; HTML escaping
+
 (ert-deftest t--encode-plain-text ()
   "Tests for `org-w3ctr--encode-plain-text'."
   ($l (t--encode-plain-text "") "")
@@ -673,6 +690,8 @@ the OINFO cache is off."
                 ($s (cl-some (lambda (e) (string-prefix-p e (substring b pos)))
                              '("&amp;" "&lt;" "&gt;" "&apos;" "&quot;")))
                 (setq i (1+ pos))))))))))
+
+;;;; HTML attributes
 
 (ert-deftest t--read-attr ()
   "Tests for `org-w3ctr--read-attr'."
@@ -820,6 +839,8 @@ the OINFO cache is off."
       " id=\"2\"")
      ("#+name: 1\n#+attr_html: :id 3\ntest" " id=\"3\""))))
 
+;;;; File and regexp
+
 (ert-deftest t--load-file ()
   "Tests for `org-w3ctr--load-file'."
   (let ((ox (with-temp-buffer
@@ -850,6 +871,8 @@ the OINFO cache is off."
   ($l (t--find-all "z" "abc" 5) nil)
   ;; START at the end of the string is still a valid search position.
   ($l (t--find-all "[0-9]" "abc1" 3) '("1")))
+
+;;;; S-exp rendering
 
 (ert-deftest t--sexp2html ()
   "Tests for `org-w3ctr--sexp2html'."
@@ -935,6 +958,8 @@ the OINFO cache is off."
   ($l (t--void-element "img" "src=\"x\"") "<img src=\"x\">")
   ($l (t--void-element "img" "  src=\"x\"  ") "<img src=\"x\">"))
 
+;;;; References
+
 (ert-deftest t--target-reference ()
   "Tests for `org-w3ctr--target-reference'."
   (let ((get-target (lambda (val)
@@ -980,6 +1005,8 @@ the OINFO cache is off."
     (let ((para (t-get-element "hello" 'paragraph)))
       ($n (t--reference para (list :html-prefer-user-labels nil) t)))))
 
+;;;; Filter Functions
+
 (ert-deftest t-image-link-filter ()
   "Tests for `org-w3ctr-image-link-filter'."
   (let (seen)
@@ -1000,6 +1027,8 @@ the OINFO cache is off."
       "<ul>\n<li>a</li>\n</ul>")
   ;; a single line has nothing to reindent.
   ($l (t-final-function "<p>x</p>" nil '(:html-indent t)) "<p>x</p>"))
+
+;;;; JSON-RPC
 
 (ert-deftest t--jrpc-make ()
   "Tests for `org-w3ctr--jrpc-make'."
@@ -1110,6 +1139,10 @@ implemented by an `addMethod' call in jstools/index.js."
       (dolist (method t--jstools-methods)
         ($s (memq method implemented))))))
 
+;;; Greater elements
+
+;;;; Center Block
+
 (ert-deftest t-center-block ()
   "Tests for `org-w3ctr-center-block'."
   (t-check-element-values
@@ -1133,6 +1166,8 @@ implemented by an `addMethod' call in jstools/index.js."
      ;; #default)
      ("#+name: my-block\n#+begin_center\nhello\n#+end_center"
       "<div style=\"text-align:center;\">\n<p>hello</p>\n</div>"))))
+
+;;;; Drawer
 
 (ert-deftest t-drawer-format-function ()
   "The drawer goes through `org-w3ctr-drawer-format-function'."
@@ -1187,12 +1222,16 @@ int a = 1;</code></p>\n</details>")
   ($l (t-drawer-default-format-function "name" "sum" " id=\"d\"" "body" nil)
       "<details id=\"d\"><summary>sum</summary>\nbody</details>"))
 
+;;;; Dynamic Block
+
 (ert-deftest t-dynamic-block ()
   "Tests for `org-w3ctr-dynamic-block'."
   (t-check-element-values
    #'t-dynamic-block
    '(("#+begin: hello\n123\n#+end:" "<p>123</p>\n")
      ("#+begin: nothing\n#+end:" ""))))
+
+;;;; Footnote
 
 (ert-deftest t-footnote-section-function ()
   "The footnotes section goes through `org-w3ctr-footnote-section-function'."
@@ -1307,6 +1346,8 @@ int a = 1;</code></p>\n</details>")
                (list (list 1 nil "text")) info2)
               "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\"><sup>1</sup></dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n"))))))
 
+;;;; Item and Plain Lists helper functions
+
 (ert-deftest t--checkbox ()
   "Tests for `org-w3ctr-checkbox'."
   (let ((info '(:html-checkbox-type unicode)))
@@ -1409,6 +1450,8 @@ int a = 1;</code></p>\n</details>")
         "<dt>&#x2612; </dt><dd>123</dd>")
     ($l (t--format-descriptive-item "123" 'trans info " test ")
         "<dt>&#x2612;  test </dt><dd>123</dd>")))
+
+;;;; Item
 
 (ert-deftest t-item-unordered ()
   "Tests for `org-w3ctr-item' unordered clause."
@@ -1516,6 +1559,8 @@ int a = 1;</code></p>\n</details>")
    nil '(:html-checkbox-type unicode))
   ($e! (t-item nil "123" nil)))
 
+;;;; Plain List
+
 (ert-deftest t-plain-list ()
   "Tests for `org-w3ctr-plain-list'."
   (t-check-element-values
@@ -1535,6 +1580,8 @@ int a = 1;</code></p>\n</details>")
       "<ul>\n</ul>")
   ($e! (t-plain-list nil "123" nil)))
 
+;;;; Quote Block
+
 (ert-deftest t-quote-block ()
   "Tests for `org-w3ctr-quote-block'."
   (t-check-element-values
@@ -1548,6 +1595,8 @@ int a = 1;</code></p>\n</details>")
      ("#+begin_quote\n\n\n#+end_quote" "<blockquote>\n\n</blockquote>")
      ("#+begin_quote\n\n\n\n\n\n\n\n\n\n#+end_quote"
       "<blockquote>\n\n</blockquote>"))))
+
+;;;; Special Block
 
 (ert-deftest t-special-block ()
   "Tests for `org-w3ctr-special-block'.
@@ -1842,6 +1891,8 @@ registry is validated even when nothing matches."
   ($e! (t--special-block-used-elements
         (list :html-special-block-custom-elements (42)))))
 
+;;;; Table
+
 (ert-deftest t--table-cell-align ()
   "Tests for `org-w3ctr--table-cell-align'."
   (with-temp-buffer
@@ -2129,6 +2180,10 @@ Rule rows are skipped, and a special column is dropped."
       ($l (t-table-cell (nth 2 cells) "foo" info)
           "\n<th scope=\"row\">foo</th>"))))
 
+;;; Lesser elements
+
+;;;; Example Block
+
 (ert-deftest t-example-block ()
   "Tests for `org-w3ctr-example-block'."
   (t-check-element-values
@@ -2144,6 +2199,8 @@ Rule rows are skipped, and a special column is dropped."
      ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
       "<div id=\"t\" class=\"example\">\n<pre>\n\n\n\n</pre>\n</div>"))
    nil '(:html-prefer-user-labels t)))
+
+;;;; Export Block
 
 (ert-deftest t-export-block ()
   "Tests for `org-w3ctr-export-block'."
@@ -2191,6 +2248,8 @@ Rule rows are skipped, and a special column is dropped."
                               'w3ctr t)
         '(org-w3ctr-error "LISP-DATA block at line 2: End of file during parsing")))
 
+;;;; Fixed Width
+
 (ert-deftest t-fixed-width ()
   "Tests for `org-w3ctr-fixed-width'."
   (t-check-element-values
@@ -2204,6 +2263,8 @@ Rule rows are skipped, and a special column is dropped."
       "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>")
      (":\n:\n:\n:\n" "<pre>\n\n\n</pre>"))
    nil '(:html-prefer-user-labels t)))
+
+;;;; Horizontal Rule
 
 (ert-deftest t-horizontal-rule ()
   "Tests for `org-w3ctr-horizontal-rule'."
@@ -2221,6 +2282,8 @@ Rule rows are skipped, and a special column is dropped."
      ("----------" "<hr>")
      ("-------------------------------" "<hr>")
      ("#+attr__: [thick]\n-----" "<hr class=\"thick\">"))))
+
+;;;; Keyword
 
 (ert-deftest t-keyword ()
   "Tests for `org-w3ctr-keyword'."
@@ -2252,6 +2315,8 @@ Rule rows are skipped, and a special column is dropped."
   ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)
         '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing")))
 
+;;;; LaTeX
+
 (ert-deftest t-latex-fragment ()
   "Tests for `org-w3ctr-latex-fragment'."
   ;; NB: for `verbatim', Org expands the fragment itself (ox.el) and
@@ -2268,6 +2333,8 @@ Rule rows are skipped, and a special column is dropped."
    '(("\\begin{equation}\nx=1\n\\end{equation}"
       "\\begin{equation}\nx=1\n\\end{equation}"))
    nil '(:with-latex mathjax)))
+
+;;;; Paragraph
 
 (ert-deftest t-paragraph ()
   "Tests for `org-w3ctr-paragraph'."
@@ -2321,6 +2388,8 @@ Rule rows are skipped, and a special column is dropped."
       "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
    nil '(:html-prefer-user-labels t)))
 
+;;;; Verse Block
+
 (ert-deftest t-verse-block ()
   "Tests for `org-w3ctr-verse-block'."
   (t-check-element-values
@@ -2335,6 +2404,8 @@ Rule rows are skipped, and a special column is dropped."
      ("#+attr__:[hi]\n#+begin_verse\n\n\n#+end_verse"
       "<p class=\"hi\">\n<br>\n<br>\n</p>"))
    nil '(:html-prefer-user-labels t)))
+
+;;;; Engrave-faces subset
 
 (ert-deftest t--engrave-buffer ()
   "Tests for `org-w3ctr--engrave-buffer'."
@@ -2400,6 +2471,8 @@ Rule rows are skipped, and a special column is dropped."
   ($l (t--engrave-fontify-code "(a < b)" "no-such-lang") "(a &lt; b)")
   ($l (t--engrave-fontify-code "(a < b)" nil) "(a &lt; b)"))
 
+;;;; Source block
+
 (ert-deftest t-fontify-code ()
   "Tests for `org-w3ctr-fontify-code'."
   (let ((out (t-fontify-code "(defun foo () 1)" "emacs-lisp")))
@@ -2459,6 +2532,10 @@ Rule rows are skipped, and a special column is dropped."
       ;; Single wrapper: no nested <code>.
       ($n (string-match-p "src-inline[^\"]*\"><code" out)))))
 
+;;; Objects
+
+;;;; Entity
+
 (ert-deftest t-entity ()
   "Tests for `org-w3ctr-entity'."
   (t-check-element-values
@@ -2474,6 +2551,8 @@ Rule rows are skipped, and a special column is dropped."
       "&reg;" "&copy;" "$" "&Dagger;" "&Dagger;")
      ("\\frac12 \\frac14 \\frac34 \\radic \\prop \\sim"
       "&sim;" "&prop;" "&radic;" "&frac34;" "&frac14;" "&frac12;"))))
+
+;;;; Export Snippet
 
 (ert-deftest t-export-snippet ()
   "Tests for `org-w3ctr-export-snippet'."
@@ -2499,9 +2578,13 @@ Rule rows are skipped, and a special column is dropped."
   ($e!l (org-export-string-as "@@d:(broken@@" 'w3ctr t)
         '(org-w3ctr-error "@@d snippet at line 1: End of file during parsing")))
 
+;;;; Line Break
+
 (ert-deftest t-line-break ()
   "Tests for `org-w3ctr-line-break'."
   ($l (t-line-break nil nil nil) "<br>\n"))
+
+;;;; Target
 
 (ert-deftest t-target ()
   "Tests for `org-w3ctr-target'."
@@ -2517,6 +2600,8 @@ Rule rows are skipped, and a special column is dropped."
         "<span id=\"5\"></span>"
         "<span id=\"4\"></span>"
         "<span id=\"3\"></span>")))))
+
+;;;; Radio Target
 
 (ert-deftest t-radio-target ()
   "Tests for `org-w3ctr-radio-target'."
@@ -2537,6 +2622,8 @@ Rule rows are skipped, and a special column is dropped."
         "<span id=\"5\">th2</span>"
         "<span id=\"4\">th1</span>")))))
 
+;;;; Statistics Cookie
+
 (ert-deftest t-statistics-cookie ()
   "Tests for `org-w3ctr-statistics-cookie'."
   (cl-letf (((symbol-function 'org-element--property)
@@ -2554,6 +2641,8 @@ Rule rows are skipped, and a special column is dropped."
      ("1. hello [50%]\n   1. [ ] hello1\n   2. [X] hello2"
       "<code>[50%]</code>"))))
 
+;;;; Subscript
+
 (ert-deftest t-subscript ()
   "Tests for `org-w3ctr-subscript'."
   ($l (t-subscript nil "123" nil) "<sub>123</sub>")
@@ -2566,6 +2655,8 @@ Rule rows are skipped, and a special column is dropped."
      ("x86_64" "<sub>64</sub>")
      ("f_{1}" "<sub>1</sub>"))))
 
+;;;; Superscript
+
 (ert-deftest t-superscript ()
   "Tests for `org-w3ctr-superscript'."
   ($l (t-superscript nil "123" nil) "<sup>123</sup>")
@@ -2577,6 +2668,8 @@ Rule rows are skipped, and a special column is dropped."
    '(("1^2" "<sup>2</sup>")
      ("x86^64" "<sup>64</sup>")
      ("f^{1}" "<sup>1</sup>"))))
+
+;;;; Timestamp
 
 (ert-deftest t--timezone-to-offset ()
   "Tests for `org-w3ctr--timezone-to-offset'."
@@ -3355,6 +3448,8 @@ Rule rows are skipped, and a special column is dropped."
           :html-timestamp-formats ("%F" . "%F %R")
           :html-timezone "UTC+8" :html-datetime-option s-none)))
 
+;;;; Link
+
 (ert-deftest t-inline-image-path-regexp ()
   "Tests for `org-w3ctr-inline-image-path-regexp'."
   (let ((case-fold-search t))
@@ -3453,6 +3548,8 @@ Rule rows are skipped, and a special column is dropped."
       "<a href=\"#radio\">radio</a>"))
    t '(:with-latex verbatim :html-prefer-user-labels t)))
 
+;;; Smallest objects
+
 (ert-deftest t--get-markup-format ()
   "Tests for `org-w3ctr--get-markup-format'."
   (let ((info '(:html-text-markup-alist ((a . 2) (b . 3) (c . 4)))))
@@ -3460,6 +3557,8 @@ Rule rows are skipped, and a special column is dropped."
     ($l (t--get-markup-format 'b info) 3)
     ($l (t--get-markup-format 'c info) 4))
   ($l (t--get-markup-format 'anything nil) "%s"))
+
+;;;; Bold
 
 (ert-deftest t-bold ()
   "Tests for `org-w3ctr-bold'."
@@ -3480,6 +3579,8 @@ Rule rows are skipped, and a special column is dropped."
       "<b>hello world this world</b>")
      ("*hello\nworld*" "<b>hello\nworld</b>"))))
 
+;;;; Italic
+
 (ert-deftest t-italic ()
   "Tests for `org-w3ctr-italic'."
   (t-check-element-values
@@ -3496,6 +3597,8 @@ Rule rows are skipped, and a special column is dropped."
      ("/hello world this world/"
       "<i>hello world this world</i>")
      ("/hello\nworld/" "<i>hello\nworld</i>"))))
+
+;;;; Underline
 
 (ert-deftest t-underline ()
   "Tests for `org-w3ctr-underline'."
@@ -3518,6 +3621,8 @@ Rule rows are skipped, and a special column is dropped."
      ("_hello\nworld_"
       "<u>hello\nworld</u>"))))
 
+;;;; Verbatim
+
 (ert-deftest t-verbatim ()
   "Tests for `org-w3ctr-verbatim'."
   (t-check-element-values
@@ -3534,6 +3639,8 @@ Rule rows are skipped, and a special column is dropped."
       "<code>hello world this world</code>")
      ("=hello\nworld=" "<code>hello\nworld</code>"))))
 
+;;;; Code
+
 (ert-deftest t-code ()
   "Tests for `org-w3ctr-code'."
   (t-check-element-values
@@ -3549,6 +3656,8 @@ Rule rows are skipped, and a special column is dropped."
      ("~hello world this world~"
       "<code>hello world this world</code>")
      ("~hello\nworld~" "<code>hello\nworld</code>"))))
+
+;;;; Strike-Through
 
 (ert-deftest t-strike-through ()
   "Tests for `org-w3ctr-strike-through'."
@@ -3568,6 +3677,8 @@ Rule rows are skipped, and a special column is dropped."
      ("+hello world this world+"
       "<s>hello world this world</s>")
      ("+hello\nworld+" "<s>hello\nworld</s>"))))
+
+;;;; Plain Text
 
 (ert-deftest t--convert-special-strings ()
   "Tests for `org-w3ctr--convert-special-strings'."
@@ -3595,6 +3706,10 @@ Rule rows are skipped, and a special column is dropped."
           :preserve-breaks t))
       "\"a &lt; b\" &#x2013; c<br>\nd"))
 
+;;; Headline and Section
+
+;;;; Section
+
 (ert-deftest t-section ()
   "Tests for `org-w3ctr-section'."
   (cl-letf (((symbol-function 't-section)
@@ -3617,6 +3732,8 @@ Rule rows are skipped, and a special column is dropped."
 " info))
     ($l (t--pget info :zeroth-section-output) "<p>567</p>
 ")))
+
+;;;; Todo
 
 (ert-deftest t--todo ()
   "Tests for `org-w3ctr--todo'."
@@ -3643,6 +3760,8 @@ Rule rows are skipped, and a special column is dropped."
                            (format "<i class=\"done\">%s</i>" todo))))
       "<i class=\"done\">DONE</i>"))
 
+;;;; Priority
+
 (ert-deftest t--priority ()
   "Tests for `org-w3ctr--priority'."
   ($l (t--priority nil nil) nil)
@@ -3657,6 +3776,8 @@ Rule rows are skipped, and a special column is dropped."
   ($l (t--priority 66 '(:html-priority-format-function
                         (lambda (p _i) (format "<i>%c</i>" p))))
       "<i>B</i>"))
+
+;;;; Tags
 
 (ert-deftest t--tags ()
   "Tests for `org-w3ctr--tags'."
@@ -3673,6 +3794,8 @@ Rule rows are skipped, and a special column is dropped."
   ($l (t--tags '("a" "b") '(:html-tags-format-function
                             (lambda (tags _i) (string-join tags ","))))
       "a,b"))
+
+;;;; Headline
 
 (ert-deftest t--headline-todo ()
   "Tests for `org-w3ctr--headline-todo'."
@@ -4040,6 +4163,10 @@ Rule rows are skipped, and a special column is dropped."
                 (lambda (&rest _) (error "unexpected"))))
       ($l (it '(headline (:footnote-section-p t)) "contents" 'info) nil))))
 
+;;; Template and Inner Template
+
+;;;; <meta> tags export.
+
 (ert-deftest t--build-meta-entry ()
   "Tests for `org-w3ctr--build-meta-entry'."
   ($it t--build-meta-entry
@@ -4207,6 +4334,8 @@ Rule rows are skipped, and a special column is dropped."
             "<title>Test</title>\n"
             "<meta name=\"generator\" content=\"Org Mode\">\n"))))
 
+;;;; Default CSS export.
+
 (ert-deftest t--load-css ()
   "Tests for `org-w3ctr--load-css'."
   (let ((t-style nil) (t-style-file nil) (t--style-cache nil))
@@ -4234,6 +4363,8 @@ Rule rows are skipped, and a special column is dropped."
     ($l (t--load-css nil)
         (format "<style>\n%s\n</style>\n" t-style-file))
     ($l t--style-cache (format "<style>\n%s\n</style>\n" t-style-file))))
+
+;;;; Math config
 
 (ert-deftest t--normalize-latex ()
   "Tests for `org-w3ctr--normalize-latex'."
@@ -4278,6 +4409,8 @@ Rule rows are skipped, and a special column is dropped."
     ;; nil :html-math-head-function falls back to the default function
     ($l (t--build-math-config '(:with-latex mathjax :html-mathjax-config "JX"))
         "JX")))
+
+;;;; Rest of <head>
 
 (ert-deftest t--use-default-style-p ()
   "Tests for `org-w3ctr--use-default-style-p'."
@@ -4338,6 +4471,8 @@ Rule rows are skipped, and a special column is dropped."
              (lambda (_info) nil)))
     ($l (t--build-head '(:html-head (lambda (_info) "FN\n")))
         ($c "<head>\n" "META\n" "FN\n" "</head>\n"))))
+
+;;;; Navbar
 
 (ert-deftest t--format-home/up ()
   "Tests for `org-w3ctr--format-home/up'."
@@ -4543,6 +4678,8 @@ Rule rows are skipped, and a special column is dropped."
          :html-link-up "" :html-link-home ""
          :html-home/up-format ,t-home/up-format)))
 
+;;;; CC license badges
+
 (ert-deftest t--load-cc-svg ()
   "Tests for `org-w3ctr--load-cc-svg'."
   ;; Round-trip the real file: base64 with no line breaks, decoding
@@ -4714,6 +4851,8 @@ Rule rows are skipped, and a special column is dropped."
         (setq info (plist-put info :html-license 'nope))
         ($q (car (should-error (test info))) 'org-w3ctr-error)))))
 
+;;;; Preamble and Postamble
+
 (ert-deftest t--pre/postamble-format-spec ()
   "Tests for `org-w3ctr--pre/postamble-format-spec'."
   (cl-flet ((test (str info expect)
@@ -4887,6 +5026,8 @@ Rule rows are skipped, and a special column is dropped."
             "<dt>Public License:</dt> <dd>LICENSE</dd>\n"
             "</dl>\n</details>\n<hr>"))))
 
+;;;; Table of Contents
+
 (ert-deftest t--toc-headline-secno ()
   "Tests for `org-w3ctr--toc-headline-secno'."
   (cl-letf (((symbol-function 'org-export-numbered-headline-p)
@@ -5205,6 +5346,8 @@ that changes them fails here instead of corrupting a TOC silently."
           "TOC nil \"RESOLVED x\""))
     ;; No match, no output.
     ($n (t--keyword-toc nil "nothing" nil))))
+
+;;;; Template
 
 (ert-deftest t-inner-template ()
   "Tests for `org-w3ctr-inner-template'."
