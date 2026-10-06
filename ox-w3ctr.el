@@ -1854,7 +1854,8 @@ converted to \"<p class=\\\"foo\\\">Hello</p>\".
 
 The function correctly handles void elements (like `br') and
 sanitizes string content using `org-w3ctr--encode-plain-text'.
-Signal `org-w3ctr-error' when a list's first element is not a symbol."
+Signal `org-w3ctr-error' when a list's first element is not a symbol,
+or when its attribute list is neither nil, t, nor a proper list."
   (declare (ftype (function (t) string))
            (important-return-value t))
   (pcase data
@@ -1868,8 +1869,10 @@ Signal `org-w3ctr-error' when a list's first element is not a symbol."
        ;; always use lowercase tagname.
        (let* ((tag (downcase (symbol-name tag)))
               (attr-ls (nth 1 data))
-              (attrs (if (booleanp attr-ls) ""
-                       (t--make-attr__ attr-ls))))
+              (attrs (cond ((booleanp attr-ls) "")
+                           ((proper-list-p attr-ls) (t--make-attr__ attr-ls))
+                           (t (t-error "Invalid S-expression attribute list: %S"
+                                       attr-ls)))))
          (if (string-match-p t--void-element-regexp tag)
              (t--void-element tag attrs)
            (let ((children (mapconcat #'t--sexp2html (cddr data))))

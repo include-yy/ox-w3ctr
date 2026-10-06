@@ -792,7 +792,13 @@ the OINFO cache is off."
   ;; A list's first element must be a non-nil symbol.
   ($e! (t--sexp2html '(nil)))
   ($e! (t--sexp2html '(1.5 () "x")))
-  ($e! (t--sexp2html '("div" () "x"))))
+  ($e! (t--sexp2html '("div" () "x")))
+  ;; The attribute list must be nil, t, or a proper list.
+  ($e!l (t--sexp2html '(p "text"))
+        '(org-w3ctr-error "Invalid S-expression attribute list: \"text\""))
+  ($e! (t--sexp2html '(p 5 "x")))
+  ($e! (t--sexp2html '(p [1 2] "x")))
+  ($e! (t--sexp2html '(p (a . b) "x"))))
 
 (ert-deftest t--sexp2html-property ()
   "A random S-expression renders to a string, or signals `org-w3ctr-error'."
