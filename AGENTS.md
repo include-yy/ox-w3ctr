@@ -201,6 +201,13 @@ from `table-generate-source`), is annotated in the source.  The
 remaining refinement work is in the earlier parts (a section refile
 scrambled their source order): the `REFINE` sections below.
 
+The current task, before those passes, is to tidy and improve the test
+code for the two frozen parts (`;;; Basic utilities`, `;;; Greater
+elements`): review their ERT suites for coverage, duplication, helper
+use and naming now that the code under test is frozen.  Their one
+deliberate gap stays `org-w3ctr--table.el-table`.  Small findings go to
+`## Tasks`, larger ones to the `README.org` Roadmap.
+
 The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
 source.  Four remain, in source order: LaTeX, Engrave-faces
