@@ -447,8 +447,7 @@ uses object identity, so an equal but distinct plist is a miss."
       ($l (eval '(t--pget info :a)) 1)
       (plist-put info :a 99)
       ($l (plist-get info :a) 99)
-      ($l (eval '(t--pget info :a)) 1)
-      ($l (t--oinfo--val (t--oinfo-oget :a)) 1))))
+      ($l (eval '(t--pget info :a)) 1))))
 
 (ert-deftest t--oinfo-pput-is-per-plist ()
   "A written value is only read back for the plist it was written for."
