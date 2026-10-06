@@ -89,15 +89,16 @@ symbol (such as \\='headline, \\='paragraph, etc)."
   ($e!l (signal '(t-error 1)) '(t-error 1)))
 
 (defun t--oinfo-oget (prop)
-  "Get the oclosure object corresponds to PROP."
+  "Return the oclosure object for cached property PROP, or nil.
+Return nil when PROP has no entry in `org-w3ctr--oinfo-cache-alist'."
   (when-let* ((f (alist-get prop t--oinfo-cache-alist)))
     (symbol-function f)))
 
 (defun t-test-oinfo-oclosure (key)
-  "Name of the test-only caching oclosure for property KEY.
+  "Return the name of the test-only caching oclosure for property KEY.
 
-Deliberately distinct from `org-w3ctr--oinfo-oclosure', so that the
-closures these tests install can never replace a real one."
+It is deliberately distinct from `org-w3ctr--oinfo-oclosure', so that
+the closures these tests install can never replace a real one."
   (intern (concat "org-w3ctr--oinfo-test" (symbol-name key))))
 
 (defmacro t-test-oinfo-cache (keys &rest body)
