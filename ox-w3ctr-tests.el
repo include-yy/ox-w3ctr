@@ -449,8 +449,11 @@ uses object identity, so an equal but distinct plist is a miss."
       ($l (plist-get info :a) 99)
       ($l (eval '(t--pget info :a)) 1))))
 
-(ert-deftest t--oinfo-pput-is-per-plist ()
-  "A written value is only read back for the plist it was written for."
+(ert-deftest t--oinfo-pput-is-single-slot ()
+  "A written value is evicted when another plist is read.
+`org-w3ctr--pput' fills the oclosure's single (PID . VAL) slot, so a
+read of a different plist replaces it; the original plist then misses
+too."
   (skip-unless t--oinfo-cache-p)
   (t-test-oinfo-cache '(:a)
     (dlet ((info (list :a 1))
