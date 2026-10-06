@@ -208,6 +208,13 @@ use and naming now that the code under test is frozen.  Their one
 deliberate gap stays `org-w3ctr--table.el-table`.  Small findings go to
 `## Tasks`, larger ones to the `README.org` Roadmap.
 
+`ox-w3ctr-tests.el` mirrors the source: a `;;;` header per major part
+and a `;;;;` header per source section (OINFO splits into helpers /
+structural checks / reading and writing / cleanup and statistics).  Work
+through it a section at a time.  The OINFO suite is reviewed and can be
+frozen with the rest of `;;; Basic utilities`; the remaining Basic
+utilities sections and the other parts are pending.
+
 The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
 source.  Four remain, in source order: LaTeX, Engrave-faces
@@ -346,6 +353,17 @@ Besides the passes: the options tidy-up in `README.org` Roadmap (the
 Small items, found while refining a function and usually finished in the
 same session.  Larger or planned work is in the =Roadmap= section of
 =README.org=.
+
+- **`org-w3ctr-check-element-values` expects its values in reverse.**
+  The fixture `push`-accumulates `org-w3ctr-test-values`, so EXPECTED is
+  in reverse call order (a test pins this).  Either document it or
+  `nreverse` it in the fixture; the latter flips nearly every EXPECTED
+  list in the suite.
+- **The OINFO source-scanning tests hardcode `info`.**  Both
+  `org-w3ctr--oinfo-props-are-looked-up` and
+  `org-w3ctr--oinfo-props-go-through-pget` match the literal variable
+  `info`; a differently named INFO plist would false-fail.  Loosen to
+  `[^ \t\n()]+` if that ever changes.
 
 - **Docstring & layout leftovers (from the tidy pass).**
   - Add `(declare (ftype …))` to the 2 functions that still lack it
