@@ -1144,7 +1144,7 @@ int a = 1;</code></p>\n</details>")
                    (format "<p>%s</p>" text))))))
     (cl-flet ((p (s) (car (t-get-parsed-elements s 'paragraph))))
       (let ((info '(:html-footnotes-section "<div id=\"references\">\n<h2>%s</h2>\n<dl>%s</dl>\n</div>\n"
-                    :html-footnote-format "[%s]")))
+                                            :html-footnote-format "[%s]")))
         ;; Single footnote
         ($l (t-footnote-section-default-function
              (list (list 1 nil (p "Text."))) info)
@@ -1437,6 +1437,24 @@ are ox-html's behavior, kept for compatibility."
       "<aside id=\"nm\" class=\"bar\">\n<p>hello</p>\n</aside>"))
    nil '(:html-prefer-user-labels t)))
 
+(ert-deftest t--special-block-builtin ()
+  "Tests for `org-w3ctr--special-block-builtin'."
+  (t-check-element-values
+   #'t--special-block-builtin
+   '(;; an HTML5 element keeps its name
+     ("#+begin_section\nhello\n#+end_section"
+      "<section>\n<p>hello</p>\n</section>")
+     ;; any other type becomes a <div class="TYPE">
+     ("#+begin_foo\nhello\n#+end_foo"
+      "<div class=\"foo\">\n<p>hello</p>\n\n</div>")
+     ;; user attributes replace the type class
+     ("#+attr__: [bar]\n#+begin_foo\nhello\n#+end_foo"
+      "<div class=\"bar\">\n<p>hello</p>\n\n</div>")
+     ;; an empty #+attr__: gives a plain <div>
+     ("#+attr__:\n#+begin_div\nhello\n#+end_div"
+      "<div>\n<p>hello</p>\n\n</div>"))
+   nil '(:html-prefer-user-labels t)))
+
 (ert-deftest t-special-block-custom-elements ()
   "Tests for `:html-special-block-custom-elements'."
   (t-check-element-values
@@ -1452,14 +1470,14 @@ are ox-html's behavior, kept for compatibility."
      ("#+begin_foo-bar\nhello\n#+end_foo-bar"
       "<div class=\"foo-bar\">\n<p>hello</p>\n\n</div>"))
    nil '(:html-prefer-user-labels t
-         :html-special-block-custom-elements (("my-card"))))
+                                  :html-special-block-custom-elements (("my-card"))))
   ;; empty plist is equivalent to just registering the name
   (t-check-element-values
    #'t-special-block
    '(("#+begin_my-card\nhello\n#+end_my-card"
       "<my-card>\n<p>hello</p>\n</my-card>"))
    nil '(:html-prefer-user-labels t
-         :html-special-block-custom-elements (("my-card" . nil))))
+                                  :html-special-block-custom-elements (("my-card" . nil))))
   ;; a listed type that is not a valid custom element name
   ($e! (org-export-string-as
         "#+begin_card\nx\n#+end_card" 'w3ctr t
@@ -1521,8 +1539,23 @@ Malformed registry entries signal `org-w3ctr-error'."
   ;; validates the registry, so the clean error is raised (not a
   ;; wrong-type-argument).
   ($e!l (org-export-string-as "hello" 'w3ctr nil
-          '(:html-special-block-custom-elements (42)))
+                              '(:html-special-block-custom-elements (42)))
         '(org-w3ctr-error "Malformed custom element registry entry: 42")))
+
+(ert-deftest t--special-block-validate-registry ()
+  "Tests for `org-w3ctr--special-block-validate-registry'."
+  ($n (t--special-block-validate-registry nil))
+  ($n (t--special-block-validate-registry
+       '(("a-b") ("c-d" :src "x.js"))))
+  ;; Not a cons, or a car that is not a string: signals.
+  ($e!l (t--special-block-validate-registry '("a-b"))
+        '(org-w3ctr-error
+          "Malformed custom element registry entry: \"a-b\""))
+  ($e!l (t--special-block-validate-registry '(42))
+        '(org-w3ctr-error "Malformed custom element registry entry: 42"))
+  ($e!l (t--special-block-validate-registry '((42 :src "x.js")))
+        '(org-w3ctr-error
+          "Malformed custom element registry entry: (42 :src \"x.js\")")))
 
 (ert-deftest t-special-block-head-default-function ()
   "Tests for `org-w3ctr-special-block-head-default-function'."
@@ -1553,6 +1586,22 @@ Malformed registry entries signal `org-w3ctr-error'."
   ($n (t-special-block-head-default-function '(("a-b")) nil))
   ($n (t-special-block-head-default-function
        '(("a-b" :template "<template></template>")) nil)))
+
+(ert-deftest t--special-block-head-entry ()
+  "Tests for `org-w3ctr--special-block-head-entry'.
+The result is (MARKUP . SEEN); a :src already in SEEN is skipped."
+  (let ((r (t--special-block-head-entry '("a-b" :src "a.js") nil)))
+    ($l (car r) "<script type=\"module\" src=\"a.js\"></script>\n")
+    ($l (cdr r) '("a.js")))
+  (let ((r (t--special-block-head-entry '("a-b" :script "x()") nil)))
+    ($l (car r) "<script type=\"module\">\nx()\n</script>\n")
+    ($n (cdr r)))
+  (let ((r (t--special-block-head-entry '("a-b" :src "a.js") '("a.js"))))
+    ($l (car r) "")
+    ($l (cdr r) '("a.js")))
+  (let ((r (t--special-block-head-entry '("a-b") nil)))
+    ($l (car r) "")
+    ($n (cdr r))))
 
 (ert-deftest t--special-block-head ()
   "Tests for the custom element scripts in <head>."
@@ -1596,6 +1645,30 @@ Malformed registry entries signal `org-w3ctr-error'."
           doc 'w3ctr t
           (list :html-special-block-custom-elements registry))))))
 
+(ert-deftest t--special-block-used-elements ()
+  "Tests for `org-w3ctr--special-block-used-elements'.
+Entries come back in registry order, without duplicates; the
+registry is validated even when nothing matches."
+  (let* ((registry '(("x-one" :src "one.js")
+                     ("x-two" :tag "t")
+                     ("x-unused")))
+         (tree (with-temp-buffer
+                 (insert "#+begin_x-two\nb\n#+end_x-two\n\
+#+begin_x-one\na\n#+end_x-one\n\
+#+begin_x-two\nc\n#+end_x-two\n")
+                 (org-mode)
+                 (org-element-parse-buffer)))
+         (info (list :parse-tree tree
+                     :html-special-block-custom-elements registry)))
+    ($l (t--special-block-used-elements info)
+        '(("x-one" :src "one.js") ("x-two" :tag "t"))))
+  ;; no registry: nothing to report
+  ($n (t--special-block-used-elements
+       (list :html-special-block-custom-elements nil)))
+  ;; a malformed registry signals even with no matching block
+  ($e! (t--special-block-used-elements
+        (list :html-special-block-custom-elements (42)))))
+
 (ert-deftest t--table-cell-align ()
   "Tests for `org-w3ctr--table-cell-align'."
   (with-temp-buffer
@@ -1616,6 +1689,48 @@ Malformed registry entries signal `org-w3ctr-error'."
                       'table-cell #'identity)))
       ($n (t--table-cell-align (car cells) info))
       ($n (t--table-cell-align (cadr cells) info)))))
+
+(ert-deftest t--table-cell-attrs ()
+  "Tests for `org-w3ctr--table-cell-attrs'."
+  (with-temp-buffer
+    (insert "| <l> | <r> |\n| a | b |\n")
+    (org-mode)
+    (let* ((info (list :html-table-align-cache nil))
+           (cells (org-element-map (org-element-parse-buffer)
+                      'table-cell #'identity)))
+      ;; Cells in order: <l>, <r>, a, b.
+      ($l (t--table-cell-attrs (nth 2 cells) info) " style=\"text-align:left\"")
+      ($l (t--table-cell-attrs (nth 3 cells) info) " style=\"text-align:right\"")))
+  ;; no cookie: the CSS decides, so no attribute
+  (with-temp-buffer
+    (insert "| a | b |\n")
+    (org-mode)
+    (let* ((info (list :html-table-align-cache nil))
+           (cell (org-element-map (org-element-parse-buffer)
+                     'table-cell #'identity nil t)))
+      ($l (t--table-cell-attrs cell info) ""))))
+
+(ert-deftest t--table-first-row-data-cells ()
+  "Tests for `org-w3ctr--table-first-row-data-cells'.
+Rule rows are skipped, and a special column is dropped."
+  (with-temp-buffer
+    (insert "| a | b |\n|---+---|\n| 1 | 2 |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t))
+           (row (org-element-map table 'table-row #'identity nil t)))
+      ($l (t--table-first-row-data-cells table info)
+          (org-element-contents row))))
+  (with-temp-buffer
+    (insert "| ! | a | b |\n|   | 1 | 2 |\n")
+    (org-mode)
+    (let* ((info (list))
+           (table (org-element-map (org-element-parse-buffer) 'table
+                    #'identity nil t))
+           (row (org-element-map table 'table-row #'identity nil t)))
+      ($l (t--table-first-row-data-cells table info)
+          (cdr (org-element-contents row))))))
 
 (ert-deftest t-table ()
   "Tests for `org-w3ctr-table'."

@@ -51,7 +51,6 @@
 (require 'ox)
 (require 'ox-publish)
 (require 'ox-html)
-(require 'table)
 
 ;;;; Fundamental utilities
 (defconst t-version "0.2.15"
@@ -1472,7 +1471,7 @@ Interactive; useful for judging which keys are worth caching at all."
       (tabulated-list-mode)
       (setq tabulated-list-format
             [("Property" 40 t) ("Count" 10 org-w3ctr--oinfo-compare-count
-                               :right-align t)]
+                                :right-align t)]
             tabulated-list-entries stats
             tabulated-list-sort-key (cons "Count" t))
       (setq-local revert-buffer-function
@@ -1619,8 +1618,9 @@ Signal `org-w3ctr-error' if the value is not a valid Lisp s-expression."
 (defun t--read-attr__ (element)
   "Parse the `:attr__' (#+attr__:) property from ELEMENT.
 
-A vector such as [class1 class2] becomes (\"class\" \"class1 class2\");
-an empty vector [] becomes nil.  Return nil if the property is absent."
+A vector such as [class1 class2] becomes the attribute form
+(\"class\" \"class1 class2\"); an empty vector [] becomes a nil
+element.  Return nil if the property is absent."
   (declare (ftype (function (t) list))
            (important-return-value t))
   (when-let* ((attrs (t--read-attr :attr__ element)))
@@ -2725,6 +2725,28 @@ position is left to CSS (`caption-side').  INFO is the info plist."
       (format "<caption>%s</caption>" (org-export-data caption info))
     ""))
 
+;; Deliberately not unit-tested: the markup is produced by
+;; `table-generate-source', not here, and the path needs a real table.el
+;; table to exercise.
+(defun t--table.el-table (table _info)
+  "Format a table.el TABLE into HTML.
+INFO is a plist used as a communication channel.
+Output is delegated to the autoloaded `table-generate-source'."
+  (declare (ftype (function (t list) (or null string)))
+           (important-return-value t))
+  (when (eq (org-element-property :type table) 'table.el)
+    (let ((outbuf (with-current-buffer
+                      (get-buffer-create "*org-export-table*")
+                    (erase-buffer) (current-buffer))))
+      (with-temp-buffer
+        (insert (org-element-property :value table))
+        (goto-char (point-min))
+        (re-search-forward "^[ \t]*|[^|]" nil t)
+        (table-generate-source 'html outbuf))
+      (with-current-buffer outbuf
+        (prog1 (org-trim (buffer-string))
+          (kill-buffer))))))
+
 (defun t-table-cell (table-cell contents info)
   "Transcode a TABLE-CELL element from Org to HTML.
 CONTENTS is the cell's contents.  INFO is a plist used as a
@@ -2783,25 +2805,6 @@ contextual information."
             (t--table-caption table info)
             (t--table-column-specs table info)
             contents)))
-
-(defun t--table.el-table (table _info)
-  "Format a table.el TABLE into HTML.
-INFO is a plist used as a communication channel.
-Output is delegated to the autoloaded `table-generate-source'."
-  (declare (ftype (function (t list) (or null string)))
-           (important-return-value t))
-  (when (eq (org-element-property :type table) 'table.el)
-    (let ((outbuf (with-current-buffer
-                      (get-buffer-create "*org-export-table*")
-                    (erase-buffer) (current-buffer))))
-      (with-temp-buffer
-        (insert (org-element-property :value table))
-        (goto-char (point-min))
-        (re-search-forward "^[ \t]*|[^|]" nil t)
-        (table-generate-source 'html outbuf))
-      (with-current-buffer outbuf
-        (prog1 (org-trim (buffer-string))
-          (kill-buffer))))))
 
 ;;; Lesser elements
 
