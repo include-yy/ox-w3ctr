@@ -900,6 +900,8 @@ decoding returns the input."
   (t-check-element-values
    #'t--make-attr__id
    '(("#+attr__:\ntest" "")
+     ;; no reference (unnamed element): attributes come out as is
+     ("#+attr__: hello\ntest" " hello")
      ("#+name:test\n#+attr__: hello\ntest" " id=\"test\" hello")
      ("#+name:1\n#+attr__:[data] (style {a:b})\ntest"
       " id=\"1\" class=\"data\" style=\"{a:b}\"")
@@ -911,7 +913,10 @@ decoding returns the input."
      ("#+name:1\n#+attr__:(something <=>)\nt"
       " id=\"1\" something=\"&lt;=&gt;\"")
      ;; explicit id in attr__ overrides auto-generated reference
-     ("#+name:auto\n#+attr__:(id \"custom\")\ntest" " id=\"custom\""))
+     ("#+name:auto\n#+attr__:(id \"custom\")\ntest" " id=\"custom\"")
+     ;; an id as a bare atom is NOT recognized as explicit: the
+     ;; reference id is prepended and the atom emitted too -- double id
+     ("#+name:1\n#+attr__: id\ntest" " id=\"1\" id"))
    nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t--make-attr_html ()

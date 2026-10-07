@@ -380,6 +380,13 @@ same session.  Larger or planned work is in the =Roadmap= section of
   test pins the current message; if the formatting is ever fixed,
   flip that expectation.
 
+- **`org-w3ctr--make-attr__id` recognizes an explicit id only as a
+  list (`(id \u2026)`).**  A bare `id` atom in `#+attr__:` is not
+  detected, so the reference id is prepended and the atom emitted as
+  well: `#+name:1` with `#+attr__: id` gives ` id="1" id`, a malformed
+  attribute string.  A test pins it; recognizing the atom form too
+  would flip the expectation.
+
 - **Attribute input is not validated.**  In `org-w3ctr--make-attr`
   only the values go through `org-w3ctr--encode-plain-text*`; a name is
   just downcased, so `("<x>" v)` gives ` <x>="v"` and `(1)` gives ` 1`.
