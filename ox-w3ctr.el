@@ -197,6 +197,7 @@
     (:html-extension nil nil t-extension)
     (:html-equation-reference-format
      "HTML_EQUATION_REFERENCE_FORMAT" nil t-equation-reference-format)
+    (:html-honor-ox-external-links nil nil t-honor-ox-external-links)
     ;; Markup texts
     (:html-text-markup-alist nil nil t-text-markup-alist)
     ;; Todo
@@ -597,6 +598,26 @@ resolved in the browser.
 See `org-html-equation-reference-format' for more information."
   :group 'org-export-w3ctr
   :type 'string)
+
+(defcustom t-honor-ox-external-links t
+  "Non-nil means resolve cross-file links through org-publish, as ox-html does.
+
+When non-nil (the default), cross-file file: links with a search option
+are resolved via `org-publish-resolve-external-link', which requires an
+org-publish project with a populated :crossrefs cache.  This matches
+ox-html behavior.
+
+When nil (strict mode), only the #custom-id form is accepted for
+cross-file links; any other search option (*heading, untyped fuzzy,
+radio-target, target) signals an error.  This removes the dependency on
+org-publish and enforces the use of explicit CUSTOM_ID properties.
+
+The default is non-nil so that existing org-publish projects continue to
+work without changes.  The plan is to flip the default to nil in 1.0.0
+with a NEWS entry."
+  :group 'org-export-w3ctr
+  :type 'boolean
+  :safe #'booleanp)
 
 ;;;; Markup texts
 (defcustom t-text-markup-alist
@@ -1335,6 +1356,7 @@ oclosure through that symbol.  KEY is a property keyword."
        :html-extension :html-link-org-files-as-html
        :html-inline-images :html-inline-image-rules
        :html-equation-reference-format
+       :html-honor-ox-external-links
        )
     "List of property keys the OINFO cache keeps an oclosure for.
 
@@ -1887,10 +1909,56 @@ or when its attribute list is neither nil, t, nor a proper list."
 ;; Options:
 ;; - :html-prefer-user-labels (`org-w3ctr-prefer-user-labels')
 
+;; Reference generation: vendored from ox.el so the fallback in
+;; `org-w3ctr--reference' does not depend on `org-export-get-reference'
+;; and the :crossrefs cache populated by org-publish.  The format
+;; (org%07x) is kept identical to upstream for compatibility.
+
+(defun t--new-reference (references)
+  "Return a unique reference number not already in REFERENCES.
+REFERENCES is an alist whose values are in-use reference numbers.
+Returns a number; use `org-w3ctr--format-reference' to turn it into
+a string."
+  (declare (ftype (function (list) integer))
+           (important-return-value t))
+  (let ((new (random #x10000000)))
+    (while (rassq new references) (setq new (random #x10000000)))
+    new))
+
+(defun t--format-reference (reference)
+  "Format REFERENCE number into a string of the form org%07x.
+REFERENCE is a number as returned by `org-w3ctr--new-reference'."
+  (declare (ftype (function (integer) string))
+           (pure t) (important-return-value t))
+  (format "org%07x" reference))
+
+(defun t--get-reference (datum info)
+  "Return a unique reference string for DATUM.
+DATUM is an element or object.  INFO is the export state plist.
+
+References are cached in :internal-references as an alist of
+\(REFERENCE-STRING . DATUM) and (SEARCH-CELL . REFERENCE-NUMBER) pairs.
+The search-cell entries let `org-export-resolve-fuzzy-link' locate
+DATUM by headline title, target value, or NAME keyword.
+
+Unlike `org-export-get-reference', this function does not consult
+:crossrefs and therefore does not depend on org-publish."
+  (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (let ((cache (t--pget info :internal-references)))
+    (or (car (rassq datum cache))
+        (let* ((new (t--new-reference cache))
+               (cells (org-export-search-cells datum))
+               (reference-string (t--format-reference new)))
+          (dolist (cell cells) (push (cons cell new) cache))
+          (push (cons reference-string datum) cache)
+          (t--pput info :internal-references cache)
+          reference-string))))
+
 ;; The identifier-shaped restriction is deliberate, kept for ox-html
 ;; compatibility: a value that does not match is not used verbatim as a
 ;; reference — `org-w3ctr--reference' falls through to
-;; `org-export-get-reference' for it.  Do not relax the regexp without
+;; `org-w3ctr--get-reference' for it.  Do not relax the regexp without
 ;; revisiting that fallback.
 (defun t--target-reference (datum)
   "Return the value of a target or radio-target as a reference string.
@@ -1932,8 +2000,10 @@ nil.  This doesn't apply to radio targets and targets."
      ((and named-only
            (not (memq type '(radio-target target))))
       nil)
-     ;; Fallback: random orgXXXXXXX.
-     (t (org-export-get-reference datum info)))))
+     ;; Fallback: random orgXXXXXXX via the vendored reference generator.
+     ;; Does not consult :crossrefs — use `org-w3ctr-honor-ox-external-links'
+     ;; to fall back to the org-publish-aware upstream instead.
+     (t (t--get-reference datum info)))))
 
 ;;;; Filter Functions
 
@@ -4022,11 +4092,26 @@ link types get their \"TYPE:\" prefix and URL encoding."
              (option (org-element-property :search-option link)))
         (if (not option) path
           (concat path "#"
-                  ;; FIXME: Replace `org-publish-resolve-external-link'
-                  ;; with a local implementation (see the ox-publish
-                  ;; non-goal in AGENTS.md).
-                  (org-publish-resolve-external-link
-                   option (org-element-property :path link) t)))))))
+                  (if (t--pget info :html-honor-ox-external-links)
+                      ;; Compatibility mode: resolve via org-publish's
+                      ;; :crossrefs cache, as ox-html does.
+                      (org-publish-resolve-external-link
+                       option (org-element-property :path link) t)
+                    ;; Strict mode: only the #custom-id form is supported.
+                    ;; Signal an error for *heading, untyped fuzzy, and
+                    ;; target/radio forms; set org-w3ctr-honor-ox-external-links
+                    ;; to non-nil to use the org-publish path instead.
+                    (if (string-prefix-p "#" option)
+                        (substring option 1)
+                      (t-error
+                       (concat
+                        "Cross-file link %S uses search option %S, which"
+                        "requires org-publish in compatibility mode.  "
+                        "Add a CUSTOM_ID to the target and use the "
+                        "#custom-id form, or set "
+                        "`org-w3ctr-honor-ox-external-links' to non-nil.")
+                       (org-element-property :path link)
+                       option)))))))))
 
 (defun t--link-attributes (link info)
   "Return the HTML attribute plist for LINK.
