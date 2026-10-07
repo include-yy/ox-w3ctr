@@ -806,8 +806,14 @@ decoding returns the input."
     ($l (t--read-attr__ '("(class hello world)" "foo"))
         '((class hello world) foo))
     ($l (t--read-attr__ '("[nim zig]")) '(("class" "nim zig")))
+    ;; numbers in a vector are stringified too
+    ($l (t--read-attr__ '("[1 2]")) '(("class" "1 2")))
+    ;; a nil in a vector contributes nothing but its separator:
+    ;; `mapconcat' over `org-w3ctr--2str' with " " turns [a nil b] into
+    ;; "a  b", not "a b" -- current behavior, pinned
+    ($l (t--read-attr__ '("[a nil b]")) '(("class" "a  b")))
     ($l (t--read-attr__ '("[]")) '(nil))
-    ($l (t--read-attr__ '("[][][]")) '(()()())))
+    ($l (t--read-attr__ '("[][][]")) '(nil nil nil)))
   (t-check-element-values
    #'t--read-attr__
    '(("#+attr__: 1 2 3\n#+attr__: 4\ntest" (1 2 3 4))

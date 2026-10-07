@@ -382,11 +382,15 @@ same session.  Larger or planned work is in the =Roadmap= section of
 
 - **Silent drops in S-exp rendering and attribute formatting.**
   `org-w3ctr--sexp2html` renders a non symbol/string/number child as
-  nothing, and `org-w3ctr--make-attr` returns nil for an attribute whose
-  name is not convertible (`(nil 1)`); tests pin both.  They are the
-  `;;; Basic utilities` exceptions to fail-loudly: either keep them
-  documented as deliberate (the docstrings say so now) or signal
-  `org-w3ctr-error' and flip the two tests.
+  nothing, `org-w3ctr--make-attr` returns nil for an attribute whose
+  name is not convertible (`(nil 1)`), and `org-w3ctr--read-attr__`
+  maps a nil element of a `[...]` vector to an empty contribution that
+  keeps its separator (`[a nil b]` gives `("class" "a  b")`, via
+  `mapconcat' over `org-w3ctr--2str' with `" "').  Tests pin
+  all three.  They are the `;;; Basic utilities` exceptions to
+  fail-loudly: either keep them documented as deliberate (the
+  docstrings say so now) or signal `org-w3ctr-error' and flip the
+  tests.
 
 - **Docstring & layout leftovers (from the tidy pass).**
   - Add `(declare (ftype …))` to the 2 functions that still lack it
