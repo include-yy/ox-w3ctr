@@ -774,11 +774,18 @@ decoding returns the input."
     ($l (org-element-property nil 1) 1)
     ($l (t--read-attr nil '("123")) '(123))
     ($l (t--read-attr nil '("1 2 3" "4 5 6")) '(1 2 3 4 5 6))
+    ;; a form split across lines reassembles: the join is a space
+    ($l (t--read-attr nil '("(a" "b)")) '((a b)))
     ($l (t--read-attr nil '("(class data) [hello] (id ui)"))
         '((class data) [hello] (id ui)))
     ($l (t--read-attr nil '("\"123\"")) '("123"))
+    ;; whitespace-only: the docstring's third nil case
+    ($n (t--read-attr nil '("   ")))
     ($e!l (t--read-attr nil '("(invalid"))
-          '(org-w3ctr-error "Invalid attribute #+nil: (invalid")))
+          '(org-w3ctr-error "Invalid attribute #+nil: (invalid"))
+    ;; the same error with the attribute name callers actually pass
+    ($e!l (t--read-attr :attr__ '("(invalid"))
+          '(org-w3ctr-error "Invalid attribute #+:attr__: (invalid")))
   (t-check-element-values
    #'t--read-attr
    '(("#+attr__: 1 2 3\n#+attr__: 4 5 6\nhello world"

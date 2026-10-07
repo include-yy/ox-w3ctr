@@ -373,6 +373,13 @@ same session.  Larger or planned work is in the =Roadmap= section of
   used — it goes to `org-export-to-buffer' / `org-export-to-file' — so
   the docstring should say so, not the name mangled).
 
+- **`org-w3ctr--read-attr`'s error message prints the property keyword
+  as is.**  `Invalid attribute #+%s` interpolates the keyword, so the
+  production message reads `Invalid attribute #+:attr__: ...` while the
+  Org keyword is spelled `#+attr__:` (the colon sits differently).  A
+  test pins the current message; if the formatting is ever fixed,
+  flip that expectation.
+
 - **Silent drops in S-exp rendering and attribute formatting.**
   `org-w3ctr--sexp2html` renders a non symbol/string/number child as
   nothing, and `org-w3ctr--make-attr` returns nil for an attribute whose
