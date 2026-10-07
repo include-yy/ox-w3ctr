@@ -1091,23 +1091,23 @@ Both cases signal `org-w3ctr-error'; the error value is pinned."
   ($e! (t--sexp2html '(p [1 2] "x")))
   ($e! (t--sexp2html '(p (a . b) "x"))))
 
-(ert-deftest t--sexp2html-property ()
-  "A random S-expression renders to a string, or signals `org-w3ctr-error'."
-  (random "org-w3ctr-sexp2html")
-  (let* ((chars "abc01 &<>'\"-_")
-         (rs (lambda (n)
-               (let (s)
-                 (dotimes (_ n)
-                   (setq s (concat s (string (aref chars (random (length chars)))))))
-                 s))))
-    (dotimes (_ 500)
-      (let* ((tag (if (zerop (random 6))
-                      (pcase (random 3) (0 nil) (1 (random 9)) (2 (funcall rs 2)))
-                    (intern (concat "t" (number-to-string (random 3))))))
-             (x (list tag (list (list 'id (funcall rs 2))) (funcall rs 3))))
-        ($s (condition-case nil
-                (stringp (t--sexp2html x))
-              (org-w3ctr-error t)))))))
+(ert-deftest t--sexp2html-contract ()
+  "A form renders to a string or signals only `org-w3ctr-error'.
+Exhaustive over a small shape grammar: valid and invalid tags, every
+attribute-list shape, children of every accepted kind plus dropped and
+malformed ones.  Anything else -- a leaked `wrong-type-argument', say
+-- fails the test."
+  (let ((tags '(t0 |My Tag| nil 1.5 "s"))
+        (attrs '(nil t () ((id a)) ((id "a b") (class c))
+                     (open) [1] (a . b) "s"))
+        (children '("" "a&b<c" 42 foo
+                    (nil ()) (t0 () (t0 ())) [1])))
+    (dolist (tag tags)
+      (dolist (a attrs)
+        (dolist (c children)
+          ($s (condition-case nil
+                  (stringp (t--sexp2html (list tag a c)))
+                (org-w3ctr-error t))))))))
 
 (ert-deftest t--void-element ()
   "Tests for `org-w3ctr--void-element'."
