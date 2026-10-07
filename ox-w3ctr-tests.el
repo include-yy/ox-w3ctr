@@ -1140,13 +1140,18 @@ malformed ones.  Anything else -- a leaked `wrong-type-argument', say
   "A reference number already in use is drawn again.
 `org-w3ctr--new-reference' loops while the draw is taken; the test
 stubs `random' to hand back a taken number first and counts the draws."
-  (let ((draws 0))
+  (let ((draws 0)
+        (limits nil))
     (cl-letf (((symbol-function 'random)
-               (lambda (&optional _limit)
-                 (setq draws (1+ draws))
+               (lambda (&optional limit)
+                 (setq draws (1+ draws)
+                       limits (cons limit limits))
                  (if (= draws 1) 7 9))))
       ($l (t--new-reference '((a . 7) (b . 8))) 9)
-      ($l draws 2))))
+      ($l draws 2)
+      ;; the draw bound is #x10000000 exactly -- the range check on
+      ;; real draws only catches a wrong one probabilistically
+      ($l limits '(#x10000000 #x10000000)))))
 
 (ert-deftest t--format-reference ()
   "Tests for `org-w3ctr--format-reference'."
