@@ -1483,14 +1483,15 @@ stubs `random' to hand back a taken number first and counts the draws."
 (ert-deftest t--jstools-methods-drift ()
   "Static check: every method `org-w3ctr--jstools-methods' exposes is
 implemented by an `addMethod' call in jstools/index.js."
-  (let ((file (file-name-concat t--dir "jstools/index.js")))
+  (let ((file (file-name-concat t--dir "jstools/index.js"))
+        (re "addMethod([ \t]*['\"]\\([^'\"]+\\)['\"]"))
     (skip-unless (file-readable-p file))
     (let* ((source (with-temp-buffer
                      (insert-file-contents file)
                      (buffer-string)))
            (implemented
             (let ((i 0) names)
-              (while (string-match "addMethod([ \t]*['\"]\\([^'\"]+\\)['\"]" source i)
+              (while (string-match re source i)
                 (push (intern (match-string 1 source)) names)
                 (setq i (match-end 0)))
               (nreverse names))))
