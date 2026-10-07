@@ -4153,20 +4153,18 @@ export state."
               attributes
               desc))))
 
-(defun t--link-to-file (destination path desc attributes info)
+(defun t--link-to-file (destination id desc attributes info)
   "Transcode an ID link pointing to an external file.
-DESTINATION is the target file name and PATH is the link's path.
-DESC and ATTRIBUTES are as computed in `t-link'.  INFO is the
-export state."
+DESTINATION is the target file path as returned by
+`org-export-resolve-id-link'.  ID is the raw :ID or :CUSTOM_ID value
+from the link (the :path property of the link element), used to build
+the fragment.  DESC and ATTRIBUTES are as computed in `org-w3ctr-link'.
+INFO is the export state."
   (declare (ftype (function (t string (or null string) string list) string))
            (important-return-value t))
-  ;; FIXME: PATH is `t--link-path''s output, e.g. "id:xyz", but the
-  ;; fragment must match the anchor emitted for the ID ("ID-xyz").
-  ;; ox-html uses the raw path here, so this looks broken for
-  ;; `[[id:...]]' links pointing at another file.
   (format "<a href=\"%s#%s\"%s>%s</a>"
           (t--link-org-files-as-html destination info)
-          (concat t--id-attr-prefix path)
+          (concat t--id-attr-prefix id)
           attributes
           (or desc destination)))
 
@@ -4230,7 +4228,7 @@ DESC and ATTRIBUTES are as in `org-w3ctr-link'."
 
 (defun t--link-dispatch (link desc info path attributes)
   "Transcode LINK resolved through its ID, custom ID or fuzzy target.
-PATH, DESC and ATTRIBUTES are as computed in `t-link'."
+PATH, DESC and ATTRIBUTES are as computed in `org-w3ctr-link'."
   (declare (ftype (function (t (or null string) list string string) string))
            (important-return-value t))
   (let* ((type (org-element-property :type link))
@@ -4238,7 +4236,20 @@ PATH, DESC and ATTRIBUTES are as computed in `t-link'."
                           (org-export-resolve-fuzzy-link link info)
                         (org-export-resolve-id-link link info))))
     (pcase (org-element-type destination)
-      (`plain-text (t--link-to-file destination path desc attributes info))
+      (`plain-text
+       ;; Cross-file id: link: destination is the target file path.
+       ;; In strict mode (honor-ox-external-links nil), reject it and ask
+       ;; the author to use CUSTOM_ID instead.
+       (if (t--pget info :html-honor-ox-external-links)
+           (t--link-to-file destination
+                            (org-element-property :path link)
+                            desc attributes info)
+         (t-error
+          (concat "Cross-file id: link %S requires org-publish in "
+                  "compatibility mode.  Add a CUSTOM_ID to the target "
+                  "headline and link to it with [[file:other.org::#custom-id]]"
+                  ", or set `org-w3ctr-honor-ox-external-links' to non-nil.")
+          (org-element-property :raw-link link))))
       (`nil (t--link-broken link desc info))
       (`headline (t--link-to-headline destination desc attributes info))
       (_
