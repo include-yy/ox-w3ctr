@@ -960,23 +960,26 @@ decoding returns the input."
 ;;;; File and regexp
 
 (ert-deftest t--load-file ()
-  "Tests for `org-w3ctr--load-file'.
-Reads the package's own source, next to the loaded library, and skips
-when it is not readable (as the OINFO source-scanning tests do)."
+  "Tests for `org-w3ctr--load-file'."
   (let* ((build (symbol-file 't--load-file 'defun))
          (file (and build (concat (file-name-sans-extension build) ".el"))))
     (skip-unless (and file (file-readable-p file)))
-    (let ((ox (with-temp-buffer
-                (insert-file-contents file)
-                (buffer-substring-no-properties
-                 (point-min) (point-max)))))
-      ($l ox (t--load-file file)))))
+    (let ((ox (let ((coding-system-for-read 'utf-8))
+                (with-temp-buffer
+                  (insert-file-contents file)
+                  (buffer-substring-no-properties
+                   (point-min) (point-max))))))
+      ($l ox (t--load-file file))
+      ;; decoded as UTF-8 regardless of the ambient coding: drop the
+      ;; internal utf-8 binding and this line goes red
+      (let ((coding-system-for-read 'iso-latin-1))
+        ($l ox (t--load-file file))))))
 
 (ert-deftest t--load-file-missing ()
   "`org-w3ctr--load-file' rejects a missing file or a directory.
 Both cases signal `org-w3ctr-error'; the error value is pinned."
-  ($e!l (t--load-file "not-exist")
-        '(org-w3ctr-error "Invalid file: not-exist"))
+  ($e!l (t--load-file "no-such-dir/no-such-file")
+        '(org-w3ctr-error "Invalid file: no-such-dir/no-such-file"))
   ($e!l (t--load-file ".")
         '(org-w3ctr-error "Invalid file: .")))
 
@@ -1315,13 +1318,14 @@ implemented by an `addMethod' call in jstools/index.js."
         ($s (memq method implemented))))))
 
 (ert-deftest t--jrpc-connect ()
-  "Tests for `org-w3ctr--jrpc-connect'.
-It checks the `:process' factory's wiring on a real connection, with
-`make-process' replaced by a pipe process, so no child is spawned: the
-factory must hand jsonrpc's `*NAME stderr*' buffer to `make-process' as
-:stderr, under the exact name the coupling needs.  End-to-end stderr
-separation on a live server is the RPC transport harness's job (see
-the ox-w3ctr-verify skill's scripts/stderr-our.el)."
+  "Tests for `org-w3ctr--jrpc-connect'."
+  ;; The `:process' factory's wiring is checked on a real connection,
+  ;; with `make-process' replaced by a pipe process, so no child is
+  ;; spawned: the factory must hand jsonrpc's `*NAME stderr*' buffer
+  ;; to `make-process' as :stderr, under the exact name the coupling
+  ;; needs.  End-to-end stderr separation on a live server is the RPC
+  ;; transport harness's job (see the ox-w3ctr-verify skill's
+  ;; scripts/stderr-our.el).
   (let* ((name "ox-w3ctr-test-jrpc")
          (command (list "some-server" "--arg"))
          (args nil)
@@ -1368,9 +1372,10 @@ the ox-w3ctr-verify skill's scripts/stderr-our.el)."
         (when (buffer-live-p b) (kill-buffer b))))))
 
 (ert-deftest t-show-jstools-events ()
-  "Smoke test for `org-w3ctr-show-jstools-events'.
-The command shows the jstools client's events buffer; only the wiring
-is checked, since an interactive command's return value is incidental."
+  "Tests for `org-w3ctr-show-jstools-events'."
+  ;; Only the wiring is checked (a smoke test): the command shows the
+  ;; jstools client's events buffer, and an interactive command's
+  ;; return value is incidental.
   (let ((conn (make-instance 'jsonrpc-connection :name "ox-w3ctr-test-events"))
         (buf-name "*ox-w3ctr-test-events events*"))
     (unwind-protect
@@ -1381,8 +1386,9 @@ is checked, since an interactive command's return value is incidental."
       (when (get-buffer buf-name) (kill-buffer buf-name)))))
 
 (ert-deftest t-launch-jstools ()
-  "Smoke test for `org-w3ctr-launch-jstools'.
-The command restarts the jstools client; only the wiring is checked."
+  "Tests for `org-w3ctr-launch-jstools'."
+  ;; Only the wiring is checked (a smoke test): the command restarts
+  ;; the jstools client.
   (let (restarted)
     (cl-letf (((symbol-function 't--jrpc-restart)
                (lambda (client) (setq restarted client) 'new)))

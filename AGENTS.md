@@ -108,6 +108,10 @@ it (`org-w3ctr--oinfo-props-are-looked-up`,
 - **Docstring**: every `defun`/`defsubst` gets a full docstring — a
   one-line summary first, then parameter / return-value notes where
   they are non-obvious.
+- **Test docstrings**: a test named after a function opens with
+  `Tests for `org-w3ctr-\u2026'.` and one line only -- extra explanation
+  goes to body comments.  A test named otherwise (variant, property)
+  is free-form.
 - **Declarations**: refactored functions carry
   `(declare (ftype (function (ARGS) RET)))`; add
   `(important-return-value t)` where the caller must use the result;
