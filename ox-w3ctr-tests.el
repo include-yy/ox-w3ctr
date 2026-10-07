@@ -1427,6 +1427,16 @@ stubs `random' to hand back a taken number first and counts the draws."
               ((symbol-function 't--jrpc-connect) (lambda (_n _c) 'new)))
       ($q (t--jrpc-restart client) 'new)
       ($s shut)
+      ($q (t--jrpc--conn client) 'new)))
+  ;; a live connection is replaced all the same -- that is the restart
+  (let ((client (t--jrpc-make "test" '("true"))) shut)
+    (setf (t--jrpc--conn client) 'old)
+    (cl-letf (((symbol-function 'jsonrpc-shutdown)
+               (lambda (_conn &rest _) (setq shut t)))
+              ((symbol-function 'jsonrpc-running-p) (lambda (_conn) t))
+              ((symbol-function 't--jrpc-connect) (lambda (_n _c) 'new)))
+      ($q (t--jrpc-restart client) 'new)
+      ($s shut)
       ($q (t--jrpc--conn client) 'new))))
 
 (ert-deftest t--jcall ()
