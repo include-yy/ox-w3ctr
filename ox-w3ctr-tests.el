@@ -1169,7 +1169,7 @@ stubs `random' to hand back a taken number first and counts the draws."
          (info (list :foo 1)))
     (let ((ref (t--get-reference para info)))
       ($s (string-match-p "org[0-9a-f]+" ref))
-      ;; Same DATUM + same INFO → same reference (cached).
+      ;; Same DATUM + same INFO -> same reference (cached).
       ($l (t--get-reference para info) ref)
       ;; The cache records the reference string for DATUM.
       ($s (assoc ref (t--pget info :internal-references))))
@@ -1199,15 +1199,18 @@ stubs `random' to hand back a taken number first and counts the draws."
     ($l (t--target-reference (t-get-element "<<<bar>>>" 'radio-target)) "bar")
     ;; hyphens and underscores allowed
     ($l (t--target-reference (funcall get-target "my-tag_1")) "my-tag_1")
-    ;; non-target element → nil
+    ;; uppercase letters and a lone letter are fine too
+    ($l (t--target-reference (funcall get-target "Foo-1")) "Foo-1")
+    ($l (t--target-reference (funcall get-target "x")) "x")
+    ;; non-target element -> nil
     ($n (t--target-reference (t-get-element "hello" 'paragraph)))
-    ;; space in value → nil
+    ;; space in value -> nil
     ($n (t--target-reference (funcall get-target "my target")))
-    ;; starts with digit → nil
+    ;; starts with digit -> nil
     ($n (t--target-reference (funcall get-target "123")))
-    ;; dot in value → nil
+    ;; dot in value -> nil
     ($n (t--target-reference (funcall get-target "foo.bar")))
-    ;; empty value → nil
+    ;; empty value -> nil
     ($n (t--target-reference (funcall get-target "")))))
 
 (ert-deftest t--reference ()
@@ -1223,14 +1226,14 @@ stubs `random' to hand back a taken number first and counts the draws."
     ;; set :name on headlines).
     (let ((para (t-get-element "#+name: my-name\nhello" 'paragraph)))
       ($l (t--reference para with-labels) "my-name")
-      ;; NAME with prefer-user-labels=nil → falls through to random.
+      ;; NAME with prefer-user-labels=nil -> falls through to random.
       ($s (string-match-p "org[0-9a-f]+" (t--reference para no-labels))))
-    ;; ID property with prefer-user-labels=t → the "ID-" prefix.
+    ;; ID property with prefer-user-labels=t -> the "ID-" prefix.
     (let ((h (t-get-element "* H\n:PROPERTIES:\n:ID: my-uid\n:END:" 'headline)))
       ($l (t--reference h with-labels) "ID-my-uid")
-      ;; ID with prefer-user-labels=nil → falls through to random.
+      ;; ID with prefer-user-labels=nil -> falls through to random.
       ($s (string-match-p "org[0-9a-f]+" (t--reference h no-labels))))
-    ;; named-only + no name + not headline → nil.
+    ;; named-only + no name + not headline -> nil.
     (let ((para (t-get-element "hello" 'paragraph)))
       ($n (t--reference para (list :html-prefer-user-labels nil) t)))))
 
@@ -3369,7 +3372,7 @@ Rule rows are skipped, and a special column is dropped."
       "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">hello</span></span>")
   ($l (t--format-ts-span-time "a < b" nil)
       "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a &lt; b</span></span>")
-  ;; <time> branch (time = non-nil) — returns template with %s
+  ;; <time> branch (time = non-nil) -- returns template with %s
   ($l (t--format-ts-span-time "hello" nil t) "<time%s>hello</time>")
   ($l (t--format-ts-span-time "2024-01-01" nil t) "<time%s>2024-01-01</time>")
   ;; special strings via t-plain-text
@@ -3821,13 +3824,13 @@ Rule rows are skipped, and a special column is dropped."
                  (org-mode) (insert "[[file:other.org]]") (t-parse1 'link)))
          (info (list :html-link-org-files-as-html t :html-extension "html")))
     ($l (t--link-path link info) "other.html"))
-  ;; Strict mode: #custom-id → direct fragment.
+  ;; Strict mode: #custom-id -> direct fragment.
   (let* ((link (with-temp-buffer
                  (org-mode) (insert "[[file:other.org::#cid]]") (t-parse1 'link)))
          (info (list :html-honor-ox-external-links nil
                      :html-link-org-files-as-html t :html-extension "html")))
     ($l (t--link-path link info) "other.html#cid"))
-  ;; Strict mode: *heading / untyped fuzzy → org-w3ctr-error.
+  ;; Strict mode: *heading / untyped fuzzy -> org-w3ctr-error.
   (dolist (opt '("*heading" "fuzzy"))
     (let* ((link (with-temp-buffer
                    (org-mode) (insert (format "[[file:other.org::%s]]" opt))
