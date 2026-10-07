@@ -987,6 +987,8 @@ Both cases signal `org-w3ctr-error'; the error value is pinned."
   "Tests for `org-w3ctr--find-all'."
   ($l (t--find-all "[0-9]" "114514") '("1" "1" "4" "5" "1" "4"))
   ($l (t--find-all "[0-9]\\{2\\}" "191981") '("19" "19" "81"))
+  ;; the whole match is returned, not a capture group
+  ($l (t--find-all "\\([a-z]+\\)[0-9]" "ab1 cd2") '("ab1" "cd2"))
   ($l (t--find-all "" "123") nil)
   ($l (t--find-all "1" "") nil)
   ($l (t--find-all org-ts-regexp-both "[2000-01-02]") '("[2000-01-02]"))
