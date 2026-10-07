@@ -833,9 +833,15 @@ decoding returns the input."
   ($l (t--make-attr '("disabled")) " disabled")
   ($l (t--make-attr '(FOO)) " foo")
   ($l (t--make-attr '(a b)) " a=\"b\"")
+  ;; values concatenate without separator: the docstring's VAL1VAL2
+  ($l (t--make-attr '(id yy 123)) " id=\"yy123\"")
+  ;; (open) is the boolean form, (open nil) the empty-valued one
+  ($l (t--make-attr '(open nil)) " open=\"\"")
   ($l (t--make-attr '(class "example two")) " class=\"example two\"")
   ($l (t--make-attr '(foo [bar] baz)) " foo=\"baz\"")
   ($l (t--make-attr '(data-A "base64...")) " data-a=\"base64...\"")
+  ;; names are downcased but neither escaped nor validated
+  ($l (t--make-attr '("<x>" v)) " <x>=\"v\"")
   ($l (t--make-attr '(data-tt "a < b && c"))
       " data-tt=\"a &lt; b &amp;&amp; c\"")
   ($l (t--make-attr '(data-he "\"hello world\""))

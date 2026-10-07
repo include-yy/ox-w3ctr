@@ -380,6 +380,13 @@ same session.  Larger or planned work is in the =Roadmap= section of
   test pins the current message; if the formatting is ever fixed,
   flip that expectation.
 
+- **Attribute names are neither validated nor escaped.**  In
+  `org-w3ctr--make-attr` only the values go through
+  `org-w3ctr--encode-plain-text*`; a name is just downcased, so
+  `("<x>" v)` gives ` <x>="v"` and `(1)` gives ` 1`.  A test pins the
+  current behavior; a checker that accepts only HTML attribute names
+  (and signals `org-w3ctr-error' otherwise) would flip it.
+
 - **Silent drops in S-exp rendering and attribute formatting.**
   `org-w3ctr--sexp2html` renders a non symbol/string/number child as
   nothing, `org-w3ctr--make-attr` returns nil for an attribute whose
