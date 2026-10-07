@@ -112,3 +112,7 @@ Explicitly out of scope for now.
 - *Drop the =ox-publish= dependency.*  Replace =org-publish-file-relative-name=,
   =org-publish-resolve-external-link=, and =org-publish-org-to= with
   local implementations.  Not now.
+- *Option validation.*  Checking user-supplied export options and
+  customization variables for well-formedness.  Options are trusted as
+  given; the back-end verifies explicit markup only (attributes, block
+  parameters), where malformed input fails loudly.  Not now.
