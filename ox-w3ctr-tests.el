@@ -1267,7 +1267,21 @@ stubs `random' to hand back a taken number first and counts the draws."
   ($l (t-final-function "<ul>\n   <li>a</li>\n</ul>" nil '(:html-indent t))
       "<ul>\n<li>a</li>\n</ul>")
   ;; a single line has nothing to reindent.
-  ($l (t-final-function "<p>x</p>" nil '(:html-indent t)) "<p>x</p>"))
+  ($l (t-final-function "<p>x</p>" nil '(:html-indent t)) "<p>x</p>")
+  ;; the major mode is set only when indenting
+  (let (mode-sets)
+    (cl-letf (((symbol-function 'set-auto-mode)
+               (lambda (&rest args) (setq mode-sets (cons args mode-sets)))))
+      (t-final-function "<p>x</p>" nil '(:html-indent nil))
+      ($n mode-sets)
+      (t-final-function "<p>x</p>" nil '(:html-indent t))
+      ($l (length mode-sets) 1))))
+
+(ert-deftest t-filter-registration ()
+  "The backend routes both filter slots to both functions."
+  (let ((filters (org-export-backend-filters (org-export-get-backend 'w3ctr))))
+    ($l (cdr (assq :filter-parse-tree filters)) 't-image-link-filter)
+    ($l (cdr (assq :filter-final-output filters)) 't-final-function)))
 
 ;;;; JSON-RPC
 
