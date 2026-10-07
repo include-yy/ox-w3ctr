@@ -947,10 +947,15 @@ decoding returns the input."
   (t-check-element-values
    #'t--make-attr__id*
    '(("#+attr__:\n#+attr_html: :class a\ntest" "")
+     ;; a whitespace-only #+attr__: wins just the same
+     ("#+attr__:  \n#+attr_html: :class a\ntest" "")
      ("#+attr_html: :class a\ntest" " class=\"a\"")
+     ;; auto id on the attr__ branch with no attributes at all
+     ("#+name: 1\n#+attr__:\ntest" " id=\"1\"")
      ("#+name: 1\n#+attr__: (id 2)\n#+attr_html: :id 3\ntest"
       " id=\"2\"")
-     ("#+name: 1\n#+attr_html: :id 3\ntest" " id=\"3\""))))
+     ("#+name: 1\n#+attr_html: :id 3\ntest" " id=\"3\""))
+   nil '(:html-prefer-user-labels t)))
 
 ;;;; File and regexp
 
