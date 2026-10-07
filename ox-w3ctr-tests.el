@@ -647,15 +647,29 @@ the OINFO cache is off."
   ($l (t--trim " 123") "123")
   ($l (t--trim " 123 ") "123")
   ($l (t--trim "  123  ") "123")
+  ;; \r is whitespace as well, not content
+  ($l (t--trim " \r\n123 \r\n") "123")
   ($l (t--trim "  123\n 456\n") "123\n 456")
   ($l (t--trim "\n 123" t) " 123")
-  ($l (t--trim "\n\n  123\n" t) "  123"))
+  ($l (t--trim "\n\n  123\n" t) "  123")
+  ;; KEEP-LEAD with no leading blank line: the indentation stays
+  ($l (t--trim "  123" t) "  123")
+  ;; all blank: nothing is content
+  ($l (t--trim "\n\n" t) "")
+  ;; A CRLF blank line is not removed in KEEP-LEAD mode: unlike the
+  ;; plain head class [ \t\n\r]+, the KEEP-LEAD one is \`\([ \t]*\n\)+
+  ;; and has no \r.  Current behavior, pinned as is -- flip this
+  ;; expectation if the head class ever gains \r.
+  ($l (t--trim "\r\n  123" t) "\r\n  123"))
 
 (ert-deftest t--nw-trim ()
   "Tests for `org-w3ctr--nw-trim'."
+  ($n (t--nw-trim ""))
   ($l (t--nw-trim " ") nil)
   ($l (t--nw-trim " 1 ") "1")
   ($l (t--nw-trim "234\n") "234")
+  ;; composed whitespace classes: space, \t, \r, \n all go
+  ($l (t--nw-trim "\t\r\n x \r\n\t") "x")
   ($l (t--nw-trim 1) nil)
   ($l (t--nw-trim 'hello) nil)
   ($l (t--nw-trim nil) nil))
@@ -692,6 +706,10 @@ the OINFO cache is off."
   ($l (t--encode-plain-text "<") "&lt;")
   ($l (t--encode-plain-text ">") "&gt;")
   ($l (t--encode-plain-text "<&>") "&lt;&amp;&gt;")
+  ;; existing entities are escaped again -- blind, not smart, escaping
+  ($l (t--encode-plain-text "&amp;") "&amp;amp;")
+  ;; quotes pass through: only the * variant escapes them
+  ($l (t--encode-plain-text "\"'") "\"'")
   (dolist (a '(("a&b&c" . "a&amp;b&amp;c")
                ("<div>" . "&lt;div&gt;")
                ("<span>" . "&lt;span&gt;")))
