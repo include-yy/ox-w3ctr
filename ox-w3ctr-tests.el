@@ -994,6 +994,39 @@ the OINFO cache is off."
 
 ;;;; References
 
+(ert-deftest t--new-reference ()
+  "Tests for `org-w3ctr--new-reference'."
+  (let ((n (t--new-reference '((a . 7) (b . 8)))))
+    ($s (integerp n))
+    ($s (<= 0 n))
+    ($s (< n #x10000000))
+    ($nl n 7)
+    ($nl n 8))
+  (let ((n (t--new-reference nil)))
+    ($s (integerp n))
+    ($s (< n #x10000000))))
+
+(ert-deftest t--format-reference ()
+  "Tests for `org-w3ctr--format-reference'."
+  ($l (t--format-reference 0) "org0000000")
+  ($l (t--format-reference 1) "org0000001")
+  ($l (t--format-reference #x1234567) "org1234567")
+  ($l (t--format-reference #xabcdef) "org0abcdef"))
+
+(ert-deftest t--get-reference ()
+  "Tests for `org-w3ctr--get-reference'."
+  (let* ((para (t-get-element "hello" 'paragraph))
+         (other (t-get-element "world" 'paragraph))
+         (info (list :foo 1)))
+    (let ((ref (t--get-reference para info)))
+      ($s (string-match-p "org[0-9a-f]+" ref))
+      ;; Same DATUM + same INFO → same reference (cached).
+      ($l (t--get-reference para info) ref)
+      ;; The cache records the reference string for DATUM.
+      ($s (assoc ref (plist-get info :internal-references))))
+    ;; A different datum gets a different reference.
+    ($nl (t--get-reference para info) (t--get-reference other info))))
+
 (ert-deftest t--target-reference ()
   "Tests for `org-w3ctr--target-reference'."
   (let ((get-target (lambda (val)
@@ -3540,6 +3573,65 @@ Rule rows are skipped, and a special column is dropped."
   ($l (t--link-org-files-as-html
        "foo.org" '(:html-link-org-files-as-html nil :html-extension "html"))
       "foo.org"))
+
+(ert-deftest t--link-path ()
+  "Tests for `org-w3ctr--link-path'."
+  ;; No search option: the path is returned unchanged.
+  (let* ((link (with-temp-buffer
+                 (org-mode) (insert "[[file:other.org]]") (t-parse1 'link)))
+         (info (list :html-link-org-files-as-html t :html-extension "html")))
+    ($l (t--link-path link info) "other.html"))
+  ;; Strict mode: #custom-id → direct fragment.
+  (let* ((link (with-temp-buffer
+                 (org-mode) (insert "[[file:other.org::#cid]]") (t-parse1 'link)))
+         (info (list :html-honor-ox-external-links nil
+                     :html-link-org-files-as-html t :html-extension "html")))
+    ($l (t--link-path link info) "other.html#cid"))
+  ;; Strict mode: *heading / untyped fuzzy → org-w3ctr-error.
+  (dolist (opt '("*heading" "fuzzy"))
+    (let* ((link (with-temp-buffer
+                   (org-mode) (insert (format "[[file:other.org::%s]]" opt))
+                   (t-parse1 'link)))
+           (info (list :html-honor-ox-external-links nil
+                       :html-link-org-files-as-html t :html-extension "html")))
+      ($q (car (should-error (t--link-path link info))) 'org-w3ctr-error)))
+  ;; Compatibility mode resolves through org-publish.
+  (let* ((link (with-temp-buffer
+                 (org-mode) (insert "[[file:other.org::*heading]]") (t-parse1 'link)))
+         (info (list :html-honor-ox-external-links t
+                     :html-link-org-files-as-html t :html-extension "html")))
+    (cl-letf (((symbol-function 'org-publish-resolve-external-link)
+               (lambda (option path &optional _prefer)
+                 ($l option "*heading")
+                 ($l path "other.org")
+                 "FRAG")))
+      ($l (t--link-path link info) "other.html#FRAG"))))
+
+(ert-deftest t--link-to-file ()
+  "Tests for `org-w3ctr--link-to-file'."
+  (let ((info (list :html-link-org-files-as-html t :html-extension "html")))
+    ($l (t--link-to-file "other.org" "xyz" "desc" "" info)
+        "<a href=\"other.html#ID-xyz\">desc</a>")
+    ($l (t--link-to-file "other.org" "xyz" nil "" info)
+        "<a href=\"other.html#ID-xyz\">other.org</a>")))
+
+(ert-deftest t--link-dispatch ()
+  "Tests for `org-w3ctr--link-dispatch'."
+  ;; Strict mode rejects a cross-file id: link.
+  (let* ((link (with-temp-buffer
+                 (org-mode) (insert "[[id:xyz]]") (t-parse1 'link)))
+         (info (list :html-honor-ox-external-links nil
+                     :id-alist '(("xyz" . "other.org")))))
+    ($q (car (should-error (t--link-dispatch link nil info "id:xyz" "")))
+        'org-w3ctr-error))
+  ;; Compatibility mode builds the ID- fragment via t--link-to-file.
+  (let* ((link (with-temp-buffer
+                 (org-mode) (insert "[[id:xyz]]") (t-parse1 'link)))
+         (info (list :html-honor-ox-external-links t
+                     :html-link-org-files-as-html t :html-extension "html"
+                     :id-alist '(("xyz" . "other.org")))))
+    ($l (t--link-dispatch link "desc" info "id:xyz" "")
+        "<a href=\"other.html#ID-xyz\">desc</a>")))
 
 (ert-deftest t--link-equation ()
   "Tests for `org-w3ctr--link-equation'."
