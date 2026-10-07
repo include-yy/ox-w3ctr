@@ -1009,6 +1009,19 @@ Both cases signal `org-w3ctr-error'; the error value is pinned."
 
 ;;;; S-exp rendering
 
+(ert-deftest t--void-element ()
+  "Tests for `org-w3ctr--void-element'."
+  ($l (t--void-element "br" nil) "<br>")
+  ($l (t--void-element "br" "") "<br>")
+  ;; surrounding whitespace in ATTRS is trimmed
+  ($l (t--void-element "br" "   ") "<br>")
+  ($l (t--void-element "img" "src=\"x\"") "<img src=\"x\">")
+  ($l (t--void-element "img" "  src=\"x\"  ") "<img src=\"x\">")
+  ;; trimming stops at the surrounding whitespace: inner runs stay
+  ($l (t--void-element "img" "a=\"1\"  b=\"2\"") "<img a=\"1\"  b=\"2\">")
+  ;; TAG is used as is -- downcasing is the caller's job
+  ($l (t--void-element "IMG" nil) "<IMG>"))
+
 (ert-deftest t--sexp2html-tag ()
   "Tests for `org-w3ctr--sexp2html-tag'."
   ($l (t--sexp2html-tag 'div) "div")
@@ -1108,15 +1121,6 @@ malformed ones.  Anything else -- a leaked `wrong-type-argument', say
           ($s (condition-case nil
                   (stringp (t--sexp2html (list tag a c)))
                 (org-w3ctr-error t))))))))
-
-(ert-deftest t--void-element ()
-  "Tests for `org-w3ctr--void-element'."
-  ($l (t--void-element "br" nil) "<br>")
-  ($l (t--void-element "br" "") "<br>")
-  ;; surrounding whitespace in ATTRS is trimmed
-  ($l (t--void-element "br" "   ") "<br>")
-  ($l (t--void-element "img" "src=\"x\"") "<img src=\"x\">")
-  ($l (t--void-element "img" "  src=\"x\"  ") "<img src=\"x\">"))
 
 ;;;; References
 
