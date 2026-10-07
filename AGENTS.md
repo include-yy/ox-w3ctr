@@ -178,7 +178,9 @@ well-formed.
   design: prefer invariants, source-scanning drift checks,
   property/fuzz tests and independent parsers over restating the
   implementation's own assumption.  A check that cannot fail is not a
-  check.
+  check.  For a property test, prefer a small exhaustive sweep over
+  random sampling: it is deterministic and has no iteration count to
+  tune.
 - **The AI is the maintainer.**  Explicit things drift (a renamed
   heading, a stale id).  A human cannot afford to keep them in sync;
   an AI can — prefer explicitness wherever drift is catchable by a
@@ -205,18 +207,19 @@ remaining refinement work is in the earlier parts (a section refile
 scrambled their source order): the `REFINE` sections below.
 
 The current task, before those passes, is to tidy and improve the test
-code for the two frozen parts (`;;; Basic utilities`, `;;; Greater
-elements`): review their ERT suites for coverage, duplication, helper
-use and naming now that the code under test is frozen.  Their one
+code of the frozen parts.  `;;; Basic utilities` is done — every
+section reviewed function by function, OINFO included; `;;; Greater
+elements` remains: review its ERT suite for coverage, duplication,
+helper use and naming now that the code under test is frozen.  The one
 deliberate gap stays `org-w3ctr--table.el-table`.  Small findings go to
 `## Tasks`, larger ones to the `README.org` Roadmap.
 
 `ox-w3ctr-tests.el` mirrors the source: a `;;;` header per major part
 and a `;;;;` header per source section (OINFO splits into helpers /
 structural checks / reading and writing / cleanup and statistics).  Work
-through it a section at a time.  The OINFO suite is reviewed and can be
-frozen with the rest of `;;; Basic utilities`; the remaining Basic
-utilities sections and the other parts are pending.
+through it a section at a time.  Everything under `;;; Basic
+utilities` — OINFO included — is reviewed and frozen; `;;; Greater
+elements` and the other parts are pending.
 
 The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
