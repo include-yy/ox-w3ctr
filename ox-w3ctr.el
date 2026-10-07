@@ -72,7 +72,7 @@
 ;; A PRECONDITION OF THE WHOLE BACK-END
 ;; INFO is shared by identity with every transcoder, while callers discard
 ;; `plist-put''s return value (its docstring only promises that value), so
-;; `plist-put' has to modify a *non-empty* plist in place — keeping the head
+;; `plist-put' has to modify a *non-empty* plist in place -- keeping the head
 ;; cell (setcar for an existing key, splicing for a missing one).  An empty
 ;; plist would need the return value; INFO is never empty here.
 (unless (let ((p (list :probe nil)))
@@ -1268,8 +1268,8 @@ There was a support for highlight.js, but has been abandoned."
 ;; not a release knob.  It is not part of the export semantics: both
 ;; builds must produce the same output.
 ;;
-;; Reading order: `org-w3ctr--oinfo-cache-props' first — it lists the keys
-;; the cache knows and the read/write discipline they require — then
+;; Reading order: `org-w3ctr--oinfo-cache-props' first -- it lists the keys
+;; the cache knows and the read/write discipline they require -- then
 ;; `org-w3ctr--pget' / `org-w3ctr--pput', and finally
 ;; `org-w3ctr--oinfo-cache-alist', `org-w3ctr--oinfo-oclosure' and
 ;; `org-w3ctr--make-cache-oclosure'.
@@ -1277,8 +1277,8 @@ There was a support for highlight.js, but has been abandoned."
 ;; `org-w3ctr-clear-oinfo-statistics') at the end.
 
 (eval-and-compile
-  ;; The switch is read at definition time — when the file is compiled,
-  ;; or on every evaluation of the buffer if it is interpreted — so change
+  ;; The switch is read at definition time -- when the file is compiled,
+  ;; or on every evaluation of the buffer if it is interpreted -- so change
   ;; it and recompile, or re-evaluate the whole buffer.
   (defvar t-oinfo-enabled t
     "Non-nil means use the OINFO cache for property lookups.
@@ -1332,7 +1332,7 @@ empties it."
 The name is `org-w3ctr--oinfo' followed by the keyword, as in
 `org-w3ctr--oinfo:title'.  `org-w3ctr--oinfo-cache-alist' pairs each
 cached property with the name this function returns for it, so that
-`org-w3ctr--pget' — which is inlined, and may run compiled — reaches the
+`org-w3ctr--pget' -- which is inlined, and may run compiled -- reaches the
 oclosure through that symbol.  KEY is a property keyword."
     (declare (ftype (function (symbol) symbol))
              (important-return-value t))
@@ -1469,8 +1469,8 @@ transcodes anything, so the caches are already empty when the first
 symbol) are ignored.
 
 `org-w3ctr--oinfo-cleanup' runs only after a full transcode, so an export
-aborted by an error — or a body-only export, which never reaches
-`org-w3ctr-template' — would otherwise leave every oclosure holding the
+aborted by an error -- or a body-only export, which never reaches
+`org-w3ctr-template' -- would otherwise leave every oclosure holding the
 dead INFO plist and its parse tree."
   (declare (ftype (function (&rest t) null)))
   (t--oinfo-cleanup))
@@ -1655,7 +1655,7 @@ element.  Return nil if the property is absent."
            (important-return-value t))
   (when-let* ((attrs (t--read-attr :attr__ element)))
     (mapcar (lambda (x)
-              ;; [] means "no class" — skip rather than emit class=""
+              ;; [] means "no class" -- skip rather than emit class=""
               (cond ((not (vectorp x)) x)
                     ((equal x []) nil)
                     (t (list "class" (mapconcat #'t--2str x " ")))))
@@ -1781,7 +1781,7 @@ If `:attr__' is absent, it falls back to processing the standard
 `:attr__' syntax, so `#+attr_html:' is ignored."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
-  ;; `#+attr__:' takes priority even when empty — its presence alone
+  ;; `#+attr__:' takes priority even when empty -- its presence alone
   ;; means "use ox-w3ctr syntax", so `#+attr_html:' is ignored.
   (if (org-element-property :attr__ element)
       (t--make-attr__id element info named-only)
@@ -1922,9 +1922,8 @@ or when its attribute list is neither nil, t, nor a proper list."
 
 (defun t--new-reference (references)
   "Return a unique reference number not already in REFERENCES.
-REFERENCES is an alist whose values are in-use reference numbers.
-Returns a number; use `org-w3ctr--format-reference' to turn it into
-a string."
+REFERENCES is the :internal-references alist.  Use
+`org-w3ctr--format-reference' to turn the result into a string."
   (declare (ftype (function (list) integer))
            (important-return-value t))
   (let ((new (random #x10000000)))
@@ -1958,7 +1957,7 @@ Unlike `org-export-get-reference', this function does not consult
 
 ;; The identifier-shaped restriction is deliberate, kept for ox-html
 ;; compatibility: a value that does not match is not used verbatim as a
-;; reference — `org-w3ctr--reference' falls through to
+;; reference -- `org-w3ctr--reference' falls through to
 ;; `org-w3ctr--get-reference' for it.  Do not relax the regexp without
 ;; revisiting that fallback.
 (defun t--target-reference (datum)
@@ -1975,7 +1974,7 @@ letter followed by letters, digits, hyphens or underscores."
 (defun t--reference (datum info &optional named-only)
   "Return an appropriate reference for DATUM.
 
-DATUM is an element or a `target' type object.  INFO is the
+DATUM is an element or a target/radio-target object.  INFO is the
 current export state, as a plist.
 
 This names in-document datums only: every caller passes a datum
@@ -1983,8 +1982,9 @@ from the current parse tree, never an external target.  Cross-file
 links are resolved in the link transcoder (`org-w3ctr--link-path',
 `org-w3ctr--link-dispatch'), not here.
 
-When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
-nil.  This doesn't apply to radio targets and targets."
+When NAMED-ONLY is non-nil and DATUM has no explicit label (no
+CUSTOM_ID, no target value, no usable NAME or ID), return nil
+instead of a random id.  Radio targets and targets are exempt."
   (declare (ftype (function (t list &optional boolean) (or null string)))
            (important-return-value t))
   (let ((type (org-element-type datum)))
@@ -1994,23 +1994,23 @@ nil.  This doesn't apply to radio targets and targets."
            (org-element-property :CUSTOM_ID datum)))
      ;; Radio/target value (if it looks like a valid identifier).
      ((t--target-reference datum))
-     ;; NAME keyword — only when prefer-user-labels is on.
+     ;; NAME keyword -- only when prefer-user-labels is on.
      ((and (t--pget info :html-prefer-user-labels)
            (org-element-property :name datum)))
-     ;; ID property — only when prefer-user-labels is on.
+     ;; ID property -- only when prefer-user-labels is on.
      ;; In practice `:ID' comes from `org-id' on headlines.
      ((and (t--pget info :html-prefer-user-labels)
            (when-let* ((id (org-element-property :ID datum)))
              (concat t--id-attr-prefix id))))
-     ;; No #+NAME: and not a target → skip.
+     ;; No explicit label and not a target -> nil (named-only).
      ((and named-only
            (not (memq type '(radio-target target))))
       nil)
      ;; Fallback: random orgXXXXXXX via the vendored reference generator.
      ;; Unconditionally decoupled from :crossrefs: `org-w3ctr--reference'
      ;; only ever names in-document datums, so the crossrefs read that
-     ;; upstream does here — stabilizing ids of elements *referenced by*
-     ;; other documents — is out of scope.  `org-w3ctr-honor-ox-external-links'
+     ;; upstream does here -- stabilizing ids of elements *referenced by*
+     ;; other documents -- is out of scope.  `org-w3ctr-honor-ox-external-links'
      ;; gates the link transcoder side instead; it does not switch this
      ;; fallback back to upstream.
      (t (t--get-reference datum info)))))
@@ -3169,7 +3169,7 @@ is converted to non-breaking spaces; newlines become <br>."
 ;; below lives in assets/style.css (".ef-*").
 ;;
 ;; Unlike engrave-faces, there is no inline-style fallback: unknown or
-;; unspecified faces are emitted as plain escaped text; the slug →
+;; unspecified faces are emitted as plain escaped text; the slug ->
 ;; colour mapping is the stylesheet's job.
 
 (defun t--engrave-buffer (&optional in-buffer out-buffer)
@@ -3239,7 +3239,7 @@ escaped but unwrapped."
               escaped "</span>"))))
 
 (defconst t--engrave-style-plist
-  '(;; faces.el --- excluding bold, italic, bold-italic, underline, …
+  '(;; faces.el --- excluding bold, italic, bold-italic, underline, ...
     (shadow  :slug "h")
     (success :slug "sc")
     (warning :slug "w")
@@ -3264,8 +3264,8 @@ escaped but unwrapped."
     ;; css-mode: reuse the function-name / keyword colours.
     (css-property :slug "f")
     (css-selector :slug "k"))
-  "Face → slug alist used by the engraving engine.
-A slug is the compact CSS class emitted by `t--engrave-face-transformer';
+  "Face -> slug alist used by the engraving engine.
+A slug is the compact CSS class emitted by `org-w3ctr--engrave-face-transformer';
 the colours live in assets/style.css under \".ef-SLUG\".  `default' is
 deliberately absent: bare (unfaced) text carries a nil face and is
 emitted as plain text, as engrave-faces does.")
@@ -4483,7 +4483,7 @@ Return the transcoded string."
 ;; Malformed headlines (for example, ** before *) are exported as-is:
 ;; the heading level and section numbering reflect the source, not
 ;; a normalized hierarchy.  Both ox-html and ox-w3ctr behave the
-;; same way — this is a feature, not a bug.
+;; same way -- this is a feature, not a bug.
 (defun t-section (section contents info)
   "Transcode a SECTION element from Org to HTML.
 
