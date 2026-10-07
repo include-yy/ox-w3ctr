@@ -876,16 +876,28 @@ the OINFO cache is off."
 ;;;; File and regexp
 
 (ert-deftest t--load-file ()
-  "Tests for `org-w3ctr--load-file'."
-  (let ((ox (with-temp-buffer
-              (insert-file-contents "ox-w3ctr.el")
-              (buffer-substring-no-properties
-               (point-min) (point-max)))))
-    ($l ox (t--load-file "ox-w3ctr.el")))
-  ($e! (t--load-file "not-exist")))
+  "Tests for `org-w3ctr--load-file'.
+Reads the package's own source, next to the loaded library, and skips
+when it is not readable (as the OINFO source-scanning tests do)."
+  (let* ((build (symbol-file 't--load-file 'defun))
+         (file (and build (concat (file-name-sans-extension build) ".el"))))
+    (skip-unless (and file (file-readable-p file)))
+    (let ((ox (with-temp-buffer
+                (insert-file-contents file)
+                (buffer-substring-no-properties
+                 (point-min) (point-max)))))
+      ($l ox (t--load-file file)))))
+
+(ert-deftest t--load-file-missing ()
+  "`org-w3ctr--load-file' rejects a missing file or a directory.
+Both cases signal `org-w3ctr-error'; the error value is pinned."
+  ($e!l (t--load-file "not-exist")
+        '(org-w3ctr-error "Invalid file: not-exist"))
+  ($e!l (t--load-file ".")
+        '(org-w3ctr-error "Invalid file: .")))
 
 (ert-deftest t--find-all ()
-  "Tests for `org-w3ctr--find-all."
+  "Tests for `org-w3ctr--find-all'."
   ($l (t--find-all "[0-9]" "114514") '("1" "1" "4" "5" "1" "4"))
   ($l (t--find-all "[0-9]\\{2\\}" "191981") '("19" "19" "81"))
   ($l (t--find-all "" "123") nil)
@@ -1005,6 +1017,18 @@ the OINFO cache is off."
   (let ((n (t--new-reference nil)))
     ($s (integerp n))
     ($s (< n #x10000000))))
+
+(ert-deftest t--new-reference-collision ()
+  "A reference number already in use is drawn again.
+`org-w3ctr--new-reference' loops while the draw is taken; the test
+stubs `random' to hand back a taken number first and counts the draws."
+  (let ((draws 0))
+    (cl-letf (((symbol-function 'random)
+               (lambda (&optional _limit)
+                 (setq draws (1+ draws))
+                 (if (= draws 1) 7 9))))
+      ($l (t--new-reference '((a . 7) (b . 8))) 9)
+      ($l draws 2))))
 
 (ert-deftest t--format-reference ()
   "Tests for `org-w3ctr--format-reference'."
@@ -1205,6 +1229,81 @@ implemented by an `addMethod' call in jstools/index.js."
       ($s implemented)
       (dolist (method t--jstools-methods)
         ($s (memq method implemented))))))
+
+(ert-deftest t--jrpc-connect ()
+  "Tests for `org-w3ctr--jrpc-connect'.
+It checks the `:process' factory's wiring on a real connection, with
+`make-process' replaced by a pipe process, so no child is spawned: the
+factory must hand jsonrpc's `*NAME stderr*' buffer to `make-process' as
+:stderr, under the exact name the coupling needs.  End-to-end stderr
+separation on a live server is the RPC transport harness's job (see
+the ox-w3ctr-verify skill's scripts/stderr-our.el)."
+  (let* ((name "ox-w3ctr-test-jrpc")
+         (command (list "some-server" "--arg"))
+         (args nil)
+         (stderr-name nil)
+         (pipe-buffer nil)
+         (conn nil)
+         (proc nil))
+    (unwind-protect
+        (progn
+          (cl-letf (((symbol-function 'make-process)
+                     (lambda (&rest a)
+                       (setq args a
+                             stderr-name
+                             (let ((b (plist-get a :stderr)))
+                               (and (bufferp b) (buffer-name b))))
+                       (let ((p (make-pipe-process :name name :noquery t)))
+                         ;; the pipe's own buffer, before jsonrpc swaps in
+                         ;; its output buffer -- it must not be left over
+                         (setq pipe-buffer (process-buffer p))
+                         p))))
+            (setq conn (t--jrpc-connect name command)))
+          (setq proc (jsonrpc--process conn))
+          ($s (cl-typep conn 'jsonrpc-process-connection))
+          ($s (process-live-p proc))
+          ;; The factory passes the argv on ...
+          ($l (plist-get args :command) command)
+          ($q (plist-get args :name) name)
+          ($q (plist-get args :noquery) t)
+          ($l (plist-get args :coding) 'binary)
+          ;; ... and hands over jsonrpc's stderr buffer as :stderr,
+          ;; under the exact name the coupling needs -- the "bad
+          ;; coupling" jsonrpc.el flags with a FIXME.  jsonrpc renames
+          ;; the buffer right after the factory returns, so the name is
+          ;; recorded inside the stub.
+          ($l stderr-name (format "*%s stderr*" name))
+          ($q (plist-get args :stderr) (jsonrpc-stderr-buffer conn)))
+      (when (process-live-p proc) (delete-process proc))
+      (dolist (b (list (and conn (jsonrpc-stderr-buffer conn))
+                       (and proc (process-buffer proc))
+                       pipe-buffer
+                       (get-buffer (format "*%s events*" name))
+                       (get-buffer (format " *%s stderr*" name))
+                       (get-buffer (format " *%s output*" name))))
+        (when (buffer-live-p b) (kill-buffer b))))))
+
+(ert-deftest t-show-jstools-events ()
+  "Smoke test for `org-w3ctr-show-jstools-events'.
+The command shows the jstools client's events buffer; only the wiring
+is checked, since an interactive command's return value is incidental."
+  (let ((conn (make-instance 'jsonrpc-connection :name "ox-w3ctr-test-events"))
+        (buf-name "*ox-w3ctr-test-events events*"))
+    (unwind-protect
+        (cl-letf (((symbol-function 't--jrpc-ensure)
+                   (lambda (client) ($q client t--jstools) conn)))
+          (t-show-jstools-events)
+          ($l (buffer-name (current-buffer)) buf-name))
+      (when (get-buffer buf-name) (kill-buffer buf-name)))))
+
+(ert-deftest t-launch-jstools ()
+  "Smoke test for `org-w3ctr-launch-jstools'.
+The command restarts the jstools client; only the wiring is checked."
+  (let (restarted)
+    (cl-letf (((symbol-function 't--jrpc-restart)
+               (lambda (client) (setq restarted client) 'new)))
+      (t-launch-jstools)
+      ($q restarted t--jstools))))
 
 ;;; Greater elements
 
