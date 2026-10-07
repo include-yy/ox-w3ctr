@@ -1457,8 +1457,28 @@ stubs `random' to hand back a taken number first and counts the draws."
       ($l sent '(conn tex2mml (:fragment "x") (:timeout 3)))
       ;; a method outside the table signals and sends nothing
       (setq sent nil)
-      ($e! (t--jcall client 'tex2svg '(:fragment "x")))
-      ($n sent))))
+      ($e!l (t--jcall client 'tex2svg '(:fragment "x"))
+            '(org-w3ctr-error "Unknown jstools method: tex2svg"))
+      ($n sent)))
+  ;; a nil METHODS accepts any method
+  (let ((client (t--jrpc-make "test" '("true"))) sent)
+    (setf (t--jrpc--conn client) 'conn)
+    (cl-letf (((symbol-function 'jsonrpc-running-p) (lambda (_conn) t))
+              ((symbol-function 'jsonrpc-request)
+               (lambda (&rest args) (setq sent args) "RESULT")))
+      ($l (t--jcall client 'anything '(:x 1)) "RESULT")
+      ($l sent '(conn anything (:x 1) :timeout 10.0))))
+  ;; the connection is built before the call when it is not there
+  (let ((client (t--jrpc-make "test" '("true") nil '(tex2mml))) sent)
+    (cl-letf (((symbol-function 'jsonrpc-running-p) (lambda (_conn) nil))
+              ((symbol-function 'jsonrpc-shutdown) (lambda (&rest _) nil))
+              ((symbol-function 't--jrpc-connect) (lambda (_n _c) 'fresh))
+              ((symbol-function 'jsonrpc-request)
+               (lambda (conn method params &rest args)
+                 (setq sent (list conn method params args))
+                 "RESULT")))
+      ($l (t--jcall client 'tex2mml '(:fragment "x")) "RESULT")
+      ($l sent '(fresh tex2mml (:fragment "x") (:timeout 10.0))))))
 
 (ert-deftest t--jstools-methods-drift ()
   "Static check: every method `org-w3ctr--jstools-methods' exposes is
