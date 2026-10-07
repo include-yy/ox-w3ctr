@@ -365,6 +365,23 @@ same session.  Larger or planned work is in the =Roadmap= section of
   `info`; a differently named INFO plist would false-fail.  Loosen to
   `[^ \t\n()]+` if that ever changes.
 
+- **checkdoc leftovers outside the REFINE passes.**  14 of the 17
+  remaining warnings sit in `REFINE:` sections (LaTeX 3, Source block 1,
+  Link 10) and their passes clear them.  Three have no owner:
+  `t-creator-string`'s docstring first line is not a complete sentence
+  (it ends at the `%c` placeholder), and the `t-export-as-html` /
+  `t-export-to-html` docstrings never mention ASYNC (the argument is
+  used — it goes to `org-export-to-buffer' / `org-export-to-file' — so
+  the docstring should say so, not the name mangled).
+
+- **Silent drops in S-exp rendering and attribute formatting.**
+  `org-w3ctr--sexp2html` renders a non symbol/string/number child as
+  nothing, and `org-w3ctr--make-attr` returns nil for an attribute whose
+  name is not convertible (`(nil 1)`); tests pin both.  They are the
+  `;;; Basic utilities` exceptions to fail-loudly: either keep them
+  documented as deliberate (the docstrings say so now) or signal
+  `org-w3ctr-error' and flip the two tests.
+
 - **Docstring & layout leftovers (from the tidy pass).**
   - Add `(declare (ftype …))` to the 2 functions that still lack it
     (excluding `defsubst`, interactive, and end-user commands):

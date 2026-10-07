@@ -308,7 +308,7 @@ It should return the complete HTML for the drawer.  The default is
 <dl>%s</dl>\n</div>\n"
   "Format string for the footnotes section.
 Contains two %s placeholders: the first for the section heading
-(e.g. \"References\"), the second for the footnote definitions."
+\(e.g. \"References\"), the second for the footnote definitions."
   :group 'org-export-w3ctr
   :type 'string
   :safe #'stringp)
@@ -1177,7 +1177,7 @@ wherever a stylesheet is guaranteed."
 
 W3C technical reports use \"Table of Contents\".  Unlike ox-html,
 which derives its heading from the translation machinery
-(`org-export-translate'), this is a plain string to set per
+\(`org-export-translate'), this is a plain string to set per
 installation."
   :group 'org-export-w3ctr
   :type 'string)
@@ -1649,7 +1649,7 @@ Signal `org-w3ctr-error' if the value is not a valid Lisp s-expression."
   "Parse the `:attr__' (#+attr__:) property from ELEMENT.
 
 A vector such as [class1 class2] becomes the attribute form
-(\"class\" \"class1 class2\"); an empty vector [] becomes a nil
+\(\"class\" \"class1 class2\"); an empty vector [] becomes a nil
 element.  Return nil if the property is absent."
   (declare (ftype (function (t) list))
            (important-return-value t))
@@ -1712,7 +1712,7 @@ keywords or plain symbols) and values are strings.  A key with a nil
 value is omitted; values are escaped for an attribute with
 `org-w3ctr--encode-plain-text*'."
   (declare (ftype (function (list) string))
-           (important-return-value t))
+           (pure t) (important-return-value t))
   (let (output)
     (dolist (item attributes (mapconcat 'identity (nreverse output) " "))
       (cond
@@ -1878,6 +1878,7 @@ representation.  The expected format is:
   `org-w3ctr--make-attr__'.  Use nil or an empty list for no attributes.
 - CHILDREN: Zero or more child elements, which are recursively
   converted.  Children can be other S-expressions, strings, or numbers.
+  Any other child (a vector, say) is dropped, rendering as nothing.
 
 For example, the expression (p ((class \"foo\")) \"Hello\") is
 converted to \"<p class=\\\"foo\\\">Hello</p>\".
