@@ -3622,7 +3622,7 @@ Rule rows are skipped, and a special column is dropped."
                  (org-mode) (insert "[[id:xyz]]") (t-parse1 'link)))
          (info (list :html-honor-ox-external-links nil
                      :id-alist '(("xyz" . "other.org")))))
-    ($q (car (should-error (t--link-dispatch link nil info "id:xyz" "")))
+    ($q (car (should-error (t--link-dispatch link nil info "")))
         'org-w3ctr-error))
   ;; Compatibility mode builds the ID- fragment via t--link-to-file.
   (let* ((link (with-temp-buffer
@@ -3630,7 +3630,7 @@ Rule rows are skipped, and a special column is dropped."
          (info (list :html-honor-ox-external-links t
                      :html-link-org-files-as-html t :html-extension "html"
                      :id-alist '(("xyz" . "other.org")))))
-    ($l (t--link-dispatch link "desc" info "id:xyz" "")
+    ($l (t--link-dispatch link "desc" info "")
         "<a href=\"other.html#ID-xyz\">desc</a>")))
 
 (ert-deftest t--link-equation ()

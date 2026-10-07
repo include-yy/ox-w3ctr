@@ -3266,10 +3266,11 @@ escaped but unwrapped."
     (css-property :slug "f")
     (css-selector :slug "k"))
   "Face -> slug alist used by the engraving engine.
-A slug is the compact CSS class emitted by `org-w3ctr--engrave-face-transformer';
-the colours live in assets/style.css under \".ef-SLUG\".  `default' is
-deliberately absent: bare (unfaced) text carries a nil face and is
-emitted as plain text, as engrave-faces does.")
+A slug is the compact CSS class emitted by
+`org-w3ctr--engrave-face-transformer'; the colours live in
+assets/style.css under \".ef-SLUG\".  `default' is deliberately
+absent: bare (unfaced) text carries a nil face and is emitted as
+plain text, as engrave-faces does.")
 
 (defun t--engrave-get-style (prop)
   "Return the style entry for face property PROP, or nil.
@@ -4237,10 +4238,10 @@ DESC and ATTRIBUTES are as in `org-w3ctr-link'."
           attributes
           (or desc "No description for this link")))
 
-(defun t--link-dispatch (link desc info path attributes)
+(defun t--link-dispatch (link desc info attributes)
   "Transcode LINK resolved through its ID, custom ID or fuzzy target.
-PATH, DESC and ATTRIBUTES are as computed in `org-w3ctr-link'."
-  (declare (ftype (function (t (or null string) list string string) string))
+DESC and ATTRIBUTES are as computed in `org-w3ctr-link'."
+  (declare (ftype (function (t (or null string) list string) string))
            (important-return-value t))
   (let* ((type (org-element-property :type link))
          (destination (if (string= type "fuzzy")
@@ -4328,7 +4329,7 @@ INFO is a plist holding contextual information.  See
       (t--link-radio link desc info attributes))
      ;; Links pointing to a headline, a target or an element.
      ((member type '("custom-id" "fuzzy" "id"))
-      (t--link-dispatch link desc info path attributes))
+      (t--link-dispatch link desc info attributes))
      ;; Coderef: replace link with the reference name or the
      ;; equivalent line number.
      ((string= type "coderef")
