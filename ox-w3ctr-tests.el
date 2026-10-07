@@ -1499,6 +1499,16 @@ implemented by an `addMethod' call in jstools/index.js."
       (dolist (method t--jstools-methods)
         ($s (memq method implemented))))))
 
+(ert-deftest t--jstools ()
+  "Tests for `org-w3ctr--jstools'."
+  ($l (t--jrpc--name t--jstools) "ox-w3ctr-jstools")
+  ($l (t--jrpc--methods t--jstools) t--jstools-methods)
+  ($l (t--jrpc--timeout t--jstools) 10.0)
+  ($l (car (t--jrpc--command t--jstools)) "node")
+  ($l (cadr (t--jrpc--command t--jstools))
+      (file-name-concat t--dir "jstools/index.js"))
+  ($l (cddr (t--jrpc--command t--jstools)) '("--timeout" "30000")))
+
 (ert-deftest t-show-jstools-events ()
   "Tests for `org-w3ctr-show-jstools-events'."
   ;; Only the wiring is checked (a smoke test): the command shows the
