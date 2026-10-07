@@ -1984,7 +1984,8 @@ links are resolved in the link transcoder (`org-w3ctr--link-path',
 
 When NAMED-ONLY is non-nil and DATUM has no explicit label (no
 CUSTOM_ID, no target value, no usable NAME or ID), return nil
-instead of a random id.  Radio targets and targets are exempt."
+instead of a random id.  Headlines, radio targets and targets are
+exempt."
   (declare (ftype (function (t list &optional boolean) (or null string)))
            (important-return-value t))
   (let ((type (org-element-type datum)))
@@ -2002,9 +2003,9 @@ instead of a random id.  Radio targets and targets are exempt."
      ((and (t--pget info :html-prefer-user-labels)
            (when-let* ((id (org-element-property :ID datum)))
              (concat t--id-attr-prefix id))))
-     ;; No explicit label and not a target -> nil (named-only).
+     ;; No explicit label and not a headline/target -> nil (named-only).
      ((and named-only
-           (not (memq type '(radio-target target))))
+           (not (memq type '(headline radio-target target))))
       nil)
      ;; Fallback: random orgXXXXXXX via the vendored reference generator.
      ;; Unconditionally decoupled from :crossrefs: `org-w3ctr--reference'
