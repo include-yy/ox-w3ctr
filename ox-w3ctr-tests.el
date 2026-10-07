@@ -1293,7 +1293,16 @@ stubs `random' to hand back a taken number first and counts the draws."
     ($q (t--jrpc--conn client) nil)
     ($l (t--jrpc--timeout client) 10.0)
     ($l (t--jrpc--command client) '("true"))
-    ($l (t--jrpc--methods client) '(tex2mml)))
+    ($l (t--jrpc--methods client) '(tex2mml))
+    ;; callable directly as documented: (METHOD PARAMS &optional TIMEOUT)
+    (let (sent)
+      (cl-letf (((symbol-function 'jsonrpc-request)
+                 (lambda (&rest args) (setq sent args) "RESULT")))
+        ($l (funcall client 'tex2mml '(:fragment "x")) "RESULT")
+        ;; the conn slot is forwarded as is
+        ($l sent '(nil tex2mml (:fragment "x") :timeout 10.0))
+        ($l (funcall client 'tex2mml '(:fragment "x") 3) "RESULT")
+        ($l sent '(nil tex2mml (:fragment "x") :timeout 3)))))
   ;; the TIMEOUT argument seeds the slot
   ($l (t--jrpc--timeout (t--jrpc-make "x" '("true") 3.5)) 3.5))
 
