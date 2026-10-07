@@ -855,11 +855,20 @@ decoding returns the input."
   ($l (t--make-attr__ nil) "")
   ($l (t--make-attr__ '(nil)) "")
   ($l (t--make-attr__ '(nil nil [])) "")
+  ;; a nil element vanishes cleanly: no separator is left behind,
+  ;; unlike the value-level mapconcat in `org-w3ctr--read-attr__'
+  ($l (t--make-attr__ '((a) nil (b c))) " a b=\"c\"")
   ($l (t--make-attr__ '(a)) " a")
+  ;; a string element takes the atom path too
+  ($l (t--make-attr__ '("disabled")) " disabled")
   ($l (t--make-attr__ '((id yy 123) (class a\ b) test))
       " id=\"yy123\" class=\"a b\" test")
   ($l (t--make-attr__ '((test this th&t <=>)))
-      " test=\"thisth&amp;t&lt;=&gt;\""))
+      " test=\"thisth&amp;t&lt;=&gt;\"")
+  ;; a dotted element signals a primitive error, not
+  ;; `org-w3ctr-error' -- reachable as #+attr__: (a . b), which then
+  ;; aborts the export
+  ($e! (t--make-attr__ '((a . b)))))
 
 (ert-deftest t--make-attribute-string ()
   "Tests for `org-w3ctr--make-attribute-string'."
