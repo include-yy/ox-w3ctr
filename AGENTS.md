@@ -7,7 +7,7 @@ Guidance for AI agents working in this repository.
 `ox-w3ctr` is an Emacs Lisp package: an Org export back-end that emits HTML
 styled for W3C Technical Reports.  It is a "parasitic implementation" of
 Org's `ox-html.el`, being progressively reimplemented (refactored) in its own
-style.  Version 0.2.15; requires Emacs 31.
+style.  Version 0.2.16; requires Emacs 31.
 
 - `ox-w3ctr.el`       — the back-end (main source)
 - `ox-w3ctr-tests.el` — ERT test suite
