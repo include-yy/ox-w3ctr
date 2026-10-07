@@ -717,31 +717,50 @@ the OINFO cache is off."
 
 (ert-deftest t--encode-plain-text* ()
   "Tests for `org-w3ctr--encode-plain-text*'."
+  ;; non-special text is kept as is
+  ($l (t--encode-plain-text* "123") "123")
   ($l (t--encode-plain-text* "&") "&amp;")
   ($l (t--encode-plain-text* "<") "&lt;")
   ($l (t--encode-plain-text* ">") "&gt;")
   ($l (t--encode-plain-text* "<&>") "&lt;&amp;&gt;")
+  ;; existing entities are escaped again -- blind, not smart, escaping
+  ($l (t--encode-plain-text* "&amp;") "&amp;amp;")
   ($l (t--encode-plain-text* "'") "&apos;")
   ($l (t--encode-plain-text* "\"") "&quot;")
   ($l (t--encode-plain-text* "\"'&\"")
       "&quot;&apos;&amp;&quot;"))
 
-(ert-deftest t--encode-plain-text-property ()
-  "Encoding leaves no raw specials and only well-formed entities."
-  (random "org-w3ctr-encode")
-  (let ((chars "abc&<>'\" \n\t/_="))
-    (dotimes (_ 1000)
-      (let ((s ""))
-        (dotimes (_ (random 20))
-          (setq s (concat s (string (aref chars (random (length chars)))))))
-        (let ((b (t--encode-plain-text* s)))
-          ($n (string-match-p "[<>'\"]" b))
-          (let ((i 0))
-            (while (string-match "&" b i)
-              (let ((pos (match-beginning 0)))
-                ($s (cl-some (lambda (e) (string-prefix-p e (substring b pos)))
-                             '("&amp;" "&lt;" "&gt;" "&apos;" "&quot;")))
-                (setq i (1+ pos))))))))))
+(ert-deftest t--attribute-escaping-roundtrip ()
+  "Attribute escaping is safe and reversible on every short string.
+Exhaustive over a, space, &, <, >, \" and ' up to length 2 (57 strings)
+plus pre-formed entities: no sampling and no iteration count to tune --
+every failure of a per-character substitution shows up in a short
+string.  Per string: no raw specials, every `&' starts an entity, and
+decoding returns the input."
+  (let* ((entity-re "&\\(?:amp\\|lt\\|gt\\|apos\\|quot\\);")
+         (entity-map '(("&amp;" . "&") ("&lt;" . "<") ("&gt;" . ">")
+                       ("&apos;" . "'") ("&quot;" . "\"")))
+         (chars (append "a &<>\"'" nil))
+         (decode (lambda (s)
+                   (replace-regexp-in-string
+                    entity-re (lambda (m) (cdr (assoc m entity-map))) s t t)))
+         (check (lambda (s)
+                  (let ((b (t--encode-plain-text* s)))
+                    ;; attribute-safe
+                    ($n (string-match-p "[<>'\"]" b))
+                    ;; every & starts an entity: strip them, none may remain
+                    ($n (string-match-p
+                         "&" (replace-regexp-in-string entity-re "" b t t)))
+                    ($l (funcall decode b) s)))))
+    ;; the decoder is a fixture: prove it on a known pair first
+    ($l (funcall decode "&amp;lt;") "&lt;")
+    (funcall check "")
+    (funcall check "&amp;")
+    (funcall check "&amp;lt;")
+    (dolist (c1 chars)
+      (funcall check (string c1))
+      (dolist (c2 chars)
+        (funcall check (string c1 c2))))))
 
 ;;;; HTML attributes
 
