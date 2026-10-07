@@ -1222,6 +1222,8 @@ stubs `random' to hand back a taken number first and counts the draws."
                             'headline)))
       ($l (t--reference h no-labels) "my-id")
       ($l (t--reference h with-labels) "my-id"))
+    ;; a target's value is the reference (the cond routes targets there)
+    ($l (t--reference (t-get-element "<<foo>>" 'target) no-labels) "foo")
     ;; NAME with prefer-user-labels=t (paragraph, since #+name: does not
     ;; set :name on headlines).
     (let ((para (t-get-element "#+name: my-name\nhello" 'paragraph)))
@@ -1235,7 +1237,14 @@ stubs `random' to hand back a taken number first and counts the draws."
       ($s (string-match-p "org[0-9a-f]+" (t--reference h no-labels))))
     ;; named-only + no name + not headline -> nil.
     (let ((para (t-get-element "hello" 'paragraph)))
-      ($n (t--reference para (list :html-prefer-user-labels nil) t)))))
+      ($n (t--reference para (list :html-prefer-user-labels nil) t)))
+    ;; headlines, radio targets and targets are exempt from named-only
+    ($s (string-match-p "org[0-9a-f]+"
+                        (t--reference (t-get-element "* H" 'headline)
+                                      no-labels t)))
+    ($l (t--reference (t-get-element "<<foo>>" 'target) no-labels t) "foo")
+    ($l (t--reference (t-get-element "<<<bar>>>" 'radio-target) no-labels t)
+        "bar")))
 
 ;;;; Filter Functions
 
