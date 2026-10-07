@@ -1864,6 +1864,27 @@ form \"<TAG ...>\", or \"<TAG>\" when ATTRS is blank."
   (let ((attrs (t--trim (or attrs ""))))
     (format "<%s%s>" tag (if (t--nw-p attrs) (concat " " attrs) ""))))
 
+(defun t--sexp2html-tag (tag)
+  "Return TAG as a lowercased HTML tag name.
+TAG must be a non-nil symbol; anything else signals
+`org-w3ctr-error'."
+  (declare (ftype (function (t) string))
+           (pure t) (important-return-value t))
+  (unless (and tag (symbolp tag))
+    (t-error "Invalid S-expression tag: %S" tag))
+  (downcase (symbol-name tag)))
+
+(defun t--sexp2html-attrs (attr-ls)
+  "Return the HTML attribute string for ATTR-LS.
+ATTR-LS is nil or t for no attributes, or a list of attribute
+specifications for `org-w3ctr--make-attr__'; anything else signals
+`org-w3ctr-error'."
+  (declare (ftype (function (t) string))
+           (pure t) (important-return-value t))
+  (cond ((booleanp attr-ls) "")
+        ((proper-list-p attr-ls) (t--make-attr__ attr-ls))
+        (t (t-error "Invalid S-expression attribute list: %S" attr-ls))))
+
 (defun t--sexp2html (data)
   "Recursively convert an S-expression, DATA, into an HTML string.
 
@@ -1894,21 +1915,12 @@ or when its attribute list is neither nil, t, nor a proper list."
     ((or (pred symbolp) (pred stringp) (pred numberp))
      (t--encode-plain-text (t--2str data)))
     ((pred listp)
-     (let ((tag (nth 0 data)))
-       (unless (and tag (symbolp tag))
-         (t-error "Invalid S-expression tag: %S" tag))
-       ;; always use lowercase tagname.
-       (let* ((tag (downcase (symbol-name tag)))
-              (attr-ls (nth 1 data))
-              (attrs (cond ((booleanp attr-ls) "")
-                           ((proper-list-p attr-ls) (t--make-attr__ attr-ls))
-                           (t (t-error "Invalid S-expression attribute list: %S"
-                                       attr-ls)))))
-         (if (string-match-p t--void-element-regexp tag)
-             (t--void-element tag attrs)
-           (let ((children (mapconcat #'t--sexp2html (cddr data))))
-             (format "<%s%s>%s</%s>"
-                     tag attrs children tag))))))
+     (let ((tag (t--sexp2html-tag (nth 0 data)))
+           (attrs (t--sexp2html-attrs (nth 1 data))))
+       (if (string-match-p t--void-element-regexp tag)
+           (t--void-element tag attrs)
+         (format "<%s%s>%s</%s>" tag attrs
+                 (mapconcat #'t--sexp2html (cddr data)) tag))))
     (_ "")))
 
 ;;;; References

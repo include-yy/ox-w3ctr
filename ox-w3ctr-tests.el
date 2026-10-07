@@ -1009,6 +1009,29 @@ Both cases signal `org-w3ctr-error'; the error value is pinned."
 
 ;;;; S-exp rendering
 
+(ert-deftest t--sexp2html-tag ()
+  "Tests for `org-w3ctr--sexp2html-tag'."
+  ($l (t--sexp2html-tag 'div) "div")
+  ($l (t--sexp2html-tag 'DIV) "div")
+  ;; anything but a non-nil symbol signals, message pinned on the first
+  ($e!l (t--sexp2html-tag nil)
+        '(org-w3ctr-error "Invalid S-expression tag: nil"))
+  ($e! (t--sexp2html-tag 1.5))
+  ($e! (t--sexp2html-tag "div")))
+
+(ert-deftest t--sexp2html-attrs ()
+  "Tests for `org-w3ctr--sexp2html-attrs'."
+  ($l (t--sexp2html-attrs nil) "")
+  ($l (t--sexp2html-attrs t) "")
+  ($l (t--sexp2html-attrs '((id x))) " id=\"x\"")
+  ;; anything but nil, t, or a proper list signals, message pinned on
+  ;; the first
+  ($e!l (t--sexp2html-attrs "text")
+        '(org-w3ctr-error "Invalid S-expression attribute list: \"text\""))
+  ($e! (t--sexp2html-attrs 5))
+  ($e! (t--sexp2html-attrs [1 2]))
+  ($e! (t--sexp2html-attrs '(a . b))))
+
 (ert-deftest t--sexp2html ()
   "Tests for `org-w3ctr--sexp2html'."
   ($l (t--sexp2html nil) "")
@@ -1055,8 +1078,10 @@ Both cases signal `org-w3ctr-error'; the error value is pinned."
   ;; Escape
   ($l (t--sexp2html '(p () "123<456>")) "<p>123&lt;456&gt;</p>")
   ($l (t--sexp2html '(p () (b () "a&b"))) "<p><b>a&amp;b</b></p>")
-  ;; A list's first element must be a non-nil symbol.
-  ($e! (t--sexp2html '(nil)))
+  ;; A list's first element must be a non-nil symbol; the message is
+  ;; pinned on the first case.
+  ($e!l (t--sexp2html '(nil))
+        '(org-w3ctr-error "Invalid S-expression tag: nil"))
   ($e! (t--sexp2html '(1.5 () "x")))
   ($e! (t--sexp2html '("div" () "x")))
   ;; The attribute list must be nil, t, or a proper list.
