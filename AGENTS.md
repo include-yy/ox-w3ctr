@@ -385,7 +385,10 @@ same session.  Larger or planned work is in the =Roadmap= section of
   detected, so the reference id is prepended and the atom emitted as
   well: `#+name:1` with `#+attr__: id` gives ` id="1" id`, a malformed
   attribute string.  A test pins it; recognizing the atom form too
-  would flip the expectation.
+  would flip the expectation.  The mirror problem on the `:attr_html'
+  side: `org-w3ctr--make-attr_html` keys its suppression off
+  `plist-member', which sees the key regardless of value, so an
+  explicit `:id nil` suppresses the auto id and emits no id at all.
 
 - **Attribute input is not validated.**  In `org-w3ctr--make-attr`
   only the values go through `org-w3ctr--encode-plain-text*`; a name is
@@ -394,7 +397,9 @@ same session.  Larger or planned work is in the =Roadmap= section of
   out as is (`(:<x> "v")` gives `<x>="v"`).
   A dotted element falls through to a primitive `wrong-type-argument'
   (reachable as `#+attr__: (a . b)`, which aborts the export) instead
-  of `org-w3ctr-error' with context.  Tests pin the current behavior; a
+  of `org-w3ctr-error' with context.  Duplicate keys are not merged
+  either: `:class a :class b` gives ` class="a" class="b"`.  Tests pin
+  the current behavior; a
   checker that accepts only HTML attribute names and proper lists (and
   signals `org-w3ctr-error' otherwise) would flip them.
 

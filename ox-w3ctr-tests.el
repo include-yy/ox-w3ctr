@@ -931,8 +931,15 @@ decoding returns the input."
       " id=\"1\" class=\"data\"")
      ("#+name: 1\n#+attr_html: :id 2 :class data two\ntest"
       " id=\"2\" class=\"data two\"")
+     ;; an explicit :id entry suppresses the auto id even when its
+     ;; value is nil -- the id is then simply gone
+     ("#+name: 1\n#+attr_html: :id nil :class data\ntest"
+      " class=\"data\"")
      ("#+attr_html: :data-id < > ? 2 =\ntest"
-      " data-id=\"&lt; &gt; ? 2 =\""))
+      " data-id=\"&lt; &gt; ? 2 =\"")
+     ;; duplicate keys are both emitted
+     ("#+attr_html: :class a :class b\ntest"
+      " class=\"a\" class=\"b\""))
    nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t--make-attr__id* ()
