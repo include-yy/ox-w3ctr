@@ -1306,103 +1306,6 @@ stubs `random' to hand back a taken number first and counts the draws."
   ;; the TIMEOUT argument seeds the slot
   ($l (t--jrpc--timeout (t--jrpc-make "x" '("true") 3.5)) 3.5))
 
-(ert-deftest t--jrpc-ensure ()
-  "Tests for `org-w3ctr--jrpc-ensure'."
-  ;; a live connection is reused, nothing is started
-  (let ((client (t--jrpc-make "test" '("true"))) connected)
-    (setf (t--jrpc--conn client) 'live)
-    (cl-letf (((symbol-function 'jsonrpc-running-p) (lambda (_conn) t))
-              ((symbol-function 't--jrpc-connect)
-               (lambda (&rest _) (setq connected t) 'fresh)))
-      ($q (t--jrpc-ensure client) 'live)
-      ($n connected)))
-  ;; a dead one is shut down and replaced
-  (let ((client (t--jrpc-make "test" '("true"))) shut)
-    (setf (t--jrpc--conn client) 'dead)
-    (cl-letf (((symbol-function 'jsonrpc-running-p) (lambda (_conn) nil))
-              ((symbol-function 'jsonrpc-shutdown)
-               (lambda (_conn &rest _) (setq shut t)))
-              ((symbol-function 't--jrpc-connect)
-               (lambda (name command) (list name command))))
-      ($l (t--jrpc-ensure client) '("test" ("true")))
-      ($s shut)
-      ($l (t--jrpc--conn client) '("test" ("true"))))))
-
-(ert-deftest t--jrpc-restart ()
-  "Tests for `org-w3ctr--jrpc-restart'."
-  (let ((client (t--jrpc-make "test" '("true"))) shut)
-    (setf (t--jrpc--conn client) 'old)
-    (cl-letf (((symbol-function 'jsonrpc-shutdown)
-               (lambda (_conn &rest _) (setq shut t)))
-              ((symbol-function 'jsonrpc-running-p) (lambda (_conn) nil))
-              ((symbol-function 't--jrpc-connect) (lambda (_n _c) 'new)))
-      ($q (t--jrpc-restart client) 'new)
-      ($s shut)
-      ($q (t--jrpc--conn client) 'new))))
-
-(ert-deftest t--jrpc-shutdown ()
-  "Tests for `org-w3ctr--jrpc-shutdown'."
-  ;; a live connection is shut down and the slot cleared
-  (let ((client (t--jrpc-make "test" '("true"))) shut)
-    (setf (t--jrpc--conn client) 'conn)
-    (cl-letf (((symbol-function 'jsonrpc-shutdown)
-               (lambda (_conn &rest _) (setq shut t))))
-      (t--jrpc-shutdown client)
-      ($s shut)
-      ($q (t--jrpc--conn client) nil)))
-  ;; no connection: nothing is shut down
-  (let ((client (t--jrpc-make "test" '("true"))))
-    (cl-letf (((symbol-function 'jsonrpc-shutdown)
-               (lambda (&rest _) (error "should not run"))))
-      (t--jrpc-shutdown client)
-      ($q (t--jrpc--conn client) nil)))
-  ;; a failing shutdown is swallowed and the slot is still cleared
-  (let ((client (t--jrpc-make "test" '("true"))))
-    (setf (t--jrpc--conn client) 'conn)
-    (cl-letf (((symbol-function 'jsonrpc-shutdown)
-               (lambda (&rest _) (error "boom"))))
-      (t--jrpc-shutdown client)
-      ($q (t--jrpc--conn client) nil))))
-
-(ert-deftest t--jcall ()
-  "Tests for `org-w3ctr--jcall'."
-  (let ((client (t--jrpc-make "test" '("true") nil '(tex2mml))) sent)
-    (setf (t--jrpc--conn client) 'conn)
-    (cl-letf (((symbol-function 'jsonrpc-running-p) (lambda (_conn) t))
-              ((symbol-function 'jsonrpc-request)
-               (lambda (conn method params &rest args)
-                 (setq sent (list conn method params args))
-                 "RESULT")))
-      ;; a method in the table is forwarded with the default timeout
-      ($l (t--jcall client 'tex2mml '(:fragment "x")) "RESULT")
-      ($l sent '(conn tex2mml (:fragment "x") (:timeout 10.0)))
-      ;; the TIMEOUT argument overrides the slot
-      (setq sent nil)
-      (t--jcall client 'tex2mml '(:fragment "x") 3)
-      ($l sent '(conn tex2mml (:fragment "x") (:timeout 3)))
-      ;; a method outside the table signals and sends nothing
-      (setq sent nil)
-      ($e! (t--jcall client 'tex2svg '(:fragment "x")))
-      ($n sent))))
-
-(ert-deftest t--jstools-methods-drift ()
-  "Static check: every method `org-w3ctr--jstools-methods' exposes is
-implemented by an `addMethod' call in jstools/index.js."
-  (let ((file (file-name-concat t--dir "jstools/index.js")))
-    (skip-unless (file-readable-p file))
-    (let* ((source (with-temp-buffer
-                     (insert-file-contents file)
-                     (buffer-string)))
-           (implemented
-            (let ((i 0) names)
-              (while (string-match "addMethod([ \t]*['\"]\\([^'\"]+\\)['\"]" source i)
-                (push (intern (match-string 1 source)) names)
-                (setq i (match-end 0)))
-              (nreverse names))))
-      ($s implemented)
-      (dolist (method t--jstools-methods)
-        ($s (memq method implemented))))))
-
 (ert-deftest t--jrpc-connect ()
   "Tests for `org-w3ctr--jrpc-connect'."
   ;; The `:process' factory's wiring is checked on a real connection,
@@ -1456,6 +1359,103 @@ implemented by an `addMethod' call in jstools/index.js."
                        (get-buffer (format " *%s stderr*" name))
                        (get-buffer (format " *%s output*" name))))
         (when (buffer-live-p b) (kill-buffer b))))))
+
+(ert-deftest t--jrpc-shutdown ()
+  "Tests for `org-w3ctr--jrpc-shutdown'."
+  ;; a live connection is shut down and the slot cleared
+  (let ((client (t--jrpc-make "test" '("true"))) shut)
+    (setf (t--jrpc--conn client) 'conn)
+    (cl-letf (((symbol-function 'jsonrpc-shutdown)
+               (lambda (_conn &rest _) (setq shut t))))
+      (t--jrpc-shutdown client)
+      ($s shut)
+      ($q (t--jrpc--conn client) nil)))
+  ;; no connection: nothing is shut down
+  (let ((client (t--jrpc-make "test" '("true"))))
+    (cl-letf (((symbol-function 'jsonrpc-shutdown)
+               (lambda (&rest _) (error "should not run"))))
+      (t--jrpc-shutdown client)
+      ($q (t--jrpc--conn client) nil)))
+  ;; a failing shutdown is swallowed and the slot is still cleared
+  (let ((client (t--jrpc-make "test" '("true"))))
+    (setf (t--jrpc--conn client) 'conn)
+    (cl-letf (((symbol-function 'jsonrpc-shutdown)
+               (lambda (&rest _) (error "boom"))))
+      (t--jrpc-shutdown client)
+      ($q (t--jrpc--conn client) nil))))
+
+(ert-deftest t--jrpc-ensure ()
+  "Tests for `org-w3ctr--jrpc-ensure'."
+  ;; a live connection is reused, nothing is started
+  (let ((client (t--jrpc-make "test" '("true"))) connected)
+    (setf (t--jrpc--conn client) 'live)
+    (cl-letf (((symbol-function 'jsonrpc-running-p) (lambda (_conn) t))
+              ((symbol-function 't--jrpc-connect)
+               (lambda (&rest _) (setq connected t) 'fresh)))
+      ($q (t--jrpc-ensure client) 'live)
+      ($n connected)))
+  ;; a dead one is shut down and replaced
+  (let ((client (t--jrpc-make "test" '("true"))) shut)
+    (setf (t--jrpc--conn client) 'dead)
+    (cl-letf (((symbol-function 'jsonrpc-running-p) (lambda (_conn) nil))
+              ((symbol-function 'jsonrpc-shutdown)
+               (lambda (_conn &rest _) (setq shut t)))
+              ((symbol-function 't--jrpc-connect)
+               (lambda (name command) (list name command))))
+      ($l (t--jrpc-ensure client) '("test" ("true")))
+      ($s shut)
+      ($l (t--jrpc--conn client) '("test" ("true"))))))
+
+(ert-deftest t--jrpc-restart ()
+  "Tests for `org-w3ctr--jrpc-restart'."
+  (let ((client (t--jrpc-make "test" '("true"))) shut)
+    (setf (t--jrpc--conn client) 'old)
+    (cl-letf (((symbol-function 'jsonrpc-shutdown)
+               (lambda (_conn &rest _) (setq shut t)))
+              ((symbol-function 'jsonrpc-running-p) (lambda (_conn) nil))
+              ((symbol-function 't--jrpc-connect) (lambda (_n _c) 'new)))
+      ($q (t--jrpc-restart client) 'new)
+      ($s shut)
+      ($q (t--jrpc--conn client) 'new))))
+
+(ert-deftest t--jcall ()
+  "Tests for `org-w3ctr--jcall'."
+  (let ((client (t--jrpc-make "test" '("true") nil '(tex2mml))) sent)
+    (setf (t--jrpc--conn client) 'conn)
+    (cl-letf (((symbol-function 'jsonrpc-running-p) (lambda (_conn) t))
+              ((symbol-function 'jsonrpc-request)
+               (lambda (conn method params &rest args)
+                 (setq sent (list conn method params args))
+                 "RESULT")))
+      ;; a method in the table is forwarded with the default timeout
+      ($l (t--jcall client 'tex2mml '(:fragment "x")) "RESULT")
+      ($l sent '(conn tex2mml (:fragment "x") (:timeout 10.0)))
+      ;; the TIMEOUT argument overrides the slot
+      (setq sent nil)
+      (t--jcall client 'tex2mml '(:fragment "x") 3)
+      ($l sent '(conn tex2mml (:fragment "x") (:timeout 3)))
+      ;; a method outside the table signals and sends nothing
+      (setq sent nil)
+      ($e! (t--jcall client 'tex2svg '(:fragment "x")))
+      ($n sent))))
+
+(ert-deftest t--jstools-methods-drift ()
+  "Static check: every method `org-w3ctr--jstools-methods' exposes is
+implemented by an `addMethod' call in jstools/index.js."
+  (let ((file (file-name-concat t--dir "jstools/index.js")))
+    (skip-unless (file-readable-p file))
+    (let* ((source (with-temp-buffer
+                     (insert-file-contents file)
+                     (buffer-string)))
+           (implemented
+            (let ((i 0) names)
+              (while (string-match "addMethod([ \t]*['\"]\\([^'\"]+\\)['\"]" source i)
+                (push (intern (match-string 1 source)) names)
+                (setq i (match-end 0)))
+              (nreverse names))))
+      ($s implemented)
+      (dolist (method t--jstools-methods)
+        ($s (memq method implemented))))))
 
 (ert-deftest t-show-jstools-events ()
   "Tests for `org-w3ctr-show-jstools-events'."
