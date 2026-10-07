@@ -1404,6 +1404,17 @@ stubs `random' to hand back a taken number first and counts the draws."
                (lambda (name command) (list name command))))
       ($l (t--jrpc-ensure client) '("test" ("true")))
       ($s shut)
+      ($l (t--jrpc--conn client) '("test" ("true")))))
+  ;; an absent connection is built, without consulting its liveness
+  (let ((client (t--jrpc-make "test" '("true"))) shut)
+    (cl-letf (((symbol-function 'jsonrpc-running-p)
+               (lambda (&rest _) (error "should not run")))
+              ((symbol-function 't--jrpc-shutdown)
+               (lambda (_client) (setq shut t)))
+              ((symbol-function 't--jrpc-connect)
+               (lambda (name command) (list name command))))
+      ($l (t--jrpc-ensure client) '("test" ("true")))
+      ($s shut)
       ($l (t--jrpc--conn client) '("test" ("true"))))))
 
 (ert-deftest t--jrpc-restart ()
