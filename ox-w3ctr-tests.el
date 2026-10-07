@@ -323,7 +323,11 @@ otherwise its cached assertions fail in the nil build."
           (push (cons (match-string 1) (match-beginning 0)) starts))
         (let ((offenders nil)
               (last (point-max)))
-          (dolist (cell (nreverse starts))
+          ;; `starts' is collected back-to-front, so walking it as is
+          ;; goes from the end of the file: each test's body then spans
+          ;; its start to the next test's start, and the last test's
+          ;; body extends to the end of the file.
+          (dolist (cell starts)
             (let ((name (car cell))
                   (beg (cdr cell)))
               (let ((body (buffer-substring-no-properties beg last)))
@@ -440,9 +444,9 @@ leaves the cache unchanged."
       ($l (eval '(t--pget info-a :a)) "A")
       ;; VALUE signals: the cache must not be half-updated.
       (should-error (eval '(t--pput info-b :a (error "boom"))))
-      ;; The oclosure should still hold info-a, or be cleared.
-      (let ((cached-pid (t--oinfo--pid (t--oinfo-oget :a))))
-        (should (or (eq cached-pid info-a) (null cached-pid))))
+      ;; The oclosure should still hold info-a, unchanged: the signal
+      ;; fires during VALUE evaluation, before the pid slot is written.
+      ($q (t--oinfo--pid (t--oinfo-oget :a)) info-a)
       ;; Reading info-b must return "B" from the plist, not a stale "A".
       ($l (eval '(t--pget info-b :a)) "B"))))
 
@@ -1164,30 +1168,36 @@ stubs `random' to hand back a taken number first and counts the draws."
 
 (ert-deftest t--get-reference ()
   "Tests for `org-w3ctr--get-reference'."
-  (let* ((para (t-get-element "hello" 'paragraph))
+  ;; Stub `random' with an increasing counter: every draw is distinct,
+  ;; so two references cannot coincide by chance and the per-INFO
+  ;; assertion below cannot flake on a collision.
+  (let* ((draw -1)
+         (para (t-get-element "hello" 'paragraph))
          (other (t-get-element "world" 'paragraph))
          (info (list :foo 1)))
-    (let ((ref (t--get-reference para info)))
-      ($s (string-match-p "org[0-9a-f]+" ref))
-      ;; Same DATUM + same INFO -> same reference (cached).
-      ($l (t--get-reference para info) ref)
-      ;; The cache records the reference string for DATUM.
-      ($s (assoc ref (t--pget info :internal-references))))
-    ;; A different datum gets a different reference.
-    ($nl (t--get-reference para info) (t--get-reference other info))
-    ;; The cache is per-INFO: the same datum draws afresh in a fresh
-    ;; INFO.  (Two draws colliding is a 2**-28 chance.)
-    ($nl (t--get-reference para info) (t--get-reference para (list :foo 1)))
-    ;; The search cells are cached as (CELL . NUMBER), the shape
-    ;; `org-export-get-reference' reads; the number formats back to the
-    ;; datum's reference.  Only named elements have cells, and each
-    ;; call builds fresh ones, so look the cell up with `assoc'.
-    (let* ((named (t-get-element "#+name: x\nhello" 'paragraph))
-           (ref2 (t--get-reference named info)))
-      (dolist (cell (org-export-search-cells named))
-        (let ((entry (assoc cell (t--pget info :internal-references))))
-          ($s entry)
-          ($l (t--format-reference (cdr entry)) ref2))))))
+    (cl-letf (((symbol-function 'random)
+               (lambda (&optional _limit) (setq draw (1+ draw)))))
+      (let ((ref (t--get-reference para info)))
+        ($s (string-match-p "org[0-9a-f]+" ref))
+        ;; Same DATUM + same INFO -> same reference (cached).
+        ($l (t--get-reference para info) ref)
+        ;; The cache records the reference string for DATUM.
+        ($s (assoc ref (t--pget info :internal-references))))
+      ;; A different datum gets a different reference.
+      ($nl (t--get-reference para info) (t--get-reference other info))
+      ;; The cache is per-INFO: the same datum draws afresh in a fresh
+      ;; INFO; the stubbed draws guarantee the two references differ.
+      ($nl (t--get-reference para info) (t--get-reference para (list :foo 1)))
+      ;; The search cells are cached as (CELL . NUMBER), the shape
+      ;; `org-export-get-reference' reads; the number formats back to the
+      ;; datum's reference.  Only named elements have cells, and each
+      ;; call builds fresh ones, so look the cell up with `assoc'.
+      (let* ((named (t-get-element "#+name: x\nhello" 'paragraph))
+             (ref2 (t--get-reference named info)))
+        (dolist (cell (org-export-search-cells named))
+          (let ((entry (assoc cell (t--pget info :internal-references))))
+            ($s entry)
+            ($l (t--format-reference (cdr entry)) ref2)))))))
 
 (ert-deftest t--target-reference ()
   "Tests for `org-w3ctr--target-reference'."
