@@ -876,6 +876,8 @@ decoding returns the input."
       "a=\"1\" b=\"2\"")
   ($l (t--make-attribute-string nil) "")
   ($l (t--make-attribute-string '(:a nil)) "")
+  ;; a dangling key stays bare: only a nil *value* pops it
+  ($l (t--make-attribute-string '(:a "1" :b)) "a=\"1\" b")
   ($l (t--make-attribute-string '(:a "\"a\""))
       "a=\"&quot;a&quot;\"")
   ($l (t--make-attribute-string '(:open "open"))

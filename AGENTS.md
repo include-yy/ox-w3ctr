@@ -383,6 +383,8 @@ same session.  Larger or planned work is in the =Roadmap= section of
 - **Attribute input is not validated.**  In `org-w3ctr--make-attr`
   only the values go through `org-w3ctr--encode-plain-text*`; a name is
   just downcased, so `("<x>" v)` gives ` <x>="v"` and `(1)` gives ` 1`.
+  `org-w3ctr--make-attribute-string` has the same asymmetry: keys go
+  out as is (`(:<x> "v")` gives `<x>="v"`).
   A dotted element falls through to a primitive `wrong-type-argument'
   (reachable as `#+attr__: (a . b)`, which aborts the export) instead
   of `org-w3ctr-error' with context.  Tests pin the current behavior; a
