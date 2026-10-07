@@ -608,7 +608,7 @@ the OINFO cache is off."
     ($s (t--oinfo-compare-count (funcall entry 1) (funcall entry 2)))
     ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 1)))
     ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 2)))))
-
+
 ;;;; String helpers
 
 (ert-deftest t--nw-p ()
