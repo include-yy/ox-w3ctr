@@ -612,6 +612,12 @@ cross-file links; any other search option (*heading, untyped fuzzy,
 radio-target, target) signals an error.  This removes the dependency on
 org-publish and enforces the use of explicit CUSTOM_ID properties.
 
+In compatibility mode a cross-file link to an *unnamed* element resolves
+only when the target file is published before the linking file: the
+reference fallback does not read :crossrefs, so re-publishing the target
+re-mints its fallback ids.  Give the target a CUSTOM_ID and link with
+the #custom-id form for stable, order-independent links.
+
 The default is non-nil so that existing org-publish projects continue to
 work without changes.  The plan is to flip the default to nil in 1.0.0
 with a NEWS entry."
@@ -1936,11 +1942,6 @@ REFERENCE is a number as returned by `org-w3ctr--new-reference'."
   "Return a unique reference string for DATUM.
 DATUM is an element or object.  INFO is the export state plist.
 
-References are cached in :internal-references as an alist of
-\(REFERENCE-STRING . DATUM) and (SEARCH-CELL . REFERENCE-NUMBER) pairs.
-The search-cell entries let `org-export-resolve-fuzzy-link' locate
-DATUM by headline title, target value, or NAME keyword.
-
 Unlike `org-export-get-reference', this function does not consult
 :crossrefs and therefore does not depend on org-publish."
   (declare (ftype (function (t list) string))
@@ -1977,6 +1978,11 @@ letter followed by letters, digits, hyphens or underscores."
 DATUM is an element or a `target' type object.  INFO is the
 current export state, as a plist.
 
+This names in-document datums only: every caller passes a datum
+from the current parse tree, never an external target.  Cross-file
+links are resolved in the link transcoder (`org-w3ctr--link-path',
+`org-w3ctr--link-dispatch'), not here.
+
 When NAMED-ONLY is non-nil and DATUM has no NAME keyword, return
 nil.  This doesn't apply to radio targets and targets."
   (declare (ftype (function (t list &optional boolean) (or null string)))
@@ -2001,8 +2007,12 @@ nil.  This doesn't apply to radio targets and targets."
            (not (memq type '(radio-target target))))
       nil)
      ;; Fallback: random orgXXXXXXX via the vendored reference generator.
-     ;; Does not consult :crossrefs — use `org-w3ctr-honor-ox-external-links'
-     ;; to fall back to the org-publish-aware upstream instead.
+     ;; Unconditionally decoupled from :crossrefs: `org-w3ctr--reference'
+     ;; only ever names in-document datums, so the crossrefs read that
+     ;; upstream does here — stabilizing ids of elements *referenced by*
+     ;; other documents — is out of scope.  `org-w3ctr-honor-ox-external-links'
+     ;; gates the link transcoder side instead; it does not switch this
+     ;; fallback back to upstream.
      (t (t--get-reference datum info)))))
 
 ;;;; Filter Functions
