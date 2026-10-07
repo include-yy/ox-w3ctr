@@ -1158,7 +1158,9 @@ stubs `random' to hand back a taken number first and counts the draws."
   ($l (t--format-reference 0) "org0000000")
   ($l (t--format-reference 1) "org0000001")
   ($l (t--format-reference #x1234567) "org1234567")
-  ($l (t--format-reference #xabcdef) "org0abcdef"))
+  ($l (t--format-reference #xabcdef) "org0abcdef")
+  ;; the largest legal draw, filling the width exactly
+  ($l (t--format-reference #xfffffff) "orgfffffff"))
 
 (ert-deftest t--get-reference ()
   "Tests for `org-w3ctr--get-reference'."
@@ -1170,9 +1172,22 @@ stubs `random' to hand back a taken number first and counts the draws."
       ;; Same DATUM + same INFO → same reference (cached).
       ($l (t--get-reference para info) ref)
       ;; The cache records the reference string for DATUM.
-      ($s (assoc ref (plist-get info :internal-references))))
+      ($s (assoc ref (t--pget info :internal-references))))
     ;; A different datum gets a different reference.
-    ($nl (t--get-reference para info) (t--get-reference other info))))
+    ($nl (t--get-reference para info) (t--get-reference other info))
+    ;; The cache is per-INFO: the same datum draws afresh in a fresh
+    ;; INFO.  (Two draws colliding is a 2**-28 chance.)
+    ($nl (t--get-reference para info) (t--get-reference para (list :foo 1)))
+    ;; The search cells are cached as (CELL . NUMBER), the shape
+    ;; `org-export-get-reference' reads; the number formats back to the
+    ;; datum's reference.  Only named elements have cells, and each
+    ;; call builds fresh ones, so look the cell up with `assoc'.
+    (let* ((named (t-get-element "#+name: x\nhello" 'paragraph))
+           (ref2 (t--get-reference named info)))
+      (dolist (cell (org-export-search-cells named))
+        (let ((entry (assoc cell (t--pget info :internal-references))))
+          ($s entry)
+          ($l (t--format-reference (cdr entry)) ref2))))))
 
 (ert-deftest t--target-reference ()
   "Tests for `org-w3ctr--target-reference'."
