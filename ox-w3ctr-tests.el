@@ -1362,13 +1362,13 @@ stubs `random' to hand back a taken number first and counts the draws."
 
 (ert-deftest t--jrpc-shutdown ()
   "Tests for `org-w3ctr--jrpc-shutdown'."
-  ;; a live connection is shut down and the slot cleared
+  ;; a live connection is shut down with cleanup, and the slot cleared
   (let ((client (t--jrpc-make "test" '("true"))) shut)
     (setf (t--jrpc--conn client) 'conn)
     (cl-letf (((symbol-function 'jsonrpc-shutdown)
-               (lambda (_conn &rest _) (setq shut t))))
-      (t--jrpc-shutdown client)
-      ($s shut)
+               (lambda (&rest args) (setq shut args))))
+      ($n (t--jrpc-shutdown client))
+      ($l shut '(conn t))
       ($q (t--jrpc--conn client) nil)))
   ;; no connection: nothing is shut down
   (let ((client (t--jrpc-make "test" '("true"))))
