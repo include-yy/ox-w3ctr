@@ -3087,12 +3087,20 @@ state INFO and returns the markup to embed in the document."
   "Normalize the delimiters of LaTeX FRAG for client-side MathJax.
 
 Inline `$...$' becomes `\\(...\\)' and display `$$...$$' becomes
-`\\[...\\]'; anything else is returned unchanged."
+`\\[...\\]'.  A FRAG that is not exactly one of those forms is
+returned unchanged, so this never signals and never drops text."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
   (cond
-   ((string-prefix-p "$$" frag) (concat "\\[" (substring frag 2 -2) "\\]"))
-   ((string-prefix-p "$" frag) (concat "\\(" (substring frag 1 -1) "\\)"))
+   ((and (string-prefix-p "$$" frag)
+         (string-suffix-p "$$" frag)
+         (>= (length frag) 4))
+    (concat "\\[" (substring frag 2 -2) "\\]"))
+   ((and (not (string-prefix-p "$$" frag))
+         (string-prefix-p "$" frag)
+         (string-suffix-p "$" frag)
+         (>= (length frag) 2))
+    (concat "\\(" (substring frag 1 -1) "\\)"))
    (t frag)))
 
 (defun t--format-latex (frag mode info)

@@ -2931,7 +2931,16 @@ the `none' marker."
   ($l (t--normalize-latex "\\(x\\)") "\\(x\\)")
   ($l (t--normalize-latex "\\[x\\]") "\\[x\\]")
   ($l (t--normalize-latex "\\begin{equation}\nx=1\n\\end{equation}")
-      "\\begin{equation}\nx=1\n\\end{equation}"))
+      "\\begin{equation}\nx=1\n\\end{equation}")
+  ;; a string that is not exactly one of the two forms is returned
+  ;; unchanged -- never signalled and never truncated (a lone $ is
+  ;; legitimate text)
+  (dolist (s '("" "$" "$$" "$x" "$$x" "$$x$" "x$" "x$$"))
+    ($l (t--normalize-latex s) s))
+  ;; idempotent on both well-formed forms
+  (dolist (s '("$x$" "$$x$$"))
+    ($l (t--normalize-latex (t--normalize-latex s))
+        (t--normalize-latex s))))
 
 (ert-deftest t--format-latex ()
   "Tests for `org-w3ctr--format-latex'."
