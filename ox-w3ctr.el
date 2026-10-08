@@ -112,6 +112,7 @@
     ;; planning `planning'                      NO-USE
     (example-block . t-example-block)           ; #+begin_example
     (export-block . t-export-block)             ; #+begin_export
+    (export-snippet . t-export-snippet)         ; @@html:something@@ (an object)
     (fixed-width . t-fixed-width)               ; ^: contents
     (horizontal-rule . t-horizontal-rule)       ; -----------
     (keyword . t-keyword)                       ; #+name: ...
@@ -127,7 +128,6 @@
     ;; inline babel calls                       NO-EXIST
     ;; macros                                   NO-EXIST
     (entity . t-entity)                         ; \alpha, \cent
-    (export-snippet . t-export-snippet)         ; @@html:something@@
     (line-break . t-line-break)                 ; \
     (target . t-target)                         ; <<target>>
     (radio-target . t-radio-target)             ; <<<contents>>>
@@ -2993,6 +2993,22 @@ content as a string, or an empty string for unsupported types."
        (t--eval-lisp export-block value 'sexp "LISP-DATA block"))
       (_ ""))))
 
+;; See (info "(org) Quoting HTML tags")
+(defun t-export-snippet (export-snippet _contents _info)
+  "Transcode an EXPORT-SNIPPET object from Org to HTML.
+
+CONTENTS and INFO are unused.  Return the snippet value as a
+string, or an empty string for unsupported backends."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (let* ((backend (org-export-snippet-backend export-snippet))
+         (value (org-element-property :value export-snippet)))
+    (pcase backend
+      ((or 'h 'html) value)
+      ('e (t--eval-lisp export-snippet value 'eval "@@e snippet"))
+      ('d (t--eval-lisp export-snippet value 'sexp "@@d snippet"))
+      (_ ""))))
+
 ;;;; Fixed Width
 
 ;; See (info "(org) Literal Examples")
@@ -3467,24 +3483,6 @@ for ENTITY (for example, `&alpha;')."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
   (org-element-property :html entity))
-
-;;;; Export Snippet
-
-;; See (info "(org)Quoting HTML tags")
-(defun t-export-snippet (export-snippet _contents _info)
-  "Transcode an EXPORT-SNIPPET object from Org to HTML.
-
-CONTENTS and INFO are unused.  Return the snippet value as a
-string, or an empty string for unsupported backends."
-  (declare (ftype (function (t t list) string))
-           (important-return-value t))
-  (let* ((backend (org-export-snippet-backend export-snippet))
-         (value (org-element-property :value export-snippet)))
-    (pcase backend
-      ((or 'h 'html) value)
-      ('e (t--eval-lisp export-snippet value 'eval "@@e snippet"))
-      ('d (t--eval-lisp export-snippet value 'sexp "@@d snippet"))
-      (_ ""))))
 
 ;;;; Line Break
 

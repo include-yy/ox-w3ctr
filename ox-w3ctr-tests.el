@@ -2761,6 +2761,30 @@ the `none' marker."
          'w3ctr t)
         '(org-w3ctr-error "EMACS-LISP block at line 1: clean")))
 
+(ert-deftest t-export-snippet ()
+  "Tests for `org-w3ctr-export-snippet'."
+  (t-check-element-values
+   #'t-export-snippet
+   '(("@@h:<span>123</span>@@" "<span>123</span>")
+     ("@@h:@@" "")
+     ("@@html:<span>123</span>@@" "<span>123</span>")
+     ("@@html:@@" "")
+     ("@@e:@@" "")
+     ("@@e:(+ 1 2)@@" "3")
+     ("@@e:'(1 2 3)@@" "")
+     ("@@d:@@" "")
+     ("@@d:(span() \"nothing\")")
+     ("@@d:(wbr)@@" "<wbr>")
+     ("@@d:(wbr())@@" "<wbr>")
+     ;; Otherwise
+     ("@@wtf::hello@@" ""))
+   t)
+  ;; Error handling: malformed Lisp signals t-error.
+  ($e!l (org-export-string-as "@@e:(broken@@" 'w3ctr t)
+        '(org-w3ctr-error "@@e snippet at line 1: End of file during parsing"))
+  ($e!l (org-export-string-as "@@d:(broken@@" 'w3ctr t)
+        '(org-w3ctr-error "@@d snippet at line 1: End of file during parsing")))
+
 ;;;; Fixed Width
 
 (ert-deftest t-fixed-width ()
@@ -3129,32 +3153,6 @@ the `none' marker."
       "&reg;" "&copy;" "$" "&Dagger;" "&Dagger;")
      ("\\frac12 \\frac14 \\frac34 \\radic \\prop \\sim"
       "&sim;" "&prop;" "&radic;" "&frac34;" "&frac14;" "&frac12;"))))
-
-;;;; Export Snippet
-
-(ert-deftest t-export-snippet ()
-  "Tests for `org-w3ctr-export-snippet'."
-  (t-check-element-values
-   #'t-export-snippet
-   '(("@@h:<span>123</span>@@" "<span>123</span>")
-     ("@@h:@@" "")
-     ("@@html:<span>123</span>@@" "<span>123</span>")
-     ("@@html:@@" "")
-     ("@@e:@@" "")
-     ("@@e:(+ 1 2)@@" "3")
-     ("@@e:'(1 2 3)@@" "")
-     ("@@d:@@" "")
-     ("@@d:(span() \"nothing\")")
-     ("@@d:(wbr)@@" "<wbr>")
-     ("@@d:(wbr())@@" "<wbr>")
-     ;; Otherwise
-     ("@@wtf::hello@@" ""))
-   t)
-  ;; Error handling: malformed Lisp signals t-error.
-  ($e!l (org-export-string-as "@@e:(broken@@" 'w3ctr t)
-        '(org-w3ctr-error "@@e snippet at line 1: End of file during parsing"))
-  ($e!l (org-export-string-as "@@d:(broken@@" 'w3ctr t)
-        '(org-w3ctr-error "@@d snippet at line 1: End of file during parsing")))
 
 ;;;; Line Break
 
