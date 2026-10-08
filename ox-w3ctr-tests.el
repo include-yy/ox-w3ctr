@@ -2510,60 +2510,39 @@ the `none' marker."
 
 (ert-deftest t--table-cell-attrs ()
   "Tests for `org-w3ctr--table-cell-attrs'."
-  (with-temp-buffer
-    (insert "| <l> | <r> |\n| a | b |\n")
-    (org-mode)
-    (let* ((info (list :html-table-align-cache nil))
-           (cells (t-parse 'table-cell)))
-      ;; Cells in order: <l>, <r>, a, b.
-      ($l (t--table-cell-attrs (nth 2 cells) info) " style=\"text-align:left\"")
-      ($l (t--table-cell-attrs (nth 3 cells) info) " style=\"text-align:right\"")))
-  ;; no cookie: the CSS decides, so no attribute
-  (with-temp-buffer
-    (insert "| a | b |\n")
-    (org-mode)
-    (let* ((info (list :html-table-align-cache nil))
-           (cell (t-parse1 'table-cell)))
-      ($l (t--table-cell-attrs cell info) ""))))
+  (cl-flet ((attrs (doc)
+              (mapcar (lambda (cell)
+                        (t--table-cell-attrs
+                         cell (list :html-table-align-cache nil)))
+                      (t-get-parsed-elements doc 'table-cell))))
+    ;; every cell carries its column's cookie alignment
+    ($l (attrs "| <l> | <r> |\n| a | b |")
+        '(" style=\"text-align:left\"" " style=\"text-align:right\""
+          " style=\"text-align:left\"" " style=\"text-align:right\""))
+    ;; no cookie: the CSS decides, so no attribute
+    ($l (attrs "| a | b |") '("" ""))))
 
 (ert-deftest t--table-first-row-data-cells ()
   "Tests for `org-w3ctr--table-first-row-data-cells'."
-  ;; Rule rows are skipped, and a special column is dropped.
-  (with-temp-buffer
-    (insert "| a | b |\n|---+---|\n| 1 | 2 |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table))
-           (row (org-element-map table 'table-row #'identity nil t)))
-      ($l (t--table-first-row-data-cells table info)
-          (org-element-contents row))))
-  (with-temp-buffer
-    (insert "| ! | a | b |\n|   | 1 | 2 |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table))
-           (row (org-element-map table 'table-row #'identity nil t)))
-      ($l (t--table-first-row-data-cells table info)
-          (cdr (org-element-contents row))))))
+  (cl-flet ((cells (doc)
+              (mapcar #'org-element-contents
+                      (t--table-first-row-data-cells
+                       (t-get-element doc 'table) nil))))
+    ($l (cells "| a | b |\n|---+---|\n| 1 | 2 |") '(("a") ("b")))
+    ;; a leading rule row is skipped
+    ($l (cells "|---+---|\n| a | b |") '(("a") ("b")))
+    ;; a special column is dropped
+    ($l (cells "| ! | a | b |\n|   | 1 | 2 |") '(("a") ("b")))))
 
 (ert-deftest t--table-column-specs ()
   "Tests for `org-w3ctr--table-column-specs'."
-  ;; Single column group
-  (with-temp-buffer
-    (insert "| a | b |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table)))
-      ($l (t--table-column-specs table info)
-          "\n<colgroup span=\"2\">")))
-  ;; Column groups from a `/'-row
-  (with-temp-buffer
-    (insert "| / | < | > | < | > |\n|   | a | b | c | d |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table)))
-      ($l (t--table-column-specs table info)
-          "\n<colgroup span=\"2\">\n<colgroup span=\"2\">"))))
+  (cl-flet ((specs (doc)
+              (t--table-column-specs (t-get-element doc 'table) nil)))
+    ;; a table without markers is one group spanning every column
+    ($l (specs "| a | b |") "\n<colgroup span=\"2\">")
+    ;; a `/' row marks the group boundaries
+    ($l (specs "| / | < | > | < | > |\n|   | a | b | c | d |")
+        "\n<colgroup span=\"2\">\n<colgroup span=\"2\">")))
 
 (ert-deftest t--table-caption ()
   "Tests for `org-w3ctr--table-caption'."
