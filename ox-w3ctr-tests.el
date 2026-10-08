@@ -604,6 +604,30 @@ the OINFO cache is off."
     (when (get-buffer "*ox-w3ctr-oinfo*")
       (kill-buffer "*ox-w3ctr-oinfo*"))))
 
+(ert-deftest t-collect-oinfo-statistics-revert ()
+  "Tests for the revert handler of `org-w3ctr-collect-oinfo-statistics'."
+  ;; The buffer-local `revert-buffer-function' rebuilds the listing
+  ;; from the live counters; a plain re-print would keep stale numbers.
+  (skip-unless t--oinfo-cache-p)
+  (unwind-protect
+      (t-test-oinfo-cache '(:a :b)
+        (dlet ((info '(:a 1 :b 2)))
+          ($l (eval '(t--pget info :a)) 1)
+          (t-collect-oinfo-statistics)
+          ;; more traffic after the listing was built
+          ($l (eval '(t--pget info :a)) 1)
+          ($l (eval '(t--pget info :a)) 1)
+          (with-current-buffer "*ox-w3ctr-oinfo*"
+            (funcall revert-buffer-function)
+            ;; the counts are fresh: :a is 3 now and comes first
+            (let* ((entries tabulated-list-entries)
+                   (count-str (aref (nth 1 (car entries)) 1)))
+              ($l (length entries) 2)
+              ($l (nth 0 (car entries)) :a)
+              ($l (get-text-property 0 'count count-str) 3)))))
+    (when (get-buffer "*ox-w3ctr-oinfo*")
+      (kill-buffer "*ox-w3ctr-oinfo*"))))
+
 (ert-deftest t--oinfo-compare-count ()
   "Tests for `org-w3ctr--oinfo-compare-count'."
   (let ((entry (lambda (n)
