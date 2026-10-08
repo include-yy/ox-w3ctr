@@ -2582,54 +2582,69 @@ the `none' marker."
 
 (ert-deftest t-table-row ()
   "Tests for `org-w3ctr-table-row'."
-  ;; Header row (first row before hrule)
-  (with-temp-buffer
-    (insert "| a | b |\n|---+---|\n| 1 | 2 |")
-    (org-mode)
-    (let* ((info (org-export-get-environment 'w3ctr))
-           (rows (t-parse 'table-row)))
-      ;; First row should have <thead>
-      ($l (t-table-row (car rows) "<th scope=\"col\">a</th><th scope=\"col\">b</th>" info)
-          "<thead>\n<tr><th scope=\"col\">a</th><th scope=\"col\">b</th>\n</tr>\n</thead>")
-      ;; Third row (after hrule) should have <tbody>
-      ($l (t-table-row (nth 2 rows) "<td>1</td><td>2</td>" info)
-          "<tbody>\n<tr><td>1</td><td>2</td>\n</tr>\n</tbody>")))
-  ;; Multi-row body: only the first row opens its group, only the last
-  ;; one closes it.
-  (with-temp-buffer
-    (insert "| a |\n|---|\n| 1 |\n| 2 |")
-    (org-mode)
-    (let* ((info (org-export-get-environment 'w3ctr))
-           (rows (t-parse 'table-row)))
-      ($l (t-table-row (nth 2 rows) "<td>1</td>" info)
-          "<tbody>\n<tr><td>1</td>\n</tr>")
-      ($l (t-table-row (nth 3 rows) "<td>2</td>" info)
-          "\n<tr><td>2</td>\n</tr>\n</tbody>")))
-  ;; Row without header
-  (with-temp-buffer
-    (insert "| a | b |")
-    (org-mode)
-    (let* ((info (org-export-get-environment 'w3ctr))
-           (row (t-parse1 'table-row)))
-      ($l (t-table-row row "<td>a</td><td>b</td>" info)
-          "<tbody>\n<tr><td>a</td><td>b</td>\n</tr>\n</tbody>"))))
+  (cl-flet ((row (doc n contents)
+              (t-table-row (nth n (t-get-parsed-elements doc 'table-row))
+                           contents nil)))
+    ;; a header row opens <thead>
+    ($l (row "| a | b |\n|---+---|\n| 1 | 2 |" 0
+             "<th scope=\"col\">a</th><th scope=\"col\">b</th>")
+        ($c "<thead>\n<tr>"
+            "<th scope=\"col\">a</th><th scope=\"col\">b</th>"
+            "\n</tr>\n</thead>"))
+    ;; a body row carries <tbody>
+    ($l (row "| a | b |\n|---+---|\n| 1 | 2 |" 2 "<td>1</td><td>2</td>")
+        "<tbody>\n<tr><td>1</td><td>2</td>\n</tr>\n</tbody>")
+    ;; multi-row body: only the first row opens its group, only the last
+    ;; one closes it
+    ($l (row "| a |\n|---|\n| 1 |\n| 2 |" 2 "<td>1</td>")
+        "<tbody>\n<tr><td>1</td>\n</tr>")
+    ($l (row "| a |\n|---|\n| 1 |\n| 2 |" 3 "<td>2</td>")
+        "\n<tr><td>2</td>\n</tr>\n</tbody>")
+    ;; without a header the body still opens and closes
+    ($l (row "| a | b |" 0 "<td>a</td><td>b</td>")
+        "<tbody>\n<tr><td>a</td><td>b</td>\n</tr>\n</tbody>")))
 
 (ert-deftest t-table ()
   "Tests for `org-w3ctr-table'."
   (t-check-element-values
    #'t-table
-   '(("| a | b |"
-      "<table>\n\n\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>\n</table>")
+   `(;; no caption, one column group
+     ("| a | b |"
+      ,($c "<table>\n\n\n<colgroup span=\"2\">"
+           "\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>"
+           "\n</table>"))
+     ;; a rule makes the first row a header
      ("| a | b |\n|---+---|\n| 1 | 2 |"
-      "<table>\n\n\n<colgroup span=\"2\">\n<thead>\n<tr>\n<th scope=\"col\">a</th>\n<th scope=\"col\">b</th>\n</tr>\n</thead>\n<tbody>\n<tr>\n<td>1</td>\n<td>2</td>\n</tr>\n</tbody>\n</table>")
+      ,($c "<table>\n\n\n<colgroup span=\"2\">"
+           "\n<thead>\n<tr>"
+           "\n<th scope=\"col\">a</th>\n<th scope=\"col\">b</th>"
+           "\n</tr>\n</thead>"
+           "\n<tbody>\n<tr>\n<td>1</td>\n<td>2</td>\n</tr>\n</tbody>"
+           "\n</table>"))
+     ;; a name becomes the id; the caption comes first
      ("#+name: t\n#+caption: Cap\n| a |"
-      "<table id=\"t\">\n<caption>Cap</caption>\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
+      ,($c "<table id=\"t\">\n<caption>Cap</caption>"
+           "\n\n<colgroup span=\"1\">"
+           "\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>"
+           "\n</table>"))
+     ;; alignment cookies style the data cells
      ("| <l> | <r> |\n| a | b |"
-      "<table>\n\n\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td style=\"text-align:left\">a</td>\n<td style=\"text-align:right\">b</td>\n</tr>\n</tbody>\n</table>")
+      ,($c "<table>\n\n\n<colgroup span=\"2\">"
+           "\n<tbody>\n<tr>"
+           "\n<td style=\"text-align:left\">a</td>"
+           "\n<td style=\"text-align:right\">b</td>"
+           "\n</tr>\n</tbody>\n</table>"))
+     ;; attr_html is honoured
      ("#+attr_html: :class data\n| a |"
-      "<table class=\"data\">\n\n\n<colgroup span=\"1\">\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>\n</table>")
+      ,($c "<table class=\"data\">\n\n\n<colgroup span=\"1\">"
+           "\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>"
+           "\n</table>"))
+     ;; a `/' row makes two column groups
      ("| / | < | > | < | > |\n|   | a | b | c | d |"
-      "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>"))
+      ,($c "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">"
+           "\n<tbody>\n<tr>"
+           "\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>"
+           "\n</tr>\n</tbody>\n</table>")))
    nil '(:html-prefer-user-labels t)))
 
 ;;; Lesser elements
