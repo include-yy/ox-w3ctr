@@ -2150,8 +2150,6 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--special-block-spec ()
   "Tests for `org-w3ctr--special-block-spec'."
-  ;; Malformed registry entries signal `org-w3ctr-error'.
-  ;; old string-list format: signals
   ($e! (org-export-string-as
         "#+begin_x-old\nhi\n#+end_x-old" 'w3ctr t
         '(:html-special-block-custom-elements ("x-old"))))
@@ -2172,14 +2170,12 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--custom-element-name-p ()
   "Tests for `org-w3ctr--custom-element-name-p'."
-  ;; Uppercase names are rejected even when `case-fold-search' is on.
   (dolist (s '("my-card" "x-" "a-b-c" "a1-b.c_d"))
     ($s (t--custom-element-name-p s)))
   (let ((case-fold-search t))
-    (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""))
-      ($n (t--custom-element-name-p s))))
-  ;; the spec also allows non-ASCII letters; this back-end rejects them
-  ($n (t--custom-element-name-p "é-card")))
+    (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""
+                 "é-card"))
+      ($n (t--custom-element-name-p s)))))
 
 (ert-deftest t--special-block-custom-template ()
   "Tests for the :template key of custom elements."

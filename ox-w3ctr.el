@@ -2595,8 +2595,12 @@ so `car' retrieves the plist."
       (cons (cdr entry) (car entry)))))
 
 (defconst t--custom-element-name-regexp
-  (rx string-start (any "a-z") (* (any "a-z0-9._-"))
-      "-" (* (any "a-z0-9._-")) string-end)
+  (rx string-start
+      (any "a-z")
+      (* (any "a-z0-9._-"))
+      "-"
+      (* (any "a-z0-9._-"))
+      string-end)
   "Regexp matching a valid custom element name.
 See https://html.spec.whatwg.org/#valid-custom-element-name; the
 non-ASCII characters it also allows are not accepted here.  Match it
