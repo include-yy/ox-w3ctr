@@ -2070,6 +2070,8 @@ int a = 1;</code></p>\n</details>")
      ("- x :: y" "<dl>\n<dt>x</dt><dd>y</dd>\n</dl>")
      ("#+name: test\n#+attr__: (data-test \"a joke\")\n- x"
       "<ul id=\"test\" data-test=\"a joke\">\n<li>x</li>\n</ul>")
+     ("#+attr_html: :class foo\n- x"
+      "<ul class=\"foo\">\n<li>x</li>\n</ul>")
      ("1. 123\n   - 2 3 4"
       "<ol>\n<li>123\n<ul>\n<li>2 3 4</li>\n</ul></li>\n</ol>"
       "<ul>\n<li>2 3 4</li>\n</ul>"))
@@ -2093,9 +2095,17 @@ int a = 1;</code></p>\n</details>")
       "<blockquote>\n<p>123</p>\n</blockquote>")
      ("#+attr__: [test]\n#+BEGIN_QUOTE\n456\n#+END_QUOTE"
       "<blockquote class=\"test\">\n<p>456</p>\n</blockquote>")
+     ("#+attr_html: :class test\n#+begin_quote\n456\n#+end_quote"
+      "<blockquote class=\"test\">\n<p>456</p>\n</blockquote>")
      ("#+begin_quote\n\n\n#+end_quote" "<blockquote>\n\n</blockquote>")
      ("#+begin_quote\n\n\n\n\n\n\n\n\n\n#+end_quote"
-      "<blockquote>\n\n</blockquote>"))))
+      "<blockquote>\n\n</blockquote>")))
+  ;; a name becomes an id when `:html-prefer-user-labels' is on
+  (t-check-element-values
+   #'t-quote-block
+   '(("#+name: quote\n#+begin_quote\n456\n#+end_quote"
+      "<blockquote id=\"quote\">\n<p>456</p>\n</blockquote>"))
+   nil '(:html-prefer-user-labels t)))
 
 ;;;; Special Block
 
