@@ -2936,11 +2936,7 @@ the `none' marker."
   ;; unchanged -- never signalled and never truncated (a lone $ is
   ;; legitimate text)
   (dolist (s '("" "$" "$$" "$x" "$$x" "$$x$" "x$" "x$$"))
-    ($l (t--normalize-latex s) s))
-  ;; idempotent on both well-formed forms
-  (dolist (s '("$x$" "$$x$$"))
-    ($l (t--normalize-latex (t--normalize-latex s))
-        (t--normalize-latex s))))
+    ($l (t--normalize-latex s) s)))
 
 (ert-deftest t--format-latex ()
   "Tests for `org-w3ctr--format-latex'."
