@@ -2170,10 +2170,10 @@ are ox-html's behavior, kept for compatibility."
     (t-check-element-values
      #'t-special-block
      `(("#+begin_x-tpl\nhello\n#+end_x-tpl"
-        ,(concat "<x-tpl>\n" tpl "\n<p>hello</p>\n</x-tpl>"))
+        ,($c "<x-tpl>\n" tpl "\n<p>hello</p>\n</x-tpl>"))
        ;; empty block: the template alone
        ("#+begin_x-tpl\n#+end_x-tpl"
-        ,(concat "<x-tpl>\n" tpl "\n</x-tpl>"))
+        ,($c "<x-tpl>\n" tpl "\n</x-tpl>"))
        ;; entries without :template are unchanged
        ("#+begin_x-plain\nhello\n#+end_x-plain"
         "<x-plain>\n<p>hello</p>\n</x-plain>"))
@@ -3558,8 +3558,7 @@ Rule rows are skipped, and a special column is dropped."
   "Tests for `org-w3ctr--format-timestamp-raw-1'."
   (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (g (x y info) (t--format-timestamp-raw-1 (f x) y info))
-             (p (w) `( :html-timestamp-wrapper ,w))
-             (c (&rest args) (apply #'concat args)))
+             (p (w) `( :html-timestamp-wrapper ,w)))
     ($e!l (g "[2000-01-01]" "[0000-00-00]"(p 'wtf))
           '(org-w3ctr-error "Unknown timestamp wrapper: wtf"))
     ;; test none
@@ -5374,17 +5373,23 @@ Rule rows are skipped, and a special column is dropped."
             "This work by test is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>")
         (setq info (plist-put info :html-use-cc-badges t))
         ($l (test info)
-            (concat "This work by test is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>"
-                    " " (t-cc-badges-default-format-function 'cc-by-4.0 nil)))
+            ($c "This work by test is licensed under "
+                "<a href=\"https://creativecommons.org/licenses/by/4.0/\">"
+                "CC BY 4.0</a>"
+                " " (t-cc-badges-default-format-function 'cc-by-4.0 nil)))
         ;; The public-domain tools get their own sentences.
         (setq info (plist-put info :html-license 'cc0))
         ($l (test info)
-            (concat "This work by test is dedicated to the public domain under <a href=\"https://creativecommons.org/publicdomain/zero/1.0/\">CC0 1.0 Universal</a>"
-                    " " (t-cc-badges-default-format-function 'cc0 nil)))
+            ($c "This work by test is dedicated to the public domain under "
+                "<a href=\"https://creativecommons.org/publicdomain/zero/1.0/\">"
+                "CC0 1.0 Universal</a>"
+                " " (t-cc-badges-default-format-function 'cc0 nil)))
         (setq info (plist-put info :html-license 'public-domain-mark))
         ($l (test info)
-            (concat "This work by test is marked as being in the public domain (<a href=\"https://creativecommons.org/publicdomain/mark/1.0/\">Public Domain Mark 1.0</a>)"
-                    " " (t-cc-badges-default-format-function 'public-domain-mark nil)))
+            ($c "This work by test is marked as being in the public domain ("
+                "<a href=\"https://creativecommons.org/publicdomain/mark/1.0/\">"
+                "Public Domain Mark 1.0</a>)"
+                " " (t-cc-badges-default-format-function 'public-domain-mark nil)))
         ;; An unknown license is an error.
         (setq info (plist-put info :html-license 'nope))
         ($q (car (should-error (test info))) 'org-w3ctr-error)))))
@@ -5500,9 +5505,9 @@ Rule rows are skipped, and a special column is dropped."
   ;; fills the default: the back-to-top arrow.
   (t-check-element-values
    #'t--build-pre/postamble
-   `(("" ,(concat "<p role=\"navigation\" id=\"back-to-top\">"
-                  "<a href=\"#title\"><abbr title=\"Back to Top\">↑"
-                  "</abbr></a></p>\n") ""))
+   `(("" ,($c "<p role=\"navigation\" id=\"back-to-top\">"
+              "<a href=\"#title\"><abbr title=\"Back to Top\">↑"
+              "</abbr></a></p>\n") ""))
    nil '(:html-preamble nil)))
 
 (ert-deftest t--get-info-date ()
@@ -5953,22 +5958,22 @@ that changes them fails here instead of corrupting a TOC silently."
                                    (lambda (_i) "NAV")
                                    :html-include-fixup-js t
                                    :html-fixup-js "JS();"))
-        (concat "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\nNAV"
-                "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
-                "POSTAMBLE"
-                "JS();\n</body>\n</html>"))
+        ($c "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\nNAV"
+            "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
+            "POSTAMBLE"
+            "JS();\n</body>\n</html>"))
     ;; A nil navbar function suppresses the navbar; a document without
     ;; its own fixup script falls back to the shipped default.
     ($l (t-template-1 "BODY" '(:language "en" :html-include-fixup-js t))
-        (concat "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\n"
-                "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
-                "POSTAMBLE"
-                "DEFAULT-JS\n</body>\n</html>"))
+        ($c "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\n"
+            "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
+            "POSTAMBLE"
+            "DEFAULT-JS\n</body>\n</html>"))
     ;; The switch off drops the script.
     ($l (t-template-1 "BODY" '(:language "en" :html-include-fixup-js nil))
-        (concat "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\n"
-                "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
-                "POSTAMBLE</body>\n</html>"))))
+        ($c "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\n"
+            "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
+            "POSTAMBLE</body>\n</html>"))))
 
 (ert-deftest t-template ()
   "Tests for `org-w3ctr-template'."
