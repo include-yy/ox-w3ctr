@@ -2938,6 +2938,21 @@ the `none' marker."
   (dolist (s '("" "$" "$$" "$x" "$$x" "$$x$" "x$" "x$$"))
     ($l (t--normalize-latex s) s)))
 
+(ert-deftest t--latex-rpc ()
+  "Tests for `org-w3ctr--latex-rpc'."
+  ;; normalize the delimiters, call the client, and return the result
+  (let (got)
+    (cl-letf (((symbol-function 't--jcall)
+               (lambda (client method params)
+                 (setq got (list client method params))
+                 "<M>")))
+      ($l (t--latex-rpc 'tex2mml "$x$") "<M>")
+      ($l got (list t--jstools 'tex2mml '(:fragment "\\(x\\)")))))
+  ;; a non-string result signals
+  (cl-letf (((symbol-function 't--jcall) (lambda (&rest _) 42)))
+    ($e!l (t--latex-rpc 'tex2svg "$x$")
+          '(org-w3ctr-error "RPC method tex2svg returned a non-string: 42"))))
+
 (ert-deftest t--format-latex ()
   "Tests for `org-w3ctr--format-latex'."
   ;; nil and verbatim return the fragment unchanged

@@ -3104,8 +3104,22 @@ returned unchanged, so this never signals and never drops text."
     (concat "\\(" (substring frag 1 -1) "\\)"))
    (t frag)))
 
+(defun t--latex-rpc (method frag)
+  "Convert LaTeX FRAG through the jstools RPC METHOD.
+
+METHOD is one of `org-w3ctr--jstools-methods'.  Normalize FRAG's
+delimiters, call the RPC, and return the string result; signal
+`org-w3ctr-error' when the result is not a string."
+  (declare (ftype (function (symbol string) string))
+           (important-return-value t))
+  (let ((out (t--jcall t--jstools method
+                       (list :fragment (t--normalize-latex frag)))))
+    (unless (stringp out)
+      (t-error "RPC method %s returned a non-string: %S" method out))
+    out))
+
 (defun t--format-latex (frag mode info)
-  "Return the HTML for LaTeX fragment FRAG under MODE.
+  "Return the exported string for LaTeX fragment FRAG under MODE.
 
 MODE is the value of `:with-latex': a nil MODE or \\='verbatim
 returns FRAG unchanged, `mathjax' (or its legacy alias t)
@@ -3121,10 +3135,8 @@ any other MODE, or on a custom result that is neither."
   (pcase mode
     ((or `nil `verbatim) frag)
     ((or `mathjax `t) (t--normalize-latex frag))
-    (`mathml-by-mathjax
-     (t--jcall t--jstools 'tex2mml (list :fragment (t--normalize-latex frag))))
-    (`svg-by-mathjax
-     (t--jcall t--jstools 'tex2svg (list :fragment (t--normalize-latex frag))))
+    (`mathml-by-mathjax (t--latex-rpc 'tex2mml frag))
+    (`svg-by-mathjax (t--latex-rpc 'tex2svg frag))
     (`custom
      (let ((out (funcall (or (t--pget info :html-math-custom-render-function)
                              #'t-math-custom-default-render-function)
@@ -3132,7 +3144,7 @@ any other MODE, or on a custom result that is neither."
        (unless (string-or-null-p out)
          (t-error "Custom LaTeX renderer returned a non-string: %S" out))
        out))
-    (o (t-error "Unknown LaTeX mode: %s" o))))
+    (other (t-error "Unknown LaTeX mode: %s" other))))
 
 (defun t-latex-fragment (latex-fragment _contents info)
   "Transcode a LATEX-FRAGMENT object from Org to HTML.
