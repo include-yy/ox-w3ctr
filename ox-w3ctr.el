@@ -3121,15 +3121,13 @@ delimiters, call the RPC, and return the string result; signal
 (defun t--format-latex (frag mode info)
   "Return the exported string for LaTeX fragment FRAG under MODE.
 
-MODE is the value of `:with-latex': a nil MODE or \\='verbatim
-returns FRAG unchanged, `mathjax' (or its legacy alias t)
-normalizes the delimiters for client-side MathJax,
-`mathml-by-mathjax' and `svg-by-mathjax' convert through the
-jstools MathJax RPC, and \\='custom calls
-`:html-math-custom-render-function' on FRAG and INFO, defaulting to
-`org-w3ctr-math-custom-default-render-function' when it is nil; the
-custom result may be a string or nil.  Signal `org-w3ctr-error' on
-any other MODE, or on a custom result that is neither."
+MODE is the value of `:with-latex': nil and \\='verbatim return FRAG
+unchanged; `mathjax' (or t) normalizes its delimiters;
+`mathml-by-mathjax' and `svg-by-mathjax' convert it through the
+jstools RPC; \\='custom calls `:html-math-custom-render-function'
+on FRAG and INFO, and the result may be a string or nil.  An
+unknown MODE or a custom result that is neither signals
+`org-w3ctr-error'."
   (declare (ftype (function (string t list) (or null string)))
            (important-return-value t))
   (pcase mode
