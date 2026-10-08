@@ -2012,6 +2012,7 @@ int a = 1;</code></p>\n</details>")
   (t-check-element-values
    #'t-item
    '(("- 123 :: tag" "<dt>123</dt><dd>tag</dd>")
+     ("- *bold* tag :: x" "<dt><b>bold</b> tag</dt><dd>x</dd>")
      ("- hello :: test \n 123" "<dt>hello</dt><dd>test \n123</dd>")
      ("- hello :: \n\n123" "<dt>hello</dt><dd></dd>")
      ("- hello :: \n\n 123" "<dt>hello</dt><dd>123</dd>")
@@ -2055,7 +2056,8 @@ int a = 1;</code></p>\n</details>")
      ("1. [@1] [ ] 123" "<li value=\"1\">&#x2610; 123</li>")
      ("- [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>"))
    nil '(:html-checkbox-type unicode))
-  ($e! (t-item nil "123" nil)))
+  ($e!l (t-item nil "123" nil)
+        '(org-w3ctr-error "Unknown list item type: nil")))
 
 ;;;; Plain List
 
@@ -2076,7 +2078,8 @@ int a = 1;</code></p>\n</details>")
   ($l (t-plain-list (t-get-element "- 123" 'plain-list)
                     nil nil)
       "<ul>\n</ul>")
-  ($e! (t-plain-list nil "123" nil)))
+  ($e!l (t-plain-list nil "123" nil)
+        '(org-w3ctr-error "Unknown HTML list type: nil")))
 
 ;;;; Quote Block
 
