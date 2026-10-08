@@ -2942,19 +2942,19 @@ attributes, the user controls all attributes on the <div>."
 
 ;;;; Export Block
 
-(defun t--eval-lisp (element value type default context)
+(defun t--eval-lisp (element value type context)
   "Read VALUE as Lisp and return the result as a string.
 
 TYPE is \\='eval to read, eval, and convert via `org-w3ctr--2str',
-or \\='sexp to read and convert via `org-w3ctr--sexp2html'.  When
-VALUE is empty or whitespace-only, DEFAULT is used instead.
-Signal `org-w3ctr-error' with the line number from ELEMENT on
-read or eval failure; CONTEXT labels the error message."
-  (declare (ftype (function (t string symbol string string) string))
+or \\='sexp to read and convert via `org-w3ctr--sexp2html'.  An
+empty or whitespace-only VALUE yields \"\".  Signal
+`org-w3ctr-error' with the line number from ELEMENT on read or
+eval failure; CONTEXT labels the error message."
+  (declare (ftype (function (t string symbol string) string))
            (important-return-value t))
   (if (not (t--nw-p value)) ""
     (let ((proc (pcase type ('eval #'eval) ('sexp nil)))
-          (s (or (t--nw-p value) default))
+          (s (t--nw-p value))
           (line (line-number-at-pos
                  (org-element-property :begin element))))
       (or (handler-bind
@@ -2988,11 +2988,9 @@ content as a string, or an empty string for unsupported types."
       ((or "JS" "JAVASCRIPT")
        (format "<script>%s</script>" (t--prepend-newline value)))
       ((or "EMACS-LISP" "ELISP")
-       (t--eval-lisp export-block value 'eval "\"\""
-                     "EMACS-LISP block"))
+       (t--eval-lisp export-block value 'eval "EMACS-LISP block"))
       ("LISP-DATA"
-       (t--eval-lisp export-block value 'sexp "()"
-                     "LISP-DATA block"))
+       (t--eval-lisp export-block value 'sexp "LISP-DATA block"))
       (_ ""))))
 
 ;;;; Fixed Width
@@ -3037,8 +3035,8 @@ value as a string, or nil for unsupported keywords."
         (value (org-element-property :value keyword)))
     (pcase key
       ((or "H" "HTML") value)
-      ("E" (t--eval-lisp keyword value 'eval "\"\"" "#+E keyword"))
-      ("D" (t--eval-lisp keyword value 'sexp "()" "#+D keyword"))
+      ("E" (t--eval-lisp keyword value 'eval "#+E keyword"))
+      ("D" (t--eval-lisp keyword value 'sexp "#+D keyword"))
       ("TOC" (t--keyword-toc keyword value info))
       (_ nil))))
 
@@ -3467,10 +3465,8 @@ string, or an empty string for unsupported backends."
          (value (org-element-property :value export-snippet)))
     (pcase backend
       ((or 'h 'html) value)
-      ('e (t--eval-lisp export-snippet value 'eval "\"\""
-                        "@@e snippet"))
-      ('d (t--eval-lisp export-snippet value 'sexp "()"
-                        "@@d snippet"))
+      ('e (t--eval-lisp export-snippet value 'eval "@@e snippet"))
+      ('d (t--eval-lisp export-snippet value 'sexp "@@d snippet"))
       (_ ""))))
 
 ;;;; Line Break
