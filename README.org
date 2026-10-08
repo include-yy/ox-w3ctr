@@ -149,3 +149,13 @@ Explicitly out of scope for now.
   customization variables for well-formedness.  Options are trusted as
   given; the back-end verifies explicit markup only (attributes, block
   parameters), where malformed input fails loudly.  Not now.
+- *Own export framework: streaming renderer / half-parser.*  Replace
+  =org-export-data='s bottom-up string building and =org-element=
+  parsing with a single-pass, head-to-tail renderer over a partial
+  parser.  This is where the ~85% upstream cost lives (measured:
+  ~31% string building, ~25% parsing, ~11% broken-link
+  =condition-case=), but it means dropping the Org export contract --
+  filters, =:exported-data= memoization, string-returning
+  transcoders, re-entrant call sites -- not optimising
+  =org-export-data=.  Ceiling ~4x on the corpus, ~0.1s per document:
+  a design statement, not a speedup.  Not now.
