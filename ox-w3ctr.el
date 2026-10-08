@@ -853,7 +853,8 @@ This can be either:
 
 The value specifies the rendering method:
 - `verbatim'         : Keep raw fragment
-- `mathjax'          : Render math using MathJax (client-side)
+- `mathjax', t       : Render math using MathJax (client-side); a bare
+                       t is the legacy alias
 - `mathml-by-mathjax': Convert to MathML markup using MathJax
 - `svg-by-mathjax'   : Convert to inline SVG using MathJax
 - `custom'           : Use custom option and function"
@@ -3098,22 +3099,30 @@ Inline `$...$' becomes `\\(...\\)' and display `$$...$$' becomes
   "Return the HTML for LaTeX fragment FRAG under MODE.
 
 MODE is the value of `:with-latex': a nil MODE or \\='verbatim
-returns FRAG unchanged, `mathjax' normalizes the delimiters for
-client-side MathJax, `mathml-by-mathjax' and `svg-by-mathjax'
-convert through the jstools MathJax RPC, and \\='custom calls
-`:html-math-custom-render-function' on FRAG and INFO.  Signal
-`org-w3ctr-error' on any other MODE."
-  (declare (ftype (function (string t list) string))
+returns FRAG unchanged, `mathjax' (or its legacy alias t)
+normalizes the delimiters for client-side MathJax,
+`mathml-by-mathjax' and `svg-by-mathjax' convert through the
+jstools MathJax RPC, and \\='custom calls
+`:html-math-custom-render-function' on FRAG and INFO, defaulting to
+`org-w3ctr-math-custom-default-render-function' when it is nil; the
+custom result may be a string or nil.  Signal `org-w3ctr-error' on
+any other MODE, or on a custom result that is neither."
+  (declare (ftype (function (string t list) (or null string)))
            (important-return-value t))
   (pcase mode
     ((or `nil `verbatim) frag)
-    (`mathjax (t--normalize-latex frag))
+    ((or `mathjax `t) (t--normalize-latex frag))
     (`mathml-by-mathjax
      (t--jcall t--jstools 'tex2mml (list :fragment (t--normalize-latex frag))))
     (`svg-by-mathjax
      (t--jcall t--jstools 'tex2svg (list :fragment (t--normalize-latex frag))))
     (`custom
-     (funcall (t--pget info :html-math-custom-render-function) frag info))
+     (let ((out (funcall (or (t--pget info :html-math-custom-render-function)
+                             #'t-math-custom-default-render-function)
+                         frag info)))
+       (unless (string-or-null-p out)
+         (t-error "Custom LaTeX renderer returned a non-string: %S" out))
+       out))
     (o (t-error "Unknown LaTeX mode: %s" o))))
 
 (defun t-latex-fragment (latex-fragment _contents info)
@@ -3121,8 +3130,9 @@ convert through the jstools MathJax RPC, and \\='custom calls
 
 CONTENTS is nil.  INFO is the info plist.  Return the fragment
 value formatted for the `:with-latex' mode (see
-`org-w3ctr--format-latex')."
-  (declare (ftype (function (t t list) string))
+`org-w3ctr--format-latex'), or nil when the custom renderer returns
+nil."
+  (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex
    (org-element-property :value latex-fragment)
@@ -3133,8 +3143,9 @@ value formatted for the `:with-latex' mode (see
 
 CONTENTS is nil.  INFO is the info plist.  Return the environment
 value, with common indentation removed, formatted for the
-`:with-latex' mode (see `org-w3ctr--format-latex')."
-  (declare (ftype (function (t t list) string))
+`:with-latex' mode (see `org-w3ctr--format-latex'), or nil when the
+custom renderer returns nil."
+  (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex
    (org-remove-indentation (org-element-property :value latex-environment))
@@ -4258,10 +4269,13 @@ The label lives inside the LaTeX, so client-side MathJax resolves
 the reference.  INFO is the export state."
   (declare (ftype (function (t list) string))
            (important-return-value t))
-  ;; FIXME: LaTeX handling is weak here.  This just emits the raw
-  ;; `:html-equation-reference-format' (default "\\eqref{%s}") and
-  ;; trusts MathJax to resolve it; nothing ensures the environment
-  ;; actually carries a matching \label.
+  ;; FIXME: Equation references are unsupported: the back-end does not
+  ;; inject a matching \label, so the \eqref emitted here dangles under
+  ;; MathJax.  Decision: drop ref/label support; remove this function and
+  ;; the `:html-equation-reference-format' path in the Link pass.  A link
+  ;; to an equation should then fall through to `org-w3ctr--link-target'
+  ;; and require the equation to be wrapped in a named block, which
+  ;; carries the id.
   (format (t--pget info :html-equation-reference-format)
           (t--reference destination info)))
 
@@ -5136,9 +5150,6 @@ clear the cache.  This forces the exporter to re-read the file."
 
 ;;;; Math config
 
-;; FIXME: Consider adding a `mathml-by-mathjax' case to
-;; `org-w3ctr-math-head-default-function', which today returns "" for
-;; it while `svg-by-mathjax' gets its display-math style.
 ;; Options:
 ;; - :with-latex (`org-w3ctr-with-latex')
 ;; - :html-mathjax-config (`org-w3ctr-mathjax-config')
@@ -5151,16 +5162,25 @@ clear the cache.  This forces the exporter to re-read the file."
 "
   "Style for display math produced by `svg-by-mathjax'.")
 
+(defconst t-mathml-style "\
+<style>
+math[display=\"block\"] { display: block; text-align: center; margin: 1em 0; }
+</style>
+"
+  "Style for display math produced by `mathml-by-mathjax'.")
+
 (defun t-math-head-default-function (info)
   "Return the math setup for the <head>, by default.
 
 INFO is the info plist.  Return the MathJax configuration for
-`mathjax' mode, the display-math style for `svg-by-mathjax' mode, or an
-empty string otherwise."
+`mathjax' mode (or its legacy alias t), the display-math style for
+`mathml-by-mathjax' and `svg-by-mathjax' modes, or an empty string
+otherwise."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (pcase (t--pget info :with-latex)
-    (`mathjax (t--pget info :html-mathjax-config))
+    ((or `mathjax `t) (t--pget info :html-mathjax-config))
+    (`mathml-by-mathjax t-mathml-style)
     (`svg-by-mathjax t-svg-math-style)
     (_ "")))
 

@@ -2938,12 +2938,22 @@ the `none' marker."
   ;; nil and verbatim return the fragment unchanged
   ($l (t--format-latex "$x$" nil nil) "$x$")
   ($l (t--format-latex "$x$" 'verbatim nil) "$x$")
-  ;; mathjax normalizes the delimiters for client-side MathJax
+  ;; mathjax normalizes the delimiters for client-side MathJax, and the
+  ;; legacy t alias behaves the same
   ($l (t--format-latex "$x$" 'mathjax nil) "\\(x\\)")
+  ($l (t--format-latex "$x$" t nil) "\\(x\\)")
   ;; custom calls the render function on the fragment and INFO
   (let ((info '(:html-math-custom-render-function
                 (lambda (f _i) (format "<M>%s</M>" f)))))
     ($l (t--format-latex "$x$" 'custom info) "<M>$x$</M>"))
+  ;; a custom nil result is kept, a nil option falls back to the default,
+  ;; and any other result type signals
+  (let ((info '(:html-math-custom-render-function (lambda (_f _i) nil))))
+    ($l (t--format-latex "$x$" 'custom info) nil))
+  ($l (t--format-latex "$x$" 'custom nil) "$x$")
+  (let ((info '(:html-math-custom-render-function (lambda (_f _i) 42))))
+    ($e!l (t--format-latex "$x$" 'custom info)
+          '(org-w3ctr-error "Custom LaTeX renderer returned a non-string: 42")))
   ;; the RPC modes call the jstools MathJax helpers with the
   ;; normalized fragment
   (cl-flet ((rpc (mode)
@@ -2974,7 +2984,12 @@ the `none' marker."
   (t-check-element-values
    #'t-latex-fragment
    '(("$x^2$"))
-   nil '(:with-latex nil)))
+   nil '(:with-latex nil))
+  ;; the legacy t alias renders like mathjax end to end
+  (t-check-element-values
+   #'t-latex-fragment
+   '(("$x^2$" "\\(x^2\\)"))
+   nil '(:with-latex t)))
 
 (ert-deftest t-latex-environment ()
   "Tests for `org-w3ctr-latex-environment'."
@@ -5061,11 +5076,16 @@ the `none' marker."
   "Tests for `org-w3ctr-math-head-default-function'."
   ($l (t-math-head-default-function '(:with-latex nil)) "")
   ($l (t-math-head-default-function '(:with-latex verbatim)) "")
-  ($l (t-math-head-default-function '(:with-latex mathml-by-mathjax)) "")
+  ($l (t-math-head-default-function '(:with-latex mathml-by-mathjax))
+      t-mathml-style)
   ($l (t-math-head-default-function '(:with-latex svg-by-mathjax))
       t-svg-math-style)
   ($l (t-math-head-default-function
        '(:with-latex mathjax :html-mathjax-config "JX"))
+      "JX")
+  ;; the legacy t alias gets the MathJax config like mathjax
+  ($l (t-math-head-default-function
+       '(:with-latex t :html-mathjax-config "JX"))
       "JX"))
 
 (ert-deftest t--build-math-config ()
