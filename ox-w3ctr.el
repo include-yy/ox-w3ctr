@@ -2998,16 +2998,17 @@ content as a string, or an empty string for unsupported types."
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
 
-CONTENTS and INFO are unused.  Return the snippet value as a
-string, or an empty string for unsupported backends."
+CONTENTS and INFO are unused.  The backend name is matched
+without regard to case.  Return the snippet value as a string, or
+an empty string for unsupported backends."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
          (value (org-element-property :value export-snippet)))
-    (pcase backend
-      ((or 'h 'html) value)
-      ('e (t--eval-lisp export-snippet value 'eval "@@e snippet"))
-      ('d (t--eval-lisp export-snippet value 'sexp "@@d snippet"))
+    (pcase (downcase (symbol-name backend))
+      ((or "h" "html") value)
+      ("e" (t--eval-lisp export-snippet value 'eval "@@e snippet"))
+      ("d" (t--eval-lisp export-snippet value 'sexp "@@d snippet"))
       (_ ""))))
 
 ;;;; Fixed Width

@@ -2821,6 +2821,10 @@ the `none' marker."
      ("@@d:(span() \"nothing\")")
      ("@@d:(wbr)@@" "<wbr>")
      ("@@d:(wbr())@@" "<wbr>")
+     ;; the backend name is case-insensitive
+     ("@@HTML:<span>123</span>@@" "<span>123</span>")
+     ("@@E:(+ 1 2)@@" "3")
+     ("@@D:(wbr)@@" "<wbr>")
      ;; Otherwise
      ("@@wtf::hello@@" ""))
    t)
