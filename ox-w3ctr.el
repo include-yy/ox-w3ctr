@@ -3052,11 +3052,13 @@ CONTENTS is nil.  INFO is the info plist.  Return the formatted
   "Transcode a KEYWORD element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the keyword
-value as a string, or nil for unsupported keywords."
+value as a string, or nil for unsupported keywords.  The values
+of the H and HTML keywords are raw markup and are output
+unchanged."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (let ((key (org-element-property :key keyword))
-        (value (org-element-property :value keyword)))
+        (value (or (org-element-property :value keyword) "")))
     (pcase key
       ((or "H" "HTML") value)
       ("E" (t--eval-lisp keyword value 'eval "#+E keyword"))

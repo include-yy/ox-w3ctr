@@ -2894,6 +2894,8 @@ the `none' marker."
      ("#+html: <p>123</p>" "<p>123</p>")
      ("#+html: <a href=\"https://example.com\">Example</a>"
       "<a href=\"https://example.com\">Example</a>")
+     ;; the parser uppercases the key; uppercase input works alike
+     ("#+HTML: <b>x</b>" "<b>x</b>")
      ;; E
      ("#+e: " "")
      ("#+e: (concat \"1\" nil \"2\")" "12")
