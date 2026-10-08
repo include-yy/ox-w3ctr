@@ -2773,6 +2773,8 @@ the `none' marker."
          'w3ctr t)
         '(org-w3ctr-error "EMACS-LISP block at line 1: clean")))
 
+;;;; Export Snippet
+
 (ert-deftest t-export-snippet ()
   "Tests for `org-w3ctr-export-snippet'."
   (t-check-element-values

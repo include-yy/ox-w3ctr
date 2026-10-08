@@ -2993,6 +2993,8 @@ content as a string, or an empty string for unsupported types."
        (t--eval-lisp export-block value 'sexp "LISP-DATA block"))
       (_ ""))))
 
+;;;; Export Snippet
+
 ;; See (info "(org) Quoting HTML tags")
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
