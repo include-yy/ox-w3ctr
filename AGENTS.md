@@ -232,8 +232,8 @@ pending.
 
 The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
-source.  Four remain, in source order: LaTeX, Engrave-faces
-subset, Source block, Link.  Take them in source
+source.  Three remain, in source order: Engrave-faces subset,
+Source block, Link.  Take them in source
 order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass — docstring,
 `declare`, `important-return-value`/`pure`, helper use, tests — and
 remove the marker when the section is done.  What a pass turns up goes to
@@ -385,8 +385,8 @@ same session.  Larger or planned work is in the =Roadmap= section of
   `info`; a differently named INFO plist would false-fail.  Loosen to
   `[^ \t\n()]+` if that ever changes.
 
-- **checkdoc leftovers outside the REFINE passes.**  14 of the 17
-  remaining warnings sit in `REFINE:` sections (LaTeX 3, Source block 1,
+- **checkdoc leftovers outside the REFINE passes.**  11 of the 14
+  remaining warnings sit in `REFINE:` sections (Source block 1,
   Link 10) and their passes clear them.  Three have no owner:
   `t-creator-string`'s docstring first line is not a complete sentence
   (it ends at the `%c` placeholder), and the `t-export-as-html` /
@@ -456,3 +456,18 @@ same session.  Larger or planned work is in the =Roadmap= section of
 - **Three test sections sit out of source order.**  `order-check.el`
   flags Link, Headline and CC license badges.  Reorder them to the
   source function order when those sections are next touched.
+
+- **Other transcoders take CONTENTS as `string' with no nil guard.**
+  ox.el prunes math under `tex:nil', so a paragraph whose only content
+  was pruned arrives with nil CONTENTS -- `org-w3ctr-paragraph' used to
+  crash in `org-w3ctr--trim'; fixed in the LaTeX pass (nil becomes "",
+  as `org-w3ctr-special-block' already did).  The remaining transcoders
+  declare CONTENTS as `string'; guard one when a nil-contents case shows
+  up.
+
+- **order-check cannot see a test filed under the wrong section.**  It
+  checks order within a section and the order of sections only: the
+  `org-w3ctr--normalize-latex' and `org-w3ctr--format-latex' tests sat in
+  the `Math config' section while the functions live in the source LaTeX
+  section, and nothing flagged it.  Cross-section membership is checked
+  by eye; done for the LaTeX pass.
