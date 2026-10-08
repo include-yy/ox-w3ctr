@@ -2423,132 +2423,90 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--table-column-cookie ()
   "Tests for `org-w3ctr--table-column-cookie'."
-  ;; Basic alignment cookies
-  (with-temp-buffer
-    (insert "| <l> | <c> | <r> |\n| a | b | c |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table)))
-      ($q (t--table-column-cookie table 0 info) 'left)
-      ($q (t--table-column-cookie table 1 info) 'center)
-      ($q (t--table-column-cookie table 2 info) 'right)))
-  ;; Width-only cookie (no alignment)
-  (with-temp-buffer
-    (insert "| <5> | <10> |\n| a | b |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table)))
-      ($n (t--table-column-cookie table 0 info))
-      ($n (t--table-column-cookie table 1 info))))
-  ;; Combined cookie (alignment + width)
-  (with-temp-buffer
-    (insert "| <l5> | <r10> | <c3> |\n| a | b | c |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table)))
-      ($q (t--table-column-cookie table 0 info) 'left)
-      ($q (t--table-column-cookie table 1 info) 'right)
-      ($q (t--table-column-cookie table 2 info) 'center)))
-  ;; Multiple special rows: last one wins
-  (with-temp-buffer
-    (insert "| <l> | <c> |\n| <r> | <l> |\n| a | b |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table)))
-      ($q (t--table-column-cookie table 0 info) 'right)
-      ($q (t--table-column-cookie table 1 info) 'left)))
-  ;; No cookie
-  (with-temp-buffer
-    (insert "| a | b |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table)))
-      ($n (t--table-column-cookie table 0 info))
-      ($n (t--table-column-cookie table 1 info))))
-  ;; Column index out of bounds
-  (with-temp-buffer
-    (insert "| <l> |\n| a |\n")
-    (org-mode)
-    (let* ((info (list))
-           (table (t-parse1 'table)))
-      ($n (t--table-column-cookie table 5 info)))))
+  (cl-flet ((cookies (doc n)
+              (let ((table (t-get-element doc 'table)))
+                (mapcar (lambda (column)
+                          (t--table-column-cookie table column nil))
+                        (number-sequence 0 (1- n))))))
+    ($l (cookies "| <l> | <c> | <r> |\n| a | b | c |" 3)
+        '(left center right))
+    ;; a width in the cookie is ignored; a width-only one is no alignment
+    ($l (cookies "| <l5> | <r10> | <c3> |\n| a | b | c |" 3)
+        '(left right center))
+    ($l (cookies "| <5> | <10> |\n| a | b |" 2)
+        '(nil nil))
+    ;; the last special row wins
+    ($l (cookies "| <l> | <c> |\n| <r> | <l> |\n| a | b |" 2)
+        '(right left))
+    ($l (cookies "| a | b |" 2) '(nil nil))
+    ;; a column past the first row's width is nil
+    ($l (cookies "| <l> |\n| a |" 3) '(left nil nil))))
 
 (ert-deftest t--table-cell-align ()
   "Tests for `org-w3ctr--table-cell-align'."
-  (with-temp-buffer
-    (insert "| <l> | <r> |\n| a | b |\n")
-    (org-mode)
-    (let* ((info (list :html-table-align-cache nil))
-           (cells (t-parse 'table-cell)))
-      ;; Cells in order: <l>, <r>, a, b.
-      ($q (t--table-cell-align (nth 2 cells) info) 'left)
-      ($q (t--table-cell-align (nth 3 cells) info) 'right)
-      ($s (hash-table-p (plist-get info :html-table-align-cache)))))
-  (with-temp-buffer
-    (insert "| a | b |\n")
-    (org-mode)
-    (let* ((info (list :html-table-align-cache nil))
-           (cells (t-parse 'table-cell)))
-      ($n (t--table-cell-align (car cells) info))
-      ($n (t--table-cell-align (cadr cells) info)))))
+  (cl-flet ((align (doc)
+              (mapcar (lambda (cell)
+                        (t--table-cell-align
+                         cell (list :html-table-align-cache nil)))
+                      (t-get-parsed-elements doc 'table-cell))))
+    ;; every cell, cookies included, reports its column's alignment
+    ($l (align "| <l> | <r> |\n| a | b |") '(left right left right))
+    ($l (align "| a | b |") '(nil nil)))
+  ;; the per-table cache is installed in INFO
+  (let* ((cell (t-get-element "| <l> |\n| a |" 'table-cell))
+         (info (list :html-table-align-cache nil)))
+    ($q (t--table-cell-align cell info) 'left)
+    ($s (hash-table-p (plist-get info :html-table-align-cache)))))
 
 (ert-deftest t--table-cell-align-memo ()
   "Tests for the per-table memoization of `org-w3ctr--table-cell-align'.
 A second lookup must come from the cache, `t--table-column-cookie' is
 consulted once per column, and a cookie-less column is remembered as
 the `none' marker."
-  (with-temp-buffer
-    (insert "| <l> | <r> |\n| a | b |\n| c | d |\n")
-    (org-mode)
-    (let* ((info (list :html-table-align-cache nil))
-           (cells (t-parse 'table-cell))
-           (orig (symbol-function 't--table-column-cookie))
-           (calls 0))
-      ;; Cells in order: <l>, <r>, a, b, c, d.
-      (cl-letf (((symbol-function 't--table-column-cookie)
-                 (lambda (table column info)
-                   (setq calls (1+ calls))
-                   (funcall orig table column info))))
-        ;; first call computes and stores; the second hits the cache
-        ($q (t--table-cell-align (nth 2 cells) info) 'left)
-        ($q (t--table-cell-align (nth 2 cells) info) 'left)
-        ($q (t--table-cell-align (nth 3 cells) info) 'right)
-        ($q (t--table-cell-align (nth 3 cells) info) 'right)
-        ($l calls 2)
-        ;; a later row's cell shares its column's cached value
-        ($q (t--table-cell-align (nth 4 cells) info) 'left)
-        ($q (t--table-cell-align (nth 5 cells) info) 'right)
-        ($l calls 2))))
-  ;; A cookie-less column is remembered as `none' and still returns nil.
-  (with-temp-buffer
-    (insert "| a | b |\n| c | d |\n")
-    (org-mode)
-    (let* ((info (list :html-table-align-cache nil))
-           (cells (t-parse 'table-cell))
-           (orig (symbol-function 't--table-column-cookie))
-           (calls 0))
-      (cl-letf (((symbol-function 't--table-column-cookie)
-                 (lambda (table column info)
-                   (setq calls (1+ calls))
-                   (funcall orig table column info))))
-        ($n (t--table-cell-align (car cells) info))
-        ($n (t--table-cell-align (car cells) info))
-        ($l calls 1)
-        (let* ((table (org-export-get-parent-table (car cells)))
-               (vec (gethash table (plist-get info :html-table-align-cache))))
-          ($q (aref vec 0) 'none)))))
-  ;; A ragged row reaches a column past the first row's width; the
-  ;; cache vector is extended for it.
-  (with-temp-buffer
-    (insert "| a | b |\n| c | d | e |\n")
-    (org-mode)
-    (let* ((info (list :html-table-align-cache nil))
-           (cells (t-parse 'table-cell))
-           (table (org-export-get-parent-table (car cells))))
+  (let* ((cells (t-get-parsed-elements "| <l> | <r> |\n| a | b |\n| c | d |"
+                                       'table-cell))
+         (info (list :html-table-align-cache nil))
+         (orig (symbol-function 't--table-column-cookie))
+         (calls 0))
+    ;; cells in order: <l>, <r>, a, b, c, d
+    (cl-letf (((symbol-function 't--table-column-cookie)
+               (lambda (table column info)
+                 (setq calls (1+ calls))
+                 (funcall orig table column info))))
+      ;; the first call computes and stores; the second hits the cache
+      ($q (t--table-cell-align (nth 2 cells) info) 'left)
+      ($q (t--table-cell-align (nth 2 cells) info) 'left)
+      ($q (t--table-cell-align (nth 3 cells) info) 'right)
+      ($q (t--table-cell-align (nth 3 cells) info) 'right)
+      ($l calls 2)
+      ;; a later row's cell shares its column's cached value
+      ($q (t--table-cell-align (nth 4 cells) info) 'left)
+      ($q (t--table-cell-align (nth 5 cells) info) 'right)
+      ($l calls 2)))
+  ;; a cookie-less column is remembered as `none' and still returns nil
+  (let* ((cells (t-get-parsed-elements "| a | b |\n| c | d |" 'table-cell))
+         (info (list :html-table-align-cache nil))
+         (orig (symbol-function 't--table-column-cookie))
+         (calls 0))
+    (cl-letf (((symbol-function 't--table-column-cookie)
+               (lambda (table column info)
+                 (setq calls (1+ calls))
+                 (funcall orig table column info))))
       ($n (t--table-cell-align (car cells) info))
-      ($l (length (gethash table (plist-get info :html-table-align-cache))) 2)
-      ($n (t--table-cell-align (nth 4 cells) info))
-      ($l (length (gethash table (plist-get info :html-table-align-cache))) 3))))
+      ($n (t--table-cell-align (car cells) info))
+      ($l calls 1)
+      (let* ((table (org-export-get-parent-table (car cells)))
+             (vec (gethash table (plist-get info :html-table-align-cache))))
+        ($q (aref vec 0) 'none))))
+  ;; a ragged row reaches a column past the first row's width; the
+  ;; cache vector is extended for it
+  (let* ((cells (t-get-parsed-elements "| a | b |\n| c | d | e |" 'table-cell))
+         (info (list :html-table-align-cache nil))
+         (table (org-export-get-parent-table (car cells))))
+    ($n (t--table-cell-align (car cells) info))
+    ($l (length (gethash table (plist-get info :html-table-align-cache))) 2)
+    ($n (t--table-cell-align (nth 4 cells) info))
+    ($l (length (gethash table (plist-get info :html-table-align-cache))) 3)))
 
 (ert-deftest t--table-cell-attrs ()
   "Tests for `org-w3ctr--table-cell-attrs'."
