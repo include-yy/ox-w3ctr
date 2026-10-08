@@ -2925,7 +2925,8 @@ contextual information."
   "Transcode an EXAMPLE-BLOCK element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<div><pre>...</pre></div> element as a string.  Without user
+<div><pre>...</pre></div> element as a string.  The value loses
+its common indentation and is HTML-escaped.  Without user
 attributes, the <div> carries class=\"example\"; with user
 attributes, the user controls all attributes on the <div>."
   (declare (ftype (function (t t list) string))
@@ -2933,8 +2934,9 @@ attributes, the user controls all attributes on the <div>."
   (let* ((has-user-attrs (or (org-element-property :attr__ example-block)
                              (org-element-property :attr_html example-block)))
          (attrs (t--make-attr__id* example-block info t))
-         (content (org-remove-indentation
-                   (org-element-property :value example-block))))
+         (content (t--encode-plain-text
+                   (org-remove-indentation
+                    (or (org-element-property :value example-block) "")))))
     (format "<div%s%s>\n<pre>\n%s</pre>\n</div>"
             (if (t--nw-p attrs) attrs "")
             (if has-user-attrs "" " class=\"example\"")
@@ -3004,7 +3006,7 @@ an empty string for unsupported backends."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
-         (value (org-element-property :value export-snippet)))
+         (value (or (org-element-property :value export-snippet) "")))
     (pcase (downcase (symbol-name backend))
       ((or "h" "html") value)
       ("e" (t--eval-lisp export-snippet value 'eval "@@e snippet"))
@@ -3018,13 +3020,17 @@ an empty string for unsupported backends."
   "Transcode a FIXED-WIDTH element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<pre> element as a string."
+<pre> element as a string.  The value loses its common
+indentation and is HTML-escaped; a non-blank value is wrapped in
+a leading and trailing newline inside the <pre>, a blank one is
+used as is."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format "<pre%s>%s</pre>"
           (t--make-attr__id* fixed-width info t)
-          (let ((value (org-remove-indentation
-                        (org-element-property :value fixed-width))))
+          (let ((value (t--encode-plain-text
+                        (org-remove-indentation
+                         (or (org-element-property :value fixed-width) "")))))
             (if (not (t--nw-p value)) value
               (concat "\n" value "\n")))))
 

@@ -2683,6 +2683,9 @@ the `none' marker."
       "<div id=\"t\" class=\"example\">\n<pre>\n</pre>\n</div>")
      ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
       "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
+     ;; content is HTML-escaped
+     ("#+begin_example\n<b>&x</b>\n#+end_example"
+      "<div class=\"example\">\n<pre>\n&lt;b&gt;&amp;x&lt;/b&gt;\n</pre>\n</div>")
      ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
       "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
      ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
@@ -2849,6 +2852,9 @@ the `none' marker."
       "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>")
      ;; `:attr_html' goes through the same attribute builder
      ("#+attr_html: :class foo\n: 1" "<pre class=\"foo\">\n1\n</pre>")
+     ;; content is HTML-escaped
+     (": <b>x</b>" "<pre>\n&lt;b&gt;x&lt;/b&gt;\n</pre>")
+     (": a & b" "<pre>\na &amp; b\n</pre>")
      (":\n:\n:\n:\n" "<pre>\n\n\n</pre>"))
    nil '(:html-prefer-user-labels t)))
 
