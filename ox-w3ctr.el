@@ -3238,12 +3238,16 @@ wrapped in <figure>."
 ;;;; Verse Block
 
 ;; See (info "(org)Paragraphs")
+;; No `class="verse"' (ox-html hardcodes one): the W3C stylesheet
+;; defines no `.verse' rule, so it would be a dead class; set
+;; `#+attr__:' when a styling hook is wanted.
 (defun t-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 
-CONTENTS is the verse block contents.  INFO is the info plist.
-Return the formatted <p> element as a string.  Leading whitespace
-is converted to non-breaking spaces; newlines become <br>."
+CONTENTS is the verse block contents, or nil for an empty block.
+INFO is the info plist.  Return the formatted <p> element as a
+string.  Leading whitespace is converted to non-breaking spaces;
+newlines become <br>."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format
