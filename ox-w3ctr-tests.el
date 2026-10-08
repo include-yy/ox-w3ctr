@@ -2569,8 +2569,8 @@ the `none' marker."
       ($l (t--table-cell-attrs cell info) ""))))
 
 (ert-deftest t--table-first-row-data-cells ()
-  "Tests for `org-w3ctr--table-first-row-data-cells'.
-Rule rows are skipped, and a special column is dropped."
+  "Tests for `org-w3ctr--table-first-row-data-cells'."
+  ;; Rule rows are skipped, and a special column is dropped.
   (with-temp-buffer
     (insert "| a | b |\n|---+---|\n| 1 | 2 |\n")
     (org-mode)
@@ -2647,13 +2647,15 @@ Rule rows are skipped, and a special column is dropped."
       ;; Second cell (after the <l> cookie)
       ($l (t-table-cell (nth 1 cells) "a" info)
           "\n<td style=\"text-align:left\">a</td>")))
-  ;; Empty cell (becomes &nbsp;)
+  ;; Empty cell (becomes &nbsp;); nil is the bare-cell case
   (with-temp-buffer
     (insert "| |")
     (org-mode)
     (let* ((info (org-export-get-environment 'w3ctr))
            (cell (t-parse1 'table-cell)))
       ($l (t-table-cell cell "" info)
+          "\n<td>&#xa0;</td>")
+      ($l (t-table-cell cell nil info)
           "\n<td>&#xa0;</td>")))
   ;; First column with :html-table-use-header-tags-for-first-column
   (with-temp-buffer
@@ -2681,6 +2683,17 @@ Rule rows are skipped, and a special column is dropped."
       ;; Third row (after hrule) should have <tbody>
       ($l (t-table-row (nth 2 rows) "<td>1</td><td>2</td>" info)
           "<tbody>\n<tr><td>1</td><td>2</td>\n</tr>\n</tbody>")))
+  ;; Multi-row body: only the first row opens its group, only the last
+  ;; one closes it.
+  (with-temp-buffer
+    (insert "| a |\n|---|\n| 1 |\n| 2 |")
+    (org-mode)
+    (let* ((info (org-export-get-environment 'w3ctr))
+           (rows (t-parse 'table-row)))
+      ($l (t-table-row (nth 2 rows) "<td>1</td>" info)
+          "<tbody>\n<tr><td>1</td>\n</tr>")
+      ($l (t-table-row (nth 3 rows) "<td>2</td>" info)
+          "\n<tr><td>2</td>\n</tr>\n</tbody>")))
   ;; Row without header
   (with-temp-buffer
     (insert "| a | b |")
