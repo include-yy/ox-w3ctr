@@ -2546,66 +2546,40 @@ the `none' marker."
 
 (ert-deftest t--table-caption ()
   "Tests for `org-w3ctr--table-caption'."
-  ;; With caption
-  (let ((result (org-export-string-as "#+caption: Test caption\n| a |" 'w3ctr)))
-    ($s (string-match-p "<caption>Test caption</caption>" result)))
-  ;; Without caption
-  (let ((result (org-export-string-as "| a |" 'w3ctr)))
-    ($n (string-match-p "<caption>" result)))
-  ;; Caption with formatting
-  (let ((result (org-export-string-as "#+caption: *Bold* and /italic/\n| a |" 'w3ctr)))
-    ($s (string-match-p "<caption><b>Bold</b> and <i>italic</i></caption>" result))))
+  (t-check-element-values
+   #'t--table-caption
+   '(("#+caption: Test caption\n| a |" "<caption>Test caption</caption>")
+     ("| a |" "")
+     ;; markup in the caption is exported, not escaped
+     ("#+caption: *Bold* and /italic/\n| a |"
+      "<caption><b>Bold</b> and <i>italic</i></caption>"))))
 
 (ert-deftest t-table-cell ()
   "Tests for `org-w3ctr-table-cell'."
-  ;; Header cell with scope="col"
-  (with-temp-buffer
-    (insert "| Name |\n|------|\n| foo |")
-    (org-mode)
-    (let* ((info (org-export-get-environment 'w3ctr))
-           (cells (t-parse 'table-cell)))
-      ;; First cell is in header row
-      ($l (t-table-cell (car cells) "Name" info)
-          "\n<th scope=\"col\">Name</th>")))
-  ;; Regular data cell
-  (with-temp-buffer
-    (insert "| a |")
-    (org-mode)
-    (let* ((info (org-export-get-environment 'w3ctr))
-           (cell (t-parse1 'table-cell)))
-      ($l (t-table-cell cell "a" info)
-          "\n<td>a</td>")))
-  ;; Cell with alignment
-  (with-temp-buffer
-    (insert "| <l> |\n| a |")
-    (org-mode)
-    (let* ((info (org-export-get-environment 'w3ctr))
-           (cells (t-parse 'table-cell)))
-      ;; Second cell (after the <l> cookie)
-      ($l (t-table-cell (nth 1 cells) "a" info)
-          "\n<td style=\"text-align:left\">a</td>")))
-  ;; Empty cell (becomes &nbsp;); nil is the bare-cell case
-  (with-temp-buffer
-    (insert "| |")
-    (org-mode)
-    (let* ((info (org-export-get-environment 'w3ctr))
-           (cell (t-parse1 'table-cell)))
-      ($l (t-table-cell cell "" info)
-          "\n<td>&#xa0;</td>")
-      ($l (t-table-cell cell nil info)
-          "\n<td>&#xa0;</td>")))
-  ;; First column with :html-table-use-header-tags-for-first-column
-  (with-temp-buffer
-    (insert "| Name | Value |\n| foo | bar |")
-    (org-mode)
-    (let* ((info (org-export-get-environment
-                  'w3ctr nil
-                  '(:html-table-use-header-tags-for-first-column t)))
-           (cells (t-parse 'table-cell)))
-      ;; Third cell (first data row, first column)
-      ($l (t-table-cell (nth 2 cells) "foo" info)
-          "\n<th scope=\"row\">foo</th>"))))
-
+  (cl-flet ((cell (doc n contents &optional info)
+              (t-table-cell (nth n (t-get-parsed-elements doc 'table-cell))
+                            contents info)))
+    ;; a header cell carries scope="col"
+    ($l (cell "| Name |\n|------|\n| foo |" 0 "Name")
+        "\n<th scope=\"col\">Name</th>")
+    ;; a data cell
+    ($l (cell "| a |" 0 "a") "\n<td>a</td>")
+    ;; an alignment cookie adds the inline style, header or data
+    ($l (cell "| <l> |\n| a |" 1 "a")
+        "\n<td style=\"text-align:left\">a</td>")
+    ($l (cell "| <l> | <r> |\n|------+-------|\n| foo | bar |" 0 "Name")
+        "\n<th scope=\"col\" style=\"text-align:left\">Name</th>")
+    ;; an empty cell becomes &nbsp;; nil is the bare-cell case
+    ($l (cell "| |" 0 "") "\n<td>&#xa0;</td>")
+    ($l (cell "| |" 0 nil) "\n<td>&#xa0;</td>")
+    ;; the first column can carry row headers
+    ($l (cell "| Name | Value |\n| foo | bar |" 2 "foo"
+              '(:html-table-use-header-tags-for-first-column t))
+        "\n<th scope=\"row\">foo</th>")
+    ($l (cell "| <l> | <r> |\n|------+-------|\n| foo | bar |" 2 "foo"
+              '(:html-table-use-header-tags-for-first-column t))
+        "\n<th scope=\"row\" style=\"text-align:left\">foo</th>")))
+
 (ert-deftest t-table-row ()
   "Tests for `org-w3ctr-table-row'."
   ;; Header row (first row before hrule)
@@ -2657,7 +2631,7 @@ the `none' marker."
      ("| / | < | > | < | > |\n|   | a | b | c | d |"
       "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>\n</tr>\n</tbody>\n</table>"))
    nil '(:html-prefer-user-labels t)))
-
+
 ;;; Lesser elements
 
 ;;;; Example Block
