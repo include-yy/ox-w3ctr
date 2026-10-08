@@ -2193,11 +2193,11 @@ int a = 1;</code></p>\n</details>")
      nil `(:html-special-block-custom-elements
            (("x-tpl" :template ,tpl :src "x.js") ("x-plain")))))
   ;; :template and :src coexist: template in the body, script in <head>
-  (let ((out (org-export-string-as
-              "#+begin_x-tpl\nhi\n#+end_x-tpl" 'w3ctr nil
-              '(:html-special-block-custom-elements
-                (("x-tpl" :template "<template shadowrootmode=\"closed\"></template>"
-                  :src "x.js"))))))
+  (let* ((tpl "<template shadowrootmode=\"closed\"></template>")
+         (out (org-export-string-as
+               "#+begin_x-tpl\nhi\n#+end_x-tpl" 'w3ctr nil
+               `(:html-special-block-custom-elements
+                 (("x-tpl" :template ,tpl :src "x.js"))))))
     ($s (< (string-search "src=\"x.js\"" out)
            (string-search "</head>" out)
            (string-search "shadowrootmode=\"closed\"" out)))))
@@ -2207,6 +2207,7 @@ int a = 1;</code></p>\n</details>")
   (let* ((mk (lambda (type)
                (t-get-element (format "#+begin_%s\nhi\n#+end_%s" type type)
                               'special-block)))
+         (tpl "<template shadowrootmode=\"open\"></template>")
          (info '(:html-prefer-user-labels t)))
     ;; no :template: the contents follow the opening tag directly
     ($l (t--special-block-custom (funcall mk "my-card") "<p>hi</p>\n"
@@ -2215,10 +2216,11 @@ int a = 1;</code></p>\n</details>")
     ;; a :template is normalized and inserted before the contents
     ($l (t--special-block-custom
          (funcall mk "my-card") "<p>hi</p>\n" info
-         '((:template "<template shadowrootmode=\"open\"></template>") . "my-card"))
-        "<my-card>\n<template shadowrootmode=\"open\"></template>\n<p>hi</p>\n</my-card>")
+         `((:template ,tpl) . "my-card"))
+        ($c "<my-card>\n" tpl "\n<p>hi</p>\n</my-card>"))
     ;; a type that is not a valid custom element name signals
-    ($e!l (t--special-block-custom (funcall mk "card") "x" info '(nil . "card"))
+    ($e!l (t--special-block-custom
+           (funcall mk "card") "x" info '(nil . "card"))
           '(org-w3ctr-error "Invalid custom element name: card"))))
 
 (ert-deftest t-special-block-custom-elements ()
