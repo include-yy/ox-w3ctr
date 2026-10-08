@@ -2694,7 +2694,19 @@ the `none' marker."
       "<div class=\"foo\">\n<pre>\n1\n</pre>\n</div>")
      ;; an empty `#+attr__:' still counts as user control
      ("#+attr__:\n#+begin_example\n1\n#+end_example"
-      "<div>\n<pre>\n1\n</pre>\n</div>"))
+      "<div>\n<pre>\n1\n</pre>\n</div>")
+     ;; an empty `#+attr_html:' line is user control too
+     ("#+attr_html:\n#+begin_example\n1\n#+end_example"
+      "<div>\n<pre>\n1\n</pre>\n</div>")
+     ;; `#+attr__:' wins over `#+attr_html:'; they are not merged
+     ("#+attr__: [a]\n#+attr_html: :class b\n#+begin_example\n1\n#+end_example"
+      "<div class=\"a\">\n<pre>\n1\n</pre>\n</div>")
+     ;; switches are ignored: `-n' adds no line numbers
+     ("#+begin_example -n\na\nb\n#+end_example"
+      "<div class=\"example\">\n<pre>\na\nb\n</pre>\n</div>")
+     ;; `:textarea' is not special here, just an ordinary attribute
+     ("#+attr_html: :textarea x\n#+begin_example\n1\n#+end_example"
+      "<div textarea=\"x\">\n<pre>\n1\n</pre>\n</div>"))
    nil '(:html-prefer-user-labels t)))
 
 ;;;; Export Block
