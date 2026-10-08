@@ -134,6 +134,12 @@ it (`org-w3ctr--oinfo-props-are-looked-up`,
   mix.
 - **Ordering**: within a section, bottom-up (helper before its user)
   or top-down by call layer — pick one per section and keep it.
+- **Test order**: `ox-w3ctr-tests.el` mirrors the source section by
+  section, and inside a section the tests follow the source function
+  order — a variant test (a name the function's name prefixes) sits next
+  to its target.  A variable or constant without its own test is
+  skipped.  Check with `elisp-test-quality`'s `scripts/order-check.el`
+  (`OUT-OF-ORDER` / `SECTION-ORDER`).
 - **Header hygiene**: correct spelling, no author names, no arithmetic
   comments that drift out of date.
 - **No `cl-lib`.**  This package does not depend on `cl-lib`; use
@@ -438,3 +444,9 @@ same session.  Larger or planned work is in the =Roadmap= section of
   `t-fontify-method`, `t-fontify-code` (Source block);
   `t-inline-image-rules`, `t-inline-image-p`, `t-link`, `t--link-path`,
   `t--link-target`, `t--link-equation` (Link).
+
+- **Three test sections sit out of source order.**  `order-check.el`
+  flags Link, Headline and CC license badges; the Greater-elements trio
+  (Footnote, Special Block, Table) is being fixed by the current test
+  walkthrough.  Reorder them to the source function order when those
+  sections are next touched.
