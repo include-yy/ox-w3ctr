@@ -2109,6 +2109,12 @@ int a = 1;</code></p>\n</details>")
 
 ;;;; Special Block
 
+(ert-deftest t-html5-elements ()
+  "Tests for `org-w3ctr-html5-elements'."
+  ;; The list is the compatibility target: it must stay identical to
+  ;; ox-html's, which the package already requires.
+  ($l org-w3ctr-html5-elements org-html-html5-elements))
+
 (ert-deftest t--special-block-builtin ()
   "Tests for `org-w3ctr--special-block-builtin'."
   (t-check-element-values
@@ -2143,8 +2149,8 @@ int a = 1;</code></p>\n</details>")
           "Malformed custom element registry entry: (42 :src \"x.js\")")))
 
 (ert-deftest t--special-block-spec ()
-  "Tests for `org-w3ctr--special-block-spec'.
-Malformed registry entries signal `org-w3ctr-error'."
+  "Tests for `org-w3ctr--special-block-spec'."
+  ;; Malformed registry entries signal `org-w3ctr-error'.
   ;; old string-list format: signals
   ($e! (org-export-string-as
         "#+begin_x-old\nhi\n#+end_x-old" 'w3ctr t
@@ -2165,13 +2171,15 @@ Malformed registry entries signal `org-w3ctr-error'."
         '(org-w3ctr-error "Malformed custom element registry entry: 42")))
 
 (ert-deftest t--custom-element-name-p ()
-  "Tests for `org-w3ctr--custom-element-name-p'.
-Uppercase names are rejected even when `case-fold-search' is on."
+  "Tests for `org-w3ctr--custom-element-name-p'."
+  ;; Uppercase names are rejected even when `case-fold-search' is on.
   (dolist (s '("my-card" "x-" "a-b-c" "a1-b.c_d"))
     ($s (t--custom-element-name-p s)))
   (let ((case-fold-search t))
     (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""))
-      ($n (t--custom-element-name-p s)))))
+      ($n (t--custom-element-name-p s))))
+  ;; the spec also allows non-ASCII letters; this back-end rejects them
+  ($n (t--custom-element-name-p "é-card")))
 
 (ert-deftest t--special-block-custom-template ()
   "Tests for the :template key of custom elements."
@@ -2249,9 +2257,9 @@ Uppercase names are rejected even when `case-fold-search' is on."
         '(:html-special-block-custom-elements (("My-Card"))))))
 
 (ert-deftest t-special-block ()
-  "Tests for `org-w3ctr-special-block'.
-The extra blank line before </div> and the case-sensitive type match
-are ox-html's behavior, kept for compatibility."
+  "Tests for `org-w3ctr-special-block'."
+  ;; The extra blank line before </div> and the case-sensitive type
+  ;; match are ox-html's behavior, kept for compatibility.
   (t-check-element-values
    #'t-special-block
    '(;; listed type: the element itself
@@ -2287,9 +2295,9 @@ are ox-html's behavior, kept for compatibility."
    nil '(:html-prefer-user-labels t)))
 
 (ert-deftest t--special-block-used-elements ()
-  "Tests for `org-w3ctr--special-block-used-elements'.
-Entries come back in registry order, without duplicates; the
-registry is validated even when nothing matches."
+  "Tests for `org-w3ctr--special-block-used-elements'."
+  ;; Entries come back in registry order, without duplicates; the
+  ;; registry is validated even when nothing matches.
   (let* ((registry '(("x-one" :src "one.js")
                      ("x-two" :tag "t")
                      ("x-unused")))
@@ -2311,8 +2319,8 @@ registry is validated even when nothing matches."
         (list :html-special-block-custom-elements (42)))))
 
 (ert-deftest t--special-block-head-entry ()
-  "Tests for `org-w3ctr--special-block-head-entry'.
-The result is (MARKUP . SEEN); a :src already in SEEN is skipped."
+  "Tests for `org-w3ctr--special-block-head-entry'."
+  ;; The result is (MARKUP . SEEN); a :src already in SEEN is skipped.
   (let ((r (t--special-block-head-entry '("a-b" :src "a.js") nil)))
     ($l (car r) "<script type=\"module\" src=\"a.js\"></script>\n")
     ($l (cdr r) '("a.js")))
@@ -2357,7 +2365,7 @@ The result is (MARKUP . SEEN); a :src already in SEEN is skipped."
        '(("a-b" :template "<template></template>")) nil)))
 
 (ert-deftest t--special-block-head ()
-  "Tests for the custom element scripts in <head>."
+  "Tests for `org-w3ctr--special-block-head'."
   (let ((registry '(("x-one" :src "one.js")
                     ("x-two" :src "two.js")
                     ("x-unused" :src "unused.js")))
