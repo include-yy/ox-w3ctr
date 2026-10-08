@@ -3205,7 +3205,14 @@ wrapped in <figure>."
          ;; inside the paragraph was pruned.
          (contents (or contents "")))
     (cond
-     (;; Item's first line.
+     (;; Item's first line.  Broader than ox-html's alone-or-sublist
+      ;; rule on purpose: a checkbox is emitted before the item contents,
+      ;; so wrapping the first paragraph in <p> would drop the box onto
+      ;; its own line.  The cost is that the next <p> becomes the <li>'s
+      ;; first element and loses its top margin (li > p:first-child).
+      ;; FIXME: splice the checkbox into the first <p> in the item
+      ;; formatters and restore ox-html's condition, so multi-block
+      ;; items keep their paragraph spacing.
       (and (eq parent-type 'item)
            ;; In a <dd> list item, the text immediately following "::"
            ;; is not enclosed in a <p> tag.  If this part of the export
