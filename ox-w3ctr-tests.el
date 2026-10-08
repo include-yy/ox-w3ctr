@@ -3012,6 +3012,14 @@ the `none' marker."
    #'t-latex-fragment
    '(("$x^2$" "\\(x^2\\)"))
    nil '(:with-latex t))
+  ;; `custom' reaches the renderer with the fragment and INFO, pinning
+  ;; both the MODE and the INFO passthrough, which every other case
+  ;; leaves unobserved
+  (t-check-element-values
+   #'t-latex-fragment
+   '(("$x^2$" "<C>$x^2$</C>"))
+   nil (list :with-latex 'custom :html-math-custom-render-function
+             (lambda (f _i) (format "<C>%s</C>" f))))
   ;; a nil :value (not parser-reachable) degrades to the empty string
   ($l (t-latex-fragment (org-element-create 'latex-fragment)
                         nil '(:with-latex mathjax))
@@ -3027,6 +3035,13 @@ the `none' marker."
      ("  \\begin{equation}\n  x=1\n  \\end{equation}"
       "\\begin{equation}\nx=1\n\\end{equation}"))
    nil '(:with-latex mathjax))
+  ;; `custom' pins the MODE and INFO passthrough, as for the fragment
+  (t-check-element-values
+   #'t-latex-environment
+   '(("\\begin{equation}\nx=1\n\\end{equation}"
+      "<C>\\begin{equation}\nx=1\n\\end{equation}</C>"))
+   nil (list :with-latex 'custom :html-math-custom-render-function
+             (lambda (f _i) (format "<C>%s</C>" f))))
   ;; a nil :value (not parser-reachable) degrades to the empty string
   ($l (t-latex-environment (org-element-create 'latex-environment)
                            nil '(:with-latex mathjax))
