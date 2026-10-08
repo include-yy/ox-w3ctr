@@ -2711,6 +2711,37 @@ the `none' marker."
 
 ;;;; Export Block
 
+(ert-deftest t--eval-lisp ()
+  "Tests for `org-w3ctr--eval-lisp'."
+  (with-temp-buffer
+    (insert "\n#+begin_export emacs-lisp\nx\n#+end_export\n")
+    (org-mode)
+    (let ((el (t-parse1 'export-block)))
+      ;; TYPE \\='eval reads, evals, and stringifies the result
+      ($l (t--eval-lisp el "(+ 1 2)" 'eval "CTX") "3")
+      ($l (t--eval-lisp el "'sym" 'eval "CTX") "sym")
+      ;; a result that is not a scalar is ""
+      ($l (t--eval-lisp el "nil" 'eval "CTX") "")
+      ($l (t--eval-lisp el "'(1 2)" 'eval "CTX") "")
+      ;; TYPE \\='sexp renders through org-w3ctr--sexp2html
+      ($l (t--eval-lisp el "(br)" 'sexp "CTX") "<br>")
+      ($l (t--eval-lisp el "nil" 'sexp "CTX") "")
+      ;; a blank VALUE yields "" without reading
+      ($l (t--eval-lisp el "" 'eval "CTX") "")
+      ($l (t--eval-lisp el "   " 'sexp "CTX") "")
+      ;; errors carry CONTEXT and the line from ELEMENT
+      ($e!l (t--eval-lisp el "(broken" 'eval "CTX")
+            '(org-w3ctr-error "CTX at line 2: End of file during parsing"))
+      ($e!l (t--eval-lisp el "(broken" 'sexp "CTX")
+            '(org-w3ctr-error "CTX at line 2: End of file during parsing"))
+      ;; an eval failure goes through error-message-string
+      ($e!l (t--eval-lisp el "(error \"boom\")" 'eval "CTX")
+            '(org-w3ctr-error "CTX at line 2: boom"))
+      ;; a nested org-w3ctr-error keeps its clean message
+      ($e!l (t--eval-lisp
+             el "(signal 'org-w3ctr-error (list \"inner\"))" 'eval "CTX")
+            '(org-w3ctr-error "CTX at line 2: inner")))))
+
 (ert-deftest t-export-block ()
   "Tests for `org-w3ctr-export-block'."
   (t-check-element-values
