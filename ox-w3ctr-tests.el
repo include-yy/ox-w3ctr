@@ -3138,15 +3138,24 @@ the `none' marker."
   "Tests for `org-w3ctr-verse-block'."
   (t-check-element-values
    #'t-verse-block
-   '(("#+begin_verse\n#+end_verse" "<p>\n</p>")
+   `(("#+begin_verse\n#+end_verse" "<p>\n</p>")
      ("#+BEGIN_VERSE\n#+END_VERSE" "<p>\n</p>")
      ("#+begin_verse\n1  2  3\n#+end_verse" "<p>\n1  2  3<br>\n</p>")
+     ;; an Org line break has already produced <br>; the newline must
+     ;; not add a second one
+     (,(concat "#+begin_verse\na" (make-string 2 92) "\nb\n#+end_verse")
+      "<p>\na<br>\nb<br>\n</p>")
+     ;; trailing whitespace before a newline is consumed
+     ("#+begin_verse\na  \nb\n#+end_verse" "<p>\na<br>\nb<br>\n</p>")
      ("#+begin_verse\n 1\n  2\n   3\n#+end_verse"
       "<p>\n1<br>\n&#xa0;2<br>\n&#xa0;&#xa0;3<br>\n</p>")
      ("#+name: this\n#+begin_verse\n#+end_verse"
       "<p id=\"this\">\n</p>")
      ("#+attr__:[hi]\n#+begin_verse\n\n\n#+end_verse"
-      "<p class=\"hi\">\n<br>\n<br>\n</p>"))
+      "<p class=\"hi\">\n<br>\n<br>\n</p>")
+     ;; `#+attr_html' is the fallback attribute syntax
+     ("#+attr_html: :class foo\n#+begin_verse\na\n#+end_verse"
+      "<p class=\"foo\">\na<br>\n</p>"))
    nil '(:html-prefer-user-labels t)))
 
 ;;;; Engrave-faces subset
