@@ -98,6 +98,39 @@ now).
   through CSS custom properties (=--w3c-*=), and, as optional sugar,
   map a block's =:parameters= (=#+begin_x-badge :variant warn=) onto
   element attributes.
+- *Caption policy across blocks.*  =#+caption:= parses on nearly every
+  block -- =example-block=, =src-block=, =quote-block=, =verse-block=,
+  =center-block=, =special-block=, =table=, =fixed-width=,
+  =latex-environment=, =export-block=, =drawer= -- but only four have
+  a consumer today: the standalone-image paragraph
+  (=<figure><figcaption>=), the table (=<caption>=), the captioned
+  =src-block= (a bare text node as the first child of its =.example=
+  <div>), and the drawer (the caption reused as =<summary>=).
+  Everything else drops the caption silently.
+  W3C's base.css splits a caption in two: the *label and number* come
+  from a CSS counter on the container class
+  (=figcaption::before { content: "Figure " counter(figure) ". " }=,
+  =.example::before= gives "Example N", and likewise
+  =.issue::before= / =.note::before=), while the *text* is content the
+  author supplies.  So the back-end picks the container/class and
+  emits the text, and must not compute numbers in Elisp -- do not port
+  ox-html's =org-export-get-ordinal= / "Listing N:" machinery.
+  Decide a mapping {element -> container/class -> caption home},
+  using W3C classes only (there is no =.quote= / =.verse= /
+  =.center= counter):
+  - figure (image paragraph) -> =<figure><figcaption>= (done).
+  - table -> =<caption>= (done).
+  - =example-block= / =src-block= -> =.example= <div>, caption text as
+    the first child, i.e. the shape =src-block= already uses.
+    =example-block= is already =.example= but never reads its caption:
+    the smallest first cut, plus a helper shared with =src-block=.
+  - the rest (quote, verse, center, special, fixed-width,
+    =latex-environment=, =export-block=) have no W3C home; do not
+    invent one -- leave the caption dropped and say so.
+  Pin the invariants while unifying: is the counter class applied only
+  when captioned (=src-block='s rule) or always (=example-block='s)?
+  And is the self-link anchor emitted on every captioned block or only
+  =src-block=?
 
 *** Non-goals
 
