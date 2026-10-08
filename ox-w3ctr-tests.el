@@ -3067,7 +3067,7 @@ the `none' marker."
   "Tests for `org-w3ctr-paragraph'."
   (t-check-element-values
    #'t-paragraph
-   '(("123" "<p>123</p>")
+   `(("123" "<p>123</p>")
      ("123\n 234" "<p>123\n 234</p>")
      ;; trim
      ("    123" "<p>123</p>")
@@ -3079,6 +3079,12 @@ the `none' marker."
      ("- [ ] 123" "123")
      ("- 123\n 234" "123\n234")
      ("- 123\n\n   234" "<p>234</p>" "123")
+     ;; the item-first branch shadows the standalone-image one: a leading
+     ;; image is not wrapped in <figure> (see the FIXME in t-paragraph)
+     ("- [[./1.png]]\n\n  after"
+      "<p>after</p>" "<img src=\"./1.png\" alt=\"1.png\">")
+     ;; descriptive list item: the <dd> paragraph is bare too
+     ("- term :: text\n\n  more" "<p>more</p>" "text")
      ;; first object with attributes
      ("-\n  #+attr__: [example]\n  123"
       "<span class=\"example\">123</span>")
@@ -3090,23 +3096,28 @@ the `none' marker."
      ("[[./1.png]]"
       "<figure>\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
      ("#+name: id\n#+caption:cap\n[[./1.png]]"
-      "<figure id=\"id\">\n<img src=\"./1.png\" alt=\"1.png\"><figcaption>cap</figcaption>\n</figure>")
+      ,($c "<figure id=\"id\">\n<img src=\"./1.png\" alt=\"1.png\">"
+           "<figcaption>cap</figcaption>\n</figure>"))
      ;; empty caption
      ("#+caption: \n[[./1.png]]"
       "<figure>\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
      ("#+attr__:[sidefigure]\n[[./2.gif]]"
-      "<figure class=\"sidefigure\">\n<img src=\"./2.gif\" alt=\"2.gif\"></figure>")
+      ,($c "<figure class=\"sidefigure\">"
+           "\n<img src=\"./2.gif\" alt=\"2.gif\"></figure>"))
      ("[[https://example.com/1.jpg]]"
-      "<figure>\n<img src=\"https://example.com/1.jpg\" alt=\"1.jpg\"></figure>")
+      ,($c "<figure>\n<img src=\"https://example.com/1.jpg\" alt=\"1.jpg\">"
+           "</figure>"))
      ("[[file:1.jpg]]" "<figure>\n<img src=\"1.jpg\" alt=\"1.jpg\"></figure>")
      ("[[./1.png][name]]" "<p><a href=\"./1.png\">name</a></p>")
      ("[[https://example.com/1.jpg][file:1.jpg]]"
-      "<figure>\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>")
+      ,($c "<figure>\n<a href=\"https://example.com/1.jpg\">"
+           "<img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
      ;; `:attr_html' applies to the image element, not the figure
      ("#+attr_html: :class foo\n[[./1.png]]"
       "<figure>\n<img src=\"./1.png\" alt=\"1.png\" class=\"foo\"></figure>")
      ("#+attr_html: :class foo\n[[https://example.com/1.jpg][file:1.jpg]]"
-      "<figure>\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\" class=\"foo\"></a></figure>")
+      ,($c "<figure>\n<a href=\"https://example.com/1.jpg\">"
+           "<img src=\"1.jpg\" alt=\"1.jpg\" class=\"foo\"></a></figure>"))
      ;; in a non-standalone paragraph `:attr_html' stays on the <p>
      ("#+attr_html: :class foo\n[[./1.png]] [[./2.png]]"
       "<p class=\"foo\"><img src=\"./1.png\" alt=\"1.png\"> <img src=\"./2.png\" alt=\"2.png\"></p>")
