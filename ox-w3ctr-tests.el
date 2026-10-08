@@ -2998,7 +2998,11 @@ the `none' marker."
   (t-check-element-values
    #'t-latex-fragment
    '(("$x^2$" "\\(x^2\\)"))
-   nil '(:with-latex t)))
+   nil '(:with-latex t))
+  ;; a nil :value (not parser-reachable) degrades to the empty string
+  ($l (t-latex-fragment (org-element-create 'latex-fragment)
+                        nil '(:with-latex mathjax))
+      ""))
 
 (ert-deftest t-latex-environment ()
   "Tests for `org-w3ctr-latex-environment'."
@@ -3009,7 +3013,11 @@ the `none' marker."
      ;; the value keeps its content but loses common indentation
      ("  \\begin{equation}\n  x=1\n  \\end{equation}"
       "\\begin{equation}\nx=1\n\\end{equation}"))
-   nil '(:with-latex mathjax)))
+   nil '(:with-latex mathjax))
+  ;; a nil :value (not parser-reachable) degrades to the empty string
+  ($l (t-latex-environment (org-element-create 'latex-environment)
+                           nil '(:with-latex mathjax))
+      ""))
 
 ;;;; Paragraph
 
@@ -5095,7 +5103,9 @@ the `none' marker."
   ;; the legacy t alias gets the MathJax config like mathjax
   ($l (t-math-head-default-function
        '(:with-latex t :html-mathjax-config "JX"))
-      "JX"))
+      "JX")
+  ;; an absent (or nil) config yields the empty string
+  ($l (t-math-head-default-function '(:with-latex mathjax)) ""))
 
 (ert-deftest t--build-math-config ()
   "Tests for `org-w3ctr--build-math-config'."
@@ -5109,7 +5119,13 @@ the `none' marker."
         "H")
     ;; nil :html-math-head-function falls back to the default function
     ($l (t--build-math-config '(:with-latex mathjax :html-mathjax-config "JX"))
-        "JX")))
+        "JX")
+    ;; a head function may return nil; a non-string result signals
+    ($l (t--build-math-config
+         '(:html-math-head-function (lambda (_i) nil))) nil)
+    ($e!l (t--build-math-config
+           '(:html-math-head-function (lambda (_i) 42)))
+          '(org-w3ctr-error "Math head function returned a non-string: 42"))))
 
 ;;;; Rest of <head>
 

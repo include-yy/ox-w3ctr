@@ -402,7 +402,8 @@ The cells use <th scope=\"row\"> instead of <td>."
   #'t-math-custom-default-render-function
   "Function rendering a LaTeX fragment for the `custom' math mode.
 It is called with FRAG, a LaTeX string, and the INFO plist, and
-must return the HTML/MathML/SVG string for the fragment."
+must return the HTML/MathML/SVG string for the fragment, or nil to
+emit nothing."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -900,7 +901,8 @@ The value specifies the rendering method:
   src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'>
 </script>"
   "Configuration for MathJax rendering in HTML export.
-Used for MathJax rendering (:with-latex is set to `mathjax').
+Used for MathJax rendering (:with-latex is set to `mathjax', or
+its legacy alias t).
 
 For detailed configuration options, see:
 https://docs.mathjax.org/en/latest/options/index.html"
@@ -3143,7 +3145,7 @@ nil."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex
-   (org-element-property :value latex-fragment)
+   (or (org-element-property :value latex-fragment) "")
    (t--pget info :with-latex) info))
 
 (defun t-latex-environment (latex-environment _contents info)
@@ -3156,7 +3158,8 @@ custom renderer returns nil."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex
-   (org-remove-indentation (org-element-property :value latex-environment))
+   (org-remove-indentation
+    (or (org-element-property :value latex-environment) ""))
    (t--pget info :with-latex) info))
 
 ;;;; Paragraph
@@ -4272,9 +4275,10 @@ export state."
     (format "<a href=\"#%s\"%s>%s</a>" href attributes desc)))
 
 (defun t--link-equation (destination info)
-  "Transcode a reference to a math latex-environment DESTINATION.
-The label lives inside the LaTeX, so client-side MathJax resolves
-the reference.  INFO is the export state."
+  "Return the raw equation-reference string for DESTINATION.
+DESTINATION is a math latex-environment and INFO the export state.
+This is a legacy path: equation references are unsupported, so the
+\\eqref it emits has no matching \\label (see the FIXME below)."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   ;; FIXME: Equation references are unsupported: the back-end does not
@@ -5187,7 +5191,7 @@ otherwise."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (pcase (t--pget info :with-latex)
-    ((or `mathjax `t) (t--pget info :html-mathjax-config))
+    ((or `mathjax `t) (or (t--pget info :html-mathjax-config) ""))
     (`mathml-by-mathjax t-mathml-style)
     (`svg-by-mathjax t-svg-math-style)
     (_ "")))
@@ -5195,13 +5199,19 @@ otherwise."
 (defun t--build-math-config (info)
   "Return the math setup to insert into <head>.
 
-INFO is the info plist.  Call the function in `:html-math-head-function',
-or `org-w3ctr-math-head-default-function' when it is nil."
-  (declare (ftype (function (list) string))
+INFO is the info plist.  Call the function in
+`:html-math-head-function', or
+`org-w3ctr-math-head-default-function' when it is nil.  A custom
+head function may return nil; any other non-string result signals
+`org-w3ctr-error'."
+  (declare (ftype (function (list) (or null string)))
            (important-return-value t))
-  (funcall (or (t--pget info :html-math-head-function)
-               #'t-math-head-default-function)
-           info))
+  (let ((out (funcall (or (t--pget info :html-math-head-function)
+                          #'t-math-head-default-function)
+                      info)))
+    (unless (string-or-null-p out)
+      (t-error "Math head function returned a non-string: %S" out))
+    out))
 
 ;;;; Rest of <head>
 
