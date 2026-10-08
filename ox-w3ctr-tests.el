@@ -2237,22 +2237,24 @@ int a = 1;</code></p>\n</details>")
      ;; unlisted types are unaffected
      ("#+begin_foo-bar\nhello\n#+end_foo-bar"
       "<div class=\"foo-bar\">\n<p>hello</p>\n\n</div>"))
-   nil '(:html-prefer-user-labels t
-                                  :html-special-block-custom-elements (("my-card"))))
+   nil (list :html-prefer-user-labels t
+             :html-special-block-custom-elements '(("my-card"))))
   ;; empty plist is equivalent to just registering the name
   (t-check-element-values
    #'t-special-block
    '(("#+begin_my-card\nhello\n#+end_my-card"
       "<my-card>\n<p>hello</p>\n</my-card>"))
-   nil '(:html-prefer-user-labels t
-                                  :html-special-block-custom-elements (("my-card" . nil))))
+   nil (list :html-prefer-user-labels t
+             :html-special-block-custom-elements '(("my-card" . nil))))
   ;; a listed type that is not a valid custom element name
-  ($e! (org-export-string-as
-        "#+begin_card\nx\n#+end_card" 'w3ctr t
-        '(:html-special-block-custom-elements (("card")))))
-  ($e! (org-export-string-as
-        "#+begin_My-Card\nx\n#+end_My-Card" 'w3ctr t
-        '(:html-special-block-custom-elements (("My-Card"))))))
+  ($e!l (org-export-string-as
+         "#+begin_card\nx\n#+end_card" 'w3ctr t
+         (list :html-special-block-custom-elements '(("card"))))
+        '(org-w3ctr-error "Invalid custom element name: card"))
+  ($e!l (org-export-string-as
+         "#+begin_My-Card\nx\n#+end_My-Card" 'w3ctr t
+         (list :html-special-block-custom-elements '(("My-Card"))))
+        '(org-w3ctr-error "Invalid custom element name: My-Card")))
 
 (ert-deftest t-special-block ()
   "Tests for `org-w3ctr-special-block'."
@@ -2300,9 +2302,9 @@ int a = 1;</code></p>\n</details>")
                      ("x-two" :tag "t")
                      ("x-unused")))
          (tree (with-temp-buffer
-                 (insert "#+begin_x-two\nb\n#+end_x-two\n\
-#+begin_x-one\na\n#+end_x-one\n\
-#+begin_x-two\nc\n#+end_x-two\n")
+                 (insert ($c "#+begin_x-two\nb\n#+end_x-two\n"
+                             "#+begin_x-one\na\n#+end_x-one\n"
+                             "#+begin_x-two\nc\n#+end_x-two\n"))
                  (org-mode)
                  (org-element-parse-buffer)))
          (info (list :parse-tree tree
@@ -2343,7 +2345,8 @@ int a = 1;</code></p>\n</details>")
   ;; :src is escaped for the attribute
   ($l (t-special-block-head-default-function
        '(("a-b" :src "a.js?x=1&y=\"2\"")) nil)
-      "<script type=\"module\" src=\"a.js?x=1&amp;y=&quot;2&quot;\"></script>\n")
+      ($c "<script type=\"module\" src=\"a.js?x=1&amp;y=&quot;2&quot;\">"
+          "</script>\n"))
   ;; a shared :src is emitted once, at its first entry
   ($l (t-special-block-head-default-function
        '(("a-b" :src "all.js") ("c-d" :src "c.js") ("e-f" :src "all.js"))
@@ -2352,7 +2355,8 @@ int a = 1;</code></p>\n</details>")
 <script type=\"module\" src=\"c.js\"></script>\n")
   ;; deduplication does not touch :script
   ($l (t-special-block-head-default-function
-       '(("a-b" :src "all.js" :script "a()") ("c-d" :src "all.js" :script "c()"))
+       '(("a-b" :src "all.js" :script "a()")
+         ("c-d" :src "all.js" :script "c()"))
        nil)
       "<script type=\"module\" src=\"all.js\"></script>
 <script type=\"module\">\na()\n</script>
