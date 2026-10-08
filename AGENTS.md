@@ -480,3 +480,10 @@ same session.  Larger or planned work is in the =Roadmap= section of
   fragment would be `#coderef-coderef:foo'.  Coderef support is the
   FIXME'd leftover in `org-w3ctr--link-coderef' (kept once for ox-html
   compatibility); the Link pass fixes or removes it.
+
+- **Export blocks take no attributes or ids (deferred).**  Raw
+  passthrough is the contract: a `#+name:' on an export block emits no
+  anchor, so a link to it dangles (measured: `[[x]]' renders
+  `<a href="#x">' with nothing to land on; a random id with
+  `org-w3ctr-prefer-user-labels' off).  Decided 2026-10 to leave it;
+  the Link pass should know before touching element references.
