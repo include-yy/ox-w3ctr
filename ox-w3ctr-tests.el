@@ -2963,11 +2963,13 @@ the `none' marker."
   ($l (t--format-latex "$x$" 'mathjax nil) "\\(x\\)")
   ($l (t--format-latex "$x$" t nil) "\\(x\\)")
   ;; custom calls the render function on the fragment and INFO
-  (let ((info '(:html-math-custom-render-function
-                (lambda (f _i) (format "<M>%s</M>" f)))))
-    ($l (t--format-latex "$x$" 'custom info) "<M>$x$</M>"))
-  ;; a custom nil result is kept, a nil option falls back to the default,
-  ;; and any other result type signals
+  (let* (got
+         (renderer (lambda (f i) (setq got (list f i)) "<M>"))
+         (info (list :html-math-custom-render-function renderer)))
+    ($l (t--format-latex "$x$" 'custom info) "<M>")
+    ($l got (list "$x$" info)))
+  ;; a custom nil result is kept, an absent option falls back to the
+  ;; default, and any other result type signals
   (let ((info '(:html-math-custom-render-function (lambda (_f _i) nil))))
     ($l (t--format-latex "$x$" 'custom info) nil))
   ($l (t--format-latex "$x$" 'custom nil) "$x$")
