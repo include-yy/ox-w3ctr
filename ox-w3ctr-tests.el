@@ -1657,17 +1657,6 @@ int a = 1;</code></p>\n</details>")
 
 ;;;; Footnote
 
-(ert-deftest t-footnote-section-function ()
-  "The footnotes section goes through `org-w3ctr-footnote-section-function'."
-  (let ((org-w3ctr-footnote-section-function
-         (lambda (definitions _info)
-           (format "<FOOTNOTES n=%d/>" (length definitions)))))
-    (t-check-element-values
-     #'t-footnote-section
-     '(("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
-        "<FOOTNOTES n=2/>"))
-     nil '(:with-latex verbatim))))
-
 (ert-deftest t--footnote-key ()
   "Tests for `org-w3ctr--footnote-key'."
   ($l (t--footnote-key "name" 3) "name")
@@ -1680,12 +1669,37 @@ int a = 1;</code></p>\n</details>")
   ($l (t--footnote-id "1" 3) "fn-3")
   ($l (t--footnote-id nil 3) "fn-3"))
 
+(ert-deftest t-footnote-reference ()
+  "Tests for `org-w3ctr-footnote-reference'."
+  (t-check-element-values
+   #'t-footnote-reference
+   '(("A[fn:1].\n\n[fn:1] The definition." "[<a href=\"#fn-1\">1</a>]")
+     ("A[fn:name].\n\n[fn:name] The definition."
+      "[<a href=\"#fn-name\">name</a>]")
+     ("A[fn::text]." "[<a href=\"#fn-1\">1</a>]")
+     ;; Two footnotes in a row are separated (values are in reverse
+     ;; call order, as in the other `org-w3ctr-check-element-values' tests).
+     ("A[fn:1][fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
+      ", [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
+   t '(:with-latex verbatim :html-prefer-user-labels t))
+  ;; a custom reference format is read from INFO
+  (t-check-element-values
+   #'t-footnote-reference
+   '(("A[fn:1].\n\n[fn:1] one."
+      "<sup><a href=\"#fn-1\">1</a></sup>"))
+   t '(:with-latex verbatim :html-footnote-format "<sup>%s</sup>"))
+  ;; a custom separator is read from INFO
+  (t-check-element-values
+   #'t-footnote-reference
+   '(("A[fn:1][fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
+      " | [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
+   t '(:with-latex verbatim :html-footnote-separator " | ")))
+
 (ert-deftest t--footnote-definition ()
   "Tests for `org-w3ctr--footnote-definition'."
   (cl-letf (((symbol-function 'org-export-data)
              (lambda (data _info)
-               (if (stringp data)
-                   data
+               (if (stringp data) data
                  (let ((text (string-trim-right
                               (org-element-interpret-data data))))
                    (format "<p>%s</p>" text))))))
@@ -1693,54 +1707,24 @@ int a = 1;</code></p>\n</details>")
       (let ((info '(:html-footnote-format "[%s]")))
         ;; Numbered footnote with paragraph
         ($l (t--footnote-definition (list 1 nil (p "The definition.")) info)
-            "<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>The definition.</p>\n</dd>")
+            ($c "<dt id=\"fn-1\">[1]</dt>\n"
+                "<dd>\n<p>The definition.</p>\n</dd>"))
         ;; Named footnote with paragraph
         ($l (t--footnote-definition (list 1 "name" (p "The definition.")) info)
-            "<dt id=\"fn-name\">[name]</dt>\n<dd>\n<p>The definition.</p>\n</dd>")
+            ($c "<dt id=\"fn-name\">[name]</dt>\n"
+                "<dd>\n<p>The definition.</p>\n</dd>"))
         ;; Purely numeric label uses number
         ($l (t--footnote-definition (list 3 "1" (p "Text.")) info)
-            "<dt id=\"fn-3\">[3]</dt>\n<dd>\n<p>Text.</p>\n</dd>")
+            ($c "<dt id=\"fn-3\">[3]</dt>\n"
+                "<dd>\n<p>Text.</p>\n</dd>"))
         ;; Inline definition (no paragraph wrapper, just string)
         ($l (t--footnote-definition (list 1 "name" "text") info)
-            "<dt id=\"fn-name\">[name]</dt>\n<dd>\ntext\n</dd>")
+            ($c "<dt id=\"fn-name\">[name]</dt>\n"
+                "<dd>\ntext\n</dd>"))
         ;; Whitespace trimming on string
         ($l (t--footnote-definition (list 1 nil "\n  text  \n") info)
-            "<dt id=\"fn-1\">[1]</dt>\n<dd>\ntext\n</dd>")))))
-
-(ert-deftest t-footnote-reference ()
-  "Tests for `org-w3ctr-footnote-reference'."
-  (t-check-element-values
-   #'t-footnote-reference
-   '(("A[fn:1].\n\n[fn:1] The definition." "[<a href=\"#fn-1\">1</a>]")
-     ("A[fn:name].\n\n[fn:name] The definition." "[<a href=\"#fn-name\">name</a>]")
-     ("A[fn::text]." "[<a href=\"#fn-1\">1</a>]")
-     ;; Two footnotes in a row are separated (values are in reverse
-     ;; call order, as in the other `org-w3ctr-check-element-values' tests).
-     ("A[fn:1][fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
-      ", [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
-   t '(:with-latex verbatim :html-prefer-user-labels t)))
-
-(ert-deftest t-footnote-section ()
-  "Tests for `org-w3ctr-footnote-section'."
-  (t-check-element-values
-   #'t-footnote-section
-   '(("A[fn:1].\n\n[fn:1] The definition."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>The definition.</p>\n</dd>\n</dl>\n</div>\n")
-     ("A[fn:name].\n\n[fn:name] The definition."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-name\">[name]</dt>\n<dd>\n<p>The definition.</p>\n</dd>\n</dl>\n</div>\n")
-     ("A[fn:name:text]."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-name\">[name]</dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n")
-     ("A[fn::text]."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n")
-     ("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>one.</p>\n</dd>\n<dt id=\"fn-2\">[2]</dt>\n<dd>\n<p>two.</p>\n</dd>\n</dl>\n</div>\n"))
-   nil '(:with-latex verbatim))
-  ;; a nil section function falls back to the default
-  (t-check-element-values
-   #'t-footnote-section
-   '(("A[fn:1].\n\n[fn:1] The definition."
-      "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>The definition.</p>\n</dd>\n</dl>\n</div>\n"))
-   nil '(:with-latex verbatim :html-footnote-section-function nil)))
+            ($c "<dt id=\"fn-1\">[1]</dt>\n"
+                "<dd>\ntext\n</dd>"))))))
 
 (ert-deftest t-footnote-section-default-function ()
   "Tests for `org-w3ctr-footnote-section-default-function'."
@@ -1752,23 +1736,94 @@ int a = 1;</code></p>\n</details>")
                               (org-element-interpret-data data))))
                    (format "<p>%s</p>" text))))))
     (cl-flet ((p (s) (t-get-element s 'paragraph)))
-      (let ((info '(:html-footnotes-section "<div id=\"references\">\n<h2>%s</h2>\n<dl>%s</dl>\n</div>\n"
-                                            :html-footnote-format "[%s]")))
+      (let ((info (list :html-footnotes-section
+                        ($c "<div id=\"references\">\n<h2>%s</h2>\n"
+                            "<dl>%s</dl>\n</div>\n")
+                        :html-footnote-format "[%s]")))
         ;; Single footnote
         ($l (t-footnote-section-default-function
              (list (list 1 nil (p "Text."))) info)
-            "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>Text.</p>\n</dd>\n</dl>\n</div>\n")
+            ($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+                "<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>Text.</p>\n</dd>\n"
+                "</dl>\n</div>\n"))
         ;; Multiple footnotes
         ($l (t-footnote-section-default-function
              (list (list 1 nil (p "One."))
                    (list 2 "name" (p "Two."))) info)
-            "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>One.</p>\n</dd>\n<dt id=\"fn-name\">[name]</dt>\n<dd>\n<p>Two.</p>\n</dd>\n</dl>\n</div>\n")
+            ($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+                "<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>One.</p>\n</dd>\n"
+                "<dt id=\"fn-name\">[name]</dt>\n<dd>\n<p>Two.</p>\n</dd>\n"
+                "</dl>\n</div>\n"))
         ;; Custom footnote format
         (let ((info2 (plist-put (copy-sequence info)
                                 :html-footnote-format "<sup>%s</sup>")))
           ($l (t-footnote-section-default-function
                (list (list 1 nil "text")) info2)
-              "<div id=\"references\">\n<h2>References</h2>\n<dl>\n<dt id=\"fn-1\"><sup>1</sup></dt>\n<dd>\ntext\n</dd>\n</dl>\n</div>\n"))))))
+              ($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+                  "<dt id=\"fn-1\"><sup>1</sup></dt>\n<dd>\ntext\n</dd>\n"
+                  "</dl>\n</div>\n")))
+        ;; Custom section wrapper
+        (let ((info3 (plist-put (copy-sequence info)
+                                :html-footnotes-section
+                                "<section><h3>%s</h3>%s</section>")))
+          ($l (t-footnote-section-default-function
+               (list (list 1 nil "text")) info3)
+              ($c "<section><h3>References</h3>\n"
+                  "<dt id=\"fn-1\">[1]</dt>\n<dd>\ntext\n</dd>\n"
+                  "</section>")))))))
+
+(ert-deftest t-footnote-section-function ()
+  "The footnotes section goes through `org-w3ctr-footnote-section-function'."
+  (let ((org-w3ctr-footnote-section-function
+         (lambda (definitions _info)
+           (format "<FOOTNOTES n=%d/>" (length definitions)))))
+    (t-check-element-values
+     #'t-footnote-section
+     '(("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
+        "<FOOTNOTES n=2/>"))
+     nil '(:with-latex verbatim))))
+
+(ert-deftest t-footnote-section ()
+  "Tests for `org-w3ctr-footnote-section'."
+  (t-check-element-values
+   #'t-footnote-section
+   `(("A[fn:1].\n\n[fn:1] The definition."
+      ,($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+           "<dt id=\"fn-1\">[1]</dt>\n"
+           "<dd>\n<p>The definition.</p>\n</dd>\n"
+           "</dl>\n</div>\n"))
+     ("A[fn:name].\n\n[fn:name] The definition."
+      ,($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+           "<dt id=\"fn-name\">[name]</dt>\n"
+           "<dd>\n<p>The definition.</p>\n</dd>\n"
+           "</dl>\n</div>\n"))
+     ("A[fn:name:text]."
+      ,($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+           "<dt id=\"fn-name\">[name]</dt>\n<dd>\ntext\n</dd>\n"
+           "</dl>\n</div>\n"))
+     ("A[fn::text]."
+      ,($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+           "<dt id=\"fn-1\">[1]</dt>\n<dd>\ntext\n</dd>\n"
+           "</dl>\n</div>\n"))
+     ("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
+      ,($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+           "<dt id=\"fn-1\">[1]</dt>\n"
+           "<dd>\n<p>one.</p>\n</dd>\n"
+           "<dt id=\"fn-2\">[2]</dt>\n"
+           "<dd>\n<p>two.</p>\n</dd>\n"
+           "</dl>\n</div>\n"))
+     ;; no footnotes: the section is nil, not an empty one
+     ("Just text." nil))
+   nil '(:with-latex verbatim))
+  ;; a nil section function falls back to the default
+  (t-check-element-values
+   #'t-footnote-section
+   `(("A[fn:1].\n\n[fn:1] The definition."
+      ,($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+           "<dt id=\"fn-1\">[1]</dt>\n"
+           "<dd>\n<p>The definition.</p>\n</dd>\n"
+           "</dl>\n</div>\n")))
+   nil '(:with-latex verbatim :html-footnote-section-function nil)))
 
 ;;;; Item and Plain Lists helper functions
 
