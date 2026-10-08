@@ -1827,6 +1827,17 @@ int a = 1;</code></p>\n</details>")
 
 ;;;; Item and Plain Lists helper functions
 
+(ert-deftest t-checkbox-types ()
+  "Tests for `org-w3ctr-checkbox-types'."
+  ;; The registry has exactly the three documented types, each with
+  ;; exactly the three states and non-empty string markup.
+  ($l (mapcar #'car org-w3ctr-checkbox-types) '(unicode ascii html))
+  (dolist (entry org-w3ctr-checkbox-types)
+    ($l (mapcar #'car (cdr entry)) '(on off trans))
+    (dolist (state (cdr entry))
+      ($s (stringp (cdr state)))
+      ($s (> (length (cdr state)) 0)))))
+
 (ert-deftest t--checkbox ()
   "Tests for `org-w3ctr-checkbox'."
   (let ((info '(:html-checkbox-type unicode)))
@@ -1850,7 +1861,8 @@ int a = 1;</code></p>\n</details>")
   ;; An unknown checkbox type is an error, not a dropped checkbox;
   ;; with no checkbox there is nothing to format, so no error.
   (let ((info '(:html-checkbox-type unicod)))
-    ($e! (t--checkbox 'on info))
+    ($e!l (t--checkbox 'on info)
+          '(org-w3ctr-error "Unknown checkbox type: unicod"))
     ($l (t--checkbox nil info) nil)))
 
 (ert-deftest t--format-checkbox ()
@@ -1870,6 +1882,8 @@ int a = 1;</code></p>\n</details>")
   ($l (t--format-ordered-item "" nil nil nil) "<li></li>")
   ($l (t--format-ordered-item "\n  \n" nil nil nil) "<li></li>")
   ($l (t--format-ordered-item "\t\r\n " nil nil nil) "<li></li>")
+  ;; nil contents: a bare list bullet exports as an empty element
+  ($l (t--format-ordered-item nil nil nil nil) "<li></li>")
   ($l (t--format-ordered-item "123" nil nil nil) "<li>123</li>")
   ($l (t--format-ordered-item " 123 " nil nil nil) "<li>123</li>")
   ($l (t--format-ordered-item "123" nil nil 10) "<li value=\"10\">123</li>")
@@ -1892,6 +1906,8 @@ int a = 1;</code></p>\n</details>")
   ($l (t--format-unordered-item "" nil nil) "<li></li>")
   ($l (t--format-unordered-item "\n  \n" nil nil) "<li></li>")
   ($l (t--format-unordered-item "\t\r\n " nil nil) "<li></li>")
+  ;; nil contents: a bare list bullet exports as an empty element
+  ($l (t--format-unordered-item nil nil nil) "<li></li>")
   ($l (t--format-unordered-item "123" nil nil) "<li>123</li>")
   ($l (t--format-unordered-item " 123 " nil nil) "<li>123</li>")
   (let ((info '(:html-checkbox-type unicode)))
@@ -1909,6 +1925,9 @@ int a = 1;</code></p>\n</details>")
   ($l (t--format-descriptive-item " " nil nil nil)
       "<dt></dt><dd></dd>")
   ($l (t--format-descriptive-item "\r\n\t " nil nil nil)
+      "<dt></dt><dd></dd>")
+  ;; nil contents: a bare list bullet exports as an empty element
+  ($l (t--format-descriptive-item nil nil nil nil)
       "<dt></dt><dd></dd>")
   ($l (t--format-descriptive-item "123" nil nil nil)
       "<dt></dt><dd>123</dd>")
