@@ -1566,6 +1566,19 @@ implemented by an `addMethod' call in jstools/index.js."
      ;; with attr__: explicit style overrides centering
      ("#+attr__:(style \"text-align:right\")\n#+begin_center\nhello\n#+end_center"
       "<div style=\"text-align:right\">\n<p>hello</p>\n</div>")
+     ;; explicit id: how a center block gets an anchor
+     ("#+attr__: (id foo)\n#+begin_center\nhello\n#+end_center"
+      "<div id=\"foo\">\n<p>hello</p>\n</div>")
+     ;; with attr_html: the standard Org attribute syntax drops the
+     ;; centering too
+     ("#+attr_html: :class foo\n#+begin_center\nhello\n#+end_center"
+      "<div class=\"foo\">\n<p>hello</p>\n</div>")
+     ;; presence alone drops the centering: an empty attribute keyword
+     ;; still selects a generic div
+     ("#+attr__:\n#+begin_center\nhello\n#+end_center"
+      "<div>\n<p>hello</p>\n</div>")
+     ("#+attr_html:\n#+begin_center\nhello\n#+end_center"
+      "<div>\n<p>hello</p>\n</div>")
      ;; #+name: without attr__: keeps centering (name does not add id by
      ;; #default)
      ("#+name: my-block\n#+begin_center\nhello\n#+end_center"
@@ -1573,20 +1586,30 @@ implemented by an `addMethod' call in jstools/index.js."
 
 ;;;; Drawer
 
+(ert-deftest t-drawer-default-format-function ()
+  "Tests for `org-w3ctr-drawer-default-format-function'."
+  ($l (t-drawer-default-format-function "name" "sum" "" nil nil)
+      "<details><summary>sum</summary></details>")
+  ($l (t-drawer-default-format-function "name" "sum" "" "body" nil)
+      "<details><summary>sum</summary>\nbody</details>")
+  ($l (t-drawer-default-format-function "name" "sum" " id=\"d\"" "body" nil)
+      "<details id=\"d\"><summary>sum</summary>\nbody</details>"))
+
 (ert-deftest t-drawer-format-function ()
   "The drawer goes through `org-w3ctr-drawer-format-function'."
   (let ((org-w3ctr-drawer-format-function
-         (lambda (name summary attrs _contents _info)
-           (format "<DRAWER name=%s summary=%s attrs=%s/>"
-                   name summary attrs))))
+         (lambda (name summary attrs _contents info)
+           (format "<DRAWER name=%s summary=%s attrs=%s labels=%s/>"
+                   name summary attrs
+                   (if (t--pget info :html-prefer-user-labels) "on" "off")))))
     (t-check-element-values
      #'t-drawer
      '((":hello:\n:end:"
-        "<DRAWER name=hello summary=hello attrs=/>")
+        "<DRAWER name=hello summary=hello attrs= labels=on/>")
        ("#+caption: what can i say\n:test:\n:end:"
-        "<DRAWER name=test summary=what can i say attrs=/>")
+        "<DRAWER name=test summary=what can i say attrs= labels=on/>")
        ("#+name: id\n#+attr__: [example]\n:h:\n:end:"
-        "<DRAWER name=h summary=h attrs= id=\"id\" class=\"example\"/>"))
+        "<DRAWER name=h summary=h attrs= id=\"id\" class=\"example\" labels=on/>"))
      nil '(:html-prefer-user-labels t))))
 
 (ert-deftest t-drawer ()
@@ -1597,10 +1620,16 @@ implemented by an `addMethod' call in jstools/index.js."
       "<details><summary>hello</summary></details>")
      ("#+caption: what can i say\n:test:\n:end:"
       "<details><summary>what can i say</summary></details>")
+     ;; caption markup is exported, not escaped
+     ("#+caption: *bold* text\n:test:\n:end:"
+      "<details><summary><b>bold</b> text</summary></details>")
      ("#+name: id\n#+attr__: [example]\n:h:\n:end:"
       "<details id=\"id\" class=\"example\"><summary>h</summary></details>")
      ("#+attr__: (open)\n:h:\n:end:"
       "<details open><summary>h</summary></details>")
+     ;; attr_html is honoured like attr__
+     ("#+attr_html: :class foo\n:test:\n:end:"
+      "<details class=\"foo\"><summary>test</summary></details>")
      (":try-this:\n=int a = 1;=\n:end:"
       "<details><summary>try-this</summary>\n<p><code>\
 int a = 1;</code></p>\n</details>")
@@ -1616,15 +1645,6 @@ int a = 1;</code></p>\n</details>")
    #'t-drawer
    '((":hello:\n:end:" "<details><summary>hello</summary></details>"))
    nil '(:html-format-drawer-function nil)))
-
-(ert-deftest t-drawer-default-format-function ()
-  "Tests for `org-w3ctr-drawer-default-format-function'."
-  ($l (t-drawer-default-format-function "name" "sum" "" nil nil)
-      "<details><summary>sum</summary></details>")
-  ($l (t-drawer-default-format-function "name" "sum" "" "body" nil)
-      "<details><summary>sum</summary>\nbody</details>")
-  ($l (t-drawer-default-format-function "name" "sum" " id=\"d\"" "body" nil)
-      "<details id=\"d\"><summary>sum</summary>\nbody</details>"))
 
 ;;;; Dynamic Block
 
