@@ -3148,7 +3148,7 @@ unknown MODE or a custom result that is neither signals
   "Transcode a LATEX-FRAGMENT object from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the fragment
-value formatted for the `:with-latex' mode (see
+formatted for the `:with-latex' mode (see
 `org-w3ctr--format-latex'), or nil when the custom renderer returns
 nil."
   (declare (ftype (function (t t list) (or null string)))
@@ -3160,10 +3160,10 @@ nil."
 (defun t-latex-environment (latex-environment _contents info)
   "Transcode a LATEX-ENVIRONMENT element from Org to HTML.
 
-CONTENTS is nil.  INFO is the info plist.  Return the environment
-value, with common indentation removed, formatted for the
-`:with-latex' mode (see `org-w3ctr--format-latex'), or nil when the
-custom renderer returns nil."
+CONTENTS is nil.  INFO is the info plist.  Return the environment,
+with common indentation removed, formatted for the `:with-latex'
+mode (see `org-w3ctr--format-latex'), or nil when the custom
+renderer returns nil."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex
