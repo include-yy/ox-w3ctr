@@ -1600,28 +1600,18 @@ Otherwise, return an empty string."
 
 ;;;; HTML escaping
 
-(defconst t--protect-char-alist
-  '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;"))
-  "Alist mapping HTML special characters to their entity strings.
-Used by `org-w3ctr--encode-plain-text'.")
-
 (defun t--encode-plain-text (text)
   "Escape `&', `<', `>' in TEXT for safe embedding in HTML content."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
-  (dolist (pair t--protect-char-alist text)
-    (setq text (replace-regexp-in-string
-                (car pair) (cdr pair) text t t))))
-
-(defconst t--protect-char-alist*
-  '(("&" . "&amp;") ("<" . "&lt;") (">" . "&gt;")
-    ;; Single and double quotes also need escaping inside attribute
-    ;; values; see https://stackoverflow.com/a/2428595.
-    ("'" . "&apos;") ("\"" . "&quot;"))
-  "Alist mapping HTML special characters to their entity strings.
-
-Single and double quotes are escaped too.  Used by
-`org-w3ctr--encode-plain-text*'.")
+  ;; `&' first, or the entities inserted later would be re-escaped.
+  ;; `string-replace' is literal: TEXT comes back unchanged when it
+  ;; holds none of these characters, so a call copies nothing.
+  (string-replace
+   ">" "&gt;"
+   (string-replace
+    "<" "&lt;"
+    (string-replace "&" "&amp;" text))))
 
 (defun t--encode-plain-text* (text)
   "Escape `&', `<', `>', and both quote characters in TEXT.
@@ -1629,9 +1619,18 @@ Single and double quotes are escaped too.  Used by
 The result is safe to use inside an HTML attribute value."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
-  (dolist (pair t--protect-char-alist* text)
-    (setq text (replace-regexp-in-string
-                (car pair) (cdr pair) text t t))))
+  ;; As `org-w3ctr--encode-plain-text', plus the two quotes an
+  ;; attribute value must not contain raw (see
+  ;; https://stackoverflow.com/a/2428595).  `&' stays first.
+  (string-replace
+   "\"" "&quot;"
+   (string-replace
+    "'" "&apos;"
+    (string-replace
+     ">" "&gt;"
+     (string-replace
+      "<" "&lt;"
+      (string-replace "&" "&amp;" text))))))
 
 ;;;; HTML attributes
 
@@ -4519,21 +4518,25 @@ Return the formatted text."
 ;; :with-smart-quotes    (`org-export-with-smart-quotes')
 ;; :with-special-strings (`org-export-with-special-strings')
 ;; :preserve-breaks      (`org-export-preserve-breaks')
-(defconst t-special-string-regexps
-  '(("\\\\-" . "&#x00ad;"); shy
-    ("---\\([^-]\\)" . "&#x2014;\\1"); mdash
-    ("--\\([^-]\\)" . "&#x2013;\\1"); ndash
-    ("\\.\\.\\." . "&#x2026;")); hellip
-  "Regular expressions for special string conversion.")
 
 (defun t--convert-special-strings (string)
   "Convert special characters in STRING to HTML."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
-  (dolist (a t-special-string-regexps string)
-    (let ((re (car a))
-          (rpl (cdr a)))
-      (setq string (replace-regexp-in-string re rpl string t)))))
+  ;; `\-' and `...' are literals, so `string-replace' needs no copy
+  ;; when STRING holds none of them.  `"\\-"' here is the literal
+  ;; form of the `"\\\\-"' regexp in `org-html-special-string-regexps'
+  ;; (the regexp layer is gone).  The dash rules need a regexp for
+  ;; the `[^-]' lookahead; `---' must run before `--', or a
+  ;; three-hyphen run becomes `-&#x2013;'.
+  (string-replace
+   "..." "&#x2026;"
+   (replace-regexp-in-string
+    "--\\([^-]\\)" "&#x2013;\\1"
+    (replace-regexp-in-string
+     "---\\([^-]\\)" "&#x2014;\\1"
+     (string-replace "\\-" "&#x00ad;" string) t)
+    t)))
 
 (defun t-plain-text (text info)
   "Transcode a TEXT string from Org to HTML.
