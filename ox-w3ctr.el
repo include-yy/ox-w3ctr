@@ -3119,16 +3119,20 @@ as a string."
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML.
 
-CONTENTS is the contents of the paragraph, as a string.  INFO is
-the info plist.  Return the formatted paragraph as a string, or
-an empty string for empty paragraphs.  The first paragraph in a
-list item is rendered without a <p> tag; a standalone image is
+CONTENTS is the contents of the paragraph, as a string, or nil
+when Org pruned everything inside (math under `tex:nil').  INFO
+is the info plist.  Return the formatted paragraph as a string,
+or an empty string for empty paragraphs.  The first paragraph in
+a list item is rendered without a <p> tag; a standalone image is
 wrapped in <figure>."
-  (declare (ftype (function (t string list) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((parent (org-element-parent paragraph))
          (parent-type (org-element-type parent))
-         (attrs (t--make-attr__id* paragraph info t)))
+         (attrs (t--make-attr__id* paragraph info t))
+         ;; Org hands us nil, not an empty string, when everything
+         ;; inside the paragraph was pruned.
+         (contents (or contents "")))
     (cond
      (;; Item's first line.
       (and (eq parent-type 'item)

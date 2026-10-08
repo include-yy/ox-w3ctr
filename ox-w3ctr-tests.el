@@ -2877,7 +2877,13 @@ the `none' marker."
      ;; `:attr__' applies to the figure
      ("#+attr__: [bar]\n[[https://example.com/1.jpg][file:1.jpg]]"
       "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
-   nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t))
+  ;; nil CONTENTS: math under `tex:nil' is pruned before the
+  ;; transcoder runs, and the empty paragraph is ""
+  (t-check-element-values
+   #'t-paragraph
+   '(("$x^2$" ""))
+   nil '(:with-latex nil)))
 
 ;;;; Verse Block
 
