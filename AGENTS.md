@@ -111,7 +111,10 @@ it (`org-w3ctr--oinfo-props-are-looked-up`,
 - **Test docstrings**: a test named after a function opens with
   `Tests for `org-w3ctr-\u2026'.` and one line only -- extra explanation
   goes to body comments.  A test named otherwise (variant, property)
-  is free-form.
+  is free-form.  The suite's own harness
+  (`org-w3ctr-check-element-values` and its helpers) is exempt: its
+  tests are documentation for the test infrastructure and may explain
+  in the docstring.
 - **Declarations**: refactored functions carry
   `(declare (ftype (function (ARGS) RET)))`; add
   `(important-return-value t)` where the caller must use the result;
@@ -267,7 +270,12 @@ Besides the passes: the options tidy-up in `README.org` Roadmap (the
   tags.  Other keys are left to a custom head function.  The scan for
   used elements (`org-w3ctr--special-block-used-elements`) runs at
   template stage, takes INFO, and has no global state; `:noexport:`
-  subtrees are excluded.
+  subtrees are excluded.  The exclusion is pruning's doing:
+  `org-export--prune-tree' extracts `:noexport:' subtrees from the
+  parse tree before the scan runs.  The INFO argument the scan passes
+  to `org-element-map' is therefore unobservable (`:ignore-list' never
+  holds special blocks): dropping it survives every test -- an
+  equivalent mutant, kept annotated in the local mutation harness.
 - **Table column groups.**  Org's `/`-row (`<`/`>`/`<>`) only marks group
   boundaries; it cannot carry attributes, because its cells must be exactly
   those markers or Org's own colgroup detection
