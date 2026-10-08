@@ -2952,25 +2952,24 @@ empty or whitespace-only VALUE yields \"\".  Signal
 eval failure; CONTEXT labels the error message."
   (declare (ftype (function (t string symbol string) string))
            (important-return-value t))
-  (if (not (t--nw-p value)) ""
-    (let ((proc (pcase type ('eval #'eval) ('sexp nil)))
-          (s (t--nw-p value))
-          (line (line-number-at-pos
-                 (org-element-property :begin element))))
-      (or (handler-bind
-              ((error (lambda (err)
-                        (t-error "%s at line %d: %s"
-                                 context line
-                                 ;; A nested `org-w3ctr-error' has a clean
-                                 ;; message already; do not re-render it with
-                                 ;; its type name and quotes.
-                                 (if (eq (car err) 't-error)
-                                     (cadr err)
-                                   (error-message-string err))))))
-            (let ((data (read s)))
-              (if proc (t--2str (funcall proc data))
-                (t--sexp2html data))))
-          ""))))
+  (if-let* ((s (t--nw-p value)))
+      (let* ((line (line-number-at-pos
+                    (org-element-property :begin element)))
+             (report (lambda (err)
+                       ;; A nested `org-w3ctr-error' has a clean message
+                       ;; already; do not re-render it with its type name
+                       ;; and quotes, as `error-message-string' would.
+                       (t-error "%s at line %d: %s"
+                                context line
+                                (if (eq (car err) 't-error)
+                                    (cadr err)
+                                  (error-message-string err))))))
+        (handler-bind ((error report))
+          (let ((data (read s)))
+            (if (eq type 'eval)
+                (or (t--2str (eval data)) "")
+              (t--sexp2html data)))))
+    ""))
 
 ;; See (info "(org) Quoting HTML tags")
 (defun t-export-block (export-block _contents _info)
