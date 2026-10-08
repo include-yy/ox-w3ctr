@@ -471,3 +471,12 @@ same session.  Larger or planned work is in the =Roadmap= section of
   the `Math config' section while the functions live in the source LaTeX
   section, and nothing flagged it.  Cross-section membership is checked
   by eye; done for the LaTeX pass.
+
+- **The coderef link path is prefixed where the bare label is
+  expected.**  `org-w3ctr-link' hands `org-w3ctr--link-coderef' the
+  output of `org-w3ctr--link-path', which for a `[[(foo)]]' link is
+  "coderef:foo" while the link's `:path' is "foo" (measured), so
+  `org-export-resolve-coderef' receives the prefixed string and the
+  fragment would be `#coderef-coderef:foo'.  Coderef support is the
+  FIXME'd leftover in `org-w3ctr--link-coderef' (kept once for ox-html
+  compatibility); the Link pass fixes or removes it.
