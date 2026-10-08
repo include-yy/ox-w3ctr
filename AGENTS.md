@@ -212,20 +212,20 @@ from `table-generate-source`), is annotated in the source.  The
 remaining refinement work is in the earlier parts (a section refile
 scrambled their source order): the `REFINE` sections below.
 
-The current task, before those passes, is to tidy and improve the test
-code of the frozen parts.  `;;; Basic utilities` is done — every
-section reviewed function by function, OINFO included; `;;; Greater
-elements` remains: review its ERT suite for coverage, duplication,
-helper use and naming now that the code under test is frozen.  The one
-deliberate gap stays `org-w3ctr--table.el-table`.  Small findings go to
-`## Tasks`, larger ones to the `README.org` Roadmap.
+The test-code tidy-up of the frozen parts is done: `;;; Basic
+utilities` first — every section reviewed function by function, OINFO
+included — then `;;; Greater elements`, whose ten sections were
+reviewed for coverage, duplication, helper use, naming and layout (its
+Table tests were rewritten to the suite's helper/table-driven style).
+The one deliberate gap stays `org-w3ctr--table.el-table`.  Findings went
+to `## Tasks` and the `README.org` Roadmap.
 
 `ox-w3ctr-tests.el` mirrors the source: a `;;;` header per major part
 and a `;;;;` header per source section (OINFO splits into helpers /
 structural checks / reading and writing / cleanup and statistics).  Work
 through it a section at a time.  Everything under `;;; Basic
-utilities` — OINFO included — is reviewed and frozen; `;;; Greater
-elements` and the other parts are pending.
+utilities` and `;;; Greater elements` is reviewed; the other parts are
+pending.
 
 The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
@@ -446,7 +446,5 @@ same session.  Larger or planned work is in the =Roadmap= section of
   `t--link-target`, `t--link-equation` (Link).
 
 - **Three test sections sit out of source order.**  `order-check.el`
-  flags Link, Headline and CC license badges; the Greater-elements trio
-  (Footnote, Special Block, Table) is being fixed by the current test
-  walkthrough.  Reorder them to the source function order when those
-  sections are next touched.
+  flags Link, Headline and CC license badges.  Reorder them to the
+  source function order when those sections are next touched.
