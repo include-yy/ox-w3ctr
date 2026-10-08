@@ -3042,13 +3042,16 @@ value as a string, or nil for unsupported keywords."
 
 ;;;; LaTeX
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
 ;; Options:
 ;; - :html-math-custom-render-function
 ;;   (`org-w3ctr-math-custom-render-function')
 
 (defun t-math-custom-default-render-function (frag _info)
-  "Default value for `org-w3ctr-math-custom-render-function'."
+  "Return FRAG unchanged.
+
+This is the default value of `org-w3ctr-math-custom-render-function':
+a custom renderer receives the fragment string and the export
+state INFO and returns the markup to embed in the document."
   (declare (ftype (function (string t) string))
            (pure t) (important-return-value t))
   frag)
@@ -3067,7 +3070,13 @@ Inline `$...$' becomes `\\(...\\)' and display `$$...$$' becomes
 
 (defun t--format-latex (frag mode info)
   "Return the HTML for LaTeX fragment FRAG under MODE.
-MODE is the value of `:with-latex'; INFO is the export state."
+
+MODE is the value of `:with-latex': a nil MODE or \\='verbatim
+returns FRAG unchanged, `mathjax' normalizes the delimiters for
+client-side MathJax, `mathml-by-mathjax' and `svg-by-mathjax'
+convert through the jstools MathJax RPC, and \\='custom calls
+`:html-math-custom-render-function' on FRAG and INFO.  Signal
+`org-w3ctr-error' on any other MODE."
   (declare (ftype (function (string t list) string))
            (important-return-value t))
   (pcase mode
@@ -3079,10 +3088,14 @@ MODE is the value of `:with-latex'; INFO is the export state."
      (t--jcall t--jstools 'tex2svg (list :fragment (t--normalize-latex frag))))
     (`custom
      (funcall (t--pget info :html-math-custom-render-function) frag info))
-    (o (error "Unknown LaTeX mode: %s" o))))
+    (o (t-error "Unknown LaTeX mode: %s" o))))
 
 (defun t-latex-fragment (latex-fragment _contents info)
-  "Transcode a LATEX-FRAGMENT object from Org to HTML."
+  "Transcode a LATEX-FRAGMENT object from Org to HTML.
+
+CONTENTS is nil.  INFO is the info plist.  Return the fragment
+value formatted for the `:with-latex' mode (see
+`org-w3ctr--format-latex')."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (t--format-latex
@@ -3090,7 +3103,11 @@ MODE is the value of `:with-latex'; INFO is the export state."
    (t--pget info :with-latex) info))
 
 (defun t-latex-environment (latex-environment _contents info)
-  "Transcode a LATEX-ENVIRONMENT element from Org to HTML."
+  "Transcode a LATEX-ENVIRONMENT element from Org to HTML.
+
+CONTENTS is nil.  INFO is the info plist.  Return the environment
+value, with common indentation removed, formatted for the
+`:with-latex' mode (see `org-w3ctr--format-latex')."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (t--format-latex

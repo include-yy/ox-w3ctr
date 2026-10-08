@@ -2688,7 +2688,13 @@ the `none' marker."
      ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
       "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
      ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\n\n\n\n</pre>\n</div>"))
+      "<div id=\"t\" class=\"example\">\n<pre>\n\n\n\n</pre>\n</div>")
+     ;; `:attr_html' is a user attribute too: no class="example"
+     ("#+attr_html: :class foo\n#+begin_example\n1\n#+end_example"
+      "<div class=\"foo\">\n<pre>\n1\n</pre>\n</div>")
+     ;; an empty `#+attr__:' still counts as user control
+     ("#+attr__:\n#+begin_example\n1\n#+end_example"
+      "<div>\n<pre>\n1\n</pre>\n</div>"))
    nil '(:html-prefer-user-labels t)))
 
 ;;;; Export Block
@@ -2732,12 +2738,28 @@ the `none' marker."
    t)
   ;; Error handling: malformed Lisp signals t-error with line number.
   ($e!l (org-export-string-as
-         "#+begin_export emacs-lisp\n(broken\n#+end_export\n"
+         "#+begin_export emacs-lisp\n(broken\n#+end_export\n" 'w3ctr t)
+        (list 'org-w3ctr-error
+              ($c "EMACS-LISP block at line 1: "
+                  "End of file during parsing")))
+  ($e!l (org-export-string-as
+         ($c "text\n#+begin_export lisp-data\n(broken\n"
+             "#+end_export\n") 'w3ctr t)
+        (list 'org-w3ctr-error
+              ($c "LISP-DATA block at line 2: "
+                  "End of file during parsing")))
+  ;; an eval failure is reported like a read failure
+  ($e!l (org-export-string-as
+         "#+begin_export emacs-lisp\n(error \"boom\")\n#+end_export\n"
          'w3ctr t)
-        '(org-w3ctr-error "EMACS-LISP block at line 1: End of file during parsing"))
-  ($e!l (org-export-string-as "text\n#+begin_export lisp-data\n(broken\n#+end_export\n"
-                              'w3ctr t)
-        '(org-w3ctr-error "LISP-DATA block at line 2: End of file during parsing")))
+        '(org-w3ctr-error "EMACS-LISP block at line 1: boom"))
+  ;; a nested org-w3ctr-error keeps its clean message -- no type name
+  ;; and quotes, which error-message-string would re-render it with
+  ($e!l (org-export-string-as
+         ($c "#+begin_export emacs-lisp\n"
+             "(signal 'org-w3ctr-error (list \"clean\"))\n#+end_export\n")
+         'w3ctr t)
+        '(org-w3ctr-error "EMACS-LISP block at line 1: clean")))
 
 ;;;; Fixed Width
 
@@ -2752,6 +2774,8 @@ the `none' marker."
      (": 1\n: \n" "<pre>\n1\n\n</pre>")
      ("#+name: t\n#+attr__: [test]\n: 1\n : 2\n: 3"
       "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>")
+     ;; `:attr_html' goes through the same attribute builder
+     ("#+attr_html: :class foo\n: 1" "<pre class=\"foo\">\n1\n</pre>")
      (":\n:\n:\n:\n" "<pre>\n\n\n</pre>"))
    nil '(:html-prefer-user-labels t)))
 
@@ -2772,7 +2796,9 @@ the `none' marker."
      ("---------" "<hr>")
      ("----------" "<hr>")
      ("-------------------------------" "<hr>")
-     ("#+attr__: [thick]\n-----" "<hr class=\"thick\">"))))
+     ("#+attr__: [thick]\n-----" "<hr class=\"thick\">")
+     ("#+attr_html: :class foo\n-----" "<hr class=\"foo\">")
+     ("#+attr__: (id foo)\n-----" "<hr id=\"foo\">"))))
 
 ;;;; Keyword
 
@@ -2804,9 +2830,56 @@ the `none' marker."
   ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
         '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
   ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)
-        '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing")))
+        '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing"))
+  ;; TOC goes through org-w3ctr--keyword-toc
+  (cl-letf (((symbol-function 't--list-of-tables) (lambda (_i) "TABLES")))
+    ($l (t-keyword (t-get-element "#+TOC: tables" 'keyword) nil nil)
+        "TABLES")))
 
 ;;;; LaTeX
+
+(ert-deftest t-math-custom-default-render-function ()
+  "Tests for `org-w3ctr-math-custom-default-render-function'."
+  ;; the default renderer is the identity
+  ($l (t-math-custom-default-render-function "$x$" nil) "$x$"))
+
+(ert-deftest t--normalize-latex ()
+  "Tests for `org-w3ctr--normalize-latex'."
+  ($l (t--normalize-latex "$x$") "\\(x\\)")
+  ($l (t--normalize-latex "$$x$$") "\\[x\\]")
+  ($l (t--normalize-latex "\\(x\\)") "\\(x\\)")
+  ($l (t--normalize-latex "\\[x\\]") "\\[x\\]")
+  ($l (t--normalize-latex "\\begin{equation}\nx=1\n\\end{equation}")
+      "\\begin{equation}\nx=1\n\\end{equation}"))
+
+(ert-deftest t--format-latex ()
+  "Tests for `org-w3ctr--format-latex'."
+  ;; nil and verbatim return the fragment unchanged
+  ($l (t--format-latex "$x$" nil nil) "$x$")
+  ($l (t--format-latex "$x$" 'verbatim nil) "$x$")
+  ;; mathjax normalizes the delimiters for client-side MathJax
+  ($l (t--format-latex "$x$" 'mathjax nil) "\\(x\\)")
+  ;; custom calls the render function on the fragment and INFO
+  (let ((info '(:html-math-custom-render-function
+                (lambda (f _i) (format "<M>%s</M>" f)))))
+    ($l (t--format-latex "$x$" 'custom info) "<M>$x$</M>"))
+  ;; the RPC modes call the jstools MathJax helpers with the
+  ;; normalized fragment
+  (cl-flet ((rpc (mode)
+              (let (got)
+                (cl-letf (((symbol-function 't--jcall)
+                           (lambda (client method params)
+                             (setq got (list client method params))
+                             "<M>")))
+                  ($l (t--format-latex "$x$" mode nil) "<M>"))
+                got)))
+    ($l (rpc 'mathml-by-mathjax)
+        (list t--jstools 'tex2mml (list :fragment "\\(x\\)")))
+    ($l (rpc 'svg-by-mathjax)
+        (list t--jstools 'tex2svg (list :fragment "\\(x\\)"))))
+  ;; any other mode signals org-w3ctr-error
+  ($e!l (t--format-latex "$x$" 'bogus nil)
+        '(org-w3ctr-error "Unknown LaTeX mode: bogus")))
 
 (ert-deftest t-latex-fragment ()
   "Tests for `org-w3ctr-latex-fragment'."
@@ -2815,13 +2888,21 @@ the `none' marker."
   (t-check-element-values
    #'t-latex-fragment
    '(("$x^2$" "\\(x^2\\)"))
-   nil '(:with-latex mathjax)))
+   nil '(:with-latex mathjax))
+  ;; under `tex:nil' ox.el prunes the fragment: no call at all
+  (t-check-element-values
+   #'t-latex-fragment
+   '(("$x^2$"))
+   nil '(:with-latex nil)))
 
 (ert-deftest t-latex-environment ()
   "Tests for `org-w3ctr-latex-environment'."
   (t-check-element-values
    #'t-latex-environment
    '(("\\begin{equation}\nx=1\n\\end{equation}"
+      "\\begin{equation}\nx=1\n\\end{equation}")
+     ;; the value keeps its content but loses common indentation
+     ("  \\begin{equation}\n  x=1\n  \\end{equation}"
       "\\begin{equation}\nx=1\n\\end{equation}"))
    nil '(:with-latex mathjax)))
 
@@ -4920,25 +5001,6 @@ the `none' marker."
     ($l t--style-cache (format "<style>\n%s\n</style>\n" t-style-file))))
 
 ;;;; Math config
-
-(ert-deftest t--normalize-latex ()
-  "Tests for `org-w3ctr--normalize-latex'."
-  ($l (t--normalize-latex "$x$") "\\(x\\)")
-  ($l (t--normalize-latex "$$x$$") "\\[x\\]")
-  ($l (t--normalize-latex "\\(x\\)") "\\(x\\)")
-  ($l (t--normalize-latex "\\[x\\]") "\\[x\\]")
-  ($l (t--normalize-latex "\\begin{equation}\nx=1\n\\end{equation}")
-      "\\begin{equation}\nx=1\n\\end{equation}"))
-
-(ert-deftest t--format-latex ()
-  "Tests for `org-w3ctr--format-latex'."
-  ($l (t--format-latex "$x$" nil nil) "$x$")
-  ($l (t--format-latex "$x$" 'verbatim nil) "$x$")
-  ($l (t--format-latex "$x$" 'mathjax nil) "\\(x\\)")
-  (let ((info '(:html-math-custom-render-function
-                (lambda (f _i) (format "<M>%s</M>" f)))))
-    ($l (t--format-latex "$x$" 'custom info) "<M>$x$</M>"))
-  ($e! (t--format-latex "$x$" 'bogus nil)))
 
 (ert-deftest t-math-head-default-function ()
   "Tests for `org-w3ctr-math-head-default-function'."
