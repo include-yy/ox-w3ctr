@@ -3173,14 +3173,13 @@ renderer returns nil."
 
 ;;;; Paragraph
 
-(defsubst t--wrap-image (contents _info caption attrs)
+(defsubst t--wrap-image (contents caption attrs)
   "Wrap CONTENTS in a <figure> element for standalone images.
 
-CONTENTS is the image HTML.  INFO is unused.  CAPTION is the
-caption string (may be empty).  ATTRS is a pre-formatted attribute
-string for the <figure> tag.  Return the formatted <figure> element
-as a string."
-  (declare (ftype (function (string t string string) string))
+CONTENTS is the image HTML.  CAPTION is the caption string (may be
+empty).  ATTRS is a pre-formatted attribute string for the <figure>
+tag.  Return the formatted <figure> element as a string."
+  (declare (ftype (function (string string string) string))
            (pure t) (important-return-value t))
   (format "<figure%s>\n%s%s</figure>"
           attrs contents
@@ -3223,8 +3222,7 @@ wrapped in <figure>."
       (t-standalone-image-p paragraph info)
       (let* ((caption (org-export-get-caption paragraph))
              (cap (or (and caption (org-export-data caption info)) "")))
-        (t--wrap-image contents info cap
-                       (t--make-attr__id paragraph info t))))
+        (t--wrap-image contents cap (t--make-attr__id paragraph info t))))
      ;; Regular paragraph.
      (t (let ((c (t--trim contents)))
           (if (string= c "") ""

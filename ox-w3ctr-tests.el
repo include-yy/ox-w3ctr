@@ -3049,6 +3049,20 @@ the `none' marker."
 
 ;;;; Paragraph
 
+(ert-deftest t--wrap-image ()
+  "Tests for `org-w3ctr--wrap-image'."
+  ($l (t--wrap-image "" "" "") "<figure>\n</figure>")
+  ($l (t--wrap-image "hello" "" "")
+      "<figure>\nhello</figure>")
+  ($l (t--wrap-image "hello" " abc" "")
+      "<figure>\nhello<figcaption>abc</figcaption>\n</figure>")
+  ;; ATTRS is inserted verbatim inside the tag; CAPTION is trimmed
+  ($l (t--wrap-image "" "\ntest\n" " class=\"x\"")
+      "<figure class=\"x\">\n<figcaption>test</figcaption>\n</figure>")
+  ;; contents, caption and attrs together
+  ($l (t--wrap-image "<img>" "cap" " id=\"i\"")
+      "<figure id=\"i\">\n<img><figcaption>cap</figcaption>\n</figure>"))
+
 (ert-deftest t-paragraph ()
   "Tests for `org-w3ctr-paragraph'."
   (t-check-element-values
@@ -4152,16 +4166,6 @@ the `none' marker."
       ($s (string-match-p t-inline-image-path-regexp p)))
     (dolist (p '("img.png.txt" "img.tiff" "img.heic" "img.jp2"))
       ($n (string-match-p t-inline-image-path-regexp p)))))
-
-(ert-deftest t--wrap-image ()
-  "Tests for `org-w3ctr--wrap-image'."
-  ($l (t--wrap-image "" nil "" "") "<figure>\n</figure>")
-  ($l (t--wrap-image "hello" nil "" "")
-      "<figure>\nhello</figure>")
-  ($l (t--wrap-image "hello" nil " abc" "")
-      "<figure>\nhello<figcaption>abc</figcaption>\n</figure>")
-  ($l (t--wrap-image "" nil "\ntest\n" "1")
-      "<figure1>\n<figcaption>test</figcaption>\n</figure>"))
 
 (ert-deftest t-inline-image-p ()
   "Tests for `org-w3ctr-inline-image-p'."
