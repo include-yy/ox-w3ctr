@@ -3079,8 +3079,7 @@ unchanged."
   "Return FRAG unchanged.
 
 This is the default value of `org-w3ctr-math-custom-render-function':
-a custom renderer receives the fragment string and the export
-state INFO and returns the markup to embed in the document."
+the identity renderer, which ignores INFO."
   (declare (ftype (function (string t) string))
            (pure t) (important-return-value t))
   frag)
