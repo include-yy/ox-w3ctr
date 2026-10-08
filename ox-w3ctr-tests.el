@@ -2150,17 +2150,22 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--special-block-spec ()
   "Tests for `org-w3ctr--special-block-spec'."
-  ($e! (org-export-string-as
-        "#+begin_x-old\nhi\n#+end_x-old" 'w3ctr t
-        '(:html-special-block-custom-elements ("x-old"))))
+  ($e!l (org-export-string-as
+         "#+begin_x-old\nhi\n#+end_x-old" 'w3ctr t
+         '(:html-special-block-custom-elements ("x-old")))
+        '(org-w3ctr-error
+          "Malformed custom element registry entry: \"x-old\""))
   ;; non-cons entry: signals
-  ($e! (org-export-string-as
-        "#+begin_x-bad\nhi\n#+end_x-bad" 'w3ctr t
-        '(:html-special-block-custom-elements (42))))
+  ($e!l (org-export-string-as
+         "#+begin_x-bad\nhi\n#+end_x-bad" 'w3ctr t
+         '(:html-special-block-custom-elements (42)))
+        '(org-w3ctr-error "Malformed custom element registry entry: 42"))
   ;; non-string name: signals
-  ($e! (org-export-string-as
-        "#+begin_x-bad\nhi\n#+end_x-bad" 'w3ctr t
-        '(:html-special-block-custom-elements ((42 :src "x.js")))))
+  ($e!l (org-export-string-as
+         "#+begin_x-bad\nhi\n#+end_x-bad" 'w3ctr t
+         '(:html-special-block-custom-elements ((42 :src "x.js"))))
+        '(org-w3ctr-error
+          "Malformed custom element registry entry: (42 :src \"x.js\")"))
   ;; malformed entry with no special block used: the <head> scan still
   ;; validates the registry, so the clean error is raised (not a
   ;; wrong-type-argument).
@@ -2315,8 +2320,9 @@ int a = 1;</code></p>\n</details>")
   ($n (t--special-block-used-elements
        (list :html-special-block-custom-elements nil)))
   ;; a malformed registry signals even with no matching block
-  ($e! (t--special-block-used-elements
-        (list :html-special-block-custom-elements (42)))))
+  ($e!l (t--special-block-used-elements
+         (list :html-special-block-custom-elements '(42)))
+        '(org-w3ctr-error "Malformed custom element registry entry: 42")))
 
 (ert-deftest t--special-block-head-entry ()
   "Tests for `org-w3ctr--special-block-head-entry'."
@@ -2351,16 +2357,16 @@ int a = 1;</code></p>\n</details>")
   ($l (t-special-block-head-default-function
        '(("a-b" :src "all.js") ("c-d" :src "c.js") ("e-f" :src "all.js"))
        nil)
-      "<script type=\"module\" src=\"all.js\"></script>
-<script type=\"module\" src=\"c.js\"></script>\n")
+      ($c "<script type=\"module\" src=\"all.js\"></script>\n"
+          "<script type=\"module\" src=\"c.js\"></script>\n"))
   ;; deduplication does not touch :script
   ($l (t-special-block-head-default-function
        '(("a-b" :src "all.js" :script "a()")
          ("c-d" :src "all.js" :script "c()"))
        nil)
-      "<script type=\"module\" src=\"all.js\"></script>
-<script type=\"module\">\na()\n</script>
-<script type=\"module\">\nc()\n</script>\n")
+      ($c "<script type=\"module\" src=\"all.js\"></script>\n"
+          "<script type=\"module\">\na()\n</script>\n"
+          "<script type=\"module\">\nc()\n</script>\n"))
   ;; entries without known keys produce nothing
   ($n (t-special-block-head-default-function '(("a-b")) nil))
   ($n (t-special-block-head-default-function
@@ -2371,8 +2377,9 @@ int a = 1;</code></p>\n</details>")
   (let ((registry '(("x-one" :src "one.js")
                     ("x-two" :src "two.js")
                     ("x-unused" :src "unused.js")))
-        (doc "#+begin_x-two\nb\n#+end_x-two\n\n\
-#+begin_x-one\na\n#+end_x-one\n\n#+begin_x-two\nc\n#+end_x-two\n"))
+        (doc ($c "#+begin_x-two\nb\n#+end_x-two\n\n"
+                 "#+begin_x-one\na\n#+end_x-one\n\n"
+                 "#+begin_x-two\nc\n#+end_x-two\n")))
     (cl-flet ((head (str &optional plist)
                 (let ((out (org-export-string-as
                             str 'w3ctr nil
