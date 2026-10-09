@@ -41,6 +41,15 @@ now).
 
 *** TODO
 
+- *Export entry fast path.*  Measured 2026-10: ~78% of corpus
+  export time is =find-file-noselect='s per-document org-mode init,
+  not the backend.  A raw-read path (=insert-file-contents= +
+  =buffer-file-name= + =default-directory= + =org-export-as=, no
+  =org-mode=) is byte-identical (=norm= across the 57 docs) and 4.4x
+  faster (9.3s → 2.1s).  Apply it to the batch/corpus path (yynt's
+  =yynt--do-export= already does this); per-document the saving is
+  ~0.1s, so it only matters at batch scale.  Not the backend's job --
+  an Org invocation concern.
 - *Options tidy-up.*  The =:options-alist= is a grab-bag: a few
   entries are grouped, most are not.  Order every entry, consider
   replacing cumbersome string options with =*-function= ones.  Chart
@@ -152,10 +161,15 @@ Explicitly out of scope for now.
 - *Own export framework: streaming renderer / half-parser.*  Replace
   =org-export-data='s bottom-up string building and =org-element=
   parsing with a single-pass, head-to-tail renderer over a partial
-  parser.  This is where the ~85% upstream cost lives (measured:
-  ~31% string building, ~25% parsing, ~11% broken-link
-  =condition-case=), but it means dropping the Org export contract --
-  filters, =:exported-data= memoization, string-returning
-  transcoders, re-entrant call sites -- not optimising
-  =org-export-data=.  Ceiling ~4x on the corpus, ~0.1s per document:
-  a design statement, not a speedup.  Not now.
+  parser.  It means dropping the Org export contract -- filters,
+  =:exported-data= memoization, string-returning transcoders,
+  re-entrant call sites -- not optimising =org-export-data=.  The
+  ceiling is small: the backend is only ~12% of export time (see next
+  bullet).  Not now.
+- *Backend micro-optimization.*  Don't over-optimize: the bottleneck
+  is not the backend.  Measured 2026-10 over the 57-document corpus
+  (time, not allocation): =find-file= + org-mode init ~78% (avoidable
+  with raw read + =org-export-as=, no =find-file=),
+  =org-export--annotate-info= keyword/macro preprocessing ~10%,
+  parse-tree ~4%, backend transcode walk + transcoders +
+  fontification ~12%.  ox-w3ctr is already faster than ox-html.
