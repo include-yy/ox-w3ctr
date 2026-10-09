@@ -4,7 +4,7 @@
     "description": "node tools for ox-w3ctr",
     "main": "index.js",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1"
+        "test": "node --test \"test/*.test.js\""
     },
     "type": "module",
     "repository": {
@@ -23,6 +23,7 @@
     "dependencies": {
         "commander": "^13.1.0",
         "json-rpc-2.0": "^1.7.0",
-        "mathjax": "^4.0.0-beta.7"
+        "mathjax": "^4.0.0-beta.7",
+        "shiki": "4.5.0"
     }
 }
