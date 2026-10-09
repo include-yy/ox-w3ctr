@@ -20,39 +20,44 @@ style.  Version 0.2.18; requires Emacs 31.
 
 ## Environment
 
-Shell: MSYS2 bash (MINGW64); paths and commands below are bash-style.
+Machine-specific values (Emacs, Python, Org sources, proxy, remotes,
+Node) are auto-detected into `.agents/env.md` (gitignored).  On session
+start, read it; when it is absent, stale, or a probe disagrees with an
+invariant below, re-run the probes and rewrite it.
 
-- Emacs executable: `/d/emacs-build/bin/emacs.exe`
-- Python: use `python` (3.14), not `python3` — `python3` resolves to
-  the Windows Store stub (exit code 49) and is broken.
-- Upstream Org sources (reference for ports):
-  - `/d/org-mode/lisp/`  (the real Org source tree)
-  - especially `ox-html.el`, `ox.el`, `org-element.el`
-- **Never search inside `node_modules`.**  No recursive `grep`/`find`/`rg`
-  over `node_modules` (including the pi install tree or any package's
-  `node_modules/`): it is enormous and the search hangs the shell.  Read
-  the specific documented file by path instead (e.g. under the pi
-  `docs/` directory) — never discover it with a recursive scan.
+Invariants the detected values must satisfy:
+
+- Emacs is a build of version >= 31 (the package's minimum).
+- Python is 3.x and actually runs; on Windows, `python3` can resolve
+  to the Store stub (exit code 49) and is broken.
+- Org sources are a checkout containing `ox-html.el`, `ox.el` and
+  `org-element.el` (the reference for ports).
+
+Paths and commands below are bash-style.
+
+**Never search inside `node_modules`.**  No recursive `grep`/`find`/`rg`
+over `node_modules` (including the pi install tree or any package's
+`node_modules/`): it is enormous and the search hangs the shell.  Read
+the specific documented file by path instead (e.g. under the pi
+`docs/` directory) — never discover it with a recursive scan.
 
 ## Git
 
-- Remotes: `gh` = GitHub (`https://github.com/include-yy/ox-w3ctr`),
-  `origin` = SourceHut (`git@git.sr.ht:~exkeq/ox-w3ctr`).
-- GitHub is reached over HTTPS and needs the proxy; set it per command:
-  `HTTPS_PROXY='http://127.0.0.1:7890' git push gh master v0.2.7`.
-  SourceHut is over SSH and needs no proxy.
+Remotes and how to reach them live in `.agents/env.md` (this checkout's
+configuration); a GitHub-only clone has one remote and no proxy.
+
 - Releases: bump `Package-Version` (header) and `t-version` together,
-  commit, then tag `vX.Y.Z` (lightweight, matching `v0.2.5`) and push the
-  branch and the tag to both remotes.  The OINFO cache ships on: do **not**
-  turn `org-w3ctr-oinfo-enabled` off for a release (`t-oinfo-enabled` says
-  why).
+  commit, then tag `vX.Y.Z` (lightweight, matching `v0.2.5`) and push
+  the branch and the tag to the remotes listed in `.agents/env.md`.
+  The OINFO cache ships on: do **not** turn `org-w3ctr-oinfo-enabled`
+  off for a release (`t-oinfo-enabled` says why).
 
 ## Running the tests
 
-From the repo root:
+From the repo root (Emacs path from `.agents/env.md`):
 
 ```bash
-"/d/emacs-build/bin/emacs.exe" --batch -L . --eval "(setq load-prefer-newer t system-time-locale (symbol-name 'C))" -l ox-w3ctr-tests.el -f ert-run-tests-batch-and-exit
+"<emacs>" --batch -L . --eval "(setq load-prefer-newer t system-time-locale (symbol-name 'C))" -l ox-w3ctr-tests.el -f ert-run-tests-batch-and-exit
 ```
 
 Three gotchas:

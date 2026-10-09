@@ -3,7 +3,8 @@
 *-autoloads.el
 *-pkg.el
 zhua.el
-/.agents/
+/.agents/*
+!/.agents/skills/
 /jstools/node_modules
 /jstools/*.py
 /material/
