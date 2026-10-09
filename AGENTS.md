@@ -14,9 +14,13 @@ style.  Version 0.2.18; requires Emacs 31.
 - `assets/`           — CSS / SVG / JS
 - `jstools/`          — Node.js RPC helper: MathJax (math) and Shiki
                         (code highlighting)
-- `tools/`            — local build dirs and outputs (gitignored)
-- `zhua.el`           — scratch file for refactor proposals (gitignored)
+- `tools/`            — local build outputs (gitignored)
+- `scratch/`          — throwaway files, never the system temp (gitignored)
+- `zhua.el`           — refactor proposals (gitignored)
 - `.agents/`          — local skills (untracked; see Mainline)
+
+Scratch and temporary files go in `scratch/` (gitignored), never
+the system temp directory (`$TMPDIR` / `%TEMP%`).  Create it if absent.
 
 ## Environment
 
@@ -24,6 +28,11 @@ Machine-specific values (Emacs, Python, Org sources, proxy, remotes,
 Node) are auto-detected into `.agents/env.md` (gitignored).  On session
 start, read it; when it is absent, stale, or a probe disagrees with an
 invariant below, re-run the probes and rewrite it.
+
+Only the env-detect skill writes `.agents/env.md`; a skill that changes
+the environment (pi-shell, python-env) re-runs it instead of editing the
+file.  Project-level facts (a venv, its dependencies) live in project
+files (`requirements.txt`, AGENTS.md), never in env.md.
 
 Invariants the detected values must satisfy:
 
@@ -168,12 +177,6 @@ cd jstools && npm test
   traditional Emacs Lisp constructs (`mapcar`, `let`, `dolist`) instead of
   `cl-loop`, `cl-destructuring-bind`, etc.  The one historic dependency was
   dropped.
-- **Temporary files.**  Use the project's `tools/tmp/` directory for
-  scratch files, not the system temp directory (`$TMPDIR` / `%TEMP%`).
-  Create `tools/tmp/` if it does not exist (it is gitignored).  This keeps
-  project-related debris together and avoids polluting the system temp with
-  Org export artifacts.
-
 ## Methodology
 
 An AI author can afford to write everything down, so the refactor
