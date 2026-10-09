@@ -604,3 +604,15 @@ same session.  Larger or planned work is in the =Roadmap= section of
   `<a href="#x">' with nothing to land on; a random id with
   `org-w3ctr-prefer-user-labels' off).  Decided 2026-10 to leave it;
   the Link pass should know before touching element references.
+
+- **Consider dropping the `:textarea' source-block form (lean: drop).**
+  `org-w3ctr--textarea-block' keeps ox-html's `#+attr_html: :textarea'
+  behaviour: the block renders as a <textarea> instead of <pre><code>.
+  It is a compatibility relic with no W3C TR rationale -- a form
+  control in a spec, unstyled by base.css, and a silent output-shape
+  switch.  It is the lone survivor of the dropped ox-html src-block
+  features (line numbers, coderef, retain-labels, ...).  Delete it
+  and add it to the Roadmap's dropped-features list; the only reason
+  to keep it is ox-html compatibility, which this package does not
+  promise.  If kept instead, record the decision like the Export
+  blocks entry does.
