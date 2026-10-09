@@ -17,10 +17,14 @@ style.  Version 0.2.18; requires Emacs 31.
 - `tools/`            — local build outputs (gitignored)
 - `scratch/`          — throwaway files, never the system temp (gitignored)
 - `zhua.el`           — refactor proposals (gitignored)
-- `.agents/`          — local skills (untracked; see Mainline)
+- `.agents/`          — skills (committed) + env.md, next.md (gitignored)
 
 Scratch and temporary files go in `scratch/` (gitignored), never
 the system temp directory (`$TMPDIR` / `%TEMP%`).  Create it if absent.
+
+`.agents/next.md` is the handoff note from the previous session.  In a
+new conversation, read it early, but treat it as possibly outdated:
+check it against the current state before relying on it.
 
 ## Environment
 
