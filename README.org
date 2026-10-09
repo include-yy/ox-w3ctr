@@ -30,6 +30,47 @@ After installation and load, use =C-c C-e w o= to export a org buffer to
 HTML file. See more information from docstrings and comments (at least
 now).
 
+The Node helper in =jstools/= is optional.  It renders math for the
+=mathml-by-mathjax= and =svg-by-mathjax= modes and highlights code for
+the =jstools= engine.  It needs =node= on =exec-path= and its packages:
+
+#+begin_src sh
+cd jstools && npm ci
+#+end_src
+
+*** Code highlighting
+
+Source blocks are coloured by an engine named in
+=org-w3ctr-fontify-method=:
+
+- =engrave= (default): Emacs font-lock, through the language's major
+  mode.
+- =jstools=: Shiki (TextMate grammars, ~350 languages) in the Node
+  helper.
+- =plain= or nil: no colour.
+
+A list tries engines in order, e.g. =(jstools engrave)=; =plain= always
+ends it.  Override the method per file with =#+OPTIONS:
+fontify:(jstools engrave)= and per block with a header argument:
+=#+begin_src python :fontify nil=.
+
+The output is =<span class="ef-SLUG">= runs; faces map to slugs through
+=org-w3ctr-fontify-faces= (and =org-w3ctr-fontify-extra-faces=),
+following =:inherit=.  The colours, light and dark, come from
+=org-w3ctr-fontify-palette=; after changing it, run =M-x
+org-w3ctr-fontify-update-stylesheet= to rewrite the generated block of
+=assets/style.css=.  A block can recolour a slug locally with
+=#+attr__: (style "--ef-k: red")=.
+
+A language no engine knows, or an engine that fails, is warned about
+once per export and the block exported as plain text (see
+=org-w3ctr-fontify-unknown-language= and =org-w3ctr-fontify-on-error=).
+=M-x org-w3ctr-show-fontify-report= lists, for the last export, which
+engine took how many blocks, the languages no engine took, and the
+faces that found no slug.  See [[file:doc/fontify.org][doc/fontify.org]] for the details: the
+face table, colours, the Node engine, writing an engine of your own,
+and how the pipeline works.
+
 ** =TODO= list [0/4]
 
 1. [ ] Totally Refactor from ox-html.
@@ -70,8 +111,9 @@ now).
   - Line numbers, coderef, =retain-labels=.
   - =:html-wrap-src-lines= and =:html-klipsify-src=.
   - Listing number in captions.
-  - example-block fontification / line numbers.
-  - Highlight engine: htmlize vs =t-fontify-method= + =ef-= slugs.
+  - example-block fontification / line numbers.  The token list
+    (=org-w3ctr--fontify-dispatch=) is where line numbers would be cut,
+    without touching any engine.
 - *Attr-reading machinery.*  The attribute helpers have grown several
   layers (=t--read-attr__=, =t--make-attr__=, =t--make-attr__id=,
   =t--make-attr__id*=, =t--make-attr_html=, =t--make-attribute-string=,
@@ -84,14 +126,12 @@ now).
   revisit if SVG output is kept.
 - *CSS cleanup in =assets/style.css=.*  Not urgent.
   - Dead rules: =.org-center= (never emitted).
-  - =.ef-*= highlight colours lean dark-theme; provide light/dark pair.
-  - =pre > code.src= invisible in dark theme; add dark-block override.
-  - Inline src (=t-inline-src-block=) has no CSS; give it a style or
-    drop the dead class.
-- *Src-block highlight backends.*  Today =t-fontify-method= is =engrave=
-  or nil (server-side).  Planned: further server-side backends, or
-  client-side (e.g. highlight.js) by emitting bare
-  =<code class="language-LANG">=.
+- *Client-side highlighting.*  The server-side engines (=engrave=,
+  =jstools=) are done (2026-10).  A =client= engine is designed but not
+  built: it would emit =<code class="language-LANG">= unchanged and add
+  highlight.js or Prism to =<head>= only when a document needs it.  It
+  makes the page depend on browser JavaScript, so it waits for a
+  concrete need.
 - *Special-block custom elements: a component cookbook.*  The
   =:html-special-block-custom-elements= registry (=:template= for
   Declarative Shadow DOM, =:src= and =:script= for the =<head>=

@@ -1,0 +1,332 @@
+#+title: Code highlighting in ox-w3ctr
+#+options: toc:2 num:t
+
+ox-w3ctr colours source blocks and inline source blocks itself, at
+export time: the HTML carries =<span class="ef-SLUG">= runs and the
+stylesheet decides the colours.  This document explains how to use
+it, how to extend it, and how it works.
+
+* Quick start
+
+Nothing to do: by default every block is coloured by Emacs's own
+font-lock, through the language's major mode.
+
+#+begin_src org
+,#+begin_src emacs-lisp
+(defun hello () (message "hi"))
+,#+end_src
+#+end_src
+
+exports as
+
+#+begin_src html
+<pre>
+<code class="src src-emacs-lisp">(<span class="ef-k">defun</span> <span class="ef-f">hello</span> () (message <span class="ef-s">"hi"</span>))</code></pre>
+#+end_src
+
+For languages Emacs cannot highlight (no major mode, or a tree-sitter
+mode without its grammar), add the Node engine:
+
+#+begin_src sh
+cd jstools && npm ci
+#+end_src
+
+#+begin_src org
+,#+OPTIONS: fontify:(engrave jstools)
+#+end_src
+
+* Engines and methods
+
+An /engine/ turns code into coloured runs.  Three are shipped:
+
+| Engine    | What it uses                                     | Needs                        |
+|-----------+--------------------------------------------------+------------------------------|
+| =engrave= | Emacs font-lock, through the language's mode     | nothing                      |
+| =jstools= | Shiki (TextMate grammars, ~350 languages), Node  | =node=, =npm ci= in jstools/ |
+| =plain=   | nothing: the code is only HTML-escaped           | nothing                      |
+
+The /method/ says which engines to try, in order:
+
+- an engine name, e.g. =engrave=;
+- a list of engine names, e.g. =(jstools engrave)=: the first engine
+  that takes the block wins;
+- =nil=: no highlighting.
+
+=plain= always ends the list, so every block is exported.
+
+The method is chosen, from the most specific:
+
+1. per block, with the =:fontify= header argument:
+   #+begin_src org
+   ,#+begin_src python :fontify nil
+   ,#+end_src
+   src_python[:fontify jstools]{x = 1}
+   #+end_src
+   The value is read as Lisp (never evaluated): a name, =nil=, or a
+   parenthesized list.
+2. per file, with =#+OPTIONS: fontify:METHOD=;
+3. globally, with =org-w3ctr-fontify-method= (default =engrave=).
+
+An unknown engine name is an error, reported with the block's line
+when it comes from the block.
+
+* Languages
+
+The =engrave= engine asks =org-src-get-lang-mode= for the major mode
+of a language (=python= gives =python-mode=, =elisp= gives
+=emacs-lisp-mode=, ...).  The =jstools= engine uses the language name
+as Shiki knows it, aliases included.
+
+=org-w3ctr-fontify-lang-alist= overrides either, per language:
+
+#+begin_src emacs-lisp
+(setq org-w3ctr-fontify-lang-alist
+      '(("json" :engrave js-json-mode)   ; the default entry
+        ("conf" :engrave conf-unix-mode :jstools "ini")
+        ("text" :engrave nil)))           ; engrave declines "text"
+#+end_src
+
+An engine /declines/ a language it cannot handle; the next engine of
+the method gets the block.  The =engrave= engine declines a language
+without a defined mode, and a tree-sitter mode (=*-ts-mode=) whose
+grammar is not installed.  It never offers to install a grammar.
+
+Major modes run with their hooks delayed, so your own mode hooks
+(LSP clients, linters, minor modes adding faces) neither slow the
+export nor change its output; set =org-w3ctr-fontify-run-mode-hooks=
+to run them.
+
+* Faces, slugs and colours
+
+** From faces to slugs
+
+The =engrave= engine reads the faces font-lock put on the code and
+maps each to a short /slug/, the CSS class =ef-SLUG=, through
+=org-w3ctr-fontify-faces= (consulted after
+=org-w3ctr-fontify-extra-faces=, where your additions go):
+
+#+begin_src emacs-lisp
+(setq org-w3ctr-fontify-extra-faces
+      '((sh-quoted-exec . "s")              ; reuse the string colour
+        (my-mode-special-face . "special"))) ; a slug of your own
+#+end_src
+
+A face without an entry is looked up through its =:inherit= chain:
+=font-lock-function-call-face= inherits from
+=font-lock-function-name-face=, so it gets =f= without an entry of
+its own.  =org-w3ctr-fontify-face-fallback= controls this:
+
+| Value     | A face without an entry ...                                 |
+|-----------+-------------------------------------------------------------|
+| =inherit= | uses its first ancestor with an entry, else gets no span    |
+| =inline=  | as =inherit=, else gets =style="..."= from its attributes  |
+| =none=    | gets no span                                                |
+
+=inline= copies colours from the exporting Emacs, so the output
+depends on its theme and ignores the page's light/dark switch; it is
+off by default.
+
+The shipped slugs:
+
+| Slug | Face                                  | Slug | Face                                  |
+|------+---------------------------------------+------+---------------------------------------|
+| =k=  | font-lock-keyword-face                | =f=  | font-lock-function-name-face          |
+| =s=  | font-lock-string-face                 | =v=  | font-lock-variable-name-face          |
+| =d=  | font-lock-doc-face                    | =t=  | font-lock-type-face                   |
+| =m=  | font-lock-doc-markup-face             | =o=  | font-lock-constant-face               |
+| =c=  | font-lock-comment-face                | =b=  | font-lock-builtin-face                |
+| =cd= | font-lock-comment-delimiter-face      | =pp= | font-lock-preprocessor-face           |
+| =n=  | font-lock-number-face                 | =op= | font-lock-operator-face               |
+| =wr= | font-lock-warning-face                | =nc= | font-lock-negation-char-face          |
+| =rc= | font-lock-regexp-grouping-construct   | =rb= | font-lock-regexp-grouping-backslash   |
+| =h=  | shadow                                | =sc= | success                               |
+| =w=  | warning                               | =e=  | error                                 |
+
+(=css-property= and =css-selector= reuse =f= and =k=.)
+
+** Colours
+
+=org-w3ctr-fontify-palette= holds one light and one dark colour per
+slug, plus optional =bold= / =italic=.  The stylesheet does not read
+it: after changing it, run
+
+: M-x org-w3ctr-fontify-update-stylesheet
+
+which rewrites the block between the =BEGIN generated by ...= and
+=END generated by ...= lines of =assets/style.css=:
+
+#+begin_src css
+:root { --ef-k: #cf222e; ... }
+@media (prefers-color-scheme: dark) { :root { --ef-k: #ff7b72; ... } }
+.ef-k { color: var(--ef-k); }
+#+end_src
+
+The shipped colours reach a WCAG contrast of at least 4.5:1 on every
+background code is drawn on, in both themes; a test checks it.
+
+Because the rules use custom properties, one block can be recoloured
+on its own:
+
+#+begin_src org
+,#+attr__: (style "--ef-k: purple; --ef-s: teal")
+,#+begin_src python
+,#+end_src
+#+end_src
+
+* The jstools engine
+
+The Node helper in =jstools/= (also used for MathJax) answers two
+JSON-RPC methods for highlighting:
+
+- =highlightLanguages= returns the language names Shiki accepts; it
+  is asked once per export.
+- =highlight= with ={code, lang}= returns ={tokens: [[TEXT, SLUG], ...]}=:
+  the code cut into runs, each with a slug or =null=.  It never
+  returns HTML; Emacs escapes the text.  Error =-32010= means "unknown
+  language" and is taken as a decline.
+
+Slugs come from =jstools/lib/slugs.json=, a list of TextMate scope
+selectors and their slugs (=["keyword.operator", "op"]=).  To pick a
+slug, Shiki highlights with a synthetic theme whose "colours" encode
+the slugs, so its own scope matching decides, as for any theme.
+
+Setup: =node= on =exec-path=, then =npm ci= in =jstools/=.  Without
+them the engine is /unavailable/: it is skipped, with one warning per
+export (see below).  =org-w3ctr-fontify-jstools-timeout= (10 s) bounds
+each request.
+
+* When something goes wrong
+
+Three situations, each with its policy:
+
+| Situation                                  | Policy option                       | Values (default first)  |
+|--------------------------------------------+-------------------------------------+-------------------------|
+| an engine fails (error, timeout, bad data) | =org-w3ctr-fontify-on-error=         | =warn=, =error=, =silent= |
+| an engine is unavailable                   | =org-w3ctr-fontify-on-error=         | =warn=, =error=, =silent= |
+| every engine declines the language         | =org-w3ctr-fontify-unknown-language= | =warn=, =error=, =plain=  |
+
+=warn= warns once per engine (or language) and export, then exports
+the block with the next engine, in the end as plain text.  =error=
+stops the export with a message naming the engine, the language and
+the block's line; use it in CI.  A failed or unavailable engine is
+not used again in that export, so a dead helper costs one timeout,
+not one per block.  A block without a language never counts as
+unknown.
+
+=M-x org-w3ctr-show-fontify-report= shows what the last export did:
+
+#+begin_example
+Blocks fontified, by engine
+    41  engrave
+     3  jstools
+
+Languages no engine took
+     2  nosuchlang
+
+Faces without a slug (runs)
+     4  sh-quoted-exec
+#+end_example
+
+The last section is the list to add to =org-w3ctr-fontify-extra-faces=.
+
+* Writing an engine
+
+An engine is two functions registered in =org-w3ctr-fontify-engines=:
+
+#+begin_src emacs-lisp
+(defun my-upcase-tokens (code lang _info)
+  "Mark every upper-case word of CODE as a keyword, for LANG \"shout\"."
+  (if (not (equal lang "shout"))
+      :decline
+    (let ((case-fold-search nil) (pos 0) tokens)
+      (while (string-match "[A-Z]+" code pos)
+        (when (> (match-beginning 0) pos)
+          (push (cons nil (substring code pos (match-beginning 0))) tokens))
+        (push (cons "k" (match-string 0 code)) tokens)
+        (setq pos (match-end 0)))
+      (when (< pos (length code))
+        (push (cons nil (substring code pos)) tokens))
+      (nreverse tokens))))
+
+(add-to-list 'org-w3ctr-fontify-engines
+             '(shout :fontify my-upcase-tokens :available always))
+;; then: #+OPTIONS: fontify:(shout engrave)
+#+end_src
+
+The contract:
+
+- =:fontify= is called with CODE, LANG and INFO, and returns either a
+  list of =(CLASS . TEXT)= tokens or =:decline=.
+  - TEXT is raw code, not HTML.  The texts must concatenate back to
+    CODE exactly, and none may be empty.
+  - CLASS is =nil=, a slug of the face tables, or =(style . CSS)=.
+- It may signal an error; that counts as a failure.
+- =:available= is called with INFO and returns nil when the engine
+  cannot run at all; an optional =:hint= string completes the
+  warning.
+
+The tokens are checked before use: a list that misses or adds a
+character, or names an unknown slug, is a failure of the engine.
+
+* How it works
+
+#+begin_example
+ t-src-block / t-inline-src-block
+        |  org-w3ctr-fontify-code (CODE LANG INFO ELEMENT)
+        v
+ method -> engine chain ............. org-w3ctr--fontify-chain-for
+        |
+        v
+ run engines in order ............... org-w3ctr--fontify-dispatch
+   engrave | jstools | ... | plain       (decline -> next engine;
+        |                                failure/unavailable -> policy,
+        v                                engine broken for the export)
+ ((CLASS . TEXT) ...) ............... the token list
+        |  org-w3ctr--fontify-check-tokens   texts add up to CODE,
+        |                                    classes are known
+        |  org-w3ctr--fontify-merge          join neighbours of one class
+        v
+ org-w3ctr--fontify-render .......... the only place that escapes
+        |
+        v
+ <span class="ef-SLUG">...</span> .... coloured by assets/style.css
+#+end_example
+
+- Engines never produce HTML.  Escaping happens once, in the renderer,
+  so an engine (or the Node helper) cannot inject markup.
+- Every step is counted in INFO's =:html-fontify-state=, which the
+  report command reads.
+- Called outside an export, =org-w3ctr-fontify-code= builds INFO from
+  the current option values.
+
+* Testing
+
+- =ox-w3ctr-tests.el= covers each function, plus:
+  - an exhaustive sweep of the renderer (every string of length 1 to 3
+    over HTML-special characters) for escaping and loss;
+  - an exhaustive sweep of the dispatcher (two stub engines times
+    four behaviours times every policy: 144 cases) against a model of
+    its rules;
+  - drift checks between the palette, =assets/style.css=, the face
+    table and =jstools/lib/slugs.json=, and the contrast check;
+  - a test against the real Node helper, skipped without =node= or
+    =jstools/node_modules=.
+- =cd jstools && npm test= runs the helper's own tests (framing, math,
+  highlighting).
+
+* Changes from 0.2.17
+
+- =org-w3ctr-fontify-method= also accepts a list of engines, and a
+  file can set it with =#+OPTIONS: fontify:=; a block with =:fontify=.
+  An unknown value is now an error instead of no highlighting.
+- Derived faces get their ancestor's colour; operators (=ef-op=) and
+  numbers (=ef-n=) have their own slug.  JSON blocks are highlighted
+  (=js-json-mode=).
+- Major-mode hooks no longer run while highlighting.
+- A language no engine knows is warned about (once per export).
+- New colours, in light and dark pairs; =pre > code.src= and inline
+  code now have a background in the dark theme too.
+- A =:textarea= source block escapes its code, so =</textarea>= in the
+  code no longer ends the element.
+- =org-w3ctr-fontify-code= takes two more optional arguments, INFO and
+  ELEMENT; existing two-argument calls work as before.

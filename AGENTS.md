@@ -12,7 +12,8 @@ style.  Version 0.2.17; requires Emacs 31.
 - `ox-w3ctr.el`       — the back-end (main source)
 - `ox-w3ctr-tests.el` — ERT test suite
 - `assets/`           — CSS / SVG / JS
-- `jstools/`          — Node.js MathJax RPC helper
+- `jstools/`          — Node.js RPC helper: MathJax (math) and Shiki
+                        (code highlighting)
 - `tools/`            — local build dirs and outputs (gitignored)
 - `zhua.el`           — scratch file for refactor proposals (gitignored)
 - `.agents/`          — local skills (untracked; see Mainline)
@@ -76,6 +77,14 @@ tests and runs the plain-flavor test instead).
 Three tests read `ox-w3ctr.el` next to the loaded file and skip without
 it (`org-w3ctr--oinfo-props-are-looked-up`,
 `org-w3ctr--oinfo-props-go-through-pget`, `org-w3ctr--load-file`).
+`org-w3ctr--jstools-tokens-live` runs the real Node helper and skips
+without `node` or `jstools/node_modules`.
+
+The Node helper has its own tests (they need `npm ci` first):
+
+```bash
+cd jstools && npm test
+```
 
 ## Conventions
 
@@ -100,6 +109,11 @@ it (`org-w3ctr--oinfo-props-are-looked-up`,
   ```bash
   tr -cd '\r' < ox-w3ctr.el | wc -c   # expect 0
   ```
+
+  A fresh clone under Git for Windows inherits the system
+  `core.autocrlf=true` and checks every file out as CRLF, which
+  fails 9 tests before any change.  Set `git config core.autocrlf
+  false` in the clone and convert the working tree back to LF.
 
   Do not use `grep -c $'\r'` for this: in this MSYS2 environment it
   reports the line count for *any* file (a pure-LF `ox-w3ctr.el` reports
@@ -232,8 +246,8 @@ pending.
 
 The sections still to refine carry
 `;; REFINE: this section is pending the mainline fine pass.` in the
-source.  Three remain, in source order: Engrave-faces subset,
-Source block, Link.  Take them in source
+source.  One remains: Link (Engrave-faces subset and Source block
+were done in the fontify refactor; see Notes).  Take them in source
 order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass — docstring,
 `declare`, `important-return-value`/`pure`, helper use, tests — and
 remove the marker when the section is done.  What a pass turns up goes to
@@ -307,6 +321,54 @@ Besides the passes: the options tidy-up in `README.org` Roadmap (the
   `svg-by-mathjax` are therefore thin one-line RPC calls on the Emacs side.
   The helper loads `ui/safe`, without which the auto-loaded `html' TeX
   extension lets `\href{javascript:...}`, `\style` and `\class` through.
+- **Fontify pipeline.**  `org-w3ctr-fontify-code` turns the method of a
+  block (its `:fontify` header argument, else `#+OPTIONS: fontify:`,
+  else `org-w3ctr-fontify-method`) into a chain of engines ending with
+  `plain` (`t--fontify-chain-for`), and `t--fontify-dispatch` runs the
+  engines of `org-w3ctr-fontify-engines` (`engrave`, `jstools`,
+  `plain`) until one returns tokens.  The contract:
+  - An engine returns `((CLASS . TEXT) ...)` or `:decline`, never
+    HTML.  TEXT is raw code; CLASS is nil, a slug of the face tables,
+    or `(style . CSS)` under the `inline` face fallback.
+    `t--fontify-check-tokens` rejects tokens that do not add up to the
+    code or carry an unknown class; `t--fontify-merge` joins
+    neighbours of one class; `t--fontify-render` is the only place that
+    escapes.
+  - Fallback, in three layers: a face without a slug follows its
+    `:inherit` chain (`t--engrave-face-slug`); a declining engine
+    passes the block on, and a failing or unavailable one is handled
+    by `:html-fontify-on-error` and broken for the rest of the export;
+    `plain` takes what is left, and a language every engine declined
+    goes through `:html-fontify-unknown-language`.  Everything is
+    counted in INFO's `:html-fontify-state` and shown by
+    `M-x org-w3ctr-show-fontify-report`.
+  - Measured facts: Emacs 31 *asks* to install a missing tree-sitter
+    grammar, which hangs a batch export, so `t--engrave-tokens` binds
+    `treesit-auto-install-grammar` to `never` (declared with `defvar`,
+    or the `let` would be lexical and do nothing) and declines a
+    `*-ts-mode` left without a parser.  In batch, `color-values` rounds
+    to the 8-colour terminal palette (`#1f5bff` comes back pure blue),
+    so inline styles use `tty-color-standard-values`.  Mode hooks run
+    delayed by default, and `font-lock-ensure` still fontifies
+    everything under `delay-mode-hooks`.
+  - The `jstools` engine calls `highlightLanguages` once per export
+    and `highlight` per block; the helper answers `[TEXT, SLUG]` pairs.
+    Slugs come from `jstools/lib/slugs.json` through a synthetic Shiki
+    theme whose fake colours (`#000001`, ...) decode back to slugs, so
+    Shiki's own scope matching picks them.  Error `-32010` means
+    "unknown language", i.e. decline.
+  - Colours: edit `org-w3ctr-fontify-palette`, then run `M-x
+    org-w3ctr-fontify-update-stylesheet`, which rewrites the marked
+    block of `assets/style.css`.  Tests tie the palette, that block,
+    the face table and `slugs.json` together, and check WCAG contrast
+    ≥ 4.5 on every code background in both themes.
+  - The refactor changed one thing in the frozen `;;; Basic
+    utilities`: `t--jstools-methods` gained `highlight` and
+    `highlightLanguages` (guarded by `t--jstools-methods-drift`).
+  - Local helpers under the gitignored `tools/`, when present:
+    `tools/fontify-snapshot.el LABEL` exports `tools/fontify-corpus/`
+    for byte-for-byte comparison (`diff -r` two labels), and
+    `tools/static-check.el` prints the compiler and checkdoc warnings.
 - **JSON-RPC transport (`jsonrpc.el`).**  The `jstools` connection is a
   callable `org-w3ctr--jrpc' oclosure over a `jsonrpc-process-connection';
   two measured facts to keep:
@@ -385,14 +447,17 @@ same session.  Larger or planned work is in the =Roadmap= section of
   `info`; a differently named INFO plist would false-fail.  Loosen to
   `[^ \t\n()]+` if that ever changes.
 
-- **checkdoc leftovers outside the REFINE passes.**  11 of the 14
-  remaining warnings sit in `REFINE:` sections (Source block 1,
-  Link 10) and their passes clear them.  Three have no owner:
+- **checkdoc leftovers outside the REFINE passes.**  Emacs 31.1's
+  checkdoc reports 17 warnings; 10 sit in the Link `REFINE:` section
+  and its pass clears them.  Seven have no owner:
   `t-creator-string`'s docstring first line is not a complete sentence
-  (it ends at the `%c` placeholder), and the `t-export-as-html` /
+  (it ends at the `%c` placeholder); the `t-export-as-html` /
   `t-export-to-html` docstrings never mention ASYNC (the argument is
   used — it goes to `org-export-to-buffer' / `org-export-to-file' — so
-  the docstring should say so, not the name mangled).
+  the docstring should say so, not the name mangled); two docstrings
+  name the bare word `org-publish` where checkdoc wants it quoted;
+  and two say `jsonrpc-process-connection` without "class" or
+  "symbol" in front of it.  `tools/static-check.el` lists them.
 
 - **`org-w3ctr--read-attr`'s error message prints the property keyword
   as is.**  `Invalid attribute #+%s` interpolates the keyword, so the
@@ -437,9 +502,8 @@ same session.  Larger or planned work is in the =Roadmap= section of
   tests.
 
 - **Docstring & layout leftovers (from the tidy pass).**
-  - Add `(declare (ftype …))` to the 2 functions that still lack it
+  - Add `(declare (ftype …))` to the one function that still lacks it
     (excluding `defsubst`, interactive, and end-user commands):
-    `t--textarea-block` and
     `t-preamble-default-function`.
 
 - **Shorthand symbol names in docstrings and comments.**  They are
@@ -447,9 +511,7 @@ same session.  Larger or planned work is in the =Roadmap= section of
   `org-w3ctr-*` name.  Fix per section in the passes.  grep
   `` `t- `` in `ox-w3ctr.el` finds, outside the
   `REFINE:` sections, only `t-style` / `t-style-file` (<head>).
-  The rest sit inside sections the pass will fix:
-  `t--engrave-face-transformer` (Engrave-faces subset);
-  `t-fontify-method`, `t-fontify-code` (Source block);
+  The rest sit inside the Link section, which its pass will fix:
   `t-inline-image-rules`, `t-inline-image-p`, `t-link`, `t--link-path`,
   `t--link-target`, `t--link-equation` (Link).
 
@@ -480,6 +542,11 @@ same session.  Larger or planned work is in the =Roadmap= section of
   fragment would be `#coderef-coderef:foo'.  Coderef support is the
   FIXME'd leftover in `org-w3ctr--link-coderef' (kept once for ox-html
   compatibility); the Link pass fixes or removes it.
+
+- **`npm audit` flags `@xmldom/xmldom` in jstools.**  It comes with
+  `mathjax` 4.0.0-beta.7, pinned in `package-lock.json` (MathJax 4.1.x
+  is out); Shiki adds no finding.  Upgrade MathJax deliberately, re-run
+  `npm test` and the math export tests, rather than `npm audit fix`.
 
 - **Export blocks take no attributes or ids (deferred).**  Raw
   passthrough is the contract: a `#+name:' on an export block emits no
