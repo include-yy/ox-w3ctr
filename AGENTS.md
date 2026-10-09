@@ -30,8 +30,9 @@ check it against the current state before relying on it.
 
 Machine-specific values (Emacs, Python, Org sources, proxy, remotes,
 Node) are auto-detected into `.agents/env.md` (gitignored).  On session
-start, read it; when it is absent, stale, or a probe disagrees with an
-invariant below, re-run the probes and rewrite it.
+start, read it; when it is absent or older than 24 hours, re-run the
+probes and rewrite it.  When a probe disagrees with a fresh file, report
+the mismatch and let the user decide, rather than overwriting silently.
 
 Only the env-detect skill writes `.agents/env.md`; a skill that changes
 the environment (pi-shell, python-env) re-runs it instead of editing the
@@ -41,12 +42,18 @@ files (`requirements.txt`, AGENTS.md), never in env.md.
 Invariants the detected values must satisfy:
 
 - Emacs is a build of version >= 31 (the package's minimum).
-- Python is 3.x and actually runs; on Windows, `python3` can resolve
-  to the Store stub (exit code 49) and is broken.
+- Python is 3.x and actually runs; outside MSYS2, `python3` can
+  resolve to the Windows Store stub (exit code 49) and is broken.
 - Org sources are a checkout containing `ox-html.el`, `ox.el` and
   `org-element.el` (the reference for ports).
 
 Paths and commands below are bash-style.
+
+Under MSYS2, `$HOME` is the virtual home (`/home/<user>`), not the
+Windows profile; pi and Python use the Windows profile
+(`C:\Users\<user>`), where pi's settings and sessions live.  Reach the
+Windows profile with `"$USERPROFILE"` or `cygpath -u "$USERPROFILE"`,
+never bash's `$HOME`.
 
 **Never search inside `node_modules`.**  No recursive `grep`/`find`/`rg`
 over `node_modules` (including the pi install tree or any package's
