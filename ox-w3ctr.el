@@ -255,7 +255,17 @@
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     (:subtitle "SUBTITLE" nil nil parse)
     ;; Misc
-    (:html-indent nil nil t-indent)))
+    (:html-indent nil nil t-indent)
+    ;; Src Block
+    (:html-fontify-method nil "fontify" t-fontify-method)
+    (:html-fontify-faces nil nil t-fontify-faces)
+    (:html-fontify-extra-faces nil nil t-fontify-extra-faces)
+    (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
+    (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
+    (:html-fontify-lang-alist nil nil t-fontify-lang-alist)
+    (:html-fontify-on-error nil nil t-fontify-on-error)
+    (:html-fontify-unknown-language nil nil t-fontify-unknown-language)
+    (:html-fontify-jstools-timeout nil nil t-fontify-jstools-timeout)))
 
 ;;; User Configuration Variables.
 
@@ -1243,13 +1253,203 @@ This option will override `org-export-use-babel'"
 
 ;;;; Src Block
 (defcustom t-fontify-method 'engrave
-  "Method to fontify code.
-- nil means no highlighting
-- engrave means use a subset of engrave-face.el for code fontify
+  "Method used to fontify source code.
 
-There was a support for highlight.js, but has been abandoned."
+The value is an engine name from `org-w3ctr-fontify-engines', a
+list of them tried in order until one takes the block, or nil for
+no highlighting.  The `plain' engine, which only HTML-escapes the
+code, always ends the list.  The shipped engines are:
+- `engrave': colour the code with Emacs font-lock, through a
+  subset of engrave-faces (see `org-w3ctr--engrave-tokens').
+- `jstools': colour it with the Node helper in jstools/ (see
+  `org-w3ctr--jstools-tokens').
+- `plain': no colour.
+
+An unknown name signals `org-w3ctr-error' during export.  Set it
+per file with `#+OPTIONS: fontify:nil' (or `fontify:(jstools
+engrave)'), and per block with the `:fontify' header argument,
+e.g. `#+begin_src python :fontify nil'."
   :group 'org-export-w3ctr
-  :type '(choice (const engrave) (const nil)))
+  :type '(choice (const :tag "Emacs font-lock" engrave)
+                 (const :tag "No highlighting" nil)
+                 (symbol :tag "Engine")
+                 (repeat :tag "Engines, in order" symbol)))
+
+(defcustom t-fontify-engines
+  '((engrave :fontify t--engrave-tokens :available always)
+    (jstools :fontify t--jstools-tokens :available t--jstools-available-p
+             :hint "it needs node on `exec-path' and \"npm ci\" in jstools/")
+    (plain :fontify t--plain-tokens :available always))
+  "Alist of (NAME . PLIST): the highlighting engines.
+NAME is the symbol used in `org-w3ctr-fontify-method'.  PLIST holds:
+- `:fontify', a function called with CODE, LANG and INFO that
+  returns a list of (CLASS . TEXT) tokens covering CODE (see
+  `org-w3ctr--fontify-check-tokens'), or `:decline' when it does
+  not handle LANG; it may signal an error when it fails.
+- `:available', a function called with INFO that returns nil when
+  the engine cannot run at all (a missing program, say); such an
+  engine is skipped without being called, and reported as
+  `org-w3ctr-fontify-on-error' says.
+- `:hint', optionally, a string saying what the engine needs, added
+  to the message about an unavailable engine.
+The `plain' engine is the last resort and must stay registered."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type symbol :value-type plist))
+
+(defcustom t-fontify-on-error 'warn
+  "What to do when a highlighting engine fails on a block.
+A failure is the engine signaling an error, or returning tokens
+that do not match the code.  Either way the engine is not used
+again for the rest of the export, and the block goes to the next
+engine of the method (in the end to `plain'), unless the value is:
+- `error': signal `org-w3ctr-error' naming the engine and block.
+- `warn': warn once per engine and export, then carry on.
+- `silent': carry on; `org-w3ctr-show-fontify-report' still counts
+  the failures."
+  :group 'org-export-w3ctr
+  :type '(choice (const error) (const warn) (const silent)))
+
+(defcustom t-fontify-unknown-language 'warn
+  "What to do when every engine of the method declines a language.
+The block is then exported as plain escaped text, unless the value
+is:
+- `error': signal `org-w3ctr-error' naming the language and block.
+- `warn': warn once per language and export, then carry on.
+- `plain': carry on; the report still lists the language.
+A block without a language never counts."
+  :group 'org-export-w3ctr
+  :type '(choice (const error) (const warn) (const plain)))
+
+(defcustom t-fontify-faces
+  '(;; faces.el, excluding bold, italic, bold-italic, underline, ...
+    (shadow . "h")
+    (success . "sc")
+    (warning . "w")
+    (error . "e")
+    ;; font-lock.el
+    (font-lock-comment-face . "c")
+    (font-lock-comment-delimiter-face . "cd")
+    (font-lock-string-face . "s")
+    (font-lock-doc-face . "d")
+    (font-lock-doc-markup-face . "m")
+    (font-lock-keyword-face . "k")
+    (font-lock-builtin-face . "b")
+    (font-lock-function-name-face . "f")
+    (font-lock-variable-name-face . "v")
+    (font-lock-type-face . "t")
+    (font-lock-constant-face . "o")
+    (font-lock-warning-face . "wr")
+    (font-lock-negation-char-face . "nc")
+    (font-lock-preprocessor-face . "pp")
+    (font-lock-regexp-grouping-construct . "rc")
+    (font-lock-regexp-grouping-backslash . "rb")
+    ;; font-lock.el, the faces added with tree-sitter that inherit
+    ;; from none of the above.
+    (font-lock-number-face . "n")
+    (font-lock-operator-face . "op")
+    ;; css-mode: reuse the function-name / keyword colours.
+    (css-property . "f")
+    (css-selector . "k"))
+  "Alist of (FACE . SLUG) pairs used to highlight code.
+A run of code in FACE becomes <span class=\"ef-SLUG\">; the colours
+of the slugs live in the stylesheet (see `org-w3ctr-fontify-palette').
+A SLUG is a lowercase letter followed by lowercase letters, digits
+or hyphens.  A face without an entry is looked up through its
+`:inherit' chain (see `org-w3ctr-fontify-face-fallback'), so most
+derived faces need none.  `default' is deliberately absent: plain
+text gets no span.  Add your own pairs to
+`org-w3ctr-fontify-extra-faces' rather than here."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type face :value-type string))
+
+(defcustom t-fontify-palette
+  '(("h" :light "#57606a" :dark "#8b949e")
+    ("sc" :light "#116329" :dark "#56d364")
+    ("w" :light "#7d4e00" :dark "#e3b341" :style (bold))
+    ("e" :light "#cf222e" :dark "#ff7b72")
+    ("c" :light "#57606a" :dark "#8b949e" :style (italic))
+    ("cd" :light "#57606a" :dark "#8b949e" :style (italic))
+    ("s" :light "#0a3069" :dark "#a5d6ff")
+    ("d" :light "#1a7f37" :dark "#7ee787")
+    ("m" :light "#0550ae" :dark "#79c0ff")
+    ("k" :light "#cf222e" :dark "#ff7b72")
+    ("b" :light "#953800" :dark "#ffa657")
+    ("f" :light "#6f42c1" :dark "#d2a8ff")
+    ("v" :light "#0550ae" :dark "#79c0ff")
+    ("t" :light "#0b6e75" :dark "#56d4dd")
+    ("o" :light "#0550ae" :dark "#79c0ff")
+    ("wr" :light "#cf222e" :dark "#ff7b72" :style (bold))
+    ("nc" :light "#cf222e" :dark "#ff7b72")
+    ("pp" :light "#8a4600" :dark "#f0883e")
+    ("rc" :light "#116329" :dark "#56d364")
+    ("rb" :light "#7d4e00" :dark "#e3b341")
+    ("n" :light "#0550ae" :dark "#79c0ff")
+    ("op" :light "#a0361c" :dark "#ff9b80"))
+  "Colours of the highlighting slugs, for the light and dark themes.
+Each entry is (SLUG :light COLOR :dark COLOR [:style STYLES]): SLUG
+is a slug of `org-w3ctr-fontify-faces', each COLOR a \"#rrggbb\"
+string, and STYLES a list of `bold' and `italic'.  The stylesheet
+does not read this option: `org-w3ctr-fontify-update-stylesheet'
+writes it into the stylesheet as CSS custom properties
+\(--ef-SLUG), one value per theme, and an .ef-SLUG rule per slug.
+The shipped colours reach a WCAG contrast of at least 4.5:1 on
+every code background of assets/style.css, in both themes."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type string :value-type plist))
+
+(defcustom t-fontify-extra-faces nil
+  "Alist of (FACE . SLUG) pairs consulted before `org-w3ctr-fontify-faces'.
+Use it to map a mode's own faces to existing slugs, or to new ones
+that your own stylesheet colours."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type face :value-type string))
+
+(defcustom t-fontify-face-fallback 'inherit
+  "What to do with a face that has no slug of its own.
+
+- `inherit': follow the face's `:inherit' chain and use the first
+  ancestor with a slug; a face with none gets no span.
+- `inline': as `inherit', and a face still without a slug gets an
+  inline style built from its attributes.  Those depend on the
+  theme and display of the exporting Emacs, so the result is not
+  reproducible and ignores the page's light/dark switch.
+- `none': only faces listed in the tables count.
+
+Faces left without a slug are listed by
+`org-w3ctr-show-fontify-report'."
+  :group 'org-export-w3ctr
+  :type '(choice (const inherit) (const inline) (const none)))
+
+(defcustom t-fontify-run-mode-hooks nil
+  "Non-nil means run the major mode's hooks when fontifying code.
+By default the mode's hooks are delayed (see the function
+`delay-mode-hooks'), so personal hooks (LSP clients, linters, minor
+modes that add faces) can neither slow the export nor make its
+output depend on the machine."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
+(defcustom t-fontify-lang-alist
+  '(("json" :engrave js-json-mode))
+  "Alist of (LANG . PLIST) choosing how each engine handles LANG.
+LANG is a source block language as written in the Org file.  The
+PLIST key `:engrave' names the major mode the `engrave' engine uses
+for LANG, overriding `org-src-get-lang-mode'; `:jstools' names the
+Shiki language the `jstools' engine uses, LANG itself by default.
+A nil value makes that engine decline LANG.  The default maps
+\"json\", for which Org guesses the absent `json-mode', to the
+built-in `js-json-mode'."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type string :value-type plist))
+
+(defcustom t-fontify-jstools-timeout 10
+  "Seconds the `jstools' engine waits for the helper's answer.
+A request that takes longer counts as a failure of the engine (see
+`org-w3ctr-fontify-on-error'), which is then not used again in that
+export.  The first request of a session also starts the helper
+process and loads Shiki."
+  :group 'org-export-w3ctr
+  :type 'number)
 
 ;;; Basic utilities
 
@@ -2171,11 +2371,14 @@ surfaces as `jsonrpc-error'."
   (t--jrpc-ensure client)
   (funcall client method params timeout))
 
-(defconst t--jstools-methods '(tex2mml tex2svg)
+(defconst t--jstools-methods
+  '(tex2mml tex2svg highlight highlightLanguages)
   "The RPC methods ox-w3ctr exposes from the jstools helper.
 
-The node helper also answers the test methods echo and add; they stay
-unexposed.")
+tex2mml and tex2svg convert math (see `org-w3ctr--latex-rpc'),
+highlight and highlightLanguages fontify code (see
+`org-w3ctr--jstools-tokens').  The node helper also answers the test
+methods echo and add; they stay unexposed.")
 
 (defvar t--jstools
   (t--jrpc-make "ox-w3ctr-jstools"
@@ -3261,46 +3464,446 @@ newlines become <br>."
     (let ((re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote "<br>"))))
       (replace-regexp-in-string re "<br>\n" (or contents ""))))))
 
+;;;; Fontify token IR
+
+;; Every highlighting engine hands back the same intermediate
+;; representation: a list of (CLASS . TEXT) tokens, where TEXT is raw,
+;; unescaped code and CLASS is nil (no span), a slug of the face
+;; tables (`org-w3ctr-fontify-faces'), or (style . CSS) under the
+;; `inline' face fallback.  Engines never produce HTML: their tokens are
+;; checked by `org-w3ctr--fontify-check-tokens', merged by
+;; `org-w3ctr--fontify-merge' and turned into markup only by
+;; `org-w3ctr--fontify-render', so escaping lives in one place.  The
+;; CSS for the slugs is in assets/style.css (".ef-SLUG").
+
+(defun t--fontify-face-table (info)
+  "Return the (FACE . SLUG) alist in force for INFO.
+It is INFO's `:html-fontify-extra-faces' followed by its
+`:html-fontify-faces', so an extra entry shadows a default one.
+Signal `org-w3ctr-error' on an entry that is not a (SYMBOL . SLUG)
+pair, a SLUG being a lowercase letter followed by lowercase
+letters, digits or hyphens."
+  (declare (ftype (function (list) list))
+           (important-return-value t))
+  (let ((extra (t--pget info :html-fontify-extra-faces))
+        (faces (t--pget info :html-fontify-faces))
+        (case-fold-search nil))
+    (unless (and (proper-list-p extra) (proper-list-p faces))
+      (t-error "Fontify face tables must be lists: %S, %S" extra faces))
+    (let ((table (append extra faces)))
+      (dolist (entry table table)
+        (unless (and (consp entry) (symbolp (car entry))
+                     (stringp (cdr entry))
+                     (string-match-p "\\`[a-z][a-z0-9-]*\\'" (cdr entry)))
+          (t-error "Malformed fontify face entry: %S" entry))))))
+
+(defun t--fontify-slugs (info)
+  "Return the slugs a token CLASS may take under INFO.
+They are the SLUGs of `org-w3ctr--fontify-face-table', without
+duplicates."
+  (declare (ftype (function (list) list))
+           (important-return-value t))
+  (delete-dups (mapcar #'cdr (t--fontify-face-table info))))
+
+(defun t--fontify-check-tokens (tokens code engine info)
+  "Return TOKENS after checking that they faithfully describe CODE.
+TOKENS is the list of (CLASS . TEXT) that ENGINE, a symbol, returned
+for the string CODE under the export plist INFO.  Each TEXT must be
+a non-empty string; each CLASS nil, one of `org-w3ctr--fontify-slugs'
+or (style . STRING); and the texts must concatenate back to CODE
+exactly.  Signal `org-w3ctr-error' naming ENGINE otherwise."
+  (declare (ftype (function (t string symbol list) list))
+           (important-return-value t))
+  (unless (proper-list-p tokens)
+    (t-error "Engine %s returned a non-list: %S" engine tokens))
+  (let ((slugs (t--fontify-slugs info)))
+    (dolist (token tokens)
+      (unless (and (consp token)
+                   (stringp (cdr token))
+                   (not (string-empty-p (cdr token)))
+                   (let ((class (car token)))
+                     (or (null class)
+                         (member class slugs)
+                         (and (eq (car-safe class) 'style)
+                              (stringp (cdr class))))))
+        (t-error "Engine %s returned a malformed token: %S" engine token))))
+  (unless (string= (mapconcat #'cdr tokens) code)
+    (t-error "Engine %s returned tokens that do not add up to the code"
+             engine))
+  tokens)
+
+(defun t--fontify-merge (tokens)
+  "Return TOKENS with each run of adjacent equal classes joined.
+TOKENS is a list of (CLASS . TEXT); classes are compared with
+`equal'.  The texts and their order are kept, so the result still
+concatenates to the same code.  TOKENS itself is not modified."
+  (declare (ftype (function (list) list))
+           (pure t) (important-return-value t))
+  (let (out)
+    (dolist (token tokens (nreverse out))
+      (if (and out (equal (caar out) (car token)))
+          (setcar out (cons (car token) (concat (cdar out) (cdr token))))
+        (push token out)))))
+
+(defun t--fontify-render (tokens)
+  "Return the bare HTML for the checked TOKENS.
+TOKENS is a list of (CLASS . TEXT), as accepted by
+`org-w3ctr--fontify-check-tokens'.  Each TEXT is HTML-escaped.  A
+slug CLASS wraps it in <span class=\"ef-SLUG\">, a (style . CSS)
+CLASS in <span style=\"CSS\">; a nil CLASS, or a TEXT that is only
+spaces, tabs and line breaks, leaves it unwrapped.  The result has
+no wrapper element."
+  (declare (ftype (function (list) string))
+           (pure t) (important-return-value t))
+  (mapconcat
+   (lambda (token)
+     (let ((class (car token))
+           (escaped (t--encode-plain-text (cdr token))))
+       (cond
+        ((or (null class)
+             (string-match-p "\\`[ \t\n\r\f]+\\'" (cdr token)))
+         escaped)
+        ((stringp class)
+         (concat "<span class=\"ef-" class "\">" escaped "</span>"))
+        (t (concat "<span style=\"" (t--encode-plain-text* (cdr class))
+                   "\">" escaped "</span>")))))
+   tokens))
+
+;;;; Fontify report
+
+;; One export keeps one fontify state, a hash table of counts keyed by
+;; (KIND . KEY): which engine fontified or declined how many blocks,
+;; which faces found no slug, and so on.  Internal entries share the
+;; table under kinds the report does not show: `broken' engines,
+;; `warned' messages and `cache'd values.  It lives in INFO under
+;; `:html-fontify-state', and the latest one also in
+;; `org-w3ctr--fontify-last-state' for `org-w3ctr-show-fontify-report'
+;; (a body-only export never reaches the template, so there is no end
+;; of export to hook into).
+
+(defvar t--fontify-last-state nil
+  "The fontify state of the most recent export, or nil.
+See `org-w3ctr--fontify-state'.")
+
+(defconst t--fontify-report-sections
+  '((engine . "Blocks fontified, by engine")
+    (decline . "Blocks declined, by engine")
+    (failure . "Engine failures")
+    (unavailable . "Engines found unavailable")
+    (unknown-language . "Languages no engine took")
+    (missed-face . "Faces without a slug (runs)")
+    (unknown-slug . "Slugs an engine sent but no table knows"))
+  "Alist of (KIND . HEADING): the report's sections, in order.")
+
+(defun t--fontify-state (info)
+  "Return the fontify state of the export INFO, creating it if needed.
+A new state is stored in INFO under `:html-fontify-state' and made
+`org-w3ctr--fontify-last-state'."
+  (declare (ftype (function (list) hash-table))
+           (important-return-value t))
+  (or (t--pget info :html-fontify-state)
+      (setq t--fontify-last-state
+            (t--pput info :html-fontify-state
+                     (make-hash-table :test #'equal)))))
+
+(defun t--fontify-note (state kind key)
+  "Count one KIND event about KEY in STATE; return the new count.
+KIND is one of the symbols of `org-w3ctr--fontify-report-sections'
+or an internal marker; KEY is an engine, a language or a face."
+  (declare (ftype (function (hash-table symbol t) integer)))
+  (puthash (cons kind key) (1+ (gethash (cons kind key) state 0)) state))
+
+(defun t--fontify-report-text (state)
+  "Return the text of the fontify report for STATE.
+Each section of `org-w3ctr--fontify-report-sections' with at least
+one entry lists its keys, the most frequent first; with no entry at
+all, say there is nothing to report."
+  (declare (ftype (function (hash-table) string))
+           (important-return-value t))
+  (let (parts)
+    (pcase-dolist (`(,kind . ,heading) t--fontify-report-sections)
+      (let (rows)
+        (maphash (lambda (k n)
+                   (when (eq (car k) kind)
+                     (push (cons (format "%s" (cdr k)) n) rows)))
+                 state)
+        (when rows
+          (setq rows (sort rows (lambda (a b)
+                                  (or (> (cdr a) (cdr b))
+                                      (and (= (cdr a) (cdr b))
+                                           (string< (car a) (car b)))))))
+          (push (concat heading "\n"
+                        (mapconcat (lambda (row)
+                                     (format "%6d  %s" (cdr row) (car row)))
+                                   rows "\n")
+                        "\n")
+                parts))))
+    (if parts (mapconcat #'identity (nreverse parts) "\n")
+      "Nothing to report.\n")))
+
+(defun t-show-fontify-report ()
+  "Show what code highlighting did in the most recent export.
+List, most frequent first, the blocks each engine fontified or
+declined, the engines that failed or were unavailable, the
+languages no engine took, and the faces that found no slug in
+`org-w3ctr-fontify-faces'.  See `org-w3ctr--fontify-report-text'."
+  (interactive)
+  (unless t--fontify-last-state
+    (user-error "No export has fontified code yet"))
+  (with-current-buffer (get-buffer-create "*ox-w3ctr fontify report*")
+    (let ((inhibit-read-only t))
+      (erase-buffer)
+      (insert (t--fontify-report-text t--fontify-last-state)))
+    (special-mode)
+    (goto-char (point-min))
+    (pop-to-buffer (current-buffer))))
+
+;;;; Fontify stylesheet
+
+;; `org-w3ctr-fontify-palette' is the single source of the highlighting
+;; colours.  `org-w3ctr--fontify-stylesheet' turns it into CSS, which
+;; `org-w3ctr-fontify-update-stylesheet' writes between two marker
+;; lines of assets/style.css; a test checks that the shipped block is
+;; exactly what the palette generates.  Rules carry `var(--ef-SLUG)',
+;; so a block can recolour a slug locally with
+;; `#+attr__: (style "--ef-k: red")'.
+
+(defconst t--fontify-css-begin
+  "/* BEGIN generated by org-w3ctr-fontify-update-stylesheet */"
+  "The line that opens the generated block of the stylesheet.")
+
+(defconst t--fontify-css-end
+  "/* END generated by org-w3ctr-fontify-update-stylesheet */"
+  "The line that closes the generated block of the stylesheet.")
+
+(defun t--fontify-stylesheet (palette)
+  "Return the CSS for the highlighting PALETTE, marker lines included.
+PALETTE has the shape of `org-w3ctr-fontify-palette'.  The CSS
+defines --ef-SLUG for the light theme on :root, redefines it under
+`prefers-color-scheme: dark', and gives each slug an .ef-SLUG rule
+using it.  Signal `org-w3ctr-error' on a malformed entry."
+  (declare (ftype (function (list) string))
+           (important-return-value t))
+  (let ((case-fold-search nil)
+        light dark rules)
+    (dolist (entry palette)
+      (let* ((slug (car-safe entry))
+             (plist (cdr-safe entry))
+             (lc (plist-get plist :light))
+             (dc (plist-get plist :dark))
+             (styles (plist-get plist :style)))
+        (unless (and (stringp slug)
+                     (string-match-p "\\`[a-z][a-z0-9-]*\\'" slug)
+                     (stringp lc) (string-match-p "\\`#[0-9a-f]\\{6\\}\\'" lc)
+                     (stringp dc) (string-match-p "\\`#[0-9a-f]\\{6\\}\\'" dc)
+                     (proper-list-p styles)
+                     (null (seq-difference styles '(bold italic))))
+          (t-error "Malformed fontify palette entry: %S" entry))
+        (push (format "  --ef-%s: %s;" slug lc) light)
+        (push (format "    --ef-%s: %s;" slug dc) dark)
+        (push (concat (format ".ef-%s { color: var(--ef-%s);" slug slug)
+                      (if (memq 'bold styles) " font-weight: 700;" "")
+                      (if (memq 'italic styles) " font-style: italic;" "")
+                      " }")
+              rules)))
+    (concat t--fontify-css-begin "\n"
+            ":root {\n" (mapconcat #'identity (nreverse light) "\n") "\n}\n"
+            "@media (prefers-color-scheme: dark) {\n  :root {\n"
+            (mapconcat #'identity (nreverse dark) "\n") "\n  }\n}\n"
+            (mapconcat #'identity (nreverse rules) "\n") "\n"
+            t--fontify-css-end "\n")))
+
+(defun t--fontify-stylesheet-bounds ()
+  "Return (BEG . END) of the generated block in the current buffer.
+BEG is the start of the line `org-w3ctr--fontify-css-begin' and END
+the end of the line `org-w3ctr--fontify-css-end', past its newline.
+Signal `org-w3ctr-error' unless each marker appears exactly once,
+the opening one first."
+  (declare (ftype (function () cons))
+           (important-return-value t))
+  (save-excursion
+    (let* ((find (lambda (line)
+                   (goto-char (point-min))
+                   (let ((re (concat "^" (regexp-quote line) "$")) hits)
+                     (while (re-search-forward re nil t)
+                       (push (match-beginning 0) hits))
+                     (unless (= (length hits) 1)
+                       (t-error "Expected one line %S, found %d"
+                                line (length hits)))
+                     (car hits))))
+           (beg (funcall find t--fontify-css-begin))
+           (end (funcall find t--fontify-css-end)))
+      (unless (< beg end)
+        (t-error "The fontify palette markers are out of order"))
+      (goto-char end)
+      (forward-line 1)
+      (cons beg (point)))))
+
+(defun t-fontify-update-stylesheet (&optional file)
+  "Write `org-w3ctr-fontify-palette' into the stylesheet FILE.
+FILE defaults to assets/style.css of this package.  The text
+between the marker lines (see `org-w3ctr--fontify-stylesheet-bounds')
+is replaced by `org-w3ctr--fontify-stylesheet'; the rest of FILE is
+kept.  The file is written as UTF-8 with LF line ends, and the CSS
+cache is cleared (`org-w3ctr-clear-css').  Return FILE."
+  (interactive)
+  (let ((file (or file (file-name-concat t--dir "assets" "style.css"))))
+    (with-temp-buffer
+      (let ((coding-system-for-read 'utf-8))
+        (insert-file-contents file))
+      (let ((bounds (t--fontify-stylesheet-bounds)))
+        (delete-region (car bounds) (cdr bounds))
+        (goto-char (car bounds))
+        (insert (t--fontify-stylesheet t-fontify-palette)))
+      (let ((coding-system-for-write 'utf-8-unix))
+        (write-region nil nil file nil 'silent)))
+    (t-clear-css)
+    file))
+
 ;;;; Engrave-faces subset
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+;; A self-contained subset of engrave-faces.el: the engine that turns
+;; Emacs font-lock faces into tokens.  See
+;; https://github.com/tecosaur/engrave-faces (v0.3.1,
+;; engrave-faces-html.el + engrave-faces.el).  Faces map to slugs
+;; through `org-w3ctr-fontify-faces'; a face without an entry is looked
+;; up through its `:inherit' chain, and only under the `inline'
+;; fallback does a face still without a slug get an inline style (the
+;; slug -> colour mapping is otherwise the stylesheet's job).
 
-;; A self-contained subset of engrave-faces.el's HTML backend.
-;; See https://github.com/tecosaur/engrave-faces (v0.3.1,
-;; engrave-faces-html.el + engrave-faces.el).  The CSS for the slugs
-;; below lives in assets/style.css (".ef-*").
-;;
-;; Unlike engrave-faces, there is no inline-style fallback: unknown or
-;; unspecified faces are emitted as plain escaped text; the slug ->
-;; colour mapping is the stylesheet's job.
+;; Bound around the mode setup, so declared special here.
+(defvar treesit-auto-install-grammar)
+(defvar warning-minimum-level)
+(declare-function treesit-parser-list "treesit.c")
+(declare-function tty-color-standard-values "term/tty-colors")
 
-(defun t--engrave-buffer (&optional in-buffer out-buffer)
-  "Engrave the fontified text of IN-BUFFER into OUT-BUFFER.
-IN-BUFFER defaults to the current buffer; it must already be
-fontified (see `font-lock-ensure').  OUT-BUFFER defaults to a fresh
-\"*html*\" buffer and is returned."
-  (declare (ftype (function (&optional buffer buffer) buffer))
+(defconst t--engrave-css-weights
+  '((thin . 100) (ultralight . 200) (extra-light . 200) (ultra-light . 200)
+    (light . 300) (semi-light . 350) (demilight . 350) (book . 380)
+    (medium . 500) (semi-bold . 600) (demibold . 600) (demi-bold . 600)
+    (bold . 700) (extra-bold . 800) (extrabold . 800) (ultra-bold . 800)
+    (ultrabold . 800) (black . 900) (heavy . 900) (ultra-heavy . 1000))
+  "Alist of Emacs font weights to CSS `font-weight' values.
+Normal weights are absent: they need no declaration.")
+
+(defun t--engrave-normalize-face (prop)
+  "Return the face property PROP as a list of faces, the first winning.
+PROP is what a `face' text property may hold: nil, a face name, an
+anonymous face (a plist), a (foreground-color . COLOR) or
+\(background-color . COLOR) pair, or a list of those; a value
+written as (quote X) is unwrapped, as engrave-faces does.  Each
+face in the result is a symbol or a plist.  Anything else gives
+nil."
+  (declare (ftype (function (t) list))
+           (pure t) (important-return-value t))
+  (cond
+   ((null prop) nil)
+   ((symbolp prop) (list prop))
+   ((not (consp prop)) nil)
+   ((eq (car prop) 'quote) (t--engrave-normalize-face (car-safe (cdr prop))))
+   ((keywordp (car prop)) (list prop))
+   ((eq (car prop) 'foreground-color) (list (list :foreground (cdr prop))))
+   ((eq (car prop) 'background-color) (list (list :background (cdr prop))))
+   ((proper-list-p prop) (mapcan #'t--engrave-normalize-face prop))))
+
+(defun t--engrave-face-slug (face table inherit)
+  "Return the slug that TABLE gives FACE, or nil.
+FACE is a face symbol or an anonymous face (a plist), and TABLE an
+alist of (FACE . SLUG).  When INHERIT is non-nil, a face without an
+entry is looked up through its `:inherit' chain, depth first, and
+the first ancestor with an entry wins; each face is visited at most
+once, so a cycle ends."
+  (declare (ftype (function (t list t) (or null string)))
            (important-return-value t))
-  (let ((ibuf (or in-buffer (current-buffer)))
-        (obuf (or out-buffer (generate-new-buffer "*html*")))
-        (completed nil))
-    (with-current-buffer ibuf
-      (unwind-protect
-          (let (next-change text)
-            (goto-char (point-min))
-            (while (not (eobp))
-              (setq next-change (t--engrave-next-face-change (point)))
-              (setq text (buffer-substring-no-properties (point) next-change))
-              (when (> (length text) 0)
-                (princ (t--engrave-face-transformer
-                        (get-text-property (point) 'face)
-                        text)
-                       obuf))
-              (goto-char next-change)))
-        (setq completed t)))
-    (if (not completed)
-        (if out-buffer t (kill-buffer obuf))
-      obuf)))
+  (let ((todo (list face)) seen slug)
+    (while (and todo (not slug))
+      (let ((f (pop todo)))
+        (unless (member f seen)
+          (push f seen)
+          (setq slug (and (symbolp f) (cdr (assq f table))))
+          (when (and (not slug) inherit)
+            (let ((parent (cond ((consp f) (plist-get f :inherit))
+                                ((facep f) (face-attribute f :inherit)))))
+              (unless (memq parent '(nil unspecified))
+                (setq todo (append (t--engrave-normalize-face parent)
+                                   todo))))))))
+    slug))
+
+(defun t--engrave-color (color)
+  "Return COLOR, a color name or spec, as a \"#rrggbb\" string, or nil.
+The value is the color's standard definition, from
+`tty-color-standard-values', whatever the display: a batch Emacs
+would otherwise round it to its terminal palette."
+  (declare (ftype (function (t) (or null string)))
+           (important-return-value t))
+  (when-let* (((stringp color))
+              ((not (string-prefix-p "unspecified" color)))
+              (rgb (tty-color-standard-values (downcase color))))
+    (apply #'format "#%02x%02x%02x" (mapcar (lambda (c) (ash c -8)) rgb))))
+
+(defun t--engrave-face-attribute (faces attribute)
+  "Return the first specified value of ATTRIBUTE among FACES, or nil.
+FACES is a list of face symbols and plists, the first winning; a
+symbol's value includes what it inherits, but not the `default'
+face's."
+  (declare (ftype (function (list symbol) t))
+           (important-return-value t))
+  (seq-some (lambda (face)
+              (let ((v (cond ((consp face) (plist-get face attribute))
+                             ((facep face)
+                              (face-attribute face attribute nil t)))))
+                (unless (memq v '(nil unspecified)) v)))
+            faces))
+
+(defun t--engrave-inline-style (faces)
+  "Return the CSS declarations for the merged attributes of FACES, or nil.
+FACES is a list of face symbols and plists, the first winning; the
+`default' face is ignored.  Colors, weight, slant, underline and
+strike-through are translated; nil means none of them is set."
+  (declare (ftype (function (list) (or null string)))
+           (important-return-value t))
+  (let* ((faces (remq 'default faces))
+         (attr (lambda (a) (t--engrave-face-attribute faces a)))
+         (fg (t--engrave-color (funcall attr :foreground)))
+         (bg (t--engrave-color (funcall attr :background)))
+         (weight (cdr (assq (funcall attr :weight) t--engrave-css-weights)))
+         (italic (memq (funcall attr :slant) '(italic oblique)))
+         (lines (delq nil (list (and (funcall attr :underline) "underline")
+                                (and (funcall attr :strike-through)
+                                     "line-through"))))
+         (decls (delq nil
+                      (list (and fg (format "color: %s;" fg))
+                            (and bg (format "background-color: %s;" bg))
+                            (and weight (format "font-weight: %d;" weight))
+                            (and italic "font-style: italic;")
+                            (and lines (format "text-decoration: %s;"
+                                               (string-join lines " ")))))))
+    (and decls (string-join decls " "))))
+
+(defun t--engrave-face-class (prop table fallback)
+  "Return the token CLASS for the face property PROP.
+TABLE is the (FACE . SLUG) alist and FALLBACK one of `inherit',
+`inline' or `none' (see `org-w3ctr-fontify-face-fallback').  The
+faces of PROP are tried in order, each through
+`org-w3ctr--engrave-face-slug', following `:inherit' unless
+FALLBACK is `none'; the first slug found is the CLASS.  With none,
+the `inline' FALLBACK gives (style . CSS) from
+`org-w3ctr--engrave-inline-style', and the others nil."
+  (declare (ftype (function (t list symbol) t))
+           (important-return-value t))
+  (let ((faces (t--engrave-normalize-face prop)))
+    (or (seq-some (lambda (f)
+                    (t--engrave-face-slug f table (not (eq fallback 'none))))
+                  faces)
+        (and (eq fallback 'inline)
+             (when-let* ((css (t--engrave-inline-style faces)))
+               (cons 'style css))))))
+
+(defun t--engrave-overlay-faces-at (pos)
+  "Return the non-nil `face' values of overlays at POS."
+  (declare (ftype (function (integer) list))
+           (important-return-value t))
+  (delq nil (mapcar (lambda (o) (overlay-get o 'face)) (overlays-at pos))))
 
 (defun t--engrave-next-face-change (pos &optional limit)
   "Return the position of the next face change after POS, up to LIMIT.
@@ -3320,124 +3923,487 @@ properties.  Lifted from htmlize, via engrave-faces [2024-04-12]."
       (setq pos (next-single-char-property-change pos 'display nil limit)))
     pos))
 
-(defun t--engrave-overlay-faces-at (pos)
-  "Return the non-nil `face' values of overlays at POS."
-  (declare (ftype (function (integer) list))
+(defun t--engrave-collect (table fallback &optional state)
+  "Return the current buffer's text as a list of (CLASS . TEXT) tokens.
+The buffer must already be fontified (see `font-lock-ensure').  The
+text is cut at every face change found by
+`org-w3ctr--engrave-next-face-change', and each run's CLASS comes
+from `org-w3ctr--engrave-face-class' with TABLE and FALLBACK.  When
+STATE is non-nil, every face of a run that found no slug (other than
+`default') is counted there as `missed-face'.  Point is preserved."
+  (declare (ftype (function (list symbol &optional (or null hash-table))
+                            list))
            (important-return-value t))
-  (delq nil (mapcar (lambda (o) (overlay-get o 'face)) (overlays-at pos))))
+  (save-excursion
+    (goto-char (point-min))
+    (let (tokens)
+      (while (not (eobp))
+        (let* ((next (t--engrave-next-face-change (point)))
+               (text (buffer-substring-no-properties (point) next))
+               (prop (get-text-property (point) 'face))
+               (class (t--engrave-face-class prop table fallback)))
+          (when (and state (not (stringp class)))
+            (dolist (face (t--engrave-normalize-face prop))
+              (unless (eq face 'default)
+                (t--fontify-note state 'missed-face
+                                 (if (symbolp face) face "(anonymous face)")))))
+          ;; An invisible run can be empty; it contributes nothing.
+          (unless (string-empty-p text)
+            (push (cons class text) tokens))
+          (goto-char next)))
+      (nreverse tokens))))
 
-(defun t--engrave-face-transformer (prop text)
-  "Transform TEXT with face property PROP into an HTML span.
-Whitespace-only runs and text without a known face are returned
-escaped but unwrapped."
-  (declare (ftype (function (t string) string))
-           (pure t) (important-return-value t))
-  (let ((escaped (t--encode-plain-text text))
-        (style (t--engrave-get-style prop)))
-    (if (or (string-match-p "\\`[\n[:space:]]+\\'" text)
-            (not style))
-        escaped
-      (concat "<span class=\"ef-" (plist-get (cdr style) :slug) "\">"
-              escaped "</span>"))))
-
-(defconst t--engrave-style-plist
-  '(;; faces.el --- excluding bold, italic, bold-italic, underline, ...
-    (shadow  :slug "h")
-    (success :slug "sc")
-    (warning :slug "w")
-    (error   :slug "e")
-    ;; font-lock.el
-    (font-lock-comment-face :slug "c")
-    (font-lock-comment-delimiter-face :slug "cd")
-    (font-lock-string-face :slug "s")
-    (font-lock-doc-face :slug "d")
-    (font-lock-doc-markup-face :slug "m")
-    (font-lock-keyword-face :slug "k")
-    (font-lock-builtin-face :slug "b")
-    (font-lock-function-name-face :slug "f")
-    (font-lock-variable-name-face :slug "v")
-    (font-lock-type-face :slug "t")
-    (font-lock-constant-face :slug "o")
-    (font-lock-warning-face :slug "wr")
-    (font-lock-negation-char-face :slug "nc")
-    (font-lock-preprocessor-face :slug "pp")
-    (font-lock-regexp-grouping-construct :slug "rc")
-    (font-lock-regexp-grouping-backslash :slug "rb")
-    ;; css-mode: reuse the function-name / keyword colours.
-    (css-property :slug "f")
-    (css-selector :slug "k"))
-  "Face -> slug alist used by the engraving engine.
-A slug is the compact CSS class emitted by
-`org-w3ctr--engrave-face-transformer'; the colours live in
-assets/style.css under \".ef-SLUG\".  `default' is deliberately
-absent: bare (unfaced) text carries a nil face and is emitted as
-plain text, as engrave-faces does.")
-
-(defun t--engrave-get-style (prop)
-  "Return the style entry for face property PROP, or nil.
-PROP is a face name, a list of faces, or nil (no face).  A nil PROP
-returns nil, so bare text gets no span."
-  (declare (ftype (function (t) (or null cons)))
-           (pure t) (important-return-value t))
-  (cond
-   ((null prop) nil)
-   ((listp prop) (assoc (car prop) t--engrave-style-plist))
-   (t (assoc prop t--engrave-style-plist))))
-
-;;;; Source block
-
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
-
-(defun t--engrave-fontify-code (code lang)
-  "Fontify CODE (a string) in LANG, returning bare fontified HTML.
-The result contains `<span>' runs only, with no wrapper element:
-callers wrap it in `<code>' as appropriate.  When LANG has no
-associated major mode, CODE is returned escaped but uncoloured."
-  (declare (ftype (function (string (or null string)) string))
+(defun t--engrave-lang-mode (lang info)
+  "Return the major mode the engrave engine uses for LANG, or nil.
+LANG is a language name as a string, and INFO the export plist.  The
+entry for LANG in INFO's `:html-fontify-lang-alist' decides when it
+has an `:engrave' key (a nil value meaning no mode); otherwise
+`org-src-get-lang-mode' does.  A mode that is not a defined function
+gives nil."
+  (declare (ftype (function (string list) symbol))
            (important-return-value t))
-  (let ((lang-mode (and lang (org-src-get-lang-mode lang))))
-    (if (not (functionp lang-mode))
-        (t--encode-plain-text code)
-      (let ((inhibit-read-only t))
+  (let* ((entry (cdr (assoc lang (t--pget info :html-fontify-lang-alist))))
+         (mode (if (plist-member entry :engrave)
+                   (plist-get entry :engrave)
+                 (org-src-get-lang-mode lang))))
+    (and mode (symbolp mode) (fboundp mode) mode)))
+
+(defun t--engrave-tokens (code lang info)
+  "Fontify CODE (a string) in LANG's major mode and return its tokens.
+LANG is a language name as a string.  INFO is the export plist: it
+picks the mode (`org-w3ctr--engrave-lang-mode'), the face table and
+fallback, and whether the mode's hooks run
+\(`:html-fontify-run-mode-hooks'), and holds the fontify state.
+Return the tokens of `org-w3ctr--engrave-collect', or `:decline'
+when LANG has no mode or its mode is a tree-sitter mode without a
+grammar.  The mode's messages and warnings are silenced, and it may
+not offer to install a grammar.  Signal `org-w3ctr-error' for an
+unknown `:html-fontify-face-fallback'."
+  (declare (ftype (function (string string list) (or list keyword)))
+           (important-return-value t))
+  (let ((fallback (t--pget info :html-fontify-face-fallback))
+        (mode (t--engrave-lang-mode lang info)))
+    (unless (memq fallback '(inherit inline none))
+      (t-error "Unknown fontify face fallback: %S" fallback))
+    (if (not mode)
+        :decline
+      (let ((table (t--fontify-face-table info))
+            (state (t--fontify-state info))
+            (inhibit-read-only t)
+            (inhibit-message t)
+            (warning-minimum-level :emergency)
+            (treesit-auto-install-grammar 'never))
         (with-temp-buffer
-          (let ((inbuf (current-buffer)))
-            (funcall lang-mode)
+          (if (t--pget info :html-fontify-run-mode-hooks)
+              (funcall mode)
+            (delay-mode-hooks (funcall mode)))
+          (if (and (string-suffix-p "-ts-mode" (symbol-name mode))
+                   (not (and (fboundp 'treesit-parser-list)
+                             (treesit-parser-list))))
+              :decline
             (insert code)
             (font-lock-ensure)
             (set-buffer-modified-p nil)
-            (with-temp-buffer
-              (ignore (t--engrave-buffer inbuf (current-buffer)))
-              (buffer-string))))))))
+            (t--engrave-collect table fallback state)))))))
+
+;;;; Fontify jstools engine
+
+;; The `jstools' engine asks the Node helper (jstools/lib/highlight.js,
+;; Shiki with TextMate grammars) for the tokens of a block.  The helper
+;; answers [TEXT, SLUG] pairs, never HTML; the slugs come from
+;; jstools/lib/slugs.json.  The language list is fetched once per export
+;; and kept in the fontify state, so a language Shiki does not know is
+;; declined without a round trip.
+
+(defconst t--jstools-unknown-language -32010
+  "The JSON-RPC error code of the helper for a language it lacks.
+It must match UNKNOWN_LANGUAGE in jstools/lib/highlight.js.")
+
+(defun t--jstools-available-p (_info)
+  "Return non-nil when the jstools engine can run.
+That needs the node executable on the variable `exec-path' and
+Shiki installed under jstools/node_modules (run \"npm ci\" in
+jstools/).  INFO is ignored."
+  (declare (ftype (function (t) boolean))
+           (important-return-value t))
+  (and (executable-find "node")
+       (file-directory-p
+        (file-name-concat t--dir "jstools" "node_modules" "shiki"))
+       t))
+
+(defun t--jstools-lang (lang info)
+  "Return the Shiki language name for LANG under INFO, or nil.
+The `:jstools' key of LANG's entry in INFO's
+`:html-fontify-lang-alist' wins when present; otherwise LANG itself
+is the name."
+  (declare (ftype (function (string list) (or null string)))
+           (important-return-value t))
+  (let ((entry (cdr (assoc lang (t--pget info :html-fontify-lang-alist)))))
+    (if (plist-member entry :jstools) (plist-get entry :jstools) lang)))
+
+(defun t--jstools-languages (info)
+  "Return the language names the helper accepts, as a list of strings.
+The list is asked for once per export (the `highlightLanguages'
+method) and kept in INFO's fontify state.  Signal `org-w3ctr-error'
+when the reply is malformed; RPC errors propagate."
+  (declare (ftype (function (list) list))
+           (important-return-value t))
+  (let ((state (t--fontify-state info))
+        (key '(cache . jstools-languages)))
+    (or (gethash key state)
+        (let* ((reply (t--jcall t--jstools 'highlightLanguages nil
+                                (t--pget info :html-fontify-jstools-timeout)))
+               (names (append (plist-get reply :languages) nil)))
+          (unless (and names (seq-every-p #'stringp names))
+            (t-error "Malformed highlightLanguages reply: %S" reply))
+          (puthash key names state)))))
+
+(defun t--jstools-pairs (pairs info)
+  "Return the helper's PAIRS as a list of (CLASS . TEXT) tokens.
+PAIRS is the decoded `tokens' array: [TEXT SLUG] vectors, SLUG a
+string or nil.  A slug that INFO's face tables do not know becomes
+nil and is counted as `unknown-slug' in the fontify state.  Signal
+`org-w3ctr-error' when PAIRS is malformed."
+  (declare (ftype (function (t list) list))
+           (important-return-value t))
+  (unless (vectorp pairs)
+    (t-error "Malformed highlight reply: %S" pairs))
+  (let ((slugs (t--fontify-slugs info))
+        (state (t--fontify-state info)))
+    (mapcar (lambda (pair)
+              (unless (and (vectorp pair) (= (length pair) 2)
+                           (stringp (aref pair 0))
+                           (or (null (aref pair 1)) (stringp (aref pair 1))))
+                (t-error "Malformed highlight token: %S" pair))
+              (let ((slug (aref pair 1)))
+                (when (and slug (not (member slug slugs)))
+                  (t--fontify-note state 'unknown-slug slug)
+                  (setq slug nil))
+                (cons slug (aref pair 0))))
+            pairs)))
+
+(defun t--jstools-tokens (code lang info)
+  "Fontify CODE (a string) in LANG with the jstools helper.
+LANG is a language name as a string, mapped by
+`org-w3ctr--jstools-lang'; INFO is the export plist.  Return the
+tokens of `org-w3ctr--jstools-pairs', or `:decline' when the
+helper does not know the language (checked against
+`org-w3ctr--jstools-languages', and again by its error code).  Other
+errors, a timeout among them, propagate: the dispatcher counts
+them as failures."
+  (declare (ftype (function (string string list) (or list keyword)))
+           (important-return-value t))
+  (let ((name (t--jstools-lang lang info)))
+    (if (not (and name (member name (t--jstools-languages info))))
+        :decline
+      (let ((reply (condition-case err
+                       (t--jcall t--jstools 'highlight
+                                 (list :code code :lang name)
+                                 (t--pget info :html-fontify-jstools-timeout))
+                     (jsonrpc-error
+                      (if (eql (alist-get 'jsonrpc-error-code (cdr err))
+                               t--jstools-unknown-language)
+                          :decline
+                        (signal err))))))
+        (if (eq reply :decline)
+            :decline
+          (t--jstools-pairs (plist-get reply :tokens) info))))))
+
+;;;; Fontify dispatcher
+
+;; `org-w3ctr-fontify-code' resolves the method of a block (its
+;; `:fontify' header argument, else `:html-fontify-method') into a
+;; chain of engines ending with `plain', and runs them in order until
+;; one returns tokens.  An engine may decline the language (the next
+;; one is tried), be unavailable, or fail.  The last two are handled by
+;; `:html-fontify-on-error' and break the engine for the rest of the
+;; export, so a dead helper process costs one timeout, not one per
+;; block.  When every engine declines, `:html-fontify-unknown-language'
+;; decides.  Everything is counted in the fontify state.
+
+(defun t--plain-tokens (code _lang _info)
+  "The `plain' engine: return CODE as a single token without a class.
+An empty CODE gives no token.  LANG and INFO are ignored."
+  (declare (ftype (function (string t t) list))
+           (pure t) (important-return-value t))
+  (and (not (string-empty-p code)) (list (cons nil code))))
+
+(defun t--fontify-engine (name)
+  "Return the plist of the engine NAME in `org-w3ctr-fontify-engines'.
+Return nil when no engine has that NAME."
+  (declare (ftype (function (t) list))
+           (important-return-value t))
+  (and (symbolp name) (cdr (assq name t-fontify-engines))))
+
+(defun t--fontify-chain (method)
+  "Return the engine chain for the fontify METHOD, ending with `plain'.
+METHOD is nil (no highlighting, so just `plain'), an engine name, or
+a list of engine names tried in order; `plain' is appended unless
+listed.  Signal `org-w3ctr-error' for anything else, naming the
+offending value."
+  (declare (ftype (function (t) list))
+           (important-return-value t))
+  (let ((names (cond ((null method) nil)
+                     ((and (symbolp method) (not (eq method t))) (list method))
+                     ((and (consp method) (proper-list-p method)) method)
+                     (t (t-error "Unknown fontify method: %S" method)))))
+    (dolist (name names)
+      (unless (and name (t--fontify-engine name))
+        (t-error "Unknown fontify method: %S" name)))
+    (if (memq 'plain names) names (append names '(plain)))))
+
+(defun t--fontify-line (element)
+  "Return the line where ELEMENT starts in the current buffer, or nil."
+  (declare (ftype (function (t) (or null integer)))
+           (important-return-value t))
+  (when-let* ((begin (and element (org-element-property :begin element))))
+    (line-number-at-pos begin)))
+
+(defun t--fontify-where (lang element)
+  "Describe the code being fontified, for messages.
+LANG is its language and ELEMENT its block or inline block, or nil."
+  (declare (ftype (function (t t) string))
+           (important-return-value t))
+  (let ((line (t--fontify-line element)))
+    (format "the %s code%s" lang (if line (format " at line %d" line) ""))))
+
+(defun t--fontify-read-method (value element)
+  "Read VALUE, the `:fontify' header argument of ELEMENT, as a method.
+VALUE must be the text of exactly one Lisp object: nil, an engine
+name or a parenthesized list of them.  It is only read, never
+evaluated.  Signal `org-w3ctr-error' with ELEMENT's line otherwise."
+  (declare (ftype (function (t t) t))
+           (important-return-value t))
+  (let* ((text (and (stringp value) (string-trim value)))
+         (read (and text (not (string-empty-p text))
+                    (ignore-errors (read-from-string text)))))
+    (unless (and read (= (cdr read) (length text)))
+      (t-error "Invalid :fontify value %S at line %s"
+               value (t--fontify-line element)))
+    (car read)))
+
+(defun t--fontify-chain-for (info element)
+  "Return the engine chain for ELEMENT under the export plist INFO.
+ELEMENT's `:fontify' header argument, when present, gives the method
+\(see `org-w3ctr--fontify-read-method'); otherwise INFO's
+`:html-fontify-method' does.  Header arguments are parsed without
+evaluating Lisp.  The method goes through `org-w3ctr--fontify-chain';
+an error about a block's own method gets the block's line."
+  (declare (ftype (function (list t) list))
+           (important-return-value t))
+  (let* ((params (and element (org-element-property :parameters element)))
+         (cell (and params
+                    (assq :fontify
+                          (org-babel-parse-header-arguments params t)))))
+    (if (not cell)
+        (t--fontify-chain (t--pget info :html-fontify-method))
+      (let ((method (t--fontify-read-method (cdr cell) element)))
+        (condition-case err
+            (t--fontify-chain method)
+          (t-error (t-error "%s at line %s" (cadr err)
+                            (t--fontify-line element))))))))
+
+(defun t--fontify-policy (info key choices)
+  "Return INFO's value for KEY, which must be one of CHOICES.
+Signal `org-w3ctr-error' otherwise."
+  (declare (ftype (function (list symbol list) symbol))
+           (important-return-value t))
+  (let ((value (t--pget info key)))
+    (unless (memq value choices)
+      (t-error "Unknown value for %s: %S" key value))
+    value))
+
+(defun t--fontify-failure (engine err lang element info)
+  "Handle the failure ERR of ENGINE on LANG code in ELEMENT.
+ERR is the error condition.  Count it in INFO's fontify state and
+break ENGINE for the rest of the export, then follow INFO's
+`:html-fontify-on-error': signal, warn once per engine, or stay
+silent."
+  (declare (ftype (function (symbol t t t list) null)))
+  (let* ((state (t--fontify-state info))
+         (policy (t--fontify-policy info :html-fontify-on-error
+                                    '(error warn silent)))
+         (why (if (eq (car err) 't-error) (cadr err)
+                (error-message-string err)))
+         (msg (format "Fontify engine %s failed on %s: %s"
+                      engine (t--fontify-where lang element) why)))
+    (t--fontify-note state 'failure engine)
+    (puthash (cons 'broken engine) t state)
+    (pcase policy
+      ('error (t-error "%s" msg))
+      ('warn (when (= 1 (t--fontify-note state 'warned (cons 'failure engine)))
+               (display-warning 'ox-w3ctr msg))))
+    nil))
+
+(defun t--fontify-unavailable (engine info)
+  "Handle ENGINE, whose `:available' function returned nil.
+Count it in INFO's fontify state and break it for the rest of the
+export, then follow INFO's `:html-fontify-on-error': signal, warn,
+or stay silent.  The message adds the engine's `:hint', if any."
+  (declare (ftype (function (symbol list) null)))
+  (let* ((state (t--fontify-state info))
+         (policy (t--fontify-policy info :html-fontify-on-error
+                                    '(error warn silent)))
+         (hint (plist-get (t--fontify-engine engine) :hint))
+         (msg (format "Fontify engine %s is unavailable%s"
+                      engine (if hint (concat ": " hint) ""))))
+    (t--fontify-note state 'unavailable engine)
+    (puthash (cons 'broken engine) t state)
+    (pcase policy
+      ('error (t-error "%s" msg))
+      ('warn (display-warning 'ox-w3ctr msg)))
+    nil))
+
+(defun t--fontify-unknown (lang element info)
+  "Handle LANG, which every engine declined, in ELEMENT.
+Count it in INFO's fontify state, then follow INFO's
+`:html-fontify-unknown-language': signal, warn once per language,
+or carry on."
+  (declare (ftype (function (t t list) null)))
+  (let ((state (t--fontify-state info))
+        (policy (t--fontify-policy info :html-fontify-unknown-language
+                                   '(error warn plain)))
+        (msg (format "No fontify engine handles %s"
+                     (t--fontify-where lang element))))
+    (t--fontify-note state 'unknown-language lang)
+    (pcase policy
+      ('error (t-error "%s" msg))
+      ('warn (when (= 1 (t--fontify-note state 'warned (cons 'language lang)))
+               (display-warning 'ox-w3ctr msg))))
+    nil))
+
+(defun t--fontify-dispatch (code lang chain info element)
+  "Run the engines of CHAIN on CODE in LANG until one returns tokens.
+Return (ENGINE . TOKENS), the TOKENS checked by
+`org-w3ctr--fontify-check-tokens'.  INFO is the export plist and
+ELEMENT the block, for messages.  An engine broken earlier in the
+export is skipped; one whose `:available' function returns nil goes
+through `org-w3ctr--fontify-unavailable'; one that returns
+`:decline' passes; one that fails goes through
+`org-w3ctr--fontify-failure'.  When every engine before `plain'
+that was tried declined, `org-w3ctr--fontify-unknown' is called.
+Each step is counted in INFO's fontify state."
+  (declare (ftype (function (string string list list t) cons))
+           (important-return-value t))
+  ;; Check both policies up front, not only when one is needed.
+  (ignore (t--fontify-policy info :html-fontify-on-error
+                             '(error warn silent))
+          (t--fontify-policy info :html-fontify-unknown-language
+                             '(error warn plain)))
+  (let ((state (t--fontify-state info))
+        (tried 0) (declined 0) result)
+    (while (and chain (not result))
+      (let* ((name (pop chain))
+             (engine (t--fontify-engine name)))
+        (cond
+         ((gethash (cons 'broken name) state))
+         ((not (funcall (plist-get engine :available) info))
+          (t--fontify-unavailable name info))
+         (t
+          (unless (eq name 'plain) (setq tried (1+ tried)))
+          (let ((tokens
+                 (condition-case err
+                     (let ((out (funcall (plist-get engine :fontify)
+                                         code lang info)))
+                       (if (eq out :decline) out
+                         (t--fontify-check-tokens out code name info)))
+                   (error (t--fontify-failure name err lang element info)
+                          :failed))))
+            (pcase tokens
+              (:decline (setq declined (1+ declined))
+                        (t--fontify-note state 'decline name))
+              (:failed nil)
+              (_ (t--fontify-note state 'engine name)
+                 (setq result (cons name tokens)))))))))
+    (when (and (> tried 0) (= tried declined) (eq (car result) 'plain))
+      (t--fontify-unknown lang element info))
+    (or result (cons 'plain (t--plain-tokens code lang info)))))
+
+;;;; Source block
+
+;; Options:
+;; - :html-fontify-method (`org-w3ctr-fontify-method')
+;; - :html-fontify-faces (`org-w3ctr-fontify-faces')
+;; - :html-fontify-extra-faces (`org-w3ctr-fontify-extra-faces')
+;; - :html-fontify-face-fallback (`org-w3ctr-fontify-face-fallback')
+;; - :html-fontify-run-mode-hooks (`org-w3ctr-fontify-run-mode-hooks')
+;; - :html-fontify-lang-alist (`org-w3ctr-fontify-lang-alist')
+;; - :html-fontify-on-error (`org-w3ctr-fontify-on-error')
+;; - :html-fontify-unknown-language (`org-w3ctr-fontify-unknown-language')
+;; - :html-fontify-jstools-timeout (`org-w3ctr-fontify-jstools-timeout')
+;; Global only: `org-w3ctr-fontify-engines', `org-w3ctr-fontify-palette'.
+
+(defun t--fontify-default-info ()
+  "Return a plist of the current values of the fontify options.
+It stands in for the export INFO when `org-w3ctr-fontify-code' is
+called outside an export: each `:html-fontify-' key of the back-end's
+options gets the value of its variable."
+  (declare (ftype (function () list))
+           (important-return-value t))
+  (let (plist)
+    (dolist (option (org-export-backend-options
+                     (org-export-get-backend 'w3ctr)))
+      (when (string-prefix-p ":html-fontify-" (symbol-name (car option)))
+        (setq plist (nconc plist (list (car option)
+                                       (symbol-value (nth 3 option)))))))
+    plist))
 
 (defun t--textarea-block (element)
-  "Transcode ELEMENT into a textarea block.
-ELEMENT is either a source or an example block."
+  "Transcode ELEMENT into a <textarea> wrapped in a <p>.
+ELEMENT is a source block whose `:attr_html' asks for a textarea.
+Its `:width' gives the cols (80 by default) and its `:height' the
+rows (the number of code lines by default).  The code and both
+values are escaped, so a literal \"</textarea>\" in the code cannot
+close the element early; the browser decodes the entities back, so
+the textarea still shows the code as written."
+  (declare (ftype (function (t) string))
+           (important-return-value t))
   (let* ((code (car (org-export-unravel-code element)))
-         (attr (org-export-read-attribute :attr_html element)))
+         (attr (org-export-read-attribute :attr_html element))
+         (value (lambda (v) (t--encode-plain-text* (format "%s" v)))))
     (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
-            (or (plist-get attr :width) 80)
-            (or (plist-get attr :height) (org-count-lines code))
-            code)))
+            (funcall value (or (plist-get attr :width) 80))
+            (funcall value (or (plist-get attr :height)
+                               (org-count-lines code)))
+            (t--encode-plain-text code))))
 
-(defun t-fontify-code (code lang)
+(defun t-fontify-code (code lang &optional info element)
   "Colorize CODE (a string) for LANG, returning bare fontified HTML.
 The result contains `<span>' runs only, with no wrapper element:
 callers wrap it in `<code>' as appropriate (block vs inline).  LANG
-is a language name as a string, or nil.  Uses `t-fontify-method';
-returns escaped plain text when it is nil or CODE is empty."
-  (declare (ftype (function (string (or null string)) string))
-           (important-return-value t))
-  (if (and (not (string-empty-p code)) lang (eq t-fontify-method 'engrave))
-      (t--engrave-fontify-code code lang)
-    (t--encode-plain-text code)))
+is a language name as a string, or nil.  INFO is the export plist;
+without it, the current option values are used
+\(`org-w3ctr--fontify-default-info').  ELEMENT is the source block
+or inline source block, if any: its `:fontify' header argument
+overrides the method, and its line appears in messages.
 
-(defun t--src-code (src-block lang)
+The method gives a chain of engines (`org-w3ctr--fontify-chain-for')
+that `org-w3ctr--fontify-dispatch' runs until one returns tokens;
+those are merged by `org-w3ctr--fontify-merge' and rendered by
+`org-w3ctr--fontify-render'.  An empty CODE or a nil LANG is only
+escaped, but the method is still checked: an unknown one signals
+`org-w3ctr-error'."
+  (declare (ftype (function (string (or null string) &optional list t)
+                            string))
+           (important-return-value t))
+  (let* ((info (or info (t--fontify-default-info)))
+         (chain (t--fontify-chain-for info element)))
+    (if (or (string-empty-p code) (null lang))
+        (t--encode-plain-text code)
+      (t--fontify-render
+       (t--fontify-merge
+        (cdr (t--fontify-dispatch code lang chain info element)))))))
+
+(defun t--src-code (src-block lang info)
   "Return bare fontified HTML for SRC-BLOCK's code in LANG.
+INFO is the export plist; it and SRC-BLOCK (for its `:fontify'
+header argument) are handed to `org-w3ctr-fontify-code'.
 `org-export-unravel-code' also returns a coderef alist, which
 ox-w3ctr does not support; drop it (the car)."
-  (declare (ftype (function (t (or null string)) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (t-fontify-code (car (org-export-unravel-code src-block)) lang))
+  (t-fontify-code (car (org-export-unravel-code src-block))
+                  lang info src-block))
 
 (defun t--src-code-tag (lang code)
   "Wrap bare CODE in a `<code>' tag carrying LANG's class.
@@ -3450,8 +4416,9 @@ A nil LANG yields a plain `<code>' without a language class."
 
 (defun t--src-block-attrs (src-block info captioned)
   "Return the attribute string for SRC-BLOCK, as \" ATTRS\" or \"\".
-Attributes come from `:attr__' (`#+attr__:').  An `id' is added
-from the element reference unless the attributes already carry one.
+INFO is the export plist.  Attributes come from `:attr__'
+\(`#+attr__:').  An `id' is added from the element reference (see
+`org-w3ctr--reference') unless the attributes already carry one.
 CAPTIONED non-nil prepends the default `example' class to the class
 list (class is written as a vector, e.g. `#+attr__: [foo]')."
   (declare (ftype (function (t list boolean) string))
@@ -3486,7 +4453,7 @@ wrapper with a self-link."
     (t--textarea-block src-block))
    ((org-element-property :caption src-block)
     (let* ((lang (org-element-property :language src-block))
-           (code (t--src-code src-block lang))
+           (code (t--src-code src-block lang info))
            (id (t--reference src-block info))
            (caption (when-let* ((cap (org-export-get-caption src-block)))
                       (org-trim (org-export-data cap info)))))
@@ -3498,7 +4465,7 @@ wrapper with a self-link."
               id (or caption "") (t--src-code-tag lang code))))
    (t
     (let* ((lang (org-element-property :language src-block))
-           (code (t--src-code src-block lang)))
+           (code (t--src-code src-block lang info)))
       (format "<pre%s>\n%s</pre>"
               (t--src-block-attrs src-block info nil)
               (t--src-code-tag lang code))))))
@@ -3506,14 +4473,14 @@ wrapper with a self-link."
 (defun t-inline-src-block (inline-src-block _contents info)
   "Transcode an INLINE-SRC-BLOCK object from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual information.
-The code is fontified bare by `t-fontify-code' and wrapped here in a
-single `<code class=\"src-inline src-LANG\">' (no nesting)."
+The code is fontified bare by `org-w3ctr-fontify-code' and wrapped
+here in a single `<code class=\"src-inline src-LANG\">' (no nesting)."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((lang (org-element-property :language inline-src-block))
          (code (t-fontify-code
                 (org-element-property :value inline-src-block)
-                lang))
+                lang info inline-src-block))
          (label (if-let* ((lbl (t--reference inline-src-block info t)))
                     (format " id=\"%s\"" lbl)
                   "")))
