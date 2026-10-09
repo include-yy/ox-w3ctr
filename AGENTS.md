@@ -543,10 +543,60 @@ same session.  Larger or planned work is in the =Roadmap= section of
   FIXME'd leftover in `org-w3ctr--link-coderef' (kept once for ox-html
   compatibility); the Link pass fixes or removes it.
 
+- **De-engrave the naming: names describe function, provenance goes
+  in a comment.**  The fontify engine borrowed its ideas (and ~5% of
+  its lines) from engrave-faces v0.3.1, but its names say otherwise.
+  Rename in one pass:
+  - the 11 `t--engrave-*' functions and `t--engrave-css-weights' to
+    `t--fontify-*', unifying the whole subsystem under one prefix;
+  - the section `;;;; Engrave-faces subset' to `;;;; Fontify:
+    font-lock engine';
+  - the engine `engrave' to `font-lock' (`org-w3ctr-fontify-engines',
+    `org-w3ctr-fontify-method', the `:engrave' key of
+    `org-w3ctr-fontify-lang-alist'), so the shipped engines
+    `font-lock / jstools / plain' each name their mechanism;
+  - the CSS prefix `ef-' to `tok-' (`--ef-*', `.ef-*', the renderer,
+    the palette, assets/style.css, the tests and doc/fontify.org).
+  Then credit engrave-faces v0.3.1 in the section comment, noting
+  only `org-w3ctr--fontify-next-face-change' is lifted (from htmlize,
+  via engrave-faces).  Breaking (the engine name and every
+  highlighted span's class), but the package has one user, so the
+  cheapest time is now, right after 0.2.18.
+
 - **`npm audit` flags `@xmldom/xmldom` in jstools.**  It comes with
   `mathjax` 4.0.0-beta.7, pinned in `package-lock.json` (MathJax 4.1.x
   is out); Shiki adds no finding.  Upgrade MathJax deliberately, re-run
   `npm test` and the math export tests, rather than `npm audit fix`.
+
+- **Fontify subsystem polish (from the 0.2.18 review; none urgent).**
+  - `org-w3ctr--fontify-stylesheet' lacks the `proper-list-p' check
+    that `org-w3ctr--fontify-face-table' has, so a dotted palette
+    slips into a primitive `wrong-type-argument' instead of an
+    `org-w3ctr-error' with context -- the most worth fixing of these.
+  - `org-w3ctr--fontify-engine' does not validate the engine plist:
+    an engine missing `:fontify' or `:available' fails with
+    `funcall nil' rather than an `org-w3ctr-error' naming the engine.
+  - `org-w3ctr--fontify-report-text' is side-effect free and
+    signal-free, so it qualifies for `(pure t)', but is not marked;
+    `org-w3ctr--fontify-merge' and `org-w3ctr--fontify-render' are.
+  - The unknown-language predicate in `org-w3ctr--fontify-dispatch'
+    (`(and (> tried 0) (= tried declined) (eq (car result) 'plain))')
+    is correct but opaque; a comment or a clearer formulation helps.
+  - `org-w3ctr--fontify-failure' has an explicit warn-once guard
+    while `org-w3ctr--fontify-unavailable' relies on the `broken'
+    marking; the asymmetry reads as a possible oversight.
+  - Efficiency, only if profiling flags the engrave engine: memoize
+    `org-w3ctr--engrave-face-slug' per export (the state already has
+    the `(cache . jstools-languages)' pattern); and
+    `org-w3ctr--fontify-merge' builds merged text with repeated
+    `concat', O(n^2) in a pathological many-tiny-token case.
+  - Efficiency, same caveat: consider reusing one scratch buffer per
+    major mode across blocks (stashed in the fontify state) instead
+    of a fresh `with-temp-buffer' + `(funcall mode)' per block;
+    `delay-mode-hooks' already removes the dominant cost, so only if
+    profiling shows the mode body itself as hot -- and it must erase
+    + insert + `font-lock-ensure' + collect, minding buffer-local
+    state leaking between blocks.
 
 - **Export blocks take no attributes or ids (deferred).**  Raw
   passthrough is the contract: a `#+name:' on an export block emits no
