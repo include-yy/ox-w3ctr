@@ -124,5 +124,4 @@ tr -cd '\r' < ox-w3ctr.el | wc -c                            # expect 0
 
 Summary line at most 74 characters, body lines around 72, arguments in
 UPPERCASE, `(declare (ftype ...))` and return values documented where
-non-obvious (see `references/gnu-docstring-rules.md`).  Baseline for the
-test suite: 163 tests, 161 pass, 2 skipped.
+non-obvious (see `references/gnu-docstring-rules.md`).

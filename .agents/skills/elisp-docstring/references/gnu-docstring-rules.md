@@ -26,7 +26,7 @@ Emacs Lisp Reference Manual, Appendix D "Documentation Tips".
 
 1. No leading or trailing whitespace in the string.  Do not indent
    continuation lines to align with the source.
-2. Summary line ≤ 74 characters (for apropos); body lines ≤ 60
+2. Summary line ≤ 74 characters (for apropos); body lines ≤ 72
    characters recommended.
 3. Separate logical sections with blank lines.  Prefer manually
    wrapped lines over auto-fill.
