@@ -213,3 +213,53 @@ Explicitly out of scope for now.
   =org-export--annotate-info= keyword/macro preprocessing ~10%,
   parse-tree ~4%, backend transcode walk + transcoders +
   fontification ~12%.  ox-w3ctr is already faster than ox-html.
+
+** Scratch
+
+Notes about using pi (the coding agent) with this repo, kept here as
+material for a future blog post.  Not part of the package.
+
+*** Skills are code the agent runs
+
+A skill is a directory with =SKILL.md= (frontmatter + instructions)
+plus optional =scripts/=, =references/=, =assets/=.  pi advertises only
+the name, description, and path at startup; the full instructions load
+only when the task matches.  The description is therefore routing
+information, not documentation.
+
+- Write the description in three parts: what it does, when it applies
+  (concrete triggers), and when it does not (negative routing).  A
+  "Helps with X" description has no routing value.
+- The =skill-maker= skill (in =.agents/skills/=) captures the pi spec
+  and the create/review checklists.
+
+*** Shell choice: Git Bash over MSYS2
+
+pi runs each bash command in a fresh non-interactive shell, configured
+by =shellPath= and =shellCommandPrefix= in =~/.pi/agent/settings.json=.
+
+This checkout started on standalone MSYS2 (UCRT64) and moved to Git
+Bash for one reason: Python wheels.  MSYS2's python is a mingw build
+whose platform tag is =mingw_x86_64_ucrt_gnu=; PyPI ships =rpds-py=
+only for =win_amd64= and =manylinux=, so pip fell back to compiling
+Rust from source and hung.  Git Bash exposes the official Windows
+Python (=win_amd64=), and the same =pip install= downloads a wheel and
+finishes in seconds.
+
+- Do not activate a venv through =shellCommandPrefix=: the prefix runs
+  before every command, including the env-detect probe, which must see
+  the *system* Python.  Keep the venv opt-in per task.
+- Machine facts live in =.agents/env.md= (gitignored); project facts
+  (the venv, its deps) live in =AGENTS.md= and =requirements.txt=.
+
+*** env-detect: facts, fallbacks, and never overwriting a choice
+
+The =env-detect= skill probes the machine and writes =.agents/env.md=.
+The script decides the values, never the agent.  The probe chain for a
+path is: an env override (=ORG_SOURCES=, =EMACS=) -> the value recorded
+in =env.md= -> a derived default (the Org bundled with Emacs) -> FAIL.
+
+When the recorded value is gone, the script emits =org_previous= and
+falls back; the agent must report the change rather than silently
+overwrite the user's choice.  Only a value the user never set falls
+back automatically.
