@@ -6,14 +6,22 @@
 say() { printf '%s\n' "$1"; }
 fail() { say "FAIL $1: $2"; }
 
-# --- Emacs: PATH first, then the project's known build ---
-emacs_cmd=""
-for c in emacs /d/emacs-build/bin/emacs.exe; do
-  if command -v "$c" >/dev/null 2>&1 || [ -x "$c" ]; then
-    emacs_cmd="$c"; break
-  fi
-done
-if [ -n "$emacs_cmd" ]; then
+# Read a previously recorded value from .agents/env.md (the table's
+# first backtick-quoted cell).  Empty when the file or the fact is absent.
+known() {
+  grep "^| $1 " .agents/env.md 2>/dev/null | grep -oE '`[^`]+`' | head -1 | tr -d '`'
+}
+
+# --- Emacs: EMACS env var, PATH, then the env.md record; a FAIL
+#     sends the agent to the user, then a scan ---
+emacs_cmd="${EMACS:-}"
+if [ -z "$emacs_cmd" ] && command -v emacs >/dev/null 2>&1; then
+  emacs_cmd="emacs"
+fi
+if [ -z "$emacs_cmd" ]; then
+  emacs_cmd="$(known Emacs)"
+fi
+if [ -n "$emacs_cmd" ] && { command -v "$emacs_cmd" >/dev/null 2>&1 || [ -x "$emacs_cmd" ]; }; then
   v="$("$emacs_cmd" --version 2>/dev/null | head -1)"
   major="$(printf '%s' "$v" | grep -oE '[0-9]+' | head -1)"
   if [ -n "$v" ] && [ -n "$major" ] && [ "$major" -ge 31 ] 2>/dev/null; then
@@ -23,16 +31,16 @@ if [ -n "$emacs_cmd" ]; then
     fail emacs "$emacs_cmd reports '$v' (need >= 31)"
   fi
 else
-  fail emacs "not found (tried PATH and /d/emacs-build/bin/emacs.exe)"
+  fail emacs "not found (tried EMACS, PATH, and the env.md record)"
 fi
 
 # --- Python: the first candidate that is a working Python 3 ---
 py_cmd=""
 for c in python python3; do
   if command -v "$c" >/dev/null 2>&1; then
-    v="$("$c" --version 2>&1)"
-    if printf '%s' "$v" | grep -q '^Python 3\.'; then
-      py_cmd="$c"; py_version="$v"; break
+    py_version="$("$c" --version 2>&1)"
+    if printf '%s' "$py_version" | grep -q '^Python 3\.'; then
+      py_cmd="$c"; break
     fi
   fi
 done
@@ -50,15 +58,32 @@ if command -v python3 >/dev/null 2>&1; then
   fi
 fi
 
-# --- Org sources: a checkout with ox.el ---
+# --- Org sources: ORG_SOURCES env var, the env.md record, else the
+#     Org bundled with Emacs (share/emacs/<version>/lisp/org) ---
 org=""
-for d in /d/org-mode/lisp "$HOME/org-mode/lisp"; do
-  if [ -f "$d/ox.el" ]; then org="$d"; break; fi
-done
+known_org="$(known 'Org sources')"
+if [ -n "$ORG_SOURCES" ] && [ -f "$ORG_SOURCES/ox.el" ]; then
+  org="$ORG_SOURCES"
+elif [ -n "$known_org" ] && [ -f "$known_org/ox.el" ]; then
+  org="$known_org"
+elif [ -n "$emacs_cmd" ] && [ -n "$v" ]; then
+  emacs_path="$(command -v "$emacs_cmd" 2>/dev/null || printf '%s' "$emacs_cmd")"
+  emacs_prefix="$(dirname "$(dirname "$emacs_path")")"
+  emacs_ver="$(printf '%s' "$v" | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -1)"
+  bundled="$emacs_prefix/share/emacs/$emacs_ver/lisp/org"
+  if [ -f "$bundled/ox.el" ]; then
+    org="$bundled"
+    # The recorded path is gone: flag it so the agent reports rather
+    # than silently overwriting the user's choice.
+    if [ -n "$known_org" ]; then
+      say "org_previous=$known_org"
+    fi
+  fi
+fi
 if [ -n "$org" ]; then
   say "org=$org"
 else
-  fail org "no checkout with ox.el found"
+  fail org "no org with ox.el found (tried ORG_SOURCES, the env.md record, and the Emacs bundle)"
 fi
 
 # --- Shell: the actual bash, not just uname.  Git Bash and standalone
@@ -70,7 +95,7 @@ else
   fail bash "cygpath could not resolve the running bash"
 fi
 if command -v pacman >/dev/null 2>&1; then
-  say "shell_flavor=msys2"
+  say "shell_flavor=msys2-${MSYSTEM:-unknown}"
 else
   say "shell_flavor=git-bash"
 fi
