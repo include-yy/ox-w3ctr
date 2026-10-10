@@ -56,8 +56,9 @@ Project-level facts (a venv, its dependencies) live in project files
 Python commands run against the project venv, never the system
 interpreter — the system Python is reserved for the env-detect probe.
 The venv is a project fact: the python-env skill creates it and
-`requirements.txt` pins its deps.  Find the venv python at
-`.venv/Scripts/python.exe` (Windows) or `.venv/bin/python` (POSIX).
+`requirements.txt` records its deps (currently none).  Find the venv
+python at `.venv/Scripts/python.exe` (Windows) or `.venv/bin/python`
+(POSIX).
 
 Invariants the detected values must satisfy:
 
@@ -432,8 +433,8 @@ Besides the passes: the options tidy-up in `README.org` Roadmap (the
   `condition-case` handlers.
 - **Verification cadence.**  The ERT suite is the routine gate.  For the
   cheap static checks to run on any change (strict compile, checkdoc, the
-  `(pure t)` call-graph scan, ftype gaps, indentation), see the verify
-  skill's `references/harness.md`.  Its corpus runs are not needed for
+  `(pure t)` call-graph scan, ftype gaps, indentation), see the
+  `ox-w3ctr-lint` skill.  Its corpus runs are not needed for
   routine changes; run them when asked, or for a genuinely global change
   (definition-time switches, option-list reorders), and report the numbers.
 
@@ -489,8 +490,8 @@ same session.  Larger or planned work is in the =Roadmap= section of
   the docstring should say so, not the name mangled); two docstrings
   name the bare word `org-publish` where checkdoc wants it quoted;
   and two say `jsonrpc-process-connection` without "class" or
-  "symbol" in front of it.  The verify skill's `scripts/checkdoc.el`
-  lists them.
+  "symbol" in front of it.  The `ox-w3ctr-lint` skill's
+  `scripts/checkdoc.el` lists them.
 
 - **`org-w3ctr--read-attr`'s error message prints the property keyword
   as is.**  `Invalid attribute #+%s` interpolates the keyword, so the

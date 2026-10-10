@@ -10,6 +10,7 @@ whole exports against a corpus of real documents.
 | `verify-html.el` | `libxml-parse-html-region` parses each export, no `id` twice, every internal `#...` link resolves (`RAW=1` keeps Org's random ids) |
 | `bench-oinfo.el` | `t--pget` vs `plist-get` on a real INFO plist captured from an export: it times `(funcall 'closure info)`, which is what the inlined call site compiles into, so no compilation step is needed |
 | `dump-export.el` | export one document to a file, for diffing two builds |
+| `e2e.el` | a real `org-export-string-as` through MathJax, expecting `<math>`; needs the node helper |
 
 ## Recipe (bash; `$EMACS` = your emacs)
 
@@ -140,51 +141,4 @@ by reflex.
   round).  Hence: cache the keys that are both deep and frequently read, and
   do not expect a speedup from caching in general.
 
-## Static checks (run on any change)
 
-Cheap, from the repo root; each catches a class ERT cannot.
-
-| Script | Checks |
-|---|---|
-| `strict-compile.el` | byte-compile with `byte-compile-error-on-warn` and `byte-compile-warnings` at `t`; any warning fails |
-| `checkdoc.el` | checkdoc over `ox-w3ctr.el` |
-| `pure-scan.el` | a call-graph scan for `(pure t)` functions reaching `t--pget`/`t--pput` (AGENTS.md forbids it) |
-| `scan-ftype.el` | counts the functions lacking `(declare (ftype ...))` |
-| `scan-nonascii.el` | flags non-ASCII characters in `ox-w3ctr.el` outside the one whitelisted glyph (the back-to-top ↑, rendered HTML content) |
-| `indent-check.el FILE` | lines `indent-region` would change; **LOADs FILE first** (see `checker-design.md`) |
-
-```bash
-emacs --batch -L . -l scripts/strict-compile.el
-emacs --batch -L . -l scripts/indent-check.el ox-w3ctr.el        # 2: the license-alist alignment
-emacs --batch -L . -l scripts/indent-check.el ox-w3ctr-tests.el  # 0
-emacs --batch -Q  -l scripts/pure-scan.el                        # no VIOLATION line
-emacs --batch -Q  -l scripts/scan-ftype.el                       # 3 to fix (+ the end-user t-publish)
-emacs --batch -Q  -l scripts/scan-nonascii.el                 # NON-ASCII-OK
-```
-
-## RPC transport harness
-
-Only when the JSON-RPC transport changes.  `server.py` is a
-Content-Length stdio JSON-RPC server (`jsonrpcserver`) standing in for the
-node helper; `node_client.py` and `e2e.el` drive the real thing.
-
-| Script | Checks |
-|---|---|
-| `server.py` | stdio JSON-RPC; methods ping/add/echo/tex2mml/tex2svg/nope.  NB `jsonrpcserver` 5.x methods must return `Success(...)`/`Error(...)` |
-| `client.py` | raw framing: success, `-32000`, `-32601`, `-32600` for a string param, a notification gets no reply |
-| `client.el` | the same over a real `jsonrpc-process-connection`, including restart |
-| `stderr_server.py` | a server that writes to stderr |
-| `stderr.el`, `stderr-our.el` | the `*NAME stderr*` coupling; the latter through `org-w3ctr--jrpc-connect` |
-| `node_client.py` | the real node helper (Content-Length + object params) |
-| `e2e.el` | a real `org-export-string-as` through MathJax, expecting `<math>` |
-
-```bash
-python scripts/client.py
-emacs --batch -L . -l scripts/client.el
-emacs --batch -L . -l scripts/stderr-our.el
-python scripts/node_client.py
-emacs --batch -L . -l scripts/e2e.el
-```
-
-The Elisp clients find `server.py` next to themselves; `node_client.py`
-and `e2e.el` need the node helper, so run them from the repo root.

@@ -29,21 +29,14 @@ Install `uv` with `pip install uv`.
    The `.venv/` directory is the standard home.  Ensure `.gitignore`
    lists it (add `.venv/` if missing).
 
-2. **Install and pin** dependencies.  With `uv`:
+2. **Install and pin** dependencies, if any.  The repo currently has
+   no third-party Python dependencies (`requirements.txt` is empty);
+   when one appears, install it and freeze:
 
    ```bash
-   uv pip install jsonrpcserver       # the verify RPC harness's dep
-   uv pip freeze > requirements.txt   # pin what is installed
+   uv pip install LIB                 # or: .venv/Scripts/python.exe -m pip install LIB
+   uv pip freeze > requirements.txt
    ```
-
-   Without `uv`, use the venv's own pip:
-
-   ```bash
-   .venv/Scripts/python.exe -m pip install jsonrpcserver
-   .venv/Scripts/python.exe -m pip freeze > requirements.txt
-   ```
-
-   (On POSIX the venv python is `.venv/bin/python`.)
 
 3. **Use** the venv per command, not globally.  Find the venv python
    at `.venv/Scripts/python.exe` (Windows venvs) or `.venv/bin/python`
