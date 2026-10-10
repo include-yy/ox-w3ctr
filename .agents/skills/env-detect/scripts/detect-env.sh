@@ -86,19 +86,14 @@ else
   fail org "no org with ox.el found (tried ORG_SOURCES, the env.md record, and the Emacs bundle)"
 fi
 
-# --- Shell: the actual bash, not just uname.  Git Bash and standalone
-#     MSYS2 both report MINGW64, so uname alone cannot tell them apart. ---
+# --- Shell: the actual bash ---
 bash_path="$(cygpath -w "${BASH:-/usr/bin/bash}" 2>/dev/null)"
 if [ -n "$bash_path" ]; then
   say "bash=$bash_path"
 else
   fail bash "cygpath could not resolve the running bash"
 fi
-if command -v pacman >/dev/null 2>&1; then
-  say "shell_flavor=msys2-${MSYSTEM:-unknown}"
-else
-  say "shell_flavor=git-bash"
-fi
+say "shell_flavor=git-bash"
 
 # --- Proxy: record what reaches github ---
 proxy=""

@@ -11,7 +11,7 @@ whole exports against a corpus of real documents.
 | `bench-oinfo.el` | `t--pget` vs `plist-get` on a real INFO plist captured from an export: it times `(funcall 'closure info)`, which is what the inlined call site compiles into, so no compilation step is needed |
 | `dump-export.el` | export one document to a file, for diffing two builds |
 
-## Recipe (MSYS2 bash; `$EMACS` = your emacs)
+## Recipe (bash; `$EMACS` = your emacs)
 
 ```bash
 cd <repo>
@@ -77,8 +77,9 @@ diff <(grep '^BATCH ' scratch/build/corpus-on.txt  | awk '{print $2, $4}' | sort
      <(grep '^BATCH ' scratch/build/corpus-off.txt | awk '{print $2, $4}' | sort)   # must be empty
 ```
 
-`-L .` is the flavour build, `-L "$SKILLDIR"` the scripts (an MSYS-style path
-works — MSYS2 converts it for the native Emacs).  Documents are only read.
+`-L .` is the flavour build, `-L "$SKILLDIR"` the scripts (a Git Bash
+path works — the shell converts it for the native Emacs).  Documents
+are only read.
 
 ## Normalize before comparing
 

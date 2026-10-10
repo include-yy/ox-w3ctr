@@ -48,9 +48,9 @@ probes and rewrite it.  When a probe disagrees with a fresh file, report
 the mismatch and let the user decide, rather than overwriting silently.
 
 Only the env-detect skill writes `.agents/env.md`; a skill that changes
-the environment (pi-shell, python-env) re-runs it instead of editing the
-file.  Project-level facts (a venv, its dependencies) live in project
-files (`requirements.txt`, AGENTS.md), never in env.md.
+the environment (python-env) re-runs it instead of editing the file.
+Project-level facts (a venv, its dependencies) live in project files
+(`requirements.txt`, AGENTS.md), never in env.md.
 
 Python commands run against the project venv, never the system
 interpreter — the system Python is reserved for the env-detect probe.
@@ -61,8 +61,8 @@ The venv is a project fact: the python-env skill creates it and
 Invariants the detected values must satisfy:
 
 - Emacs is a build of version >= 31 (the package's minimum).
-- Python is 3.x and actually runs; outside MSYS2, `python3` can
-  resolve to the Windows Store stub (exit code 49) and is broken.
+- Python is 3.x and actually runs; `python3` can resolve to the
+  Windows Store stub (exit code 49) and is broken.
 - Org sources contain `ox-html.el`, `ox.el` and `org-element.el`
   (the reference for ports): the Org bundled with Emacs
   (`share/emacs/<version>/lisp/org`) by default, or a checkout via
@@ -70,11 +70,9 @@ Invariants the detected values must satisfy:
 
 Paths and commands below are bash-style.
 
-Under MSYS2, `$HOME` is the virtual home (`/home/<user>`), not the
-Windows profile; pi and Python use the Windows profile
-(`C:\Users\<user>`), where pi's settings and sessions live.  Reach the
-Windows profile with `"$USERPROFILE"` or `cygpath -u "$USERPROFILE"`,
-never bash's `$HOME`.
+pi's settings and sessions live in the Windows profile
+(`C:\Users\<user>`); reach it with `"$USERPROFILE"` or
+`cygpath -u "$USERPROFILE"`.
 
 **Never search inside `node_modules`.**  No recursive `grep`/`find`/`rg`
 over `node_modules` (including the pi install tree or any package's
@@ -161,9 +159,6 @@ cd jstools && npm test
   fails 9 tests before any change.  Set `git config core.autocrlf
   false` in the clone and convert the working tree back to LF.
 
-  Do not use `grep -c $'\r'` for this: in this MSYS2 environment it
-  reports the line count for *any* file (a pure-LF `ox-w3ctr.el` reports
-  as many hits as it has lines), so it always looks like a failure.
 - Do not commit changes unless explicitly asked.
 - **Docstring**: every `defun`/`defsubst` gets a full docstring — a
   one-line summary first, then parameter / return-value notes where

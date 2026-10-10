@@ -16,7 +16,7 @@ when `uv` is not installed.
 | `uv`           | `uv venv`, `uv pip install`, `uv pip freeze` | default          |
 | `venv` + `pip` | `python -m venv`, `pip install -r`           | `uv` unavailable |
 
-Install `uv` with `pip install uv` (or `pacman -S mingw-w64-ucrt-x86_64-uv` under MSYS2).
+Install `uv` with `pip install uv`.
 
 ## Workflow
 
