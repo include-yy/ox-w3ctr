@@ -1,9 +1,9 @@
 # Seeding a defect, so the checker can disagree
 
 A checker that has never reported anything is unproven.  Save this as a
-throwaway file (this repo: under `scratch/`), run both scripts on it,
-and confirm the expected lines appear.  A missing line means the
-checker is broken; fix it or drop it.
+throwaway file (this repo: under `scratch/_testquality/`), run both
+scripts on it, and confirm the expected lines appear.  A missing line
+means the checker is broken; fix it or drop it.
 
 ## The seed
 

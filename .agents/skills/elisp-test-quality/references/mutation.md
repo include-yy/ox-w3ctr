@@ -6,10 +6,11 @@ does not rediscover the pitfalls.
 
 ## What it would add
 
-The other four phases find tests that cannot fail (`test-scan`),
+The other phases find tests that cannot fail (`test-scan`),
 leaked state (`test-leaks`), order dependence (`test-isolation`),
-direct-reference gaps (`test-map`), and unexecuted branches
-(`test-cover`).  None of them finds a test that *executes* a branch but
+source order (`order-check`), direct-reference gaps (`test-map`), and
+unexecuted branches (`test-cover`).  None of them finds a test that
+*executes* a branch but
 does not assert its effect — for example a test that calls a transcoder
 and checks only that it returned a string.  Mutation finds that: change
 the branch's effect and the test should go red.

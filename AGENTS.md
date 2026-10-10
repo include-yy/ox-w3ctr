@@ -30,6 +30,7 @@ underscore sorts them ahead of the loose files) or delete it:
 - `_mut/`       — the mutation harness (`run-mutation.sh` and `mut*/`)
 - `_plans/`     — design notes
 - `_probes/`    — behaviour probes and debug scripts
+- `_testquality/` — work files for the test-quality skill (seeded defects, samples)
 - `_vendor/`    — third-party clones and reference sources
 
 `scratch/build/` is the verify skill's build output, recreated by the

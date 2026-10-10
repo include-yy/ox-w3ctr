@@ -26,8 +26,15 @@
 ;;; Code:
 
 (require 'subr-x)
+(require 'bytecomp)
 (require 'testcover)
 (require 'ert)
+
+;; testcover records every argument via `(list ARGS)', which reads a
+;; `_'-prefixed "ignore me" argument and makes cconv warn "not left
+;; unused".  That is the instrumentation's noise, not a source defect:
+;; silence that one warning for the whole run.
+(byte-compile-disable-warning 'not-unused)
 
 (defun tc--args ()
   "The command-line arguments after `--'."

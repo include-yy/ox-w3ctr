@@ -179,7 +179,7 @@ two false alarms this rule would have caught).
 A `test-mutate.el` phase was designed but deliberately not built.  It is
 the costliest phase and the noisiest, for reasons specific to a back end
 whose behaviour depends on `load-file-name`, compile-time switches and
-exact markup.  The four phases above already answer whether a test can
+exact markup.  The phases above already answer whether a test can
 fail, whether it leaks, whether it is order-dependent, whether every
 function is referenced, and whether every branch is reached; mutation
 only adds "executed but not asserted", at the price of
