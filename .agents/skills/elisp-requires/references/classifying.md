@@ -17,15 +17,18 @@ guide on the `USED BUT NOT REQUIRED` section.
 
 ## Preloaded (no require needed)
 
-These are dumped with Emacs; `(require 'lib)` on them is a harmless no-op.
-Check the exact set with `emacs --batch -Q --eval "(featurep 'lib)"`.
+The functions and macros are already available without a require.  The
+scanner's `feature=` column tells the two groups apart:
 
-`subr` `files` `simple` `gv` `pcase` `mule` `format` `rx` `regexp-opt`
-`repeat` `byte-run` `custom` `faces` `indent` `version` `window`
-`oclosure` `tabulated-list` `backquote` `loaddefs`
+- `feature=t` — the library is loaded (dumped and `provide`d):
+  `files` `simple` `mule` `format` `regexp-opt` `custom` `faces`
+  `window` `oclosure` `tabulated-list` `backquote` `loaddefs`
+- `feature=nil` — the code is dumped but never `provide`d, so the
+  symbols work even though `featurep` reports nil:
+  `subr` `gv` `pcase` `rx` `repeat` `byte-run` `indent` `version`
 
-(`pcase` and `gv` are preloaded but this project requires them anyway;
-that is a style choice, not a bug.)
+(`pcase` and `gv` sit in the second group but this project requires
+them anyway; that is a style choice, not a bug.)
 
 ## Transitive org libraries (do not require)
 
