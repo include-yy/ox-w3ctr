@@ -181,6 +181,210 @@ and how the pipeline works.
   And is the self-link anchor emitted on every captioned block or only
   =src-block=?
 
+*** Tasks
+
+Small items, found while refining a function and usually finished in the
+same session.  Larger or planned work is in the =TODO= list above.
+
+- *=org-w3ctr-check-element-values= expects its values in reverse.*
+  The fixture =push=-accumulates =org-w3ctr-test-values=, so EXPECTED is
+  in reverse call order (a test pins this).  Either document it or
+  =nreverse= it in the fixture; the latter flips nearly every EXPECTED
+  list in the suite.
+
+- *The OINFO source-scanning tests hardcode =info=.*  Both
+  =org-w3ctr--oinfo-props-are-looked-up= and
+  =org-w3ctr--oinfo-props-go-through-pget= match the literal variable
+  =info=; a differently named INFO plist would false-fail.  Loosen to
+  =[^ \t\n()]+= if that ever changes.
+
+- *checkdoc leftovers outside the REFINE passes.*  Emacs 31.1's checkdoc
+  reports 17 warnings; 10 sit in the Link =REFINE:= section and its pass
+  clears them.  Seven have no owner: =t-creator-string='s docstring first
+  line is not a complete sentence (it ends at the =%c= placeholder); the
+  =t-export-as-html= / =t-export-to-html= docstrings never mention ASYNC
+  (the argument is used -- it goes to =org-export-to-buffer= /
+  =org-export-to-file= -- so the docstring should say so, not the name
+  mangled); two docstrings name the bare word =org-publish= where checkdoc
+  wants it quoted; and two say =jsonrpc-process-connection= without
+  "class" or "symbol" in front of it.  The =ox-w3ctr-lint= skill's
+  =scripts/checkdoc.el= lists them.
+
+- *=org-w3ctr--read-attr='s error message prints the property keyword as
+  is.*  =Invalid attribute #+%s= interpolates the keyword, so the
+  production message reads =Invalid attribute #+:attr__: ...= while the
+  Org keyword is spelled =#+attr__:= (the colon sits differently).  A
+  test pins the current message; if the formatting is ever fixed, flip
+  that expectation.
+
+- *=org-w3ctr--make-attr__id= recognizes an explicit id only as a list
+  (=(id \u2026)=).*  A bare =id= atom in =#+attr__:= is not detected, so
+  the reference id is prepended and the atom emitted as well: =#+name:1=
+  with =#+attr__: id= gives ~ id="1" id~, a malformed attribute string.  A
+  test pins it; recognizing the atom form too would flip the expectation.
+  The mirror problem on the =:attr_html= side: =org-w3ctr--make-attr_html=
+  keys its suppression off =plist-member=, which sees the key regardless
+  of value, so an explicit =:id nil= suppresses the auto id and emits no
+  id at all.
+
+- *Attribute input is not validated.*  In =org-w3ctr--make-attr= only the
+  values go through =org-w3ctr--encode-plain-text*=; a name is just
+  downcased, so =("<x>" v)= gives ~ <x>="v"~ and =(1)= gives ~ 1~.
+  =org-w3ctr--make-attribute-string= has the same asymmetry: keys go out
+  as is (=(:<x> "v")= gives ~<x>="v"~).  A dotted element falls through to
+  a primitive =wrong-type-argument= (reachable as =#+attr__: (a . b)=,
+  which aborts the export) instead of =org-w3ctr-error= with context.
+  Duplicate keys are not merged either: =:class a :class b= gives
+  ~ class="a" class="b"~.  Tests pin the current behavior; a checker that
+  accepts only HTML attribute names and proper lists (and signals
+  =org-w3ctr-error= otherwise) would flip them.
+
+- *Silent drops in S-exp rendering and attribute formatting.*
+  =org-w3ctr--sexp2html= renders a non symbol/string/number child as
+  nothing, =org-w3ctr--make-attr= returns nil for an attribute whose name
+  is not convertible (=(nil 1)=), and =org-w3ctr--read-attr__= maps a nil
+  element of a =[...]= vector to an empty contribution that keeps its
+  separator (=[a nil b]= gives =("class" "a  b")=, via =mapconcat= over
+  =org-w3ctr--2str= with =" "=).  Tests pin all three.  They are the
+  =;;; Basic utilities= exceptions to fail-loudly: either keep them
+  documented as deliberate (the docstrings say so now) or signal
+  =org-w3ctr-error= and flip the tests.
+
+- *Docstring & layout leftovers (from the tidy pass).*
+  - Add =(declare (ftype …))= to the one function that still lacks it
+    (excluding =defsubst=, interactive, and end-user commands):
+    =t-preamble-default-function=.
+
+- *Shorthand symbol names in docstrings and comments.*  They are string
+  literals and get no =read-symbol-shorthands=; write the full
+  =org-w3ctr-*= name.  Fix per section in the passes.  grep =`t-= in
+  =ox-w3ctr.el= finds, outside the =REFINE:= sections, only =t-style= /
+  =t-style-file= (<head>).  The rest sit inside the Link section, which
+  its pass will fix: =t-inline-image-rules=, =t-inline-image-p=, =t-link=,
+  =t--link-path=, =t--link-target=, =t--link-equation= (Link).
+
+- *Three test sections sit out of source order.*  =order-check.el= flags
+  Link, Headline and CC license badges.  Reorder them to the source
+  function order when those sections are next touched.
+
+- *Other transcoders take CONTENTS as =string= with no nil guard.*  ox.el
+  prunes math under =tex:nil=, so a paragraph whose only content was
+  pruned arrives with nil CONTENTS -- =org-w3ctr-paragraph= used to crash
+  in =org-w3ctr--trim=; fixed in the LaTeX pass (nil becomes "", as
+  =org-w3ctr-special-block= already did).  The remaining transcoders
+  declare CONTENTS as =string=; guard one when a nil-contents case shows
+  up.
+
+- *order-check cannot see a test filed under the wrong section.*  It
+  checks order within a section and the order of sections only: the
+  =org-w3ctr--normalize-latex= and =org-w3ctr--format-latex= tests sat in
+  the =Math config= section while the functions live in the source LaTeX
+  section, and nothing flagged it.  Cross-section membership is checked by
+  eye; done for the LaTeX pass.
+
+- *Link leftovers.*  The refactor is done, but a few spots are still weak
+  or suspect.  Each of these carries a =FIXME= in the source: the
+  cross-file ID fragment is built from =t--link-path='s output instead of
+  the raw path (=t--link-to-file=); =:html-link-home= /
+  =:html-link-use-abs-url= are not implemented (=t--link-path=); LaTeX
+  equation references only cover math environments under =mathjax=/=t=;
+  and coderef support is kept only for ox-html compatibility.  One more
+  divergence has no marker: =.org.gpg= files are not rewritten to =.html=
+  (=t--link-org-files-as-html=), though ox-html does rewrite them.
+  =t--link-broken= looks unreachable (Org handles broken links before the
+  transcoder); it is =FIXME=-marked.  (=t--math-environment-p=, likewise
+  FIXME-marked, was removed -- its ordinal purpose is long gone.)
+  =t--link-to-file=, =t--link-broken= and =t--link-coderef= still have no
+  tests.  The coderef path is prefixed where the bare label is expected:
+  =org-w3ctr-link= hands =org-w3ctr--link-coderef= the output of
+  =org-w3ctr--link-path=, which for a =[[(foo)]]= link is "coderef:foo"
+  while the link's =:path= is "foo" (measured), so
+  =org-export-resolve-coderef= receives the prefixed string and the
+  fragment would be =#coderef-coderef:foo=; the Link pass fixes or
+  removes coderef support.
+
+- *De-engrave the naming: names describe function, provenance goes in a
+  comment.*  The fontify engine borrowed its ideas (and ~5% of its lines)
+  from engrave-faces v0.3.1, but its names say otherwise.  Rename in one
+  pass:
+  - the 11 =t--engrave-*= functions and =t--engrave-css-weights= to
+    =t--fontify-*=, unifying the whole subsystem under one prefix;
+  - the section =;;;; Engrave-faces subset= to =;;;; Fontify: font-lock
+    engine=;
+  - the engine =engrave= to =font-lock= (=org-w3ctr-fontify-engines=,
+    =org-w3ctr-fontify-method=, the =:engrave= key of
+    =org-w3ctr-fontify-lang-alist=), so the shipped engines
+    =font-lock / jstools / plain= each name their mechanism;
+  - the CSS prefix =ef-= to =tok-= (=--ef-*=, =.ef-*=, the renderer, the
+    palette, assets/style.css, the tests and doc/fontify.org).
+  Then credit engrave-faces v0.3.1 in the section comment, noting only
+  =org-w3ctr--fontify-next-face-change= is lifted (from htmlize, via
+  engrave-faces).  Breaking (the engine name and every highlighted span's
+  class), but the package has one user, so the cheapest time is now,
+  right after 0.2.18.
+
+- *=npm audit= flags =@xmldom/xmldom= in jstools.*  It comes with
+  =mathjax= 4.0.0-beta.7, pinned in =package-lock.json= (MathJax 4.1.x is
+  out); Shiki adds no finding.  Upgrade MathJax deliberately, re-run
+  =npm test= and the math export tests, rather than =npm audit fix=.
+
+- *Fontify subsystem polish (from the 0.2.18 review; none urgent).*
+  - =org-w3ctr--fontify-stylesheet= lacks the =proper-list-p= check that
+    =org-w3ctr--fontify-face-table= has, so a dotted palette slips into a
+    primitive =wrong-type-argument= instead of an =org-w3ctr-error= with
+    context -- the most worth fixing of these.
+  - =org-w3ctr--fontify-engine= does not validate the engine plist: an
+    engine missing =:fontify= or =:available= fails with =funcall nil=
+    rather than an =org-w3ctr-error= naming the engine.
+  - =org-w3ctr--fontify-report-text= is side-effect free and signal-free,
+    so it qualifies for =(pure t)=, but is not marked;
+    =org-w3ctr--fontify-merge= and =org-w3ctr--fontify-render= are.
+  - The unknown-language predicate in =org-w3ctr--fontify-dispatch=
+    (~(and (> tried 0) (= tried declined) (eq (car result) 'plain))~) is
+    correct but opaque; a comment or a clearer formulation helps.
+  - =org-w3ctr--fontify-failure= has an explicit warn-once guard while
+    =org-w3ctr--fontify-unavailable= relies on the =broken= marking; the
+    asymmetry reads as a possible oversight.
+  - Efficiency, only if profiling flags the engrave engine: memoize
+    =org-w3ctr--engrave-face-slug= per export (the state already has the
+    =(cache . jstools-languages)= pattern); and =org-w3ctr--fontify-merge=
+    builds merged text with repeated =concat=, O(n^2) in a pathological
+    many-tiny-token case.
+  - Efficiency, same caveat: consider reusing one scratch buffer per major
+    mode across blocks (stashed in the fontify state) instead of a fresh
+    =with-temp-buffer= + =(funcall mode)= per block; =delay-mode-hooks=
+    already removes the dominant cost, so only if profiling shows the mode
+    body itself as hot -- and it must erase + insert + =font-lock-ensure=
+    + collect, minding buffer-local state leaking between blocks.
+
+- *Unnamed elements get a fresh random id on every export.*  With no
+  explicit label, =t--reference= falls back to =org-export-get-reference=,
+  which mints an =orgXXXXXXX= id from a randomly seeded counter.  Four of
+  the 57 corpus documents hold such ids (=verify-corpus= counts them in
+  =refs=), and an anchor into one is not stable across exports.  Never
+  diff raw export hashes -- compare the normalized =norm= (see the
+  verification skill).  Either the author gives every referenced element
+  an explicit =CUSTOM_ID=, or the back-end derives a stable id -- see
+  Non-goals.
+
+- *Export blocks take no attributes or ids (deferred).*  Raw passthrough
+  is the contract: a =#+name:= on an export block emits no anchor, so a
+  link to it dangles (measured: =[[x]]= renders =<a href="#x">= with
+  nothing to land on; a random id with =org-w3ctr-prefer-user-labels=
+  off).  Decided 2026-10 to leave it; the Link pass should know before
+  touching element references.
+
+- *Consider dropping the =:textarea= source-block form (lean: drop).*
+  =org-w3ctr--textarea-block= keeps ox-html's =#+attr_html: :textarea=
+  behaviour: the block renders as a =<textarea>= instead of =<pre><code>=.
+  It is a compatibility relic with no W3C TR rationale -- a form control
+  in a spec, unstyled by base.css, and a silent output-shape switch.  It
+  is the lone survivor of the dropped ox-html src-block features (line
+  numbers, coderef, retain-labels, ...).  Delete it and add it to the
+  Roadmap's dropped-features list; the only reason to keep it is ox-html
+  compatibility, which this package does not promise.  If kept instead,
+  record the decision like the Export blocks entry does.
+
 *** Non-goals
 
 Explicitly out of scope for now.

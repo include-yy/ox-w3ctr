@@ -14,6 +14,8 @@ style.  Version 0.2.18; requires Emacs 31.
 - `assets/`           — CSS / SVG / JS
 - `jstools/`          — Node.js RPC helper: MathJax (math) and Shiki
                         (code highlighting)
+- `doc/`              — `design-notes.md` (rationale and measured facts)
+                        and `fontify.org` (fontify pipeline)
 - `scratch/`          — throwaway files and local build outputs, never
                         the system temp (gitignored)
 - `zhua.el`           — refactor proposals (gitignored)
@@ -206,6 +208,21 @@ cd jstools && npm test
   traditional Emacs Lisp constructs (`mapcar`, `let`, `dolist`) instead of
   `cl-loop`, `cl-destructuring-bind`, etc.  The one historic dependency was
   dropped.
+- **Error signaling.**  Transcoders signal `org-w3ctr-error` (via
+  `t-error`), never the generic `error`; in a `condition-case` handler,
+  re-signal with `(signal err)` (the Emacs 31 one-argument form) rather
+  than `(signal (car err) (cdr err))` — it is more concise and preserves
+  `eq` equality of the error descriptor.
+- **OINFO and purity.**  A function that reads or writes INFO through
+  `t--pget` / `t--pput` is never marked `(pure t)`.
+- **Docstring parameter references.**  Unused parameters carry a `_`
+  prefix in the signature (e.g., `_info`); docstrings reference them
+  without the prefix (write INFO, not _INFO).
+- **Verification cadence.**  The ERT suite is the routine gate; also run
+  the `ox-w3ctr-lint` skill's static checks on any change.  The
+  `ox-w3ctr-verify` skill's corpus runs are for genuinely global changes
+  (definition-time switches, option-list reorders), or when asked.
+
 ## Methodology
 
 An AI author can afford to write everything down, so the refactor
@@ -248,405 +265,27 @@ well-formed.
 
 ## Mainline: incremental refinement
 
-The per-element round is complete; from here the work is top-down.  Refine
-one function at a time — docstring, `declare`, `important-return-value`/
-`pure`, helper use, tests — and each problem found becomes an entry in
-`## Tasks` (small, usually done in the same session) or the `Roadmap`
-section of `README.org` (larger), rather than a plan of its own.  There
-is no fixed task list and no "underway" moment: those two lists *are*
-the plan.
+Refine one function at a time — docstring, `declare`,
+`important-return-value`/`pure`, helper use, tests — and file each finding
+under the `Tasks` list of `README.org`'s Roadmap (small, same-session) or
+its `TODO` list (larger).  Those two lists are the plan; there is no fixed
+task list and no "underway" moment.  The current session state and next
+task live in `.agents/next.md`.
 
-The `;;; Template and Inner Template` part is finished; `;;; Basic
-utilities` and `;;; Greater elements` are frozen.  Both are stable:
-they carry unit, source-scanning and property tests and the JSON-RPC
-rewrite, verified end to end — touch them only for a concrete reason,
-with a test, never as a drive-by while refining another section.  Their
-one deliberate test gap, `org-w3ctr--table.el-table` (its markup comes
-from `table-generate-source`), is annotated in the source.  The
-remaining refinement work is in the earlier parts (a section refile
-scrambled their source order): the `REFINE` sections below.
+These parts are stable — they carry unit, source-scanning and property
+tests, verified end to end — touch them only for a concrete reason, with
+a test, never as a drive-by while refining another section:
 
-The test-code tidy-up of the frozen parts is done: `;;; Basic
-utilities` first — every section reviewed function by function, OINFO
-included — then `;;; Greater elements`, whose ten sections were
-reviewed for coverage, duplication, helper use, naming and layout (its
-Table tests were rewritten to the suite's helper/table-driven style).
-The one deliberate gap stays `org-w3ctr--table.el-table`.  Findings went
-to `## Tasks` and the `README.org` Roadmap.
+- `;;; Template and Inner Template` — finished
+- `;;; Basic utilities` — frozen
+- `;;; Greater elements` — frozen
 
-`ox-w3ctr-tests.el` mirrors the source: a `;;;` header per major part
-and a `;;;;` header per source section (OINFO splits into helpers /
-structural checks / reading and writing / cleanup and statistics).  Work
-through it a section at a time.  Everything under `;;; Basic
-utilities` and `;;; Greater elements` is reviewed; the other parts are
-pending.
+Their one deliberate test gap, `org-w3ctr--table.el-table` (its markup
+comes from `table-generate-source`), is annotated in the source.
 
-The sections still to refine carry
-`;; REFINE: this section is pending the mainline fine pass.` in the
-source.  One remains: Link (Engrave-faces subset and Source block
-were done in the fontify refactor; see Notes).  Take them in source
-order (`grep -n 'REFINE:' ox-w3ctr.el`), one section per pass — docstring,
-`declare`, `important-return-value`/`pure`, helper use, tests — and
-remove the marker when the section is done.  What a pass turns up goes to
-`## Tasks` or `README.org` Roadmap.
-
-Besides the passes: the options tidy-up in `README.org` Roadmap (the
-`*-function` replacement and the ox-html compatibility chart).
-
-## Notes
-
-- **Compile-time switches and conditionals.**  Four measured facts,
-  learned while building `org-w3ctr-oinfo-enabled`:
-  - a top-level `defvar`/`defconst`/`defun` is *not* visible to compile-time
-    evaluation later in the same file (it fails with a "void" error), so
-    anything read at macro-expansion time has to be defined inside an
-    `eval-and-compile`;
-  - `eval-and-compile` evaluates its body *and* emits it, so a plain
-    `defconst` init is re-evaluated when the `.elc` loads; freeze such a
-    value with `eval-when-compile` when compiled call sites depend on it;
-  - never put top-level definitions inside a conditional: the compiler
-    hoists them and emits *both* branches, the later one winning (the
-    symptom is a switch that reports one flavour while the other is built);
-  - inside a `define-inline`, a flag test must sit *outside* the
-    `inline-quote`: inside it is a runtime branch, and the whole machinery
-    is expanded into every call site.
-- **Custom elements (special-block).**  The design is explicit over
-  implicit: every custom element must be registered in
-  `org-w3ctr-special-block-custom-elements`, a `(NAME . PLIST)` alist.
-  The back-end does not guess by name pattern.  Keys in the PLIST are
-  read by two separate components: `:template` (Declarative Shadow DOM)
-  is inserted by the transcoder (`org-w3ctr--special-block-custom`);
-  `:src` and `:script` are read by the default head function
-  (`org-w3ctr-special-block-head-default-function`) to build `<script>`
-  tags.  Other keys are left to a custom head function.  The scan for
-  used elements (`org-w3ctr--special-block-used-elements`) runs at
-  template stage, takes INFO, and has no global state; `:noexport:`
-  subtrees are excluded.  The exclusion is pruning's doing:
-  `org-export--prune-tree` extracts `:noexport:` subtrees from the
-  parse tree before the scan runs.  The INFO argument the scan passes
-  to `org-element-map` is therefore unobservable (`:ignore-list` never
-  holds special blocks): dropping it survives every test -- an
-  equivalent mutant, kept annotated in the local mutation harness.
-- **Table column groups.**  Org's `/`-row (`<`/`>`/`<>`) only marks group
-  boundaries; it cannot carry attributes, because its cells must be exactly
-  those markers or Org's own colgroup detection
-  (`org-export-table-cell-borders`) breaks.  ox-w3ctr emits
-  `<colgroup span="N">` and does **not** invent a
-  per-group class syntax.  To style a group, put a class on the table
-  (`#+attr__: [foo]` or `#+attr_html: :class foo`) and use a CSS positional
-  selector, e.g. `.foo colgroup:nth-of-type(2) { ... }`.  Only
-  `border`/`background`/`width`/`visibility` apply to `<colgroup>`;
-  `text-align` does not (alignment is emitted inline on the cells).
-  Per-column width would need `<col>`, which is deliberately dropped.
-- **Object theming contract (planned).**  Style complex objects by
-  injecting CSS custom properties, not by emitting bespoke classes.
-  `#+attr__` can set a `style` attribute, so a table/block can carry
-  `style="--w3c-accent: ..."`; the stylesheet consumes it with
-  `var(--w3c-accent, fallback)`.  Each complex object should expose a
-  small, documented set of custom properties.  Target children with
-  structural/positional selectors (`colgroup:nth-of-type(n)`,
-  `tr:nth-child(n)`, `td:first-child`), never with invented classes.
-  Custom properties inherit down the subtree (and pierce Shadow DOM),
-  so the same mechanism doubles as the theming API for DSD/Web
-  Components.  (Rationale: several ox-html carry-over classes such as
-  `org-left`/`org-center`/`org-right` and `t-above`/`t-bottom` are not
-  defined by the W3C CSS, i.e. dead; do not add more of those.)
-- **Math pipeline.**  LaTeX fragments reach the `jstools` Node helper as
-  `\(...\)`/`\[...\]` (`t--normalize-latex`); the helper does all the
-  MathJax work — extract the TeX, convert with the promise API, clean up
-  the result — and returns ready-to-embed markup.  `mathml-by-mathjax` and
-  `svg-by-mathjax` are therefore thin one-line RPC calls on the Emacs side.
-  The helper loads `ui/safe`, without which the auto-loaded `html` TeX
-  extension lets `\href{javascript:...}`, `\style` and `\class` through.
-- **Fontify pipeline.**  `org-w3ctr-fontify-code` turns the method of a
-  block (its `:fontify` header argument, else `#+OPTIONS: fontify:`,
-  else `org-w3ctr-fontify-method`) into a chain of engines ending with
-  `plain` (`t--fontify-chain-for`), and `t--fontify-dispatch` runs the
-  engines of `org-w3ctr-fontify-engines` (`engrave`, `jstools`,
-  `plain`) until one returns tokens.  The contract:
-  - An engine returns `((CLASS . TEXT) ...)` or `:decline`, never
-    HTML.  TEXT is raw code; CLASS is nil, a slug of the face tables,
-    or `(style . CSS)` under the `inline` face fallback.
-    `t--fontify-check-tokens` rejects tokens that do not add up to the
-    code or carry an unknown class; `t--fontify-merge` joins
-    neighbours of one class; `t--fontify-render` is the only place that
-    escapes.
-  - Fallback, in three layers: a face without a slug follows its
-    `:inherit` chain (`t--engrave-face-slug`); a declining engine
-    passes the block on, and a failing or unavailable one is handled
-    by `:html-fontify-on-error` and broken for the rest of the export;
-    `plain` takes what is left, and a language every engine declined
-    goes through `:html-fontify-unknown-language`.  Everything is
-    counted in INFO's `:html-fontify-state` and shown by
-    `M-x org-w3ctr-show-fontify-report`.
-  - Measured facts: Emacs 31 *asks* to install a missing tree-sitter
-    grammar, which hangs a batch export, so `t--engrave-tokens` binds
-    `treesit-auto-install-grammar` to `never` (declared with `defvar`,
-    or the `let` would be lexical and do nothing) and declines a
-    `*-ts-mode` left without a parser.  In batch, `color-values` rounds
-    to the 8-colour terminal palette (`#1f5bff` comes back pure blue),
-    so inline styles use `tty-color-standard-values`.  Mode hooks run
-    delayed by default, and `font-lock-ensure` still fontifies
-    everything under `delay-mode-hooks`.
-  - The `jstools` engine calls `highlightLanguages` once per export
-    and `highlight` per block; the helper answers `[TEXT, SLUG]` pairs.
-    Slugs come from `jstools/lib/slugs.json` through a synthetic Shiki
-    theme whose fake colours (`#000001`, ...) decode back to slugs, so
-    Shiki's own scope matching picks them.  Error `-32010` means
-    "unknown language", i.e. decline.
-  - Colours: edit `org-w3ctr-fontify-palette`, then run `M-x
-    org-w3ctr-fontify-update-stylesheet`, which rewrites the marked
-    block of `assets/style.css`.  Tests tie the palette, that block,
-    the face table and `slugs.json` together, and check WCAG contrast
-    ≥ 4.5 on every code background in both themes.
-  - The refactor changed one thing in the frozen `;;; Basic
-    utilities`: `t--jstools-methods` gained `highlight` and
-    `highlightLanguages` (guarded by `t--jstools-methods-drift`).
-- **JSON-RPC transport (`jsonrpc.el`).**  The `jstools` connection is a
-  callable `org-w3ctr--jrpc` oclosure over a `jsonrpc-process-connection`;
-  two measured facts to keep:
-  - **No restart.**  `jsonrpc.el` sets the process once in
-    `initialize-instance` (buffer, filter, sentinel, coding and stderr
-    are all installed there), and `jsonrpc-shutdown` only tears down.  To
-    restart, discard the connection and build a fresh one
-    (`org-w3ctr--jrpc-ensure` / `-restart`).  Never `setf`
-    `jsonrpc--process`.
-  - **`:process` must be a function, and it must pass `:stderr`.**  The
-    `:process` initarg is called from `initialize-instance` *after* a
-    `*NAME stderr*` buffer is created, so the factory has to hand that
-    buffer to `make-process` as `:stderr` (the "bad coupling" jsonrpc.el
-    itself flags with a FIXME).  Passing a ready process silently loses
-    stderr separation and merges it into stdout, corrupting the stream.
-- **Error signaling: `t-error` over `error`.**  All transcoder error
-  paths use `t-error` (the package's custom error type), not the generic
-  `error`.  Inside a `condition-case` handler, re-signal with `(signal e)`
-  (Emacs 31 syntax) instead of `(signal (car e) (cdr e))`.
-- **OINFO.**  INFO access goes through `t--pget`/`t--pput`, never
-  `plist-get`/`plist-put`; and a function reaching either is never
-  marked `(pure t)`.  The cache has been verified end to end.
-- **Docstring parameter references.**  Unused parameters carry a `_`
-  prefix in the function signature (e.g., `_info`), but docstrings
-  reference them without the prefix (write INFO, not _INFO).
-- **`(signal err)` (Emacs 31+).**  The one-argument form `(signal err)`
-  is equivalent to `(signal (car err) (cdr err))`, more concise, and
-  preserves `eq` equality of the error descriptor.  Prefer it in
-  `condition-case` handlers.
-- **Verification cadence.**  The ERT suite is the routine gate.  For the
-  cheap static checks to run on any change (strict compile, checkdoc, the
-  `(pure t)` call-graph scan, ftype gaps, indentation), see the
-  `ox-w3ctr-lint` skill.  Its corpus runs are not needed for
-  routine changes; run them when asked, or for a genuinely global change
-  (definition-time switches, option-list reorders), and report the numbers.
-
-## Known issues
-
-- **Link leftovers.**  The refactor is done, but a few spots are still weak
-  or suspect.  Each of these carries a `FIXME` in the source: the
-  cross-file ID fragment is built from `t--link-path`'s output instead of
-  the raw path (`t--link-to-file`); `:html-link-home` /
-  `:html-link-use-abs-url` are not implemented (`t--link-path`); LaTeX
-  equation references only cover math environments under `mathjax`/`t`;
-  and coderef support is kept only for ox-html compatibility.  One more
-  divergence has no marker: `.org.gpg` files are not rewritten to
-  `.html` (`t--link-org-files-as-html`), though ox-html does rewrite them.
-- `t--link-broken` looks unreachable (Org handles broken links before the
-  transcoder); it is `FIXME`-marked.  (`t--math-environment-p`, likewise
-  FIXME-marked, was removed — its ordinal purpose is long gone.)
-- `t--link-to-file`, `t--link-broken` and `t--link-coderef` still have no
-  tests.
-- **Unnamed elements get a fresh random id on every export.**  With no
-  explicit label, `t--reference` falls back to `org-export-get-reference`,
-  which mints an `orgXXXXXXX` id from a randomly seeded counter.  Four of
-  the 57 corpus documents hold such ids (`verify-corpus` counts them in
-  `refs=`), and an anchor into one is not stable across exports.  Never diff
-  raw export hashes — compare the normalized `norm=` (see the verification
-  skill).  Either the author gives every referenced element an explicit
-  `CUSTOM_ID`, or the back-end derives a stable id — see Non-goals.
-
-## Tasks
-
-Small items, found while refining a function and usually finished in the
-same session.  Larger or planned work is in the =Roadmap= section of
-=README.org=.
-
-- **`org-w3ctr-check-element-values` expects its values in reverse.**
-  The fixture `push`-accumulates `org-w3ctr-test-values`, so EXPECTED is
-  in reverse call order (a test pins this).  Either document it or
-  `nreverse` it in the fixture; the latter flips nearly every EXPECTED
-  list in the suite.
-- **The OINFO source-scanning tests hardcode `info`.**  Both
-  `org-w3ctr--oinfo-props-are-looked-up` and
-  `org-w3ctr--oinfo-props-go-through-pget` match the literal variable
-  `info`; a differently named INFO plist would false-fail.  Loosen to
-  `[^ \t\n()]+` if that ever changes.
-
-- **checkdoc leftovers outside the REFINE passes.**  Emacs 31.1's
-  checkdoc reports 17 warnings; 10 sit in the Link `REFINE:` section
-  and its pass clears them.  Seven have no owner:
-  `t-creator-string`'s docstring first line is not a complete sentence
-  (it ends at the `%c` placeholder); the `t-export-as-html` /
-  `t-export-to-html` docstrings never mention ASYNC (the argument is
-  used — it goes to `org-export-to-buffer` / `org-export-to-file` — so
-  the docstring should say so, not the name mangled); two docstrings
-  name the bare word `org-publish` where checkdoc wants it quoted;
-  and two say `jsonrpc-process-connection` without "class" or
-  "symbol" in front of it.  The `ox-w3ctr-lint` skill's
-  `scripts/checkdoc.el` lists them.
-
-- **`org-w3ctr--read-attr`'s error message prints the property keyword
-  as is.**  `Invalid attribute #+%s` interpolates the keyword, so the
-  production message reads `Invalid attribute #+:attr__: ...` while the
-  Org keyword is spelled `#+attr__:` (the colon sits differently).  A
-  test pins the current message; if the formatting is ever fixed,
-  flip that expectation.
-
-- **`org-w3ctr--make-attr__id` recognizes an explicit id only as a
-  list (`(id \u2026)`).**  A bare `id` atom in `#+attr__:` is not
-  detected, so the reference id is prepended and the atom emitted as
-  well: `#+name:1` with `#+attr__: id` gives ` id="1" id`, a malformed
-  attribute string.  A test pins it; recognizing the atom form too
-  would flip the expectation.  The mirror problem on the `:attr_html`
-  side: `org-w3ctr--make-attr_html` keys its suppression off
-  `plist-member`, which sees the key regardless of value, so an
-  explicit `:id nil` suppresses the auto id and emits no id at all.
-
-- **Attribute input is not validated.**  In `org-w3ctr--make-attr`
-  only the values go through `org-w3ctr--encode-plain-text*`; a name is
-  just downcased, so `("<x>" v)` gives ` <x>="v"` and `(1)` gives ` 1`.
-  `org-w3ctr--make-attribute-string` has the same asymmetry: keys go
-  out as is (`(:<x> "v")` gives `<x>="v"`).
-  A dotted element falls through to a primitive `wrong-type-argument`
-  (reachable as `#+attr__: (a . b)`, which aborts the export) instead
-  of `org-w3ctr-error` with context.  Duplicate keys are not merged
-  either: `:class a :class b` gives ` class="a" class="b"`.  Tests pin
-  the current behavior; a
-  checker that accepts only HTML attribute names and proper lists (and
-  signals `org-w3ctr-error` otherwise) would flip them.
-
-- **Silent drops in S-exp rendering and attribute formatting.**
-  `org-w3ctr--sexp2html` renders a non symbol/string/number child as
-  nothing, `org-w3ctr--make-attr` returns nil for an attribute whose
-  name is not convertible (`(nil 1)`), and `org-w3ctr--read-attr__`
-  maps a nil element of a `[...]` vector to an empty contribution that
-  keeps its separator (`[a nil b]` gives `("class" "a  b")`, via
-  `mapconcat` over `org-w3ctr--2str` with `" "`).  Tests pin
-  all three.  They are the `;;; Basic utilities` exceptions to
-  fail-loudly: either keep them documented as deliberate (the
-  docstrings say so now) or signal `org-w3ctr-error` and flip the
-  tests.
-
-- **Docstring & layout leftovers (from the tidy pass).**
-  - Add `(declare (ftype …))` to the one function that still lacks it
-    (excluding `defsubst`, interactive, and end-user commands):
-    `t-preamble-default-function`.
-
-- **Shorthand symbol names in docstrings and comments.**  They are
-  string literals and get no `read-symbol-shorthands`; write the full
-  `org-w3ctr-*` name.  Fix per section in the passes.  grep
-  `` `t- `` in `ox-w3ctr.el` finds, outside the
-  `REFINE:` sections, only `t-style` / `t-style-file` (<head>).
-  The rest sit inside the Link section, which its pass will fix:
-  `t-inline-image-rules`, `t-inline-image-p`, `t-link`, `t--link-path`,
-  `t--link-target`, `t--link-equation` (Link).
-
-- **Three test sections sit out of source order.**  `order-check.el`
-  flags Link, Headline and CC license badges.  Reorder them to the
-  source function order when those sections are next touched.
-
-- **Other transcoders take CONTENTS as `string` with no nil guard.**
-  ox.el prunes math under `tex:nil`, so a paragraph whose only content
-  was pruned arrives with nil CONTENTS -- `org-w3ctr-paragraph` used to
-  crash in `org-w3ctr--trim`; fixed in the LaTeX pass (nil becomes "",
-  as `org-w3ctr-special-block` already did).  The remaining transcoders
-  declare CONTENTS as `string`; guard one when a nil-contents case shows
-  up.
-
-- **order-check cannot see a test filed under the wrong section.**  It
-  checks order within a section and the order of sections only: the
-  `org-w3ctr--normalize-latex` and `org-w3ctr--format-latex` tests sat in
-  the `Math config` section while the functions live in the source LaTeX
-  section, and nothing flagged it.  Cross-section membership is checked
-  by eye; done for the LaTeX pass.
-
-- **The coderef link path is prefixed where the bare label is
-  expected.**  `org-w3ctr-link` hands `org-w3ctr--link-coderef` the
-  output of `org-w3ctr--link-path`, which for a `[[(foo)]]` link is
-  "coderef:foo" while the link's `:path` is "foo" (measured), so
-  `org-export-resolve-coderef` receives the prefixed string and the
-  fragment would be `#coderef-coderef:foo`.  Coderef support is the
-  FIXME'd leftover in `org-w3ctr--link-coderef` (kept once for ox-html
-  compatibility); the Link pass fixes or removes it.
-
-- **De-engrave the naming: names describe function, provenance goes
-  in a comment.**  The fontify engine borrowed its ideas (and ~5% of
-  its lines) from engrave-faces v0.3.1, but its names say otherwise.
-  Rename in one pass:
-  - the 11 `t--engrave-*` functions and `t--engrave-css-weights` to
-    `t--fontify-*`, unifying the whole subsystem under one prefix;
-  - the section `;;;; Engrave-faces subset` to `;;;; Fontify:
-    font-lock engine`;
-  - the engine `engrave` to `font-lock` (`org-w3ctr-fontify-engines`,
-    `org-w3ctr-fontify-method`, the `:engrave` key of
-    `org-w3ctr-fontify-lang-alist`), so the shipped engines
-    `font-lock / jstools / plain` each name their mechanism;
-  - the CSS prefix `ef-` to `tok-` (`--ef-*`, `.ef-*`, the renderer,
-    the palette, assets/style.css, the tests and doc/fontify.org).
-  Then credit engrave-faces v0.3.1 in the section comment, noting
-  only `org-w3ctr--fontify-next-face-change` is lifted (from htmlize,
-  via engrave-faces).  Breaking (the engine name and every
-  highlighted span's class), but the package has one user, so the
-  cheapest time is now, right after 0.2.18.
-
-- **`npm audit` flags `@xmldom/xmldom` in jstools.**  It comes with
-  `mathjax` 4.0.0-beta.7, pinned in `package-lock.json` (MathJax 4.1.x
-  is out); Shiki adds no finding.  Upgrade MathJax deliberately, re-run
-  `npm test` and the math export tests, rather than `npm audit fix`.
-
-- **Fontify subsystem polish (from the 0.2.18 review; none urgent).**
-  - `org-w3ctr--fontify-stylesheet` lacks the `proper-list-p` check
-    that `org-w3ctr--fontify-face-table` has, so a dotted palette
-    slips into a primitive `wrong-type-argument` instead of an
-    `org-w3ctr-error` with context -- the most worth fixing of these.
-  - `org-w3ctr--fontify-engine` does not validate the engine plist:
-    an engine missing `:fontify` or `:available` fails with
-    `funcall nil` rather than an `org-w3ctr-error` naming the engine.
-  - `org-w3ctr--fontify-report-text` is side-effect free and
-    signal-free, so it qualifies for `(pure t)`, but is not marked;
-    `org-w3ctr--fontify-merge` and `org-w3ctr--fontify-render` are.
-  - The unknown-language predicate in `org-w3ctr--fontify-dispatch`
-    (`(and (> tried 0) (= tried declined) (eq (car result) 'plain))`)
-    is correct but opaque; a comment or a clearer formulation helps.
-  - `org-w3ctr--fontify-failure` has an explicit warn-once guard
-    while `org-w3ctr--fontify-unavailable` relies on the `broken`
-    marking; the asymmetry reads as a possible oversight.
-  - Efficiency, only if profiling flags the engrave engine: memoize
-    `org-w3ctr--engrave-face-slug` per export (the state already has
-    the `(cache . jstools-languages)` pattern); and
-    `org-w3ctr--fontify-merge` builds merged text with repeated
-    `concat`, O(n^2) in a pathological many-tiny-token case.
-  - Efficiency, same caveat: consider reusing one scratch buffer per
-    major mode across blocks (stashed in the fontify state) instead
-    of a fresh `with-temp-buffer` + `(funcall mode)` per block;
-    `delay-mode-hooks` already removes the dominant cost, so only if
-    profiling shows the mode body itself as hot -- and it must erase
-    + insert + `font-lock-ensure` + collect, minding buffer-local
-    state leaking between blocks.
-
-- **Export blocks take no attributes or ids (deferred).**  Raw
-  passthrough is the contract: a `#+name:` on an export block emits no
-  anchor, so a link to it dangles (measured: `[[x]]` renders
-  `<a href="#x">` with nothing to land on; a random id with
-  `org-w3ctr-prefer-user-labels` off).  Decided 2026-10 to leave it;
-  the Link pass should know before touching element references.
-
-- **Consider dropping the `:textarea` source-block form (lean: drop).**
-  `org-w3ctr--textarea-block` keeps ox-html's `#+attr_html: :textarea`
-  behaviour: the block renders as a <textarea> instead of <pre><code>.
-  It is a compatibility relic with no W3C TR rationale -- a form
-  control in a spec, unstyled by base.css, and a silent output-shape
-  switch.  It is the lone survivor of the dropped ox-html src-block
-  features (line numbers, coderef, retain-labels, ...).  Delete it
-  and add it to the Roadmap's dropped-features list; the only reason
-  to keep it is ox-html compatibility, which this package does not
-  promise.  If kept instead, record the decision like the Export
-  blocks entry does.
+Sections still to refine carry
+`;; REFINE: this section is pending the mainline fine pass.` in the source
+— `grep -n 'REFINE:' ox-w3ctr.el` lists them.  Take them in source order,
+one section per pass, and remove the marker when the section is done.
+`ox-w3ctr-tests.el` mirrors the source (`;;;` per major part, `;;;;` per
+source section) and is worked through the same way, section by section.
