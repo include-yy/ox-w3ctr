@@ -53,9 +53,9 @@ nothing but order (it compares each form's `prin1-to-string`);
 the old revision first:
 
 ```bash
-mkdir -p /tmp/v && git show HEAD:ox-w3ctr.el > /tmp/v/old.el
+mkdir -p scratch/v && git show HEAD:ox-w3ctr.el > scratch/v/old.el
 emacs --batch -Q -l .agents/skills/ox-w3ctr-verify/scripts/verify-forms.el \
-      /tmp/v/old.el ox-w3ctr.el        # RESULT: identical definitions, order-only change
+      scratch/v/old.el ox-w3ctr.el        # RESULT: identical definitions, order-only change
 ```
 
 ## Rules that keep a checker honest

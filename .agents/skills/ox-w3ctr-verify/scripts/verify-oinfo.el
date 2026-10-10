@@ -30,10 +30,11 @@
 (require 'ox-w3ctr)
 (require 'seq)
 (require 'benchmark)
+(require 'env-md)
 
 (defconst oinfo-flavor (or (getenv "OINFO") "?"))
 (defconst drafts (or (getenv "DRAFTS")
-                     "C:/Users/26633/OneDrive/egh0bww1/drafts/"))
+                     (env-md-value "Drafts")))
 (defconst target (expand-file-name
                   (or (getenv "TARGET") "2026-01-01-gv-history/index.org")
                   drafts))

@@ -24,10 +24,11 @@
 
 (require 'ox-w3ctr)
 (require 'seq)
+(require 'env-md)
 
 (setq enable-local-variables nil system-time-locale "C")
 (defconst drafts (or (getenv "DRAFTS")
-                     "C:/Users/26633/OneDrive/egh0bww1/drafts/"))
+                     (env-md-value "Drafts")))
 
 (defun norm (s)
   "Hide the export timestamp, and Org's random reference ids unless RAW."

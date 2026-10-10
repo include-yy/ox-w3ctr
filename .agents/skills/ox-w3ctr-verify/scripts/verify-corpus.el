@@ -37,9 +37,10 @@
 (setq enable-local-variables nil system-time-locale "C")
 (require 'ox-w3ctr)
 (require 'seq)
+(require 'env-md)
 
 (defconst vc-drafts (or (getenv "DRAFTS")
-                        "C:/Users/26633/OneDrive/egh0bww1/drafts/"))
+                        (env-md-value "Drafts")))
 (defconst vc-flavor (or (getenv "OINFO") "?"))
 
 (defconst vc-ts-regexp

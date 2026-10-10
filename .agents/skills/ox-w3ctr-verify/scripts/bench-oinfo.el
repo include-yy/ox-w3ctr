@@ -15,12 +15,13 @@
 (require 'ox-w3ctr)
 (require 'benchmark)
 (require 'seq)
+(require 'env-md)
 
 (defconst micro-n 1000000)
 (defconst micro-doc
   (expand-file-name "2025-01-19-monads/index.org"
                     (or (getenv "DRAFTS")
-                        "C:/Users/26633/OneDrive/egh0bww1/drafts/")))
+                        (env-md-value "Drafts")))
 (defvar micro-info nil)
 
 (defun micro-capture (_contents info)
