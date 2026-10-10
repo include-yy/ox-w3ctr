@@ -52,13 +52,21 @@ the environment (pi-shell, python-env) re-runs it instead of editing the
 file.  Project-level facts (a venv, its dependencies) live in project
 files (`requirements.txt`, AGENTS.md), never in env.md.
 
+Python commands run against the project venv, never the system
+interpreter — the system Python is reserved for the env-detect probe.
+The venv is a project fact: the python-env skill creates it and
+`requirements.txt` pins its deps.  Find the venv python at
+`.venv/Scripts/python.exe` (Windows) or `.venv/bin/python` (POSIX).
+
 Invariants the detected values must satisfy:
 
 - Emacs is a build of version >= 31 (the package's minimum).
 - Python is 3.x and actually runs; outside MSYS2, `python3` can
   resolve to the Windows Store stub (exit code 49) and is broken.
-- Org sources are a checkout containing `ox-html.el`, `ox.el` and
-  `org-element.el` (the reference for ports).
+- Org sources contain `ox-html.el`, `ox.el` and `org-element.el`
+  (the reference for ports): the Org bundled with Emacs
+  (`share/emacs/<version>/lisp/org`) by default, or a checkout via
+  `ORG_SOURCES`.
 
 Paths and commands below are bash-style.
 

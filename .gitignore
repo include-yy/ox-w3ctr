@@ -7,6 +7,6 @@ zhua.el
 !/.agents/skills/
 /jstools/node_modules
 /jstools/*.py
-/material/
 /scratch/
-/tools/
+/.venv/
+__pycache__/
