@@ -1,7 +1,7 @@
 # Corpus harness (shipped build; the nil flavour only for OINFO changes)
 
 The scripts live in `scripts/` next to this file; the build and its
-outputs go to `tools/build/` (gitignored, like all of `tools/`).  They check
+outputs go to `scratch/build/` (gitignored, like all of `scratch/`).  They check
 whole exports against a corpus of real documents.
 
 | Script | Checks |
@@ -16,28 +16,28 @@ whole exports against a corpus of real documents.
 ```bash
 cd <repo>
 SKILLDIR="$PWD/.agents/skills/ox-w3ctr-verify/scripts"
-# NB: this wipes tools/build, including the previous run's outputs; copy
-# anything you want to compare against (e.g. `cp tools/build/*.txt /tmp/`).
-rm -rf tools/build && mkdir -p tools/build/on
-cp ox-w3ctr.el tools/build/on/; cp -r assets tools/build/on/
-mkdir -p tools/build/on/jstools; cp jstools/index.js jstools/package*.json tools/build/on/jstools/
-(cd tools/build/on && "$EMACS" --batch -L . --eval '(byte-compile-file "ox-w3ctr.el")')
+# NB: this wipes scratch/build, including the previous run's outputs; copy
+# anything you want to compare against (e.g. `cp scratch/build/*.txt /tmp/`).
+rm -rf scratch/build && mkdir -p scratch/build/on
+cp ox-w3ctr.el scratch/build/on/; cp -r assets scratch/build/on/
+mkdir -p scratch/build/on/jstools; cp jstools/index.js jstools/package*.json scratch/build/on/jstools/
+(cd scratch/build/on && "$EMACS" --batch -L . --eval '(byte-compile-file "ox-w3ctr.el")')
 # Byte-compile output must be warning-free — treat a warning as a finding
 # (2026-09: a stray-declare warning exposed a truncated docstring that had
 # silently disabled a function's ftype check).  Keep it on the terminal;
 # do not redirect it away.
 
 DRAFTS=/path/to/drafts/ TARGET=2026-01-01-gv-history/index.org
-(cd tools/build/on && DRAFTS="$DRAFTS" TARGET="$TARGET" OINFO=on \
+(cd scratch/build/on && DRAFTS="$DRAFTS" TARGET="$TARGET" OINFO=on \
    "$EMACS" --batch -L . -L "$SKILLDIR" -l verify-oinfo > ../oinfo-on.txt 2>/dev/null)
-(cd tools/build/on && DRAFTS="$DRAFTS" OINFO=on \
+(cd scratch/build/on && DRAFTS="$DRAFTS" OINFO=on \
    "$EMACS" --batch -L . -L "$SKILLDIR" -l verify-corpus > ../corpus-on.txt 2>/dev/null)
-grep '^RESULT' tools/build/corpus-on.txt   # 0 errors, 0 parse errors, 0 dup ids, 0 unresolved
+grep '^RESULT' scratch/build/corpus-on.txt   # 0 errors, 0 parse errors, 0 dup ids, 0 unresolved
 
 # Self-check on the checker: the same build twice must agree on norm=.
-(cd tools/build/on && DRAFTS="$DRAFTS" OINFO=on \
+(cd scratch/build/on && DRAFTS="$DRAFTS" OINFO=on \
    "$EMACS" --batch -L . -L "$SKILLDIR" -l verify-corpus > /tmp/corpus-on-2.txt 2>/dev/null)
-diff <(grep '^BATCH ' tools/build/corpus-on.txt | awk '{print $2, $4}' | sort) \
+diff <(grep '^BATCH ' scratch/build/corpus-on.txt | awk '{print $2, $4}' | sort) \
      <(grep '^BATCH ' /tmp/corpus-on-2.txt     | awk '{print $2, $4}' | sort)
 
 # `hash=' is the raw export and moves between runs for a document that holds
@@ -46,11 +46,11 @@ diff <(grep '^BATCH ' tools/build/corpus-on.txt | awk '{print $2, $4}' | sort) \
 
 # the micro benchmark (best of three runs per key; it compares the cache
 # against plist-get inside one build, so the shipped build is enough)
-(cd tools/build/on && DRAFTS="$DRAFTS" OINFO=on \
+(cd scratch/build/on && DRAFTS="$DRAFTS" OINFO=on \
    "$EMACS" --batch -L . -L "$SKILLDIR" -l bench-oinfo)   # MICRO-REAL lines
 
 # one document to a file, for diffing the two builds
-(cd tools/build/on && ORG="$DRAFTS$TARGET" OUT="$PWD/dump.html" \
+(cd scratch/build/on && ORG="$DRAFTS$TARGET" OUT="$PWD/dump.html" \
    "$EMACS" --batch -L . -L "$SKILLDIR" -l dump-export)
 ```
 
@@ -66,15 +66,15 @@ after every edit.
 ```bash
 # Cache transparency — only when the change is to OINFO itself.  Build the
 # nil flavour and diff the norm= columns; that is the whole point of it.
-mkdir -p tools/build/off
-for p in assets jstools; do cp -r "tools/build/on/$p" tools/build/off/; done
-cp ox-w3ctr.el tools/build/off/
-(cd tools/build/off && "$EMACS" --batch -L . \
+mkdir -p scratch/build/off
+for p in assets jstools; do cp -r "scratch/build/on/$p" scratch/build/off/; done
+cp ox-w3ctr.el scratch/build/off/
+(cd scratch/build/off && "$EMACS" --batch -L . \
    --eval '(setq org-w3ctr-oinfo-enabled nil)' --eval '(byte-compile-file "ox-w3ctr.el")')
-(cd tools/build/off && DRAFTS="$DRAFTS" OINFO=off \
+(cd scratch/build/off && DRAFTS="$DRAFTS" OINFO=off \
    "$EMACS" --batch -L . -L "$SKILLDIR" -l verify-corpus > ../corpus-off.txt 2>/dev/null)
-diff <(grep '^BATCH ' tools/build/corpus-on.txt  | awk '{print $2, $4}' | sort) \
-     <(grep '^BATCH ' tools/build/corpus-off.txt | awk '{print $2, $4}' | sort)   # must be empty
+diff <(grep '^BATCH ' scratch/build/corpus-on.txt  | awk '{print $2, $4}' | sort) \
+     <(grep '^BATCH ' scratch/build/corpus-off.txt | awk '{print $2, $4}' | sort)   # must be empty
 ```
 
 `-L .` is the flavour build, `-L "$SKILLDIR"` the scripts (an MSYS-style path
@@ -95,7 +95,7 @@ Two things in the output are not part of its meaning:
   note in AGENTS.md.  `verify-corpus.el` normalizes them into `norm=` and
   counts them in `refs=` (4 of the 57 documents today, and the affected set
   varies with the run) — never diff the raw `hash=`.
-- a **stale saved baseline**.  `cp tools/build/*.txt /tmp/` keeps the last
+- a **stale saved baseline**.  `cp scratch/build/*.txt /tmp/` keeps the last
   run, but if that run predates a change to shared output (v0.2.12 rewrote
   headlines, so every document's `norm=` moved), the diff flags all 57
   documents.  Compare against the parent revision instead:

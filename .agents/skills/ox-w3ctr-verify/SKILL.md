@@ -21,7 +21,7 @@ Unit tests cannot see any of this; they assert single elements.
 |---|---|---|---|
 | ERT unit tests | element output, contracts | `ox-w3ctr-tests.el` | yes |
 | Source-scanning tests | drift between lists and code (a cached key never read, a test namespace colliding with production) | same file | yes |
-| Corpus harness | global invariants: cache transparency, HTML validity, anchor integrity, retention, timings | this skill's `scripts/` (builds and outputs under `tools/build`, gitignored) | no |
+| Corpus harness | global invariants: cache transparency, HTML validity, anchor integrity, retention, timings | this skill's `scripts/` (builds and outputs under `scratch/build`, gitignored) | no |
 | Load-time assertions | platform preconditions (`plist-put` writes in place) | head of `ox-w3ctr.el` | yes |
 
 ## Workflow

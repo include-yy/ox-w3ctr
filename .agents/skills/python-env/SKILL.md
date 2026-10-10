@@ -5,8 +5,8 @@ description: Create and manage Python virtual environments for this checkout (uv
 
 # Managing Python environments
 
-Python tooling in this repo (the verify harness's JSON-RPC helpers and
-a few `tools/` scripts) runs in an isolated venv.  Prefer `uv`; fall
+Python tooling in this repo (the verify harness's JSON-RPC helpers)
+runs in an isolated venv.  Prefer `uv`; fall
 back to the stdlib `venv` when `uv` is not installed.
 
 ## Tool choice
