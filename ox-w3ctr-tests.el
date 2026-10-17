@@ -3048,10 +3048,11 @@ the `none' marker."
   "Tests for `org-w3ctr-fixed-width'."
   (t-check-element-values
    #'t-fixed-width
-   '((":           " "<pre></pre>")
+   '((":           " "<pre>          </pre>")
      (": 1\n" "<pre>\n1\n</pre>")
      (": 1\n: 2\n" "<pre>\n1\n2\n</pre>")
-     (":  1\n:  2\n:   3\n" "<pre>\n1\n2\n 3\n</pre>")
+     ;; leading spaces after the `: ' marker are content
+     (":  1\n:  2\n:   3\n" "<pre>\n 1\n 2\n  3\n</pre>")
      (": 1\n: \n" "<pre>\n1\n\n</pre>")
      ("#+name: t\n#+attr__: [test]\n: 1\n : 2\n: 3"
       "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>")
@@ -3060,7 +3061,9 @@ the `none' marker."
      ;; content is HTML-escaped
      (": <b>x</b>" "<pre>\n&lt;b&gt;x&lt;/b&gt;\n</pre>")
      (": a & b" "<pre>\na &amp; b\n</pre>")
-     (":\n:\n:\n:\n" "<pre>\n\n\n</pre>"))
+     (":\n:\n:\n:\n" "<pre>\n\n\n</pre>")
+     ;; a caption is dropped: fixed-width has no W3C caption home
+     ("#+caption: Cap\n: 1" "<pre>\n1\n</pre>"))
    nil '(:html-prefer-user-labels t)))
 
 ;;;; Horizontal Rule

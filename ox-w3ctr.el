@@ -3385,21 +3385,28 @@ evaluates the value as Lisp; `d' renders it as an S-expression (see
 ;;;; Fixed Width
 
 ;; See (info "(org) Literal Examples")
+;; The block is a bare <pre>: `.example' would turn a layout block into
+;; a numbered example box, so unlike ox-html no class is added.  The
+;; value is emitted as parsed: the parser already removed the `:'
+;; marker and the block indentation, so any remaining leading spaces are
+;; content.  ox-html strips the content's common indentation; this
+;; back-end keeps it.  A `#+caption:' is dropped -- fixed-width has no
+;; W3C caption container.
+
 (defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<pre> element as a string.  The value loses its common
-indentation and is HTML-escaped; a non-blank value is wrapped in
-a leading and trailing newline inside the <pre>, a blank one is
-used as is."
+<pre> element as a string.  The value is HTML-escaped and emitted as
+parsed: a non-blank value is wrapped in a leading and trailing
+newline inside the <pre>, a blank one is used as is.  A
+`#+caption:' is dropped."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format "<pre%s>%s</pre>"
           (t--make-attr__id* fixed-width info t)
           (let ((value (t--encode-plain-text
-                        (org-remove-indentation
-                         (or (org-element-property :value fixed-width) "")))))
+                        (or (org-element-property :value fixed-width) ""))))
             (if (not (t--nw-p value)) value
               (concat "\n" value "\n")))))
 
