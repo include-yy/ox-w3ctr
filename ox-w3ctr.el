@@ -3649,7 +3649,7 @@ wrapped in <figure>."
 CONTENTS is the verse block contents, or nil for an empty block.
 INFO is the info plist.  Return the formatted <p> element as a
 string.  Leading whitespace is converted to non-breaking spaces;
-newlines become <br>."
+newlines become <br>.  A `#+caption:' is dropped."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format

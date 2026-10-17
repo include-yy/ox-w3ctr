@@ -3368,7 +3368,10 @@ the `none' marker."
       "<p class=\"hi\">\n<br>\n<br>\n</p>")
      ;; `#+attr_html' is the fallback attribute syntax
      ("#+attr_html: :class foo\n#+begin_verse\na\n#+end_verse"
-      "<p class=\"foo\">\na<br>\n</p>"))
+      "<p class=\"foo\">\na<br>\n</p>")
+     ;; a caption is dropped: a verse block has no W3C caption home
+     ("#+caption: Cap\n#+begin_verse\na\n#+end_verse"
+      "<p>\na<br>\n</p>"))
    nil '(:html-prefer-user-labels t)))
 
 ;;;; Fontify token IR
