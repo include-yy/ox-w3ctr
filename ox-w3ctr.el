@@ -3226,17 +3226,23 @@ as in `org-w3ctr--make-attr__id' and
 ;; the user provides `#+attr__:' or `#+attr_html:', in which case the
 ;; user controls all attributes.  A bare `<pre>' without a wrapper is
 ;; available via `org-w3ctr-fixed-width'.
+;;
+;; A caption is a bare <span> before the <pre>.  It is deliberately
+;; unstyled: W3C's `.caption' and <figcaption> belong to figures and
+;; would add a "Figure N" counter.
 (defun t-example-block (example-block _contents info)
   "Transcode an EXAMPLE-BLOCK element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<div><pre>...</pre></div> element as a string.  The value loses
-its common indentation (unless the block preserves it with `-i'),
-the code-reference labels, and is HTML-escaped.  Without user
-attributes, the <div> carries class=\"example\"; with user
-attributes, the user controls all attributes on the <div>.  A block
-that defines code references is a `[[(LABEL)]]' link target, so it
-always gets an id (see `org-w3ctr--coderef-block')."
+<div><pre>...</pre></div> element as a string.  The code loses its
+common indentation (unless the block preserves it with `-i'), its
+code-reference labels, and is HTML-escaped.
+
+Without user attributes the <div> carries class=\"example\"; with
+user attributes, the user controls all attributes on the <div>.  A
+non-blank caption becomes an unstyled <span> before the <pre>, and a
+block that defines code references always gets an id (see
+`org-w3ctr--coderef-block')."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((has-user-attrs (or (org-element-property :attr__ example-block)
@@ -3249,10 +3255,13 @@ always gets an id (see `org-w3ctr--coderef-block')."
          (value (or (org-element-property :value example-block) ""))
          (code (t--code-text example-block))
          (content (t--encode-plain-text
-                   (if (string-empty-p value) "" (concat code "\n")))))
-    (format "<div%s%s>\n<pre>\n%s</pre>\n</div>"
+                   (if (string-empty-p value) "" (concat code "\n"))))
+         (caption (when-let* ((cap (org-export-get-caption example-block)))
+                    (t--nw-trim (org-export-data cap info)))))
+    (format "<div%s%s>\n%s<pre>\n%s</pre>\n</div>"
             (if (t--nw-p attrs) attrs "")
             (if has-user-attrs "" " class=\"example\"")
+            (if caption (format "<span>%s</span>\n" caption) "")
             content)))
 
 ;;;; Export Block
@@ -4558,7 +4567,7 @@ CONTENTS is nil.  INFO is a plist holding contextual information.
 
 A `:textarea' attribute yields a `<textarea>'; otherwise the code is
 wrapped in `<pre>', and a captioned block gets a `.example' `<div>'
-wrapper with a self-link."
+wrapper with a self-link and the caption in an unstyled `<span>'."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (cond
@@ -4569,13 +4578,15 @@ wrapper with a self-link."
            (code (t--src-code src-block lang info))
            (id (t--reference src-block info))
            (caption (when-let* ((cap (org-export-get-caption src-block)))
-                      (org-trim (org-export-data cap info)))))
+                      (t--nw-trim (org-export-data cap info)))))
       (format (concat "<div%s>\n"
                       "<a class=\"self-link\" href=\"#%s\""
                       " aria-label=\"source block\"></a>\n"
                       "%s\n<pre>\n%s</pre></div>")
               (t--src-block-attrs src-block info t)
-              id (or caption "") (t--src-code-tag lang code))))
+              id
+              (if caption (format "<span>%s</span>" caption) "")
+              (t--src-code-tag lang code))))
    (t
     (let* ((lang (org-element-property :language src-block))
            (code (t--src-code src-block lang info)))

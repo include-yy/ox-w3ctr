@@ -2853,6 +2853,17 @@ the `none' marker."
      ;; label removal uses the block's own `-l' format
      ("#+name: t\n#+begin_example -l \"((%s))\"\nfoo ((sc))\n#+end_example"
       "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
+     ;; a non-blank caption becomes a bare span before the <pre>
+     ("#+name: t\n#+caption: Cap\n#+begin_example\nx\n#+end_example"
+      "<div id=\"t\" class=\"example\">\n<span>Cap</span>\n<pre>\nx\n</pre>\n</div>")
+     ;; caption markup is exported, not escaped
+     ("#+caption: *Bold* and /italic/\n#+begin_example\nx\n#+end_example"
+      "<div class=\"example\">\n<span><b>Bold</b> and <i>italic</i></span>\n<pre>\nx\n</pre>\n</div>")
+     ;; an empty or blank caption is dropped
+     ("#+caption:\n#+begin_example\nx\n#+end_example"
+      "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
+     ("#+caption:  \t\n#+begin_example\nx\n#+end_example"
+      "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
      ;; `:textarea' is not special here, just an ordinary attribute
      ("#+attr_html: :textarea x\n#+begin_example\n1\n#+end_example"
       "<div textarea=\"x\">\n<pre>\n1\n</pre>\n</div>"))
@@ -4431,7 +4442,8 @@ winner (or `signal') and the number of warnings."
               "#+caption: C\n#+begin_src emacs-lisp\nx\n#+end_src"
               'w3ctr t)))
     (should (string-match-p "<div id=\"org[^\"]*\" class=\"example\">" out))
-    (should (string-match-p "self-link" out)))
+    (should (string-match-p "self-link" out))
+    (should (string-match-p "<span>C</span>" out)))
   (let ((out (org-export-string-as
               "#+attr_html: :textarea t\n#+begin_src emacs-lisp\nx\n#+end_src"
               'w3ctr t)))
