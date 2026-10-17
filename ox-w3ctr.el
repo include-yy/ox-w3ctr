@@ -1251,6 +1251,24 @@ This option will override `org-export-use-babel'"
   :group 'org-export-w3ctr
   :type '(boolean))
 
+(defcustom t-allow-eval nil
+  "Non-nil means an export may evaluate Lisp found in the document.
+
+The `EMACS-LISP' and `ELISP' export blocks, the `#+E:' keyword, and
+the `@@e:' export snippet evaluate their value with `eval'.  That is
+arbitrary code execution: exporting an untrusted document would run
+its code with your privileges.  Keep this nil unless you trust every
+document you export.
+
+This is deliberately not a file option: a document that could turn
+evaluation on would protect itself.  Bind it around an export instead,
+as in (let ((org-w3ctr-allow-eval t)) ...).
+
+`LISP-DATA' blocks, `#+D:' and `@@d:' only render an S-expression as
+HTML and never evaluate anything, so they are unaffected."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
 ;;;; Src Block
 (defcustom t-fontify-method 'engrave
   "Method used to fontify source code.
@@ -3270,8 +3288,9 @@ block that defines code references always gets an id (see
 ;; See (info "(org) Quoting HTML tags")
 ;; The parser upcases the type.  HTML is raw passthrough; CSS and JS are
 ;; wrapped in <style>/<script>; EMACS-LISP and LISP-DATA are evaluated
-;; (the value is code, not data, so a document can run arbitrary Lisp at
-;; export time).  Other types belong to another backend and yield "".
+;; when `org-w3ctr-allow-eval' is non-nil (the value is code, not data,
+;; so a document can run arbitrary Lisp at export time).  Other types
+;; belong to another backend and yield "".
 ;;
 ;; The value is emitted as written, indentation included: stripping the
 ;; common indentation would change a JS template literal or a multi-line
@@ -3282,9 +3301,11 @@ block that defines code references always gets an id (see
 
 TYPE is \\='eval to read, eval, and convert via `org-w3ctr--2str',
 or \\='sexp to read and convert via `org-w3ctr--sexp2html'.  An
-empty or whitespace-only VALUE yields \"\".  Signal
-`org-w3ctr-error' with the line number from ELEMENT on read or
-eval failure; CONTEXT labels the error message."
+empty or whitespace-only VALUE yields \"\".  Evaluation requires
+`org-w3ctr-allow-eval'; when it is nil, a non-blank \\='eval call
+signals before the value is read.  Signal `org-w3ctr-error' with the
+line number from ELEMENT on read or eval failure; CONTEXT labels the
+error message."
   (declare (ftype (function (t string symbol string) string))
            (important-return-value t))
   (if-let* ((s (t--nw-p value)))
@@ -3299,10 +3320,17 @@ eval failure; CONTEXT labels the error message."
                                 (if (eq (car err) 't-error)
                                     (cadr err)
                                   (error-message-string err))))))
+        ;; The gate stays outside `handler-bind': its own message
+        ;; already carries the context and line, so re-wrapping it
+        ;; would repeat them.
+        (when (and (eq type 'eval) (not t-allow-eval))
+          (t-error (concat "%s at line %d: Lisp evaluation is disabled; "
+                           "set `org-w3ctr-allow-eval' to enable it")
+                   context line))
         (handler-bind ((error report))
           (let ((data (read s)))
             (if (eq type 'eval)
-                (or (t--2str (eval data)) "")
+                (or (t--2str (eval data t)) "")
               (t--sexp2html data)))))
     ""))
 
@@ -3332,12 +3360,18 @@ another backend and yields \"\"."
 ;;;; Export Snippet
 
 ;; See (info "(org) Quoting HTML tags")
+;; Only @@html: is standard Org syntax; @@e: and @@d: are ox-w3ctr
+;; extensions mirroring the #+E and #+D keywords.  @@e: evaluates its
+;; value, so an export runs code; it is disabled unless
+;; `org-w3ctr-allow-eval' is non-nil.
+
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
 
 CONTENTS and INFO are unused.  The backend name is matched
-without regard to case.  Return the snippet value as a string, or
-an empty string for unsupported backends."
+without regard to case.  `html' (or `h') is raw passthrough; `e'
+evaluates the value as Lisp; `d' renders it as an S-expression (see
+`org-w3ctr--eval-lisp').  Any other backend yields \"\"."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
@@ -3389,7 +3423,8 @@ CONTENTS is nil.  INFO is the info plist.  Return the formatted
 CONTENTS is nil.  INFO is the info plist.  Return the keyword
 value as a string, or nil for unsupported keywords.  The values
 of the H and HTML keywords are raw markup and are output
-unchanged."
+unchanged; the E and D keywords go through
+`org-w3ctr--eval-lisp'."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (let ((key (org-element-property :key keyword))

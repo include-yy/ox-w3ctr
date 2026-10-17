@@ -2887,7 +2887,8 @@ the `none' marker."
   (with-temp-buffer
     (insert "\n#+begin_export emacs-lisp\nx\n#+end_export\n")
     (org-mode)
-    (let ((el (t-parse1 'export-block)))
+    (let ((el (t-parse1 'export-block))
+          (t-allow-eval t))
       ;; TYPE \\='eval reads, evals, and stringifies the result
       ($l (t--eval-lisp el "(+ 1 2)" 'eval "CTX") "3")
       ($l (t--eval-lisp el "'sym" 'eval "CTX") "sym")
@@ -2913,101 +2914,133 @@ the `none' marker."
              el "(signal 'org-w3ctr-error (list \"inner\"))" 'eval "CTX")
             '(org-w3ctr-error "CTX at line 2: inner")))))
 
+(ert-deftest t--eval-lisp-eval-gate ()
+  "Evaluation is off by default and behind `org-w3ctr-allow-eval'."
+  (let ((ran nil))
+    (cl-letf (((symbol-function 'eval-probe)
+               (lambda () (setq ran t) "")))
+      (let ((doc "#+begin_export emacs-lisp\n(eval-probe)\n#+end_export"))
+        ;; The three entry points all signal, and none runs the code.
+        (dolist (org (list "#+E: (eval-probe)"
+                           "x @@e:(eval-probe)@@"
+                           doc))
+          ($q (car (should-error (org-export-string-as org 'w3ctr t)))
+              'org-w3ctr-error))
+        ($n ran)
+        ;; The message names the option, with the usual line context.
+        ($e!l (org-export-string-as doc 'w3ctr t)
+              (list 'org-w3ctr-error
+                    (concat "EMACS-LISP block at line 1: Lisp evaluation is "
+                            "disabled; set `org-w3ctr-allow-eval' to enable it")))
+        ;; With the option on, the same documents export and the code runs.
+        (let ((t-allow-eval t))
+          (dolist (org (list "#+E: (eval-probe)"
+                             "x @@e:(eval-probe)@@"
+                             doc))
+            (org-export-string-as org 'w3ctr t))
+          ($l ran t))))
+    ;; `sexp' values are data, not code, and are not gated.
+    (let ((el (t-get-element "#+begin_export lisp-data\n(br)\n#+end_export"
+                             'export-block)))
+      ($l (t--eval-lisp el "(br)" 'sexp "CTX") "<br>"))))
+
 (ert-deftest t-export-block ()
   "Tests for `org-w3ctr-export-block'."
-  (t-check-element-values
-   #'t-export-block
-   '(;; HTML
-     ("#+begin_export html\nanythinghere\n#+end_export" "anythinghere\n")
-     ("#+begin_export html\n#+end_export" "")
-     ("#+begin_export html\n\n#+end_export" "\n")
-     ("#+begin_export html\n\n\n\n#+end_export" "\n\n\n")
-     ("#+begin_export html\n\n\n\n\n\n\n#+end_export" "\n\n\n\n\n\n")
-     ;; The value is used as written: list indentation is kept (stripping
-     ;; it would change a JS template literal or a multi-line Lisp string).
-     ("- item\n  #+begin_export html\n  <p>x</p>\n  #+end_export"
-      "  <p>x</p>\n")
-     ;; CSS
-     ("#+begin_export css\np {color: red;}\n#+end_export"
-      "<style>\np {color: red;}\n</style>")
-     ("#+begin_export css\n#+end_export" "<style>\n</style>")
-     ("#+begin_export CSS\n.test {margin: auto;}\n#+end_export"
-      "<style>\n.test {margin: auto;}\n</style>")
-     ;; JS
-     ("#+begin_export js\nlet f = x => x + 1;\n#+end_export"
-      "<script>\nlet f = x => x + 1;\n</script>")
-     ("#+begin_export js\n#+end_export" "<script>\n</script>")
-     ("#+begin_export javascript\nlet f = x => x + 1;\n#+end_export"
-      "<script>\nlet f = x => x + 1;\n</script>")
-     ("#+begin_export javascript\n#+end_export" "<script>\n</script>")
-     ;; Elisp
-     ("#+begin_export emacs-lisp\n(+ 1 2)\n#+end_export" "3")
-     ("#+begin_export emacs-lisp\n#+end_export" "")
-     ("#+begin_export elisp\n(+ 1 2)\n#+end_export" "3")
-     ("#+begin_export elisp\n#+end_export" "")
-     ;; Lisp data
-     ("#+begin_export lisp-data\n (p() \"123\")\n#+end_export"
-      "<p>123</p>")
-     ("#+begin_export lisp-data\n (br)\n#+end_export" "<br>")
-     ("#+BEGIN_EXPORT lisp-data\n (br)\n#+END_EXPORT" "<br>")
-     ;; Unsupported type
-     ("#+begin_export wtf\n no exported\n#+end_export" "")
-     ("#+begin_export\n not exported\n#+end_export" ""))
-   t)
-  ;; Error handling: malformed Lisp signals t-error with line number.
-  ($e!l (org-export-string-as
-         "#+begin_export emacs-lisp\n(broken\n#+end_export\n" 'w3ctr t)
-        (list 'org-w3ctr-error
-              ($c "EMACS-LISP block at line 1: "
-                  "End of file during parsing")))
-  ($e!l (org-export-string-as
-         ($c "text\n#+begin_export lisp-data\n(broken\n"
-             "#+end_export\n") 'w3ctr t)
-        (list 'org-w3ctr-error
-              ($c "LISP-DATA block at line 2: "
-                  "End of file during parsing")))
-  ;; an eval failure is reported like a read failure
-  ($e!l (org-export-string-as
-         "#+begin_export emacs-lisp\n(error \"boom\")\n#+end_export\n"
-         'w3ctr t)
-        '(org-w3ctr-error "EMACS-LISP block at line 1: boom"))
-  ;; a nested org-w3ctr-error keeps its clean message -- no type name
-  ;; and quotes, which error-message-string would re-render it with
-  ($e!l (org-export-string-as
-         ($c "#+begin_export emacs-lisp\n"
-             "(signal 'org-w3ctr-error (list \"clean\"))\n#+end_export\n")
-         'w3ctr t)
-        '(org-w3ctr-error "EMACS-LISP block at line 1: clean")))
+  (let ((t-allow-eval t))
+    (t-check-element-values
+     #'t-export-block
+     '(;; HTML
+       ("#+begin_export html\nanythinghere\n#+end_export" "anythinghere\n")
+       ("#+begin_export html\n#+end_export" "")
+       ("#+begin_export html\n\n#+end_export" "\n")
+       ("#+begin_export html\n\n\n\n#+end_export" "\n\n\n")
+       ("#+begin_export html\n\n\n\n\n\n\n#+end_export" "\n\n\n\n\n\n")
+       ;; The value is used as written: list indentation is kept (stripping
+       ;; it would change a JS template literal or a multi-line Lisp string).
+       ("- item\n  #+begin_export html\n  <p>x</p>\n  #+end_export"
+        "  <p>x</p>\n")
+       ;; CSS
+       ("#+begin_export css\np {color: red;}\n#+end_export"
+        "<style>\np {color: red;}\n</style>")
+       ("#+begin_export css\n#+end_export" "<style>\n</style>")
+       ("#+begin_export CSS\n.test {margin: auto;}\n#+end_export"
+        "<style>\n.test {margin: auto;}\n</style>")
+       ;; JS
+       ("#+begin_export js\nlet f = x => x + 1;\n#+end_export"
+        "<script>\nlet f = x => x + 1;\n</script>")
+       ("#+begin_export js\n#+end_export" "<script>\n</script>")
+       ("#+begin_export javascript\nlet f = x => x + 1;\n#+end_export"
+        "<script>\nlet f = x => x + 1;\n</script>")
+       ("#+begin_export javascript\n#+end_export" "<script>\n</script>")
+       ;; Elisp
+       ("#+begin_export emacs-lisp\n(+ 1 2)\n#+end_export" "3")
+       ("#+begin_export emacs-lisp\n#+end_export" "")
+       ("#+begin_export elisp\n(+ 1 2)\n#+end_export" "3")
+       ("#+begin_export elisp\n#+end_export" "")
+       ;; Lisp data
+       ("#+begin_export lisp-data\n (p() \"123\")\n#+end_export"
+        "<p>123</p>")
+       ("#+begin_export lisp-data\n (br)\n#+end_export" "<br>")
+       ("#+BEGIN_EXPORT lisp-data\n (br)\n#+END_EXPORT" "<br>")
+       ;; Unsupported type
+       ("#+begin_export wtf\n no exported\n#+end_export" "")
+       ("#+begin_export\n not exported\n#+end_export" ""))
+     t)
+    ;; Error handling: malformed Lisp signals t-error with line number.
+    ($e!l (org-export-string-as
+           "#+begin_export emacs-lisp\n(broken\n#+end_export\n" 'w3ctr t)
+          (list 'org-w3ctr-error
+                ($c "EMACS-LISP block at line 1: "
+                    "End of file during parsing")))
+    ($e!l (org-export-string-as
+           ($c "text\n#+begin_export lisp-data\n(broken\n"
+               "#+end_export\n") 'w3ctr t)
+          (list 'org-w3ctr-error
+                ($c "LISP-DATA block at line 2: "
+                    "End of file during parsing")))
+    ;; an eval failure is reported like a read failure
+    ($e!l (org-export-string-as
+           "#+begin_export emacs-lisp\n(error \"boom\")\n#+end_export\n"
+           'w3ctr t)
+          '(org-w3ctr-error "EMACS-LISP block at line 1: boom"))
+    ;; a nested org-w3ctr-error keeps its clean message -- no type name
+    ;; and quotes, which error-message-string would re-render it with
+    ($e!l (org-export-string-as
+           ($c "#+begin_export emacs-lisp\n"
+               "(signal 'org-w3ctr-error (list \"clean\"))\n#+end_export\n")
+           'w3ctr t)
+          '(org-w3ctr-error "EMACS-LISP block at line 1: clean"))))
 
 ;;;; Export Snippet
 
 (ert-deftest t-export-snippet ()
   "Tests for `org-w3ctr-export-snippet'."
-  (t-check-element-values
-   #'t-export-snippet
-   '(("@@h:<span>123</span>@@" "<span>123</span>")
-     ("@@h:@@" "")
-     ("@@html:<span>123</span>@@" "<span>123</span>")
-     ("@@html:@@" "")
-     ("@@e:@@" "")
-     ("@@e:(+ 1 2)@@" "3")
-     ("@@e:'(1 2 3)@@" "")
-     ("@@d:@@" "")
-     ("@@d:(span() \"nothing\")")
-     ("@@d:(wbr)@@" "<wbr>")
-     ("@@d:(wbr())@@" "<wbr>")
-     ;; the backend name is case-insensitive
-     ("@@HTML:<span>123</span>@@" "<span>123</span>")
-     ("@@E:(+ 1 2)@@" "3")
-     ("@@D:(wbr)@@" "<wbr>")
-     ;; Otherwise
-     ("@@wtf::hello@@" ""))
-   t)
-  ;; Error handling: malformed Lisp signals t-error.
-  ($e!l (org-export-string-as "@@e:(broken@@" 'w3ctr t)
-        '(org-w3ctr-error "@@e snippet at line 1: End of file during parsing"))
-  ($e!l (org-export-string-as "@@d:(broken@@" 'w3ctr t)
-        '(org-w3ctr-error "@@d snippet at line 1: End of file during parsing")))
+  (let ((t-allow-eval t))
+    (t-check-element-values
+     #'t-export-snippet
+     '(("@@h:<span>123</span>@@" "<span>123</span>")
+       ("@@h:@@" "")
+       ("@@html:<span>123</span>@@" "<span>123</span>")
+       ("@@html:@@" "")
+       ("@@e:@@" "")
+       ("@@e:(+ 1 2)@@" "3")
+       ("@@e:'(1 2 3)@@" "")
+       ("@@d:@@" "")
+       ("@@d:(span() \"nothing\")")
+       ("@@d:(wbr)@@" "<wbr>")
+       ("@@d:(wbr())@@" "<wbr>")
+       ;; the backend name is case-insensitive
+       ("@@HTML:<span>123</span>@@" "<span>123</span>")
+       ("@@E:(+ 1 2)@@" "3")
+       ("@@D:(wbr)@@" "<wbr>")
+       ;; Otherwise
+       ("@@wtf::hello@@" ""))
+     t)
+    ;; Error handling: malformed Lisp signals t-error.
+    ($e!l (org-export-string-as "@@e:(broken@@" 'w3ctr t)
+          '(org-w3ctr-error "@@e snippet at line 1: End of file during parsing"))
+    ($e!l (org-export-string-as "@@d:(broken@@" 'w3ctr t)
+          '(org-w3ctr-error "@@d snippet at line 1: End of file during parsing"))))
 
 ;;;; Fixed Width
 
@@ -3055,39 +3088,40 @@ the `none' marker."
 
 (ert-deftest t-keyword ()
   "Tests for `org-w3ctr-keyword'."
-  (t-check-element-values
-   #'t-keyword
-   '(;; H
-     ("#+h: " "")
-     ("#+h: <p>123</p>" "<p>123</p>")
-     ("#+h: <br>\n#+h: <br>" "<br>" "<br>")
-     ;; HTML
-     ("#+html: " "")
-     ("#+html: <p>123</p>" "<p>123</p>")
-     ("#+html: <a href=\"https://example.com\">Example</a>"
-      "<a href=\"https://example.com\">Example</a>")
-     ;; the parser uppercases the key; uppercase input works alike
-     ("#+HTML: <b>x</b>" "<b>x</b>")
-     ;; E
-     ("#+e: " "")
-     ("#+e: (concat \"1\" nil \"2\")" "12")
-     ("#+e: (string-join '(\"a\" \"b\") \",\")" "a,b")
-     ;; D
-     ("#+d: " "")
-     ("#+d: (br)" "<br>")
-     ("#+d: (p((data-x \"1\"))123)" "<p data-x=\"1\">123</p>")
-     ;; Otherwise
-     ("#+hello: world" nil))
-   t)
-  ;; Error handling: malformed Lisp signals t-error.
-  ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
-        '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
-  ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)
-        '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing"))
-  ;; TOC goes through org-w3ctr--keyword-toc
-  (cl-letf (((symbol-function 't--list-of-tables) (lambda (_i) "TABLES")))
-    ($l (t-keyword (t-get-element "#+TOC: tables" 'keyword) nil nil)
-        "TABLES")))
+  (let ((t-allow-eval t))
+    (t-check-element-values
+     #'t-keyword
+     '(;; H
+       ("#+h: " "")
+       ("#+h: <p>123</p>" "<p>123</p>")
+       ("#+h: <br>\n#+h: <br>" "<br>" "<br>")
+       ;; HTML
+       ("#+html: " "")
+       ("#+html: <p>123</p>" "<p>123</p>")
+       ("#+html: <a href=\"https://example.com\">Example</a>"
+        "<a href=\"https://example.com\">Example</a>")
+       ;; the parser uppercases the key; uppercase input works alike
+       ("#+HTML: <b>x</b>" "<b>x</b>")
+       ;; E
+       ("#+e: " "")
+       ("#+e: (concat \"1\" nil \"2\")" "12")
+       ("#+e: (string-join '(\"a\" \"b\") \",\")" "a,b")
+       ;; D
+       ("#+d: " "")
+       ("#+d: (br)" "<br>")
+       ("#+d: (p((data-x \"1\"))123)" "<p data-x=\"1\">123</p>")
+       ;; Otherwise
+       ("#+hello: world" nil))
+     t)
+    ;; Error handling: malformed Lisp signals t-error.
+    ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
+          '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
+    ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)
+          '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing"))
+    ;; TOC goes through org-w3ctr--keyword-toc
+    (cl-letf (((symbol-function 't--list-of-tables) (lambda (_i) "TABLES")))
+      ($l (t-keyword (t-get-element "#+TOC: tables" 'keyword) nil nil)
+          "TABLES"))))
 
 ;;;; LaTeX
 
