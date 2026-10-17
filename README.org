@@ -108,7 +108,10 @@ and how the pipeline works.
   (=class="user TYPE"=) — deliberate (explicit over implicit).
 - *Src-block feature gaps vs ox-html.*  Dropped when forking (judged
   low-value for W3C TR output).  Revisit later:
-  - Line numbers, coderef, =retain-labels=.
+  - Line numbers and =retain-labels=.  Coderef links exist in a
+    reduced form: =[[(label)]]= points at the defining block's id, the
+    label text is stripped from the code (as ox-html does), and the
+    =-r=/=-k= switches are not implemented.
   - =:html-wrap-src-lines= and =:html-klipsify-src=.
   - Listing number in captions.
   - example-block fontification / line numbers.  The token list
@@ -179,7 +182,11 @@ and how the pipeline works.
   Pin the invariants while unifying: is the counter class applied only
   when captioned (=src-block='s rule) or always (=example-block='s)?
   And is the self-link anchor emitted on every captioned block or only
-  =src-block=?
+  =src-block=?  Decided 2026-10-17: a coderef target block gets an id
+  but no ¶ self-link for now (the coderef link needs only the id);
+  settle the marker here, once a caption element exists to host it --
+  note that =.caption=/=figcaption= carry the figure counter, so an
+  example caption cannot use them.
 
 *** Tasks
 
@@ -286,22 +293,14 @@ same session.  Larger or planned work is in the =TODO= list above.
   or suspect.  Each of these carries a =FIXME= in the source: the
   cross-file ID fragment is built from =t--link-path='s output instead of
   the raw path (=t--link-to-file=); =:html-link-home= /
-  =:html-link-use-abs-url= are not implemented (=t--link-path=); LaTeX
-  equation references only cover math environments under =mathjax=/=t=;
-  and coderef support is kept only for ox-html compatibility.  One more
-  divergence has no marker: =.org.gpg= files are not rewritten to =.html=
-  (=t--link-org-files-as-html=), though ox-html does rewrite them.
+  =:html-link-use-abs-url= are not implemented (=t--link-path=); and LaTeX
+  equation references only cover math environments under =mathjax=/=t=.
+  One more divergence has no marker: =.org.gpg= files are not rewritten to
+  =.html= (=t--link-org-files-as-html=), though ox-html does rewrite them.
   =t--link-broken= looks unreachable (Org handles broken links before the
   transcoder); it is =FIXME=-marked.  (=t--math-environment-p=, likewise
   FIXME-marked, was removed -- its ordinal purpose is long gone.)
-  =t--link-to-file=, =t--link-broken= and =t--link-coderef= still have no
-  tests.  The coderef path is prefixed where the bare label is expected:
-  =org-w3ctr-link= hands =org-w3ctr--link-coderef= the output of
-  =org-w3ctr--link-path=, which for a =[[(foo)]]= link is "coderef:foo"
-  while the link's =:path= is "foo" (measured), so
-  =org-export-resolve-coderef= receives the prefixed string and the
-  fragment would be =#coderef-coderef:foo=; the Link pass fixes or
-  removes coderef support.
+  =t--link-to-file= and =t--link-broken= still have no tests.
 
 - *De-engrave the naming: names describe function, provenance goes in a
   comment.*  The fontify engine borrowed its ideas (and ~5% of its lines)

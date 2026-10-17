@@ -3118,6 +3118,106 @@ contextual information."
 
 ;;; Lesser elements
 
+;;;; Code references
+
+;; See (info "(org) Literal Examples")
+;; A `(ref:NAME)' label at the end of a code line is a link target for
+;; `[[(NAME)]]'.  As in ox-html, the label text is removed from the code
+;; and only its position is kept: ox-w3ctr does not implement the `-r'
+;; and `-k' switches, so labels are always removed and links always show
+;; the label.  The link points at the id of the block that defines the
+;; label, not at a per-label anchor, so the block is the addressable
+;; unit.  The label format (`-l') is resolved from the element alone:
+;; `org-src-coderef-format' falls back to the element at point when a
+;; block has no `-l', which lets one block's format leak into another
+;; during export.
+
+(defun t--coderef-regexp (element)
+  "Return the regexp matching ELEMENT's code-reference labels.
+
+The format is ELEMENT's own `-l' switch when it has one, and
+`org-coderef-label-format' otherwise.  Never consult the element at
+point: `org-src-coderef-format' does, which leaks one block's format
+into another when the point happens to sit in a block with `-l'."
+  (declare (ftype (function (t) string))
+           (important-return-value t))
+  (org-src-coderef-regexp
+   (or (org-element-property :label-fmt element)
+       org-coderef-label-format)))
+
+(defun t--code-text (element)
+  "Return ELEMENT's code text, with its code-reference labels removed.
+
+ELEMENT is a `src-block' or an `example-block'.  The text loses its
+common indentation unless the block preserves it (`-i'), its final
+newline, and every `(ref:NAME)' label at a line end.  The label
+format is ELEMENT's own (see `org-w3ctr--coderef-regexp')."
+  (declare (ftype (function (t) string))
+           (important-return-value t))
+  (let* ((value (or (org-element-property :value element) ""))
+         (code (if (org-src-preserve-indentation-p element)
+                   value
+                 (org-remove-indentation value)))
+         (regexp (t--coderef-regexp element)))
+    ;; As in `org-export-unravel-code': drop the final newline and the
+    ;; last cell of each matching line, the label with its white space.
+    (replace-regexp-in-string
+     "\n\\'" ""
+     (mapconcat (lambda (line)
+                  (if (string-match regexp line)
+                      (replace-match "" nil nil line 1)
+                    line))
+                (split-string code "\n") "\n"))))
+
+(defun t--coderef-labels (element)
+  "Return the code-reference labels defined in ELEMENT, in order.
+
+ELEMENT is a `src-block' or an `example-block'.  A label that
+occurs on several lines is returned once.  The label format is the
+block's own `-l' switch when it has one, `org-coderef-label-format'
+otherwise."
+  (declare (ftype (function (t) list))
+           (important-return-value t))
+  (let ((regexp (t--coderef-regexp element))
+        labels)
+    (dolist (line (split-string (org-element-property :value element) "\n"))
+      (when (string-match regexp line)
+        (push (match-string 3 line) labels)))
+    (delete-dups (nreverse labels))))
+
+(defun t--coderef-block (label info)
+  "Return the block in INFO that defines code-reference LABEL.
+
+Search `example-block' and `src-block' elements in document order,
+skipping what the export ignores, and return the first block whose
+`(ref:LABEL)' matches, or nil when no block does.  INFO is the
+export plist."
+  (declare (ftype (function (string list) t))
+           (important-return-value t))
+  (org-element-map (t--pget info :parse-tree) '(example-block src-block)
+    (lambda (block)
+      (and (member label (t--coderef-labels block)) block))
+    info 'first-match))
+
+(defun t--element-id (element info)
+  "Return the id attribute that ELEMENT's transcoder writes.
+
+ELEMENT is an element whose transcoder adds an id from its
+reference, such as a `src-block' or an `example-block'.  An explicit
+id in `:attr__' or `:attr_html' wins over the generated reference,
+as in `org-w3ctr--make-attr__id' and
+`org-w3ctr--make-attr_html'.  INFO is the export plist."
+  (declare (ftype (function (t list) t))
+           (important-return-value t))
+  (if (org-element-property :attr__ element)
+      (if-let* ((explicit (assoc 'id (t--read-attr__ element))))
+          (mapconcat #'t--2str (cdr explicit) "")
+        (t--reference element info))
+    (let ((attrs (org-export-read-attribute :attr_html element)))
+      (if (plist-member attrs :id)
+          (plist-get attrs :id)
+        (t--reference element info)))))
+
 ;;;; Example Block
 
 ;; See (info "(org)Literal Examples")
@@ -3131,17 +3231,25 @@ contextual information."
 
 CONTENTS is nil.  INFO is the info plist.  Return the formatted
 <div><pre>...</pre></div> element as a string.  The value loses
-its common indentation and is HTML-escaped.  Without user
+its common indentation (unless the block preserves it with `-i'),
+the code-reference labels, and is HTML-escaped.  Without user
 attributes, the <div> carries class=\"example\"; with user
-attributes, the user controls all attributes on the <div>."
+attributes, the user controls all attributes on the <div>.  A block
+that defines code references is a `[[(LABEL)]]' link target, so it
+always gets an id (see `org-w3ctr--coderef-block')."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((has-user-attrs (or (org-element-property :attr__ example-block)
                              (org-element-property :attr_html example-block)))
-         (attrs (t--make-attr__id* example-block info t))
+         (attrs (t--make-attr__id*
+                 example-block info
+                 (not (t--coderef-labels example-block))))
+         ;; `org-w3ctr--code-text' drops the labels and the final newline;
+         ;; a non-empty value keeps one newline inside <pre>.
+         (value (or (org-element-property :value example-block) ""))
+         (code (t--code-text example-block))
          (content (t--encode-plain-text
-                   (org-remove-indentation
-                    (or (org-element-property :value example-block) "")))))
+                   (if (string-empty-p value) "" (concat code "\n")))))
     (format "<div%s%s>\n<pre>\n%s</pre>\n</div>"
             (if (t--nw-p attrs) attrs "")
             (if has-user-attrs "" " class=\"example\"")
@@ -4358,7 +4466,7 @@ close the element early; the browser decodes the entities back, so
 the textarea still shows the code as written."
   (declare (ftype (function (t) string))
            (important-return-value t))
-  (let* ((code (car (org-export-unravel-code element)))
+  (let* ((code (t--code-text element))
          (attr (org-export-read-attribute :attr_html element))
          (value (lambda (v) (t--encode-plain-text* (format "%s" v)))))
     (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
@@ -4397,12 +4505,12 @@ escaped, but the method is still checked: an unknown one signals
 (defun t--src-code (src-block lang info)
   "Return bare fontified HTML for SRC-BLOCK's code in LANG.
 INFO is the export plist; it and SRC-BLOCK (for its `:fontify'
-header argument) are handed to `org-w3ctr-fontify-code'.
-`org-export-unravel-code' also returns a coderef alist, which
-ox-w3ctr does not support; drop it (the car)."
+header argument) are handed to `org-w3ctr-fontify-code'.  The code
+text comes from `org-w3ctr--code-text', which also removes the
+code-reference labels."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (t-fontify-code (car (org-export-unravel-code src-block))
+  (t-fontify-code (t--code-text src-block)
                   lang info src-block))
 
 (defun t--src-code-tag (lang code)
@@ -4420,10 +4528,15 @@ INFO is the export plist.  Attributes come from `:attr__'
 \(`#+attr__:').  An `id' is added from the element reference (see
 `org-w3ctr--reference') unless the attributes already carry one.
 CAPTIONED non-nil prepends the default `example' class to the class
-list (class is written as a vector, e.g. `#+attr__: [foo]')."
+list (class is written as a vector, e.g. `#+attr__: [foo]') and makes
+the reference unconditional.  A block that defines code references
+also always gets an id, so `[[(LABEL)]]' has a target (see
+`org-w3ctr--coderef-block')."
   (declare (ftype (function (t list boolean) string))
            (important-return-value t))
-  (let* ((reference (t--reference src-block info (not captioned)))
+  (let* ((reference (t--reference src-block info
+                                  (not (or captioned
+                                           (t--coderef-labels src-block)))))
          (attributes (t--read-attr__ src-block)))
     (when captioned
       (let ((entry (or (assoc "class" attributes)
@@ -5331,21 +5444,34 @@ DESC and ATTRIBUTES are as computed in `org-w3ctr-link'."
            (t--link-equation destination info)
          (t--link-target desc info destination attributes))))))
 
-(defun t--link-coderef (path desc info attributes)
-  "Transcode a coderef link with PATH, DESC and ATTRIBUTES."
+(defun t--link-coderef (label desc info attributes)
+  "Transcode the code-reference link [[(LABEL)]].
+
+LABEL is the reference name, DESC the link's description or nil,
+INFO the export state, and ATTRIBUTES the space-prefixed attribute
+string.  The href is the id of the block that defines
+`(ref:LABEL)', so every label in one block shares a target.  The
+link text is LABEL, or DESC with `(LABEL)' replaced by it (see
+`org-export-get-coderef-format').  Signal `org-w3ctr-error' when
+LABEL cannot be an id, or when no block defines it."
   (declare (ftype (function (string (or null string) list string) string))
            (important-return-value t))
-  ;; FIXME: Consider removing coderef support altogether; it is kept
-  ;; for now only for compatibility with ox-html.el.
-  (let ((fragment (concat "coderef-" (t--encode-plain-text path))))
-    (format "<a href=\"#%s\" %s%s>%s</a>"
-            fragment
-            (format "class=\"coderef\" onmouseover=\"CodeHighlightOn(this, \
-'%s');\" onmouseout=\"CodeHighlightOff(this, '%s');\""
-                    fragment fragment)
-            attributes
-            (format (org-export-get-coderef-format path desc)
-                    (org-export-resolve-coderef path info)))))
+  ;; An HTML id cannot hold white space, while Org's label regexp
+  ;; allows it (as in `(ref:my label)').
+  (unless (string-match-p "\\`[-a-zA-Z0-9_]+\\'" label)
+    (t-error "Invalid code reference label: %s" label))
+  (let ((block (or (t--coderef-block label info)
+                   (t-error "No example or source block defines (ref:%s)"
+                            label))))
+    ;; A `:textarea' source block emits no id, so it cannot be a target.
+    (when (org-export-read-attribute :attr_html block :textarea)
+      (t-error "Code reference %s is in a :textarea block, which has no id"
+               label))
+    (let ((id (t--element-id block info))
+          (text (format (org-export-get-coderef-format label desc) label)))
+      (format "<a href=\"#%s\" class=\"coderef\"%s>%s</a>"
+              (t--encode-plain-text* (format "%s" id))
+              attributes text))))
 
 (defun t--link-external (path desc attributes)
   "Transcode a plain external link with PATH, DESC and ATTRIBUTES.
@@ -5382,10 +5508,11 @@ INFO is a plist holding contextual information.  See
      ;; Links pointing to a headline, a target or an element.
      ((member type '("custom-id" "fuzzy" "id"))
       (t--link-dispatch link desc info attributes))
-     ;; Coderef: replace link with the reference name or the
-     ;; equivalent line number.
+     ;; Coderef: point at the block that defines the label; the code
+     ;; text keeps the label as written.
      ((string= type "coderef")
-      (t--link-coderef path desc info attributes))
+      (t--link-coderef (org-element-property :path link)
+                       desc info attributes))
      ;; External link.
      (path
       (t--link-external path desc attributes))
