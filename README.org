@@ -106,6 +106,12 @@ and how the pipeline works.
   blocks: with user attributes =org-w3ctr--special-block-builtin=
   replaces the type class instead of concatenating it as ox-html does
   (=class="user TYPE"=) — deliberate (explicit over implicit).
+  Maximum flexibility is the rule for example blocks too:
+  =#+attr__:= / =#+attr_html:= replace the whole attribute list, so
+  dropping =example= also drops the W3C box and its "Example N"
+  counter; write =[example foo]= to keep both.  (=src-block'=s
+  captioned branch still merges =example=; it is pending the src-block
+  pass.)
 - *Src-block feature gaps vs ox-html.*  Dropped when forking (judged
   low-value for W3C TR output).  Revisit later:
   - Line numbers and =retain-labels=.  Coderef links exist in a

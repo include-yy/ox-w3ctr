@@ -3224,8 +3224,9 @@ as in `org-w3ctr--make-attr__id' and
 ;; The W3C stylesheet uses `.example' for numbered example boxes with
 ;; `::before' pseudo-elements; the class is added automatically unless
 ;; the user provides `#+attr__:' or `#+attr_html:', in which case the
-;; user controls all attributes.  A bare `<pre>' without a wrapper is
-;; available via `org-w3ctr-fixed-width'.
+;; user controls all attributes -- dropping `example' also drops the
+;; box and its counter, so write [example foo] to keep both.  A bare
+;; `<pre>' without a wrapper is available via `org-w3ctr-fixed-width'.
 ;;
 ;; A caption is a bare <span> before the <pre>.  It is deliberately
 ;; unstyled: W3C's `.caption' and <figcaption> belong to figures and
