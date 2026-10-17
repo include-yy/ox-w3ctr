@@ -3569,6 +3569,13 @@ renderer returns nil."
 
 ;;;; Paragraph
 
+;; See (info "(org) Paragraphs")
+;; A paragraph holding one image becomes <figure><figcaption>.  The
+;; "Figure N" label is the W3C stylesheet's counter on figcaption; do not
+;; compute it in Elisp (see the caption item in README.org).  `#+attr__'
+;; styles the figure, while `#+attr_html' is reserved for the image
+;; element itself.
+
 (defsubst t--wrap-image (contents caption attrs)
   "Wrap CONTENTS in a <figure> element for standalone images.
 
@@ -3582,7 +3589,6 @@ tag.  Return the formatted <figure> element as a string."
           (if-let* ((c (t--nw-trim caption)))
               (format "<figcaption>%s</figcaption>\n" c) "")))
 
-;; See (info "(org)Paragraphs")
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML.
 
