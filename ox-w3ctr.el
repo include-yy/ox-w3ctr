@@ -863,6 +863,7 @@ This can be either:
   "Control how LaTeX math expressions are processed in HTML export.
 
 The value specifies the rendering method:
+- nil                : Drop the math (Org's `tex:nil')
 - `verbatim'         : Keep raw fragment
 - `mathjax', t       : Render math using MathJax (client-side); a bare
                        t is the legacy alias
@@ -871,6 +872,7 @@ The value specifies the rendering method:
 - `custom'           : Use custom option and function"
   :group 'org-export-w3ctr
   :type '(choice
+          (const :tag "Drop the math" nil)
           (const :tag "Keep raw fragment" verbatim)
           (const :tag "Use MathJax to display math" mathjax)
           (const :tag "Use MathJax to render mathML" mathml-by-mathjax)
@@ -3457,6 +3459,14 @@ keywords are raw markup; E and D go through
 
 ;;;; LaTeX
 
+;; See (info "(org) LaTeX fragments")
+;; The fragment or environment value is handed to
+;; `org-w3ctr--format-latex', which dispatches on `:with-latex'
+;; (`org-w3ctr-with-latex').  Under nil Org prunes the math before the
+;; transcoder runs.  The two RPC modes render server-side through the
+;; jstools Node helper (MathJax); `mathjax' leaves the TeX for the
+;; client to render.
+;;
 ;; Options:
 ;; - :html-math-custom-render-function
 ;;   (`org-w3ctr-math-custom-render-function')
