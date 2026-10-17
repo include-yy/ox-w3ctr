@@ -2923,6 +2923,10 @@ the `none' marker."
      ("#+begin_export html\n\n#+end_export" "\n")
      ("#+begin_export html\n\n\n\n#+end_export" "\n\n\n")
      ("#+begin_export html\n\n\n\n\n\n\n#+end_export" "\n\n\n\n\n\n")
+     ;; The value is used as written: list indentation is kept (stripping
+     ;; it would change a JS template literal or a multi-line Lisp string).
+     ("- item\n  #+begin_export html\n  <p>x</p>\n  #+end_export"
+      "  <p>x</p>\n")
      ;; CSS
      ("#+begin_export css\np {color: red;}\n#+end_export"
       "<style>\np {color: red;}\n</style>")

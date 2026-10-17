@@ -3267,6 +3267,16 @@ block that defines code references always gets an id (see
 
 ;;;; Export Block
 
+;; See (info "(org) Quoting HTML tags")
+;; The parser upcases the type.  HTML is raw passthrough; CSS and JS are
+;; wrapped in <style>/<script>; EMACS-LISP and LISP-DATA are evaluated
+;; (the value is code, not data, so a document can run arbitrary Lisp at
+;; export time).  Other types belong to another backend and yield "".
+;;
+;; The value is emitted as written, indentation included: stripping the
+;; common indentation would change a JS template literal or a multi-line
+;; Lisp string.
+
 (defun t--eval-lisp (element value type context)
   "Read VALUE as Lisp and return the result as a string.
 
@@ -3296,12 +3306,14 @@ eval failure; CONTEXT labels the error message."
               (t--sexp2html data)))))
     ""))
 
-;; See (info "(org) Quoting HTML tags")
 (defun t-export-block (export-block _contents _info)
   "Transcode an EXPORT-BLOCK element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the exported
-content as a string, or an empty string for unsupported types."
+content as a string.  HTML is passed through raw; CSS and JS are
+wrapped in <style> and <script>; EMACS-LISP and LISP-DATA are
+evaluated through `org-w3ctr--eval-lisp'.  Any other type belongs to
+another backend and yields \"\"."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type export-block))
