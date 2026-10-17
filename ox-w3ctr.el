@@ -3430,14 +3430,20 @@ a `#+name:' becomes its id when user labels are preferred.  A
 
 ;;;; Keyword
 
+;; See (info "(org) Quoting HTML tags") and (info "(org) Table of Contents")
+;; Only `HTML' and `TOC' are standard; `H' (a short `HTML'), `E' and
+;; `D' are ox-w3ctr extensions.  `TOC' matches its value without regard
+;; to case and reads the depth only right after "headlines", where
+;; ox-html takes any number in the value.
+
 (defun t-keyword (keyword _contents info)
   "Transcode a KEYWORD element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the keyword
-value as a string, or nil for unsupported keywords.  The values
-of the H and HTML keywords are raw markup and are output
-unchanged; the E and D keywords go through
-`org-w3ctr--eval-lisp'."
+value as a string, or nil for unsupported keywords.  The H and HTML
+keywords are raw markup; E and D go through
+`org-w3ctr--eval-lisp'; TOC delegates to
+`org-w3ctr--keyword-toc'."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (let ((key (org-element-property :key keyword))

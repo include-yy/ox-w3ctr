@@ -208,6 +208,19 @@ and how the pipeline works.
   automatic =.example::before= counter would duplicate the example
   number.
 
+- *Arbitrary keyword support (consider, weigh carefully).*  Every
+  backend drops an unknown =#+KEY:= line; =org-w3ctr-keyword= only
+  handles H/HTML, E, D and TOC.  Emitting arbitrary keywords by
+  default is the wrong default: keywords are metadata, not content
+  (the corpus carries =#+TMP:= in 55 documents), and there is no W3C
+  element or class for them.  The explicit hatches already exist:
+  =#+HTML_HEAD:= / =#+HTML_HEAD_EXTRA:= for the head (including
+  =<meta>=), =#+HTML:= and export blocks for raw body markup, =#+E:= /
+  =#+D:= for computed output.  If a repeated need appears, the only
+  shape that keeps "explicit over implicit" is an opt-in alist
+  (key -> format string or function) consulted after the built-in
+  branches, with a test for mapped/unmapped/built-in precedence.
+
 *** Tasks
 
 Small items, found while refining a function and usually finished in the
