@@ -3085,7 +3085,11 @@ the `none' marker."
      ("-------------------------------" "<hr>")
      ("#+attr__: [thick]\n-----" "<hr class=\"thick\">")
      ("#+attr_html: :class foo\n-----" "<hr class=\"foo\">")
-     ("#+attr__: (id foo)\n-----" "<hr id=\"foo\">"))))
+     ("#+attr__: (id foo)\n-----" "<hr id=\"foo\">")
+     ("#+name: nm\n-----" "<hr id=\"nm\">")
+     ;; a caption is dropped: the rule has no caption home
+     ("#+caption: Cap\n-----" "<hr>"))
+   nil '(:html-prefer-user-labels t)))
 
 ;;;; Keyword
 

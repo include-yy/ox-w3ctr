@@ -3413,11 +3413,17 @@ newline inside the <pre>, a blank one is used as is.  A
 ;;;; Horizontal Rule
 
 ;; See (info "(org) Horizontal Rules")
+;; Unlike ox-html, the element honors `#+attr__'/`#+attr_html' and
+;; `#+name:' (the id follows `org-w3ctr-prefer-user-labels').  A
+;; `#+caption:' is dropped.
+
 (defun t-horizontal-rule (horizontal-rule _contents info)
   "Transcode a HORIZONTAL-RULE element from Org to HTML.
 
-CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<hr> element as a string."
+CONTENTS is nil.  INFO is the info plist.  Return the <hr> element
+as a string.  Attributes come from `#+attr__' or `#+attr_html', and
+a `#+name:' becomes its id when user labels are preferred.  A
+`#+caption:' is dropped."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (t--void-element "hr" (t--make-attr__id* horizontal-rule info t)))
