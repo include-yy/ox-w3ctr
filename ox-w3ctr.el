@@ -3359,8 +3359,9 @@ delimiters, call the RPC, and return the string result; signal
 (defun t--format-latex (frag mode info)
   "Return the exported string for LaTeX fragment FRAG under MODE.
 
-MODE is the value of `:with-latex': nil and \\='verbatim return FRAG
-unchanged; \\='mathjax (or t) normalizes its delimiters;
+MODE is the value of `:with-latex': nil and \\='verbatim return nil,
+both having been taken care of by ox.el before the transcoders run;
+\\='mathjax (or t) normalizes its delimiters;
 \\='mathml-by-mathjax and \\='svg-by-mathjax convert it through the
 jstools RPC; \\='custom calls `:html-math-custom-render-function'
 on FRAG and INFO, and the result may be a string or nil.  An
@@ -3369,7 +3370,12 @@ unknown MODE or a custom result that is neither signals
   (declare (ftype (function (string t list) (or null string)))
            (important-return-value t))
   (pcase mode
-    ((or `nil `verbatim) frag)
+    ((or `nil `verbatim) nil)
+    ;; ox.el owns the two modes above: it prunes math under nil
+    ;; (`org-export--skip-p') and expands it into plain text under
+    ;; `verbatim' (`org-export--remove-uninterpreted-data') before the
+    ;; transcoders run.  The nil above means "seen, not handled" -- the
+    ;; export drops the math -- and is only reachable from a direct call.
     ((or `mathjax `t) (t--normalize-latex frag))
     (`mathml-by-mathjax (t--latex-rpc 'tex2mml frag))
     (`svg-by-mathjax (t--latex-rpc 'tex2svg frag))
@@ -3387,8 +3393,7 @@ unknown MODE or a custom result that is neither signals
 
 CONTENTS is nil.  INFO is the info plist.  Return the fragment
 formatted for the `:with-latex' mode (see
-`org-w3ctr--format-latex'), or nil when the custom renderer returns
-nil."
+`org-w3ctr--format-latex'), or nil when that mode emits nothing."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex
@@ -3400,8 +3405,8 @@ nil."
 
 CONTENTS is nil.  INFO is the info plist.  Return the environment,
 with common indentation removed, formatted for the `:with-latex'
-mode (see `org-w3ctr--format-latex'), or nil when the custom
-renderer returns nil."
+mode (see `org-w3ctr--format-latex'), or nil when that mode emits
+nothing."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex

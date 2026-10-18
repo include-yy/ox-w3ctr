@@ -235,14 +235,15 @@ and how the pipeline works.
   corpus (57 documents, 0 errors).
 
 - *LaTeX / Math follow-ups.*
-  - =org-w3ctr--format-latex= has a =((or `nil `verbatim) frag)= branch
-    that no export ever reaches: =ox.el= prunes math nodes under
-    =:with-latex nil= (=org-export--skip-p=) and expands them into
-    plain text under =:with-latex 'verbatim=
-    (=org-export--remove-uninterpreted-data=) before the back-end
-    transcoders run; moreover, returning =frag= on =nil= contradicts
-    "drop the math" and returning unescaped =frag= on =verbatim=
-    diverges from =ox.el='s HTML-escaped plain-text path.
+  - =org-w3ctr--format-latex= keeps its =((or `nil `verbatim) nil)=
+    branch deliberately (decided 2026-10-18: "seen, not handled").
+    Both modes belong to =ox.el=, which prunes math under =nil=
+    (=org-export--skip-p=) and expands it into plain text under
+    =verbatim= (=org-export--remove-uninterpreted-data=) before the
+    transcoders run, so only a direct call reaches the branch; there,
+    =nil= is the honest answer, because the export drops the math.  It
+    used to return =frag=, which contradicted "drop the math" and, on
+    =verbatim=, diverged from =ox.el='s HTML-escaped plain-text path.
   - Client-side =mathjax= mode emits =\(...\)= / =\[...\]= without HTML
     escaping, so a raw =<= or =&= in TeX (e.g. =$a <b > c$=) can be
     parsed as an HTML tag before MathJax runs; pass through

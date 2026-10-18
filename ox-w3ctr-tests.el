@@ -2989,9 +2989,13 @@ the `none' marker."
 
 (ert-deftest t--format-latex ()
   "Tests for `org-w3ctr--format-latex'."
-  ;; nil and verbatim return the fragment unchanged
-  ($l (t--format-latex "$x$" nil nil) "$x$")
-  ($l (t--format-latex "$x$" 'verbatim nil) "$x$")
+  ;; nil and verbatim return nil: ox.el handles both modes before the
+  ;; back-end runs -- it prunes the math under nil (`org-export--skip-p')
+  ;; and expands it into plain text under `verbatim'
+  ;; (`org-export--remove-uninterpreted-data') -- so only a direct call
+  ;; reaches these two cases, and the export drops the math.
+  ($l (t--format-latex "$x$" nil nil) nil)
+  ($l (t--format-latex "$x$" 'verbatim nil) nil)
   ;; mathjax normalizes the delimiters for client-side MathJax, and the
   ;; legacy t alias behaves the same
   ($l (t--format-latex "$x$" 'mathjax nil) "\\(x\\)")
