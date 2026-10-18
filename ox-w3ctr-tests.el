@@ -3353,9 +3353,10 @@ the `none' marker."
       "<div id=\"t\" class=\"example\">\n<pre>\n</pre>\n</div>")
      ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
       "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
-     ;; content is HTML-escaped
-     ("#+begin_example\n<b>&x</b>\n#+end_example"
-      "<div class=\"example\">\n<pre>\n&lt;b&gt;&amp;x&lt;/b&gt;\n</pre>\n</div>")
+     ;; content is HTML-escaped via `org-w3ctr--encode-plain-text'
+     ;; (quotes stay raw)
+     ("#+begin_example\n<b>&\"x\"</b>\n#+end_example"
+      "<div class=\"example\">\n<pre>\n&lt;b&gt;&amp;\"x\"&lt;/b&gt;\n</pre>\n</div>")
      ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
       "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
      ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
@@ -3400,7 +3401,10 @@ the `none' marker."
      ;; `:textarea' is not special here, just an ordinary attribute
      ("#+attr_html: :textarea x\n#+begin_example\n1\n#+end_example"
       "<div textarea=\"x\">\n<pre>\n1\n</pre>\n</div>"))
-   nil '(:html-prefer-user-labels t)))
+   t '(:html-prefer-user-labels t))
+  ;; A synthetic element with nil `:value' falls back to "".
+  ($l (t-example-block '(example-block nil) nil nil)
+      "<div class=\"example\">\n<pre>\n</pre>\n</div>"))
 
 (ert-deftest t-example-block-coderef-id ()
   "An example block that defines a code reference always gets an id."

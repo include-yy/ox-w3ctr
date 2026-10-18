@@ -3637,13 +3637,14 @@ block that defines code references always gets an id (see
          ;; `org-w3ctr--code-text' drops the labels and the final newline;
          ;; a non-empty value keeps one newline inside <pre>.
          (value (or (org-element-property :value example-block) ""))
-         (code (t--code-text example-block))
-         (content (t--encode-plain-text
-                   (if (string-empty-p value) "" (concat code "\n"))))
+         (content (if (string-empty-p value) ""
+                    (concat (t--encode-plain-text
+                             (t--code-text example-block))
+                            "\n")))
          (caption (when-let* ((cap (org-export-get-caption example-block)))
                     (t--nw-trim (org-export-data cap info)))))
     (format "<div%s%s>\n%s<pre>\n%s</pre>\n</div>"
-            (if (t--nw-p attrs) attrs "")
+            attrs
             (if has-user-attrs "" " class=\"example\"")
             (if caption (format "<span>%s</span>\n" caption) "")
             content)))
