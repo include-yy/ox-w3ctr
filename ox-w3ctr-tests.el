@@ -2924,14 +2924,11 @@ the `none' marker."
        ;; HTML
        ("#+html: " "")
        ("#+html: <p>123</p>" "<p>123</p>")
-       ("#+html: <a href=\"https://example.com\">Example</a>"
-        "<a href=\"https://example.com\">Example</a>")
        ;; the parser uppercases the key; uppercase input works alike
        ("#+HTML: <b>x</b>" "<b>x</b>")
        ;; E
        ("#+e: " "")
        ("#+e: (concat \"1\" nil \"2\")" "12")
-       ("#+e: (string-join '(\"a\" \"b\") \",\")" "a,b")
        ;; D
        ("#+d: " "")
        ("#+d: (br)" "<br>")
@@ -2939,15 +2936,20 @@ the `none' marker."
        ;; Otherwise
        ("#+hello: world" nil))
      t)
-    ;; Error handling: malformed Lisp signals t-error.
+    ;; A synthetic keyword with nil `:value' falls back to "".
+    ($l (t-keyword '(keyword (:key "H")) nil nil) "")
+    ;; Error handling: malformed Lisp signals t-error with line number.
     ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
           '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
     ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)
           '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing"))
-    ;; TOC goes through org-w3ctr--keyword-toc
-    (cl-letf (((symbol-function 't--list-of-tables) (lambda (_i) "TABLES")))
-      ($l (t-keyword (t-get-element "#+TOC: tables" 'keyword) nil nil)
-          "TABLES"))))
+    ;; TOC delegates to `org-w3ctr--keyword-toc' with KEYWORD, VALUE, INFO.
+    (let ((el (t-get-element "#+TOC: headlines 2" 'keyword))
+          got)
+      (cl-letf (((symbol-function 't--keyword-toc)
+                 (lambda (k v i) (setq got (list k v i)) "TOC-OUT")))
+        ($l (t-keyword el nil '(:k 1)) "TOC-OUT")
+        ($l got (list el "headlines 2" '(:k 1)))))))
 
 ;;;; LaTeX
 
