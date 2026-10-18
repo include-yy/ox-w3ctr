@@ -2680,206 +2680,6 @@ the `none' marker."
 
 ;;; Lesser elements
 
-;;;; Code references
-
-(ert-deftest t--coderef-regexp ()
-  "Tests for `org-w3ctr--coderef-regexp'."
-  ;; A block without `-l' matches the default `(ref:NAME)' format.
-  (let ((el (t-get-element "#+begin_example\nx (ref:a)\n#+end_example"
-                           'example-block)))
-    (should (string-match-p (t--coderef-regexp el) "x (ref:a)")))
-  ;; The block's own `-l' switch sets the format.
-  (let ((el (t-get-element "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
-                           'example-block)))
-    (should (string-match-p (t--coderef-regexp el) "x ((a))"))))
-
-(ert-deftest t--code-text ()
-  "Tests for `org-w3ctr--code-text'."
-  (cl-flet ((f (str type) (t--code-text (t-get-element str type))))
-    ;; Common indentation and the final newline are removed.
-    ($l (f "#+begin_example\n  a\n   b\n#+end_example" 'example-block)
-        "a\n b")
-    ;; `-i' preserves the indentation.
-    ($l (f "#+begin_example -i\n  a\n   b\n#+end_example" 'example-block)
-        "  a\n   b")
-    ;; Code-reference labels are removed with their white space.
-    ($l (f "#+begin_example\nx (ref:sc)\n#+end_example" 'example-block)
-        "x")
-    ;; The block's own `-l' format is what is removed.
-    ($l (f "#+begin_example -l \"((%s))\"\nx ((sc))\n#+end_example"
-           'example-block)
-        "x")
-    ;; Source blocks are handled the same way.
-    ($l (f "#+begin_src text\n  x (ref:sc)\n#+end_src" 'src-block) "x")))
-
-(ert-deftest t--coderef-labels ()
-  "Tests for `org-w3ctr--coderef-labels'."
-  (cl-flet ((f (str type) (t--coderef-labels (t-get-element str type))))
-    ;; A block without labels has none.
-    ($n (f "#+begin_example\nx\n#+end_example" 'example-block))
-    ;; Labels come back in document order.
-    ($l (f "#+begin_example\nx (ref:a)\ny (ref:b)\n#+end_example"
-           'example-block)
-        '("a" "b"))
-    ;; A label repeated on several lines is returned once.
-    ($l (f "#+begin_example\nx (ref:a)\ny (ref:a)\n#+end_example"
-           'example-block)
-        '("a"))
-    ;; A label must end the line to count.
-    ($n (f "#+begin_example\nx (ref:a) y\n#+end_example" 'example-block))
-    ;; The block's own `-l' switch sets the label format.
-    ($l (f "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
-           'example-block)
-        '("a"))
-    ;; Source blocks are scanned the same way.
-    ($l (f "#+begin_src text\nx (ref:sc)\n#+end_src" 'src-block)
-        '("sc"))))
-
-(ert-deftest t--coderef-labels-format-isolation ()
-  "One block's `-l' format does not leak into another block."
-  (with-temp-buffer
-    (insert ($c "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example\n\n"
-                "#+begin_example\ny (ref:b)\n#+end_example\n"))
-    (org-mode)
-    (let* ((tree (org-element-parse-buffer))
-           (blocks (org-element-map tree 'example-block #'identity))
-           (second (cadr blocks)))
-      ;; Put point in the first block, which has a format of its own.
-      (goto-char (org-element-property :begin (car blocks)))
-      ($l (t--coderef-labels second) '("b"))
-      ($l (t--code-text second) "y")))
-  ;; The same document exports with both links resolving.
-  (let ((org-w3ctr-prefer-user-labels t))
-    (let ((out (org-export-string-as
-                ($c "#+name: a\n#+begin_example -l \"((%s))\"\nx ((a))\n"
-                    "#+end_example\n\n#+name: b\n#+begin_example\ny (ref:b)\n"
-                    "#+end_example\n\nSee [[(a)]] and [[(b)]].")
-                'w3ctr t)))
-      (should (string-match-p "<a href=\"#a\" class=\"coderef\">a</a>" out))
-      (should (string-match-p "<a href=\"#b\" class=\"coderef\">b</a>" out)))))
-
-(ert-deftest t--coderef-block ()
-  "Tests for `org-w3ctr--coderef-block'."
-  (let* ((tree (with-temp-buffer
-                 (insert ($c "#+begin_example\na (ref:a)\n#+end_example\n"
-                             "#+begin_src text\nb (ref:b)\n#+end_src\n"))
-                 (org-mode)
-                 (org-element-parse-buffer)))
-         (info (list :parse-tree tree)))
-    ($q (org-element-type (t--coderef-block "a" info)) 'example-block)
-    ($q (org-element-type (t--coderef-block "b" info)) 'src-block)
-    ;; A label no block defines has no block.
-    ($n (t--coderef-block "nope" info)))
-  ;; The first block wins when two define the same label.
-  (let* ((tree (with-temp-buffer
-                 (insert ($c "#+begin_example\nx (ref:d)\n#+end_example\n"
-                             "#+begin_example\ny (ref:d)\n#+end_example\n"))
-                 (org-mode)
-                 (org-element-parse-buffer)))
-         (info (list :parse-tree tree)))
-    ($l (org-element-property :value (t--coderef-block "d" info))
-        "x (ref:d)\n")))
-
-(ert-deftest t--element-id ()
-  "Tests for `org-w3ctr--element-id'."
-  (let ((info (list :html-prefer-user-labels t)))
-    ;; The reference is the name when user labels are preferred.
-    ($l (t--element-id
-         (t-get-element "#+name: nm\n#+begin_example\nx\n#+end_example"
-                        'example-block)
-         info)
-        "nm")
-    ;; An explicit id in `:attr__' wins over the reference.
-    ($l (t--element-id
-         (t-get-element ($c "#+name: nm\n#+attr__: (id custom)\n"
-                            "#+begin_example\nx\n#+end_example")
-                        'example-block)
-         info)
-        "custom")
-    ;; ... and so does one in `:attr_html'.
-    ($l (t--element-id
-         (t-get-element ($c "#+name: nm\n#+attr_html: :id custom\n"
-                            "#+begin_example\nx\n#+end_example")
-                        'example-block)
-         info)
-        "custom"))
-  ;; Without a name the reference is generated.
-  (should (string-match-p
-           "\\`org[0-9a-f]\\{7\\}\\'"
-           (t--element-id
-            (t-get-element "#+begin_example\nx\n#+end_example" 'example-block)
-            (list :html-prefer-user-labels nil)))))
-
-;;;; Example Block
-
-(ert-deftest t-example-block ()
-  "Tests for `org-w3ctr-example-block'."
-  (t-check-element-values
-   #'t-example-block
-   '(("#+name: t\n#+begin_example\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\n</pre>\n</div>")
-     ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
-     ;; content is HTML-escaped
-     ("#+begin_example\n<b>&x</b>\n#+end_example"
-      "<div class=\"example\">\n<pre>\n&lt;b&gt;&amp;x&lt;/b&gt;\n</pre>\n</div>")
-     ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
-      "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
-     ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
-     ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\n\n\n\n</pre>\n</div>")
-     ;; `:attr_html' is a user attribute too: no class="example"
-     ("#+attr_html: :class foo\n#+begin_example\n1\n#+end_example"
-      "<div class=\"foo\">\n<pre>\n1\n</pre>\n</div>")
-     ;; an empty `#+attr__:' still counts as user control
-     ("#+attr__:\n#+begin_example\n1\n#+end_example"
-      "<div>\n<pre>\n1\n</pre>\n</div>")
-     ;; an empty `#+attr_html:' line is user control too
-     ("#+attr_html:\n#+begin_example\n1\n#+end_example"
-      "<div>\n<pre>\n1\n</pre>\n</div>")
-     ;; `#+attr__:' wins over `#+attr_html:'; they are not merged
-     ("#+attr__: [a]\n#+attr_html: :class b\n#+begin_example\n1\n#+end_example"
-      "<div class=\"a\">\n<pre>\n1\n</pre>\n</div>")
-     ;; switches are not interpreted, except `-i': `-n' adds no line numbers
-     ("#+begin_example -n\na\nb\n#+end_example"
-      "<div class=\"example\">\n<pre>\na\nb\n</pre>\n</div>")
-     ;; `-i' preserves the indentation, as in a source block
-     ("#+begin_example -i\n  a\n   b\n#+end_example"
-      "<div class=\"example\">\n<pre>\n  a\n   b\n</pre>\n</div>")
-     ;; code-reference labels are removed from the code, as in ox-html
-     ("#+name: t\n#+begin_example\nfoo (ref:sc)\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
-     ;; label removal uses the block's own `-l' format
-     ("#+name: t\n#+begin_example -l \"((%s))\"\nfoo ((sc))\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
-     ;; a non-blank caption becomes a bare span before the <pre>
-     ("#+name: t\n#+caption: Cap\n#+begin_example\nx\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<span>Cap</span>\n<pre>\nx\n</pre>\n</div>")
-     ;; caption markup is exported, not escaped
-     ("#+caption: *Bold* and /italic/\n#+begin_example\nx\n#+end_example"
-      "<div class=\"example\">\n<span><b>Bold</b> and <i>italic</i></span>\n<pre>\nx\n</pre>\n</div>")
-     ;; an empty or blank caption is dropped
-     ("#+caption:\n#+begin_example\nx\n#+end_example"
-      "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
-     ("#+caption:  \t\n#+begin_example\nx\n#+end_example"
-      "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
-     ;; `:textarea' is not special here, just an ordinary attribute
-     ("#+attr_html: :textarea x\n#+begin_example\n1\n#+end_example"
-      "<div textarea=\"x\">\n<pre>\n1\n</pre>\n</div>"))
-   nil '(:html-prefer-user-labels t)))
-
-(ert-deftest t-example-block-coderef-id ()
-  "An example block that defines a code reference always gets an id."
-  (let ((out (org-export-string-as
-              "#+begin_example\nx (ref:sc)\n#+end_example" 'w3ctr t)))
-    (should (string-match-p "<div id=\"org[0-9a-f]+\" class=\"example\">"
-                            out)))
-  ;; Without a code reference there is no id.
-  (let ((out (org-export-string-as "#+begin_example\nx\n#+end_example"
-                                   'w3ctr t)))
-    ($n (string-match-p "<div id=" out))))
-
 ;;;; Export Block
 
 (ert-deftest t--eval-lisp ()
@@ -3373,6 +3173,206 @@ the `none' marker."
      ("#+caption: Cap\n#+begin_verse\na\n#+end_verse"
       "<p>\na<br>\n</p>"))
    nil '(:html-prefer-user-labels t)))
+
+;;;; Code references
+
+(ert-deftest t--coderef-regexp ()
+  "Tests for `org-w3ctr--coderef-regexp'."
+  ;; A block without `-l' matches the default `(ref:NAME)' format.
+  (let ((el (t-get-element "#+begin_example\nx (ref:a)\n#+end_example"
+                           'example-block)))
+    (should (string-match-p (t--coderef-regexp el) "x (ref:a)")))
+  ;; The block's own `-l' switch sets the format.
+  (let ((el (t-get-element "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
+                           'example-block)))
+    (should (string-match-p (t--coderef-regexp el) "x ((a))"))))
+
+(ert-deftest t--code-text ()
+  "Tests for `org-w3ctr--code-text'."
+  (cl-flet ((f (str type) (t--code-text (t-get-element str type))))
+    ;; Common indentation and the final newline are removed.
+    ($l (f "#+begin_example\n  a\n   b\n#+end_example" 'example-block)
+        "a\n b")
+    ;; `-i' preserves the indentation.
+    ($l (f "#+begin_example -i\n  a\n   b\n#+end_example" 'example-block)
+        "  a\n   b")
+    ;; Code-reference labels are removed with their white space.
+    ($l (f "#+begin_example\nx (ref:sc)\n#+end_example" 'example-block)
+        "x")
+    ;; The block's own `-l' format is what is removed.
+    ($l (f "#+begin_example -l \"((%s))\"\nx ((sc))\n#+end_example"
+           'example-block)
+        "x")
+    ;; Source blocks are handled the same way.
+    ($l (f "#+begin_src text\n  x (ref:sc)\n#+end_src" 'src-block) "x")))
+
+(ert-deftest t--coderef-labels ()
+  "Tests for `org-w3ctr--coderef-labels'."
+  (cl-flet ((f (str type) (t--coderef-labels (t-get-element str type))))
+    ;; A block without labels has none.
+    ($n (f "#+begin_example\nx\n#+end_example" 'example-block))
+    ;; Labels come back in document order.
+    ($l (f "#+begin_example\nx (ref:a)\ny (ref:b)\n#+end_example"
+           'example-block)
+        '("a" "b"))
+    ;; A label repeated on several lines is returned once.
+    ($l (f "#+begin_example\nx (ref:a)\ny (ref:a)\n#+end_example"
+           'example-block)
+        '("a"))
+    ;; A label must end the line to count.
+    ($n (f "#+begin_example\nx (ref:a) y\n#+end_example" 'example-block))
+    ;; The block's own `-l' switch sets the label format.
+    ($l (f "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
+           'example-block)
+        '("a"))
+    ;; Source blocks are scanned the same way.
+    ($l (f "#+begin_src text\nx (ref:sc)\n#+end_src" 'src-block)
+        '("sc"))))
+
+(ert-deftest t--coderef-labels-format-isolation ()
+  "One block's `-l' format does not leak into another block."
+  (with-temp-buffer
+    (insert ($c "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example\n\n"
+                "#+begin_example\ny (ref:b)\n#+end_example\n"))
+    (org-mode)
+    (let* ((tree (org-element-parse-buffer))
+           (blocks (org-element-map tree 'example-block #'identity))
+           (second (cadr blocks)))
+      ;; Put point in the first block, which has a format of its own.
+      (goto-char (org-element-property :begin (car blocks)))
+      ($l (t--coderef-labels second) '("b"))
+      ($l (t--code-text second) "y")))
+  ;; The same document exports with both links resolving.
+  (let ((org-w3ctr-prefer-user-labels t))
+    (let ((out (org-export-string-as
+                ($c "#+name: a\n#+begin_example -l \"((%s))\"\nx ((a))\n"
+                    "#+end_example\n\n#+name: b\n#+begin_example\ny (ref:b)\n"
+                    "#+end_example\n\nSee [[(a)]] and [[(b)]].")
+                'w3ctr t)))
+      (should (string-match-p "<a href=\"#a\" class=\"coderef\">a</a>" out))
+      (should (string-match-p "<a href=\"#b\" class=\"coderef\">b</a>" out)))))
+
+(ert-deftest t--coderef-block ()
+  "Tests for `org-w3ctr--coderef-block'."
+  (let* ((tree (with-temp-buffer
+                 (insert ($c "#+begin_example\na (ref:a)\n#+end_example\n"
+                             "#+begin_src text\nb (ref:b)\n#+end_src\n"))
+                 (org-mode)
+                 (org-element-parse-buffer)))
+         (info (list :parse-tree tree)))
+    ($q (org-element-type (t--coderef-block "a" info)) 'example-block)
+    ($q (org-element-type (t--coderef-block "b" info)) 'src-block)
+    ;; A label no block defines has no block.
+    ($n (t--coderef-block "nope" info)))
+  ;; The first block wins when two define the same label.
+  (let* ((tree (with-temp-buffer
+                 (insert ($c "#+begin_example\nx (ref:d)\n#+end_example\n"
+                             "#+begin_example\ny (ref:d)\n#+end_example\n"))
+                 (org-mode)
+                 (org-element-parse-buffer)))
+         (info (list :parse-tree tree)))
+    ($l (org-element-property :value (t--coderef-block "d" info))
+        "x (ref:d)\n")))
+
+(ert-deftest t--element-id ()
+  "Tests for `org-w3ctr--element-id'."
+  (let ((info (list :html-prefer-user-labels t)))
+    ;; The reference is the name when user labels are preferred.
+    ($l (t--element-id
+         (t-get-element "#+name: nm\n#+begin_example\nx\n#+end_example"
+                        'example-block)
+         info)
+        "nm")
+    ;; An explicit id in `:attr__' wins over the reference.
+    ($l (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr__: (id custom)\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info)
+        "custom")
+    ;; ... and so does one in `:attr_html'.
+    ($l (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr_html: :id custom\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info)
+        "custom"))
+  ;; Without a name the reference is generated.
+  (should (string-match-p
+           "\\`org[0-9a-f]\\{7\\}\\'"
+           (t--element-id
+            (t-get-element "#+begin_example\nx\n#+end_example" 'example-block)
+            (list :html-prefer-user-labels nil)))))
+
+;;;; Example Block
+
+(ert-deftest t-example-block ()
+  "Tests for `org-w3ctr-example-block'."
+  (t-check-element-values
+   #'t-example-block
+   '(("#+name: t\n#+begin_example\n#+end_example"
+      "<div id=\"t\" class=\"example\">\n<pre>\n</pre>\n</div>")
+     ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
+      "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
+     ;; content is HTML-escaped
+     ("#+begin_example\n<b>&x</b>\n#+end_example"
+      "<div class=\"example\">\n<pre>\n&lt;b&gt;&amp;x&lt;/b&gt;\n</pre>\n</div>")
+     ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
+      "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
+     ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
+      "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
+     ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
+      "<div id=\"t\" class=\"example\">\n<pre>\n\n\n\n</pre>\n</div>")
+     ;; `:attr_html' is a user attribute too: no class="example"
+     ("#+attr_html: :class foo\n#+begin_example\n1\n#+end_example"
+      "<div class=\"foo\">\n<pre>\n1\n</pre>\n</div>")
+     ;; an empty `#+attr__:' still counts as user control
+     ("#+attr__:\n#+begin_example\n1\n#+end_example"
+      "<div>\n<pre>\n1\n</pre>\n</div>")
+     ;; an empty `#+attr_html:' line is user control too
+     ("#+attr_html:\n#+begin_example\n1\n#+end_example"
+      "<div>\n<pre>\n1\n</pre>\n</div>")
+     ;; `#+attr__:' wins over `#+attr_html:'; they are not merged
+     ("#+attr__: [a]\n#+attr_html: :class b\n#+begin_example\n1\n#+end_example"
+      "<div class=\"a\">\n<pre>\n1\n</pre>\n</div>")
+     ;; switches are not interpreted, except `-i': `-n' adds no line numbers
+     ("#+begin_example -n\na\nb\n#+end_example"
+      "<div class=\"example\">\n<pre>\na\nb\n</pre>\n</div>")
+     ;; `-i' preserves the indentation, as in a source block
+     ("#+begin_example -i\n  a\n   b\n#+end_example"
+      "<div class=\"example\">\n<pre>\n  a\n   b\n</pre>\n</div>")
+     ;; code-reference labels are removed from the code, as in ox-html
+     ("#+name: t\n#+begin_example\nfoo (ref:sc)\n#+end_example"
+      "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
+     ;; label removal uses the block's own `-l' format
+     ("#+name: t\n#+begin_example -l \"((%s))\"\nfoo ((sc))\n#+end_example"
+      "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
+     ;; a non-blank caption becomes a bare span before the <pre>
+     ("#+name: t\n#+caption: Cap\n#+begin_example\nx\n#+end_example"
+      "<div id=\"t\" class=\"example\">\n<span>Cap</span>\n<pre>\nx\n</pre>\n</div>")
+     ;; caption markup is exported, not escaped
+     ("#+caption: *Bold* and /italic/\n#+begin_example\nx\n#+end_example"
+      "<div class=\"example\">\n<span><b>Bold</b> and <i>italic</i></span>\n<pre>\nx\n</pre>\n</div>")
+     ;; an empty or blank caption is dropped
+     ("#+caption:\n#+begin_example\nx\n#+end_example"
+      "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
+     ("#+caption:  \t\n#+begin_example\nx\n#+end_example"
+      "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
+     ;; `:textarea' is not special here, just an ordinary attribute
+     ("#+attr_html: :textarea x\n#+begin_example\n1\n#+end_example"
+      "<div textarea=\"x\">\n<pre>\n1\n</pre>\n</div>"))
+   nil '(:html-prefer-user-labels t)))
+
+(ert-deftest t-example-block-coderef-id ()
+  "An example block that defines a code reference always gets an id."
+  (let ((out (org-export-string-as
+              "#+begin_example\nx (ref:sc)\n#+end_example" 'w3ctr t)))
+    (should (string-match-p "<div id=\"org[0-9a-f]+\" class=\"example\">"
+                            out)))
+  ;; Without a code reference there is no id.
+  (let ((out (org-export-string-as "#+begin_example\nx\n#+end_example"
+                                   'w3ctr t)))
+    ($n (string-match-p "<div id=" out))))
 
 ;;;; Fontify token IR
 
