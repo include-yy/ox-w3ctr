@@ -4520,6 +4520,7 @@ Each step is counted in INFO's fontify state."
 
 (defun t--fontify-default-info ()
   "Return a plist of the current values of the fontify options.
+
 It stands in for the export INFO when `org-w3ctr-fontify-code' is
 called outside an export: each `:html-fontify-' key of the back-end's
 options gets the value of its variable."
@@ -4535,6 +4536,7 @@ options gets the value of its variable."
 
 (defun t--textarea-block (element)
   "Transcode ELEMENT into a <textarea> wrapped in a <p>.
+
 ELEMENT is a source block whose `:attr_html' asks for a textarea.
 Its `:width' gives the cols (80 by default) and its `:height' the
 rows (the number of code lines by default).  The code and both
@@ -4554,8 +4556,9 @@ the textarea still shows the code as written."
 
 (defun t-fontify-code (code lang &optional info element)
   "Colorize CODE (a string) for LANG, returning bare fontified HTML.
-The result contains `<span>' runs only, with no wrapper element:
-callers wrap it in `<code>' as appropriate (block vs inline).  LANG
+
+The result contains <span> runs only, with no wrapper element:
+callers wrap it in <code> as appropriate (block vs inline).  LANG
 is a language name as a string, or nil.  INFO is the export plist;
 without it, the current option values are used
 \(`org-w3ctr--fontify-default-info').  ELEMENT is the source block
@@ -4581,6 +4584,7 @@ escaped, but the method is still checked: an unknown one signals
 
 (defun t--src-code (src-block lang info)
   "Return bare fontified HTML for SRC-BLOCK's code in LANG.
+
 INFO is the export plist; it and SRC-BLOCK (for its `:fontify'
 header argument) are handed to `org-w3ctr-fontify-code'.  The code
 text comes from `org-w3ctr--code-text', which also removes the
@@ -4591,8 +4595,9 @@ code-reference labels."
                   lang info src-block))
 
 (defun t--src-code-tag (lang code)
-  "Wrap bare CODE in a `<code>' tag carrying LANG's class.
-A nil LANG yields a plain `<code>' without a language class."
+  "Wrap bare CODE in a <code> tag carrying LANG's class.
+
+A nil LANG yields a plain <code> without a language class."
   (declare (ftype (function ((or null string) string) string))
            (pure t) (important-return-value t))
   (if lang
@@ -4602,62 +4607,58 @@ A nil LANG yields a plain `<code>' without a language class."
 
 (defun t-src-block (src-block _contents info)
   "Transcode a SRC-BLOCK element from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information.
 
-A `:textarea' attribute yields a `<textarea>'; otherwise the code is
-wrapped in a `<div><pre>' pair, with the block's attributes and id on
-the `<div>'.  A captioned block adds a self-link and the caption in
-an unstyled `<span>', and its `<div>` carries class=\"example\"
-unless the author supplies attributes."
+CONTENTS is nil.  INFO is the info plist.  A `:textarea' attribute
+yields a <textarea>; otherwise the code is wrapped in a <div><pre>
+pair, with the block's attributes and id on the <div>.  A block with
+a non-blank caption adds a self-link and the caption in an unstyled
+<span>, and its <div> carries class=\"example\" unless the author
+supplies attributes."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
-  (cond
-   ((org-export-read-attribute :attr_html src-block :textarea)
-    (t--textarea-block src-block))
-   ((org-element-property :caption src-block)
+  (if (org-export-read-attribute :attr_html src-block :textarea)
+      (t--textarea-block src-block)
     (let* ((lang (org-element-property :language src-block))
-           (code (t--src-code src-block lang info))
-           (id (t--element-id src-block info))
-           (has-user-attrs (or (org-element-property :attr__ src-block)
-                               (org-element-property :attr_html src-block)))
+           (code (t--src-code-tag lang (t--src-code src-block lang info)))
            (caption (when-let* ((cap (org-export-get-caption src-block)))
                       (t--nw-trim (org-export-data cap info)))))
-      (format (concat "<div%s%s>\n"
-                      "<a class=\"self-link\" href=\"#%s\""
-                      " aria-label=\"source block\"></a>\n"
-                      "%s\n<pre>\n%s</pre></div>")
-              ;; A captioned block always gets an id: the self-link needs one.
-              (t--make-attr__id* src-block info)
-              (if has-user-attrs "" " class=\"example\"")
-              (t--encode-plain-text* (format "%s" id))
-              (if caption (format "<span>%s</span>" caption) "")
-              (t--src-code-tag lang code))))
-   (t
-    (let* ((lang (org-element-property :language src-block))
-           (code (t--src-code src-block lang info)))
-      (format "<div%s>\n<pre>\n%s</pre></div>"
-              ;; A block that defines a code reference is a
-              ;; `[[(LABEL)]]' target, so it always gets an id.
-              (t--make-attr__id* src-block info
-                                 (not (t--coderef-labels src-block)))
-              (t--src-code-tag lang code))))))
+      (if caption
+          (let ((has-user-attrs
+                 (or (org-element-property :attr__ src-block)
+                     (org-element-property :attr_html src-block)))
+                (id (or (t--element-id src-block info) "")))
+            (format (concat "<div%s%s>\n"
+                            "<a class=\"self-link\" href=\"#%s\""
+                            " aria-label=\"source block\"></a>\n"
+                            "<span>%s</span>\n<pre>\n%s</pre></div>")
+                    ;; A captioned block always gets an id: the
+                    ;; self-link needs one.
+                    (t--make-attr__id* src-block info)
+                    (if has-user-attrs "" " class=\"example\"")
+                    (t--encode-plain-text* id)
+                    caption
+                    code))
+        (format "<div%s>\n<pre>\n%s</pre></div>"
+                ;; A block that defines a code reference is a
+                ;; `[[(LABEL)]]' target, so it always gets an id.
+                (t--make-attr__id* src-block info
+                                   (not (t--coderef-labels src-block)))
+                code)))))
 
 (defun t-inline-src-block (inline-src-block _contents info)
   "Transcode an INLINE-SRC-BLOCK object from Org to HTML.
-CONTENTS is nil.  INFO is a plist holding contextual information.
-The code is fontified bare by `org-w3ctr-fontify-code' and wrapped
-here in a single `<code class=\"src-inline src-LANG\">' (no nesting)."
+
+CONTENTS is nil.  INFO is the info plist.  The code is fontified
+bare by `org-w3ctr-fontify-code' and wrapped here in a single
+<code class=\"src-inline src-LANG\"> (no nesting)."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((lang (org-element-property :language inline-src-block))
          (code (t-fontify-code
                 (org-element-property :value inline-src-block)
-                lang info inline-src-block))
-         (label (if-let* ((lbl (t--reference inline-src-block info t)))
-                    (format " id=\"%s\"" (t--encode-plain-text* lbl))
-                  "")))
-    (format "<code class=\"src-inline src-%s\"%s>%s</code>"
-            (t--encode-plain-text* lang) label code)))
+                lang info inline-src-block)))
+    (format "<code class=\"src-inline src-%s\">%s</code>"
+            (t--encode-plain-text* lang) code)))
 
 ;;; Objects
 

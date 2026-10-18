@@ -4562,10 +4562,17 @@ winner (or `signal') and the number of warnings."
       (should (string-match-p "<div id=\"custom\">" out))
       (should (string-match-p "<a class=\"self-link\" href=\"#custom\"" out)))
     (let ((out (org-export-string-as
-                (concat "#+name: nm\n#+attr_html: :class foo\n"
+                (concat "#+name: nm\n#+caption: C\n#+attr_html: :class foo\n"
                         "#+begin_src emacs-lisp\nx\n#+end_src")
                 'w3ctr t)))
-      (should (string-match-p "<div class=\"foo\" id=\"nm\">" out))))
+      (should (string-match-p "<div class=\"foo\" id=\"nm\">" out))
+      (should (string-match-p "<a class=\"self-link\" href=\"#nm\"" out))))
+  ;; An empty or blank caption is treated as uncaptioned.
+  (let ((out (org-export-string-as
+              "#+caption:   \n#+begin_src emacs-lisp\nx\n#+end_src"
+              'w3ctr t)))
+    (should (string-match-p "<div>\n<pre>" out))
+    ($n (string-match-p "self-link" out)))
   ;; The per-file option reaches the transcoder through INFO.
   (let ((src "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"))
     (should (string-match-p "ef-k" (org-export-string-as src 'w3ctr t)))
