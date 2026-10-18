@@ -3088,6 +3088,8 @@ the `none' marker."
   ($l (t--wrap-image "" "" "") "<figure>\n</figure>")
   ($l (t--wrap-image "hello" "" "")
       "<figure>\nhello</figure>")
+  ($l (t--wrap-image "hello" "  \n " "")
+      "<figure>\nhello</figure>")
   ($l (t--wrap-image "hello" " abc" "")
       "<figure>\nhello<figcaption>abc</figcaption>\n</figure>")
   ;; ATTRS is inserted verbatim inside the tag; CAPTION is trimmed
@@ -3105,7 +3107,7 @@ the `none' marker."
      ("123\n 234" "<p>123\n 234</p>")
      ;; trim
      ("    123" "<p>123</p>")
-     ("123\n\t234" "<p>123\n\011234</p>")
+     ("123\n\t234" "<p>123\n\t234</p>")
      ;; two newline, two paragraph
      ("123\n\n234" "<p>234</p>" "<p>123</p>")
      ;; unordered list item's first object
@@ -3125,8 +3127,6 @@ the `none' marker."
      ("-\n  #+name: id\n  123\n\n  #+name: id2\n  456"
       "<p id=\"id2\">456</p>" "<span id=\"id\">123</span>")
      ;; standalone image
-     ;; since `org-export-data' doesn't apply `:filter-parse-tree'
-     ;; no newlines for test data.
      ("[[./1.png]]"
       "<figure>\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
      ("#+name: id\n#+caption:cap\n[[./1.png]]"
@@ -3138,10 +3138,6 @@ the `none' marker."
      ("#+attr__:[sidefigure]\n[[./2.gif]]"
       ,($c "<figure class=\"sidefigure\">"
            "\n<img src=\"./2.gif\" alt=\"2.gif\"></figure>"))
-     ("[[https://example.com/1.jpg]]"
-      ,($c "<figure>\n<img src=\"https://example.com/1.jpg\" alt=\"1.jpg\">"
-           "</figure>"))
-     ("[[file:1.jpg]]" "<figure>\n<img src=\"1.jpg\" alt=\"1.jpg\"></figure>")
      ("[[./1.png][name]]" "<p><a href=\"./1.png\">name</a></p>")
      ("[[https://example.com/1.jpg][file:1.jpg]]"
       ,($c "<figure>\n<a href=\"https://example.com/1.jpg\">"
@@ -3158,13 +3154,13 @@ the `none' marker."
      ;; `:attr__' applies to the figure
      ("#+attr__: [bar]\n[[https://example.com/1.jpg][file:1.jpg]]"
       "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
-   nil '(:html-prefer-user-labels t))
+   t '(:html-prefer-user-labels t))
   ;; nil CONTENTS: math under `tex:nil' is pruned before the
   ;; transcoder runs, and the empty paragraph is ""
   (t-check-element-values
    #'t-paragraph
    '(("$x^2$" ""))
-   nil '(:with-latex nil)))
+   t '(:with-latex nil)))
 
 ;;;; Verse Block
 

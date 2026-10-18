@@ -3418,7 +3418,7 @@ renderer returns nil."
 ;; styles the figure, while `#+attr_html' is reserved for the image
 ;; element itself.
 
-(defsubst t--wrap-image (contents caption attrs)
+(defun t--wrap-image (contents caption attrs)
   "Wrap CONTENTS in a <figure> element for standalone images.
 
 CONTENTS is the image HTML.  CAPTION is the caption string (may be
@@ -3442,42 +3442,38 @@ a list item is rendered without a <p> tag; a standalone image is
 wrapped in <figure>."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (let* ((parent (org-element-parent paragraph))
-         (parent-type (org-element-type parent))
-         (attrs (t--make-attr__id* paragraph info t))
-         ;; Org hands us nil, not an empty string, when everything
-         ;; inside the paragraph was pruned.
-         (contents (or contents "")))
+  ;; Org hands us nil, not an empty string, when everything inside the
+  ;; paragraph was pruned.
+  (let ((contents (or contents "")))
     (cond
      (;; Item's first line.  Broader than ox-html's alone-or-sublist
-      ;; rule on purpose: a checkbox is emitted before the item contents,
-      ;; so wrapping the first paragraph in <p> would drop the box onto
-      ;; its own line.  The cost is that the next <p> becomes the <li>'s
-      ;; first element and loses its top margin (li > p:first-child).
+      ;; rule on purpose: a checkbox is emitted before the item
+      ;; contents, so wrapping the first paragraph in <p> would drop the
+      ;; box onto its own line.  The cost is that the next <p> becomes
+      ;; the <li>'s or <dd>'s first element and loses its top margin
+      ;; (li > p:first-child).
       ;; FIXME: splice the checkbox into the first <p> in the item
       ;; formatters and restore ox-html's condition, so multi-block
       ;; items keep their paragraph spacing.
-      (and (eq parent-type 'item)
-           ;; In a <dd> list item, the text immediately following "::"
-           ;; is not enclosed in a <p> tag.  If this part of the export
-           ;; lacks HTML elements, the next text block will become the
-           ;; first-child of the dd element, which has a margin-top of
-           ;; 0 by default CSS.  Not wrapping in <p> avoids that.
+      (and (eq (org-element-type (org-element-parent paragraph)) 'item)
            (not (org-export-get-previous-element paragraph info)))
-      (let ((c (t--trim contents)))
-        (if (string= attrs "") c
+      (let ((c (t--trim contents))
+            (attrs (t--make-attr__id* paragraph info t)))
+        (if (string-empty-p attrs) c
           (format "<span%s>%s</span>" attrs c))))
      (;; Standalone image.  Only `:attr__' applies to the figure here;
       ;; `:attr_html' is reserved for the image element itself (see
       ;; `org-w3ctr--link-attributes').
       (t-standalone-image-p paragraph info)
       (let* ((caption (org-export-get-caption paragraph))
-             (cap (or (and caption (org-export-data caption info)) "")))
+             (cap (if caption (org-export-data caption info) "")))
         (t--wrap-image contents cap (t--make-attr__id paragraph info t))))
      ;; Regular paragraph.
-     (t (let ((c (t--trim contents)))
-          (if (string= c "") ""
-            (format "<p%s>%s</p>" attrs c)))))))
+     (t
+      (let ((c (t--trim contents)))
+        (if (string-empty-p c) ""
+          (format "<p%s>%s</p>"
+                  (t--make-attr__id* paragraph info t) c)))))))
 
 ;;;; Verse Block
 
