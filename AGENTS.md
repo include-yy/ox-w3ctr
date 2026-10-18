@@ -124,9 +124,10 @@ In the shipped (cache) build the only skip is
 for measuring, not a configuration to maintain (it skips the cache-path
 tests and runs the plain-flavor test instead).
 
-Three tests read `ox-w3ctr.el` next to the loaded file and skip without
+Four tests read `ox-w3ctr.el` next to the loaded file and skip without
 it (`org-w3ctr--oinfo-props-are-looked-up`,
-`org-w3ctr--oinfo-props-go-through-pget`, `org-w3ctr--load-file`).
+`org-w3ctr--oinfo-props-go-through-pget`, `org-w3ctr--load-file`,
+`org-w3ctr-check-backend-transcoder-order`).
 `org-w3ctr--jstools-tokens-live` runs the real Node helper and skips
 without `node` or `jstools/node_modules`.
 

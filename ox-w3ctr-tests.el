@@ -7641,6 +7641,47 @@ that changes them fails here instead of corrupting a TOC silently."
     ;; An empty default means no dot.
     ($l (t--file-extension nil) "")))
 
+;;; Source structure
+
+(ert-deftest t-check-backend-transcoder-order ()
+  "The backend's transcoder order follows the source definition order.
+Static check; see the comments for what it does not catch."
+  ;; The alist of `org-export-define-backend' says "the pairs follow
+  ;; the order of their implementations below": this compares the two
+  ;; literally, for every transcoder in the backend, by the order of
+  ;; the def heads in the source file.  A reordering, a dropped entry,
+  ;; and a transcoder whose def is gone all fail the compare.  What it
+  ;; cannot see: a `;;;;' section header renamed, or a defun that
+  ;; moves to another section while keeping the file order.  Skipped
+  ;; when the source file is not next to the loaded build.
+  (let* ((build (symbol-file 't--pget 'defun))
+         (source (and build (concat (file-name-sans-extension build) ".el"))))
+    (skip-unless (and source (file-readable-p source)))
+    (let* ((alist (org-export-backend-transcoders
+                   (org-export-get-backend 'w3ctr)))
+           (fns (delq nil (mapcar #'cdr alist)))
+           ;; The source spells `org-w3ctr-foo' as `t-foo'; every def
+           ;; head in the file uses the shorthand.
+           (short (mapcar (lambda (fn)
+                            (concat "t-" (substring (symbol-name fn) 10)))
+                          fns))
+           ;; A def head at the start of a line: (defun NAME ...
+           (def-re (rx line-start (zero-or-more blank)
+                       "(" (or "defun" "defsubst"
+                               "define-inline" "defmacro")
+                       (one-or-more blank)
+                       (group (one-or-more (not (any " \t\n()"))))))
+           (defs (with-temp-buffer
+                   (insert-file-contents source)
+                   (goto-char (point-min))
+                   (let (acc)
+                     (while (re-search-forward def-re nil t)
+                       (push (match-string 1) acc))
+                     (nreverse acc))))
+           ;; The same transcoders, in the order the source defines them.
+           (expected (seq-filter (lambda (d) (member d short)) defs)))
+      (should (equal expected short)))))
+
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-") ("$" . "org-w3ctr:test-"))
 ;; coding: utf-8-unix
