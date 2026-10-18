@@ -180,8 +180,6 @@
     ;; Table
     (:html-table-use-header-tags-for-first-column
      nil nil t-table-use-header-tags-for-first-column)
-    ;; LaTeX
-    (:html-math-custom-render-function nil nil t-math-custom-render-function)
     ;; Timestamp
     (:html-timezone "HTML_TIMEZONE" nil t-timezone)
     (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
@@ -225,6 +223,7 @@
     (:with-latex nil "tex" t-with-latex)
     (:html-mathjax-config nil nil t-mathjax-config)
     (:html-math-head-function nil nil t-math-head-function)
+    (:html-math-custom-render-function nil nil t-math-custom-render-function)
     ;; <head>
     (:html-head "HTML_HEAD" nil t-head newline)
     (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
@@ -406,16 +405,6 @@ The cells use <th scope=\"row\"> instead of <td>."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
-
-;;;; LaTeX
-(defcustom t-math-custom-render-function
-  #'t-math-custom-default-render-function
-  "Function rendering a LaTeX fragment for the `custom' math mode.
-It is called with FRAG, a LaTeX string, and the INFO plist, and
-must return the HTML/MathML/SVG string for the fragment, or nil to
-emit nothing."
-  :group 'org-export-w3ctr
-  :type 'function)
 
 ;;;; Timestamp
 (defconst t-timezone-regex
@@ -924,6 +913,15 @@ https://docs.mathjax.org/en/latest/options/index.html"
 (defcustom t-math-head-function #'t-math-head-default-function
   "Function returning the math setup to insert into <head>.
 Called with the INFO plist; return a string (or nil)."
+  :group 'org-export-w3ctr
+  :type 'function)
+
+(defcustom t-math-custom-render-function
+  #'t-math-custom-default-render-function
+  "Function rendering a LaTeX fragment for the `custom' math mode.
+It is called with FRAG, a LaTeX string, and the INFO plist, and
+must return the HTML/MathML/SVG string for the fragment, or nil to
+emit nothing."
   :group 'org-export-w3ctr
   :type 'function)
 

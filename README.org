@@ -234,6 +234,65 @@ and how the pipeline works.
   known Headline/CC disorder), test-map (293 functions, 20 uncovered),
   corpus (57 documents, 0 errors).
 
+- *LaTeX / Math follow-ups.*
+  - =org-w3ctr--format-latex= has a =((or `nil `verbatim) frag)= branch
+    that no export ever reaches: =ox.el= prunes math nodes under
+    =:with-latex nil= (=org-export--skip-p=) and expands them into
+    plain text under =:with-latex 'verbatim=
+    (=org-export--remove-uninterpreted-data=) before the back-end
+    transcoders run; moreover, returning =frag= on =nil= contradicts
+    "drop the math" and returning unescaped =frag= on =verbatim=
+    diverges from =ox.el='s HTML-escaped plain-text path.
+  - Client-side =mathjax= mode emits =\(...\)= / =\[...\]= without HTML
+    escaping, so a raw =<= or =&= in TeX (e.g. =$a <b > c$=) can be
+    parsed as an HTML tag before MathJax runs; pass through
+    =org-w3ctr--encode-plain-text=.
+  - =org-w3ctr--latex-rpc= wraps =$...$= into =\(...\)= only for
+    =jstools/lib/math.js='s =unwrap= to regex-strip it back and infer
+    =display=, and =unwrap='s regex lacks =^...$= anchors (an inline
+    =\(...\)= inside a =\begin{equation}= environment matches the inner
+    span and drops the environment).  Anchor =unwrap= or pass
+    =(:tex ... :display ...)= explicitly.
+  - =org-w3ctr-latex-environment= ignores =#+name:= and
+    =#+attr__=/=#+attr_html= (the equation-link item below drops the
+    link path, after which a =#+name:= on an environment is dead
+    metadata: keep ignoring it or reject it).
+  - *Equation links: drop them (decided 2026-10-18).*  A link that
+    resolves to a =latex-environment= is broken in every mode, so the
+    back-end should stop pretending to support it.  Measured:
+    - =mathjax=/=t=: =org-w3ctr--link-equation= emits a dangling
+      =\eqref{...}= -- the back-end never injects the matching
+      =\label=, so MathJax renders "??"; with =prefer-user-labels=
+      off, =org-w3ctr--reference= falls back to a random =orgXXXXXXX=,
+      so even the label is wrong.
+    - =nil= / =verbatim=: =ox.el= prunes the element
+      (=org-export--skip-p=) or expands it into plain text
+      (=org-export--remove-uninterpreted-data=) before the transcoders
+      run, and a =#+name:=-carrying equation is gone before
+      =org-export-resolve-fuzzy-link=, so Org aborts with "Unable to
+      resolve link: NAME" -- the back-end never sees the link.
+    Supported instead (measured in all three modes): an explicit target
+    next to the equation (=<<eq>>= emits =<span id="eq">=), a
+    =#+name:= on a wrapping block (=<div id="eq" class="...">=), or
+    MathJax-native =\label{...}= plus =$\eqref{...}$= (mathjax mode
+    only; no Org link involved).
+    Change set: replace the =latex-environment= branch in
+    =org-w3ctr--link-dispatch= with a =t-error= carrying the source
+    line and the alternatives; delete =org-w3ctr--link-equation=;
+    delete =org-w3ctr-equation-reference-format= with its
+    =:html-equation-reference-format= option-alist entry, its
+    =org-w3ctr--oinfo-cache-props= key (the source-scanning test
+    iterates that list) and the Link section's option comment; turn the
+    =t--link-equation= test into an =org-w3ctr-error= assertion.
+    Open decisions: one rule for every =latex-environment=
+    (recommended) or math only; delete the option or keep it unread;
+    and let =org-w3ctr-latex-environment= keep ignoring =#+name:=
+    (not recommended: wrapping raw TeX in =<div id>= is presentation,
+    and =nil=/=verbatim= lose the target anyway).
+  - =org-w3ctr-mathjax-config= loads MathJax v3 from the CDN while
+    =jstools= uses MathJax v4 (and =output.font: 'mathjax-modern'= is a
+    v4 option); update the client config to v4.
+
 *** Tasks
 
 Small items, found while refining a function and usually finished in the
@@ -340,7 +399,8 @@ same session.  Larger or planned work is in the =TODO= list above.
   cross-file ID fragment is built from =t--link-path='s output instead of
   the raw path (=t--link-to-file=); =:html-link-home= /
   =:html-link-use-abs-url= are not implemented (=t--link-path=); and LaTeX
-  equation references only cover math environments under =mathjax=/=t=.
+  equation links are to be dropped -- see the *Equation links* item in
+  the =TODO= list.
   One more divergence has no marker: =.org.gpg= files are not rewritten to
   =.html= (=t--link-org-files-as-html=), though ox-html does rewrite them.
   =t--link-broken= looks unreachable (Org handles broken links before the
