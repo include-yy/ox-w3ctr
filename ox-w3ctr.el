@@ -3152,41 +3152,51 @@ contextual information."
 (defun t--eval-lisp (element value type context)
   "Read VALUE as Lisp according to TYPE and return a string.
 
-When VALUE is empty or whitespace-only, return \"\" without reading.
-Otherwise read one Lisp form from VALUE:
-- When TYPE is \\='eval, require `org-w3ctr-allow-eval' to be non-nil
-  (signaling before `read' when nil), evaluate the form with lexical
-  binding, and convert the result with `org-w3ctr--2str' (or \"\" when
-  nil).
-- When TYPE is \\='sexp, render the form as HTML with
+TYPE is `eval' or `sexp':
+- With `eval', require `org-w3ctr-allow-eval' to be non-nil
+  (signaling before `read' when nil), evaluate one form from VALUE with
+  lexical binding, and convert the result with `org-w3ctr--2str' (or
+  \"\" when nil).  The result string is inserted into the output raw,
+  never escaped.
+- With `sexp', render one form from VALUE as HTML with
   `org-w3ctr--sexp2html'.
 
-If evaluation is disabled, or reading, evaluation, or HTML rendering
-signals an error, signal `org-w3ctr-error' prefixed with CONTEXT and
-the line number of ELEMENT's `:begin' in the current buffer."
+Only the first Lisp form in VALUE is used; anything after it is
+ignored.  When VALUE is empty or whitespace-only, return \"\" without
+reading.
+
+Signal `org-w3ctr-error' for any TYPE other than `eval' and `sexp',
+and when the evaluation gate, reading, evaluation, or HTML rendering
+fails.  The message is prefixed with CONTEXT and the line number of
+ELEMENT's `:begin' in the current buffer."
   (declare (ftype (function (t string symbol string) string))
            (important-return-value t))
-  (if (not (t--nw-p value)) ""
-    (condition-case err
-        (pcase type
-          ('eval
-           (unless t-allow-eval
-             (t-error (concat "Lisp evaluation is disabled; "
-                              "set `org-w3ctr-allow-eval' to enable it")))
-           (or (t--2str (eval (read value) t)) ""))
-          ('sexp
-           (t--sexp2html (read value))))
-      (error
-       ;; A nested `org-w3ctr-error' (from the gate, `eval', or
-       ;; `org-w3ctr--sexp2html') has a clean message already; do not
-       ;; re-render it with its type name and quotes, as
-       ;; `error-message-string' would.
-       (t-error "%s at line %d: %s"
-                context
-                (line-number-at-pos (org-element-property :begin element))
-                (if (eq (car err) 't-error)
-                    (cadr err)
-                  (error-message-string err)))))))
+  (condition-case err
+      (progn
+        ;; TYPE is call-site code, not document input: reject an
+        ;; unknown one even when VALUE is blank.
+        (unless (memq type '(eval sexp))
+          (t-error "Unknown Lisp handling type: %S" type))
+        (if (not (t--nw-p value)) ""
+          (pcase type
+            ('eval
+             (unless t-allow-eval
+               (t-error (concat "Lisp evaluation is disabled; "
+                                "set `org-w3ctr-allow-eval' to enable it")))
+             (or (t--2str (eval (read value) t)) ""))
+            ('sexp
+             (t--sexp2html (read value))))))
+    (error
+     ;; A nested `org-w3ctr-error' (from the gate, `eval', or
+     ;; `org-w3ctr--sexp2html') has a clean message already; do not
+     ;; re-render it with its type name and quotes, as
+     ;; `error-message-string' would.
+     (t-error "%s at line %d: %s"
+              context
+              (line-number-at-pos (org-element-property :begin element))
+              (if (eq (car err) 't-error)
+                  (cadr err)
+                (error-message-string err))))))
 
 (defun t-export-block (export-block _contents _info)
   "Transcode an EXPORT-BLOCK element from Org to HTML.
@@ -3194,8 +3204,10 @@ the line number of ELEMENT's `:begin' in the current buffer."
 CONTENTS is nil.  INFO is the info plist.  Return the exported
 content as a string.  HTML is passed through raw; CSS and JS (or
 JAVASCRIPT) are wrapped in <style> and <script>; EMACS-LISP (or
-ELISP) and LISP-DATA are handled by `org-w3ctr--eval-lisp'.  Any
-other type belongs to another backend and yields \"\"."
+ELISP) and LISP-DATA are handled by `org-w3ctr--eval-lisp', which
+needs `org-w3ctr-allow-eval' for the eval flavor and may signal
+`org-w3ctr-error'.  Any other type belongs to another backend and
+yields \"\".  A missing :value is read as \"\"."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type export-block))

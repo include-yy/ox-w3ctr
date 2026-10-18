@@ -473,6 +473,19 @@ same session.  Larger or planned work is in the =TODO= list above.
   an explicit =CUSTOM_ID=, or the back-end derives a stable id -- see
   Non-goals.
 
+- *Docstring symbol quoting: the literal-apostrophe form where
+  backquote-apostrophe is meant.*  The elisp-docstring rules quote a Lisp
+  symbol as =`sym'=; a few docstrings write =\\='sym= instead, and the
+  help buffer shows ='sym.  Offenders:
+  =org-w3ctr--format-latex='s MODE values (verbatim, mathjax, custom),
+  =org-w3ctr--get-info-timezone-offset= /
+  =org-w3ctr--get-info-export-timezone-offset= (local),
+  =org-w3ctr--get-markup-format= (bold), and in the tests the =t-parse1=
+  harness docstring.  =org-w3ctr--eval-lisp= (TYPE values) was fixed in
+  the Lesser elements second pass; the rest sit in sections for later
+  passes -- fix per section.  The literal-apostrophe use around the
+  attribute example in =org-w3ctr--make-attr__= is correct and stays.
+
 - *Export blocks take no attributes or ids (deferred).*  Raw passthrough
   is the contract: a =#+name:= on an export block emits no anchor, so a
   link to it dangles (measured: =[[x]]= renders =<a href="#x">= with

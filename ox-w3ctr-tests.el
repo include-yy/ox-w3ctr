@@ -2689,7 +2689,7 @@ the `none' marker."
     (org-mode)
     (let ((el (t-parse1 'export-block))
           (t-allow-eval t))
-      ;; TYPE \\='eval reads, evals with lexical binding, and stringifies
+      ;; TYPE `eval' reads, evals with lexical binding, and stringifies
       ($l (t--eval-lisp el "(+ 1 2)" 'eval "CTX") "3")
       ($l (t--eval-lisp el "'sym" 'eval "CTX") "sym")
       ($l (t--eval-lisp
@@ -2699,9 +2699,12 @@ the `none' marker."
       ;; a result that is not a scalar is ""
       ($l (t--eval-lisp el "nil" 'eval "CTX") "")
       ($l (t--eval-lisp el "'(1 2)" 'eval "CTX") "")
-      ;; TYPE \\='sexp renders through org-w3ctr--sexp2html
+      ;; TYPE `sexp' renders through org-w3ctr--sexp2html
       ($l (t--eval-lisp el "(br)" 'sexp "CTX") "<br>")
       ($l (t--eval-lisp el "nil" 'sexp "CTX") "")
+      ;; only the first form in VALUE is used; trailing forms are ignored
+      ($l (t--eval-lisp el "(+ 1 2) (+ 3 4)" 'eval "CTX") "3")
+      ($l (t--eval-lisp el "(br) (br)" 'sexp "CTX") "<br>")
       ;; a blank VALUE yields "" without reading
       ($l (t--eval-lisp el "" 'eval "CTX") "")
       ($l (t--eval-lisp el "   " 'sexp "CTX") "")
@@ -2719,7 +2722,14 @@ the `none' marker."
             '(org-w3ctr-error "CTX at line 2: inner"))
       ($e!l (t--eval-lisp el "(123)" 'sexp "CTX")
             '(org-w3ctr-error
-              "CTX at line 2: Invalid S-expression tag: 123")))))
+              "CTX at line 2: Invalid S-expression tag: 123"))
+      ;; an unknown TYPE signals even when VALUE is blank
+      ($e!l (t--eval-lisp el "x" 'foo "CTX")
+            '(org-w3ctr-error
+              "CTX at line 2: Unknown Lisp handling type: foo"))
+      ($e!l (t--eval-lisp el "" 'foo "CTX")
+            '(org-w3ctr-error
+              "CTX at line 2: Unknown Lisp handling type: foo")))))
 
 (ert-deftest t--eval-lisp-eval-gate ()
   "Evaluation is off by default and behind `org-w3ctr-allow-eval'."
@@ -2805,6 +2815,9 @@ the `none' marker."
      t)
     ;; A synthetic element with nil `:value' falls back to "".
     ($l (t-export-block '(export-block (:type "HTML")) nil nil) "")
+    ;; A synthetic element must carry the parser-upcased `:type'; a
+    ;; lowercase one is not matched (the parser upcases in real documents).
+    ($l (t-export-block '(export-block (:type "html" :value "raw")) nil nil) "")
     ;; Error context labels for EMACS-LISP/ELISP and LISP-DATA blocks.
     ($e!l (org-export-string-as
            "#+begin_export emacs-lisp\n(broken\n#+end_export\n" 'w3ctr t)
