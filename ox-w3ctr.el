@@ -4611,46 +4611,19 @@ A nil LANG yields a plain `<code>' without a language class."
   (declare (ftype (function ((or null string) string) string))
            (pure t) (important-return-value t))
   (if lang
-      (format "<code class=\"src src-%s\">%s</code>" lang code)
+      (format "<code class=\"src src-%s\">%s</code>"
+              (t--encode-plain-text* lang) code)
     (format "<code>%s</code>" code)))
-
-(defun t--src-block-attrs (src-block info captioned)
-  "Return the attribute string for SRC-BLOCK, as \" ATTRS\" or \"\".
-INFO is the export plist.  Attributes come from `:attr__'
-\(`#+attr__:').  An `id' is added from the element reference (see
-`org-w3ctr--reference') unless the attributes already carry one.
-CAPTIONED non-nil prepends the default `example' class to the class
-list (class is written as a vector, e.g. `#+attr__: [foo]') and makes
-the reference unconditional.  A block that defines code references
-also always gets an id, so `[[(LABEL)]]' has a target (see
-`org-w3ctr--coderef-block')."
-  (declare (ftype (function (t list boolean) string))
-           (important-return-value t))
-  (let* ((reference (t--reference src-block info
-                                  (not (or captioned
-                                           (t--coderef-labels src-block)))))
-         (attributes (t--read-attr__ src-block)))
-    (when captioned
-      (let ((entry (or (assoc "class" attributes)
-                       (assoc 'class attributes))))
-        (if entry
-            (setcdr entry (list (concat "example " (cadr entry))))
-          (push (list "class" "example") attributes))))
-    (let ((a (t--make-attr__
-              (if (or (not reference)
-                      (seq-find (lambda (x) (eq 'id (car-safe x)))
-                                attributes))
-                  attributes
-                (cons `("id" ,reference) attributes)))))
-      (if (t--nw-p a) a ""))))
 
 (defun t-src-block (src-block _contents info)
   "Transcode a SRC-BLOCK element from Org to HTML.
 CONTENTS is nil.  INFO is a plist holding contextual information.
 
 A `:textarea' attribute yields a `<textarea>'; otherwise the code is
-wrapped in `<pre>', and a captioned block gets a `.example' `<div>'
-wrapper with a self-link and the caption in an unstyled `<span>'."
+wrapped in a `<div><pre>' pair, with the block's attributes and id on
+the `<div>'.  A captioned block adds a self-link and the caption in
+an unstyled `<span>', and its `<div>` carries class=\"example\"
+unless the author supplies attributes."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (cond
@@ -4659,22 +4632,29 @@ wrapper with a self-link and the caption in an unstyled `<span>'."
    ((org-element-property :caption src-block)
     (let* ((lang (org-element-property :language src-block))
            (code (t--src-code src-block lang info))
-           (id (t--reference src-block info))
+           (id (t--element-id src-block info))
+           (has-user-attrs (or (org-element-property :attr__ src-block)
+                               (org-element-property :attr_html src-block)))
            (caption (when-let* ((cap (org-export-get-caption src-block)))
                       (t--nw-trim (org-export-data cap info)))))
-      (format (concat "<div%s>\n"
+      (format (concat "<div%s%s>\n"
                       "<a class=\"self-link\" href=\"#%s\""
                       " aria-label=\"source block\"></a>\n"
                       "%s\n<pre>\n%s</pre></div>")
-              (t--src-block-attrs src-block info t)
-              id
+              ;; A captioned block always gets an id: the self-link needs one.
+              (t--make-attr__id* src-block info)
+              (if has-user-attrs "" " class=\"example\"")
+              (t--encode-plain-text* (format "%s" id))
               (if caption (format "<span>%s</span>" caption) "")
               (t--src-code-tag lang code))))
    (t
     (let* ((lang (org-element-property :language src-block))
            (code (t--src-code src-block lang info)))
-      (format "<pre%s>\n%s</pre>"
-              (t--src-block-attrs src-block info nil)
+      (format "<div%s>\n<pre>\n%s</pre></div>"
+              ;; A block that defines a code reference is a
+              ;; `[[(LABEL)]]' target, so it always gets an id.
+              (t--make-attr__id* src-block info
+                                 (not (t--coderef-labels src-block)))
               (t--src-code-tag lang code))))))
 
 (defun t-inline-src-block (inline-src-block _contents info)
@@ -4689,9 +4669,10 @@ here in a single `<code class=\"src-inline src-LANG\">' (no nesting)."
                 (org-element-property :value inline-src-block)
                 lang info inline-src-block))
          (label (if-let* ((lbl (t--reference inline-src-block info t)))
-                    (format " id=\"%s\"" lbl)
+                    (format " id=\"%s\"" (t--encode-plain-text* lbl))
                   "")))
-    (format "<code class=\"src-inline src-%s\"%s>%s</code>" lang label code)))
+    (format "<code class=\"src-inline src-%s\"%s>%s</code>"
+            (t--encode-plain-text* lang) label code)))
 
 ;;; Objects
 

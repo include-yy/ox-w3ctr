@@ -4457,35 +4457,17 @@ winner (or `signal') and the number of warnings."
   "Tests for `org-w3ctr--src-code-tag'."
   ($l (t--src-code-tag "emacs-lisp" "body")
       "<code class=\"src src-emacs-lisp\">body</code>")
-  ($l (t--src-code-tag nil "body") "<code>body</code>"))
-
-(ert-deftest t--src-block-attrs ()
-  "Tests for `org-w3ctr--src-block-attrs' (uncaptioned, deterministic)."
-  (t-check-element-values
-   #'t--src-block-attrs
-   '(("#+begin_src emacs-lisp\nx\n#+end_src" "")
-     ("#+attr__: [foo]\n#+begin_src emacs-lisp\nx\n#+end_src"
-      " class=\"foo\"")
-     ("#+name: nm\n#+begin_src emacs-lisp\nx\n#+end_src"
-      " id=\"nm\""))
-   nil '(:html-prefer-user-labels t)))
-
-(ert-deftest t--src-block-attrs-coderef-id ()
-  "A source block that defines a code reference always gets an id."
-  (let ((out (org-export-string-as
-              "#+begin_src text\nx (ref:sc)\n#+end_src" 'w3ctr t)))
-    (should (string-match-p "<pre id=\"org[0-9a-f]+\">" out)))
-  ;; Without a code reference there is no id.
-  (let ((out (org-export-string-as "#+begin_src text\nx\n#+end_src"
-                                   'w3ctr t)))
-    ($n (string-match-p "<pre id=" out))))
+  ($l (t--src-code-tag nil "body") "<code>body</code>")
+  ;; LANG comes from the block header and is escaped in the class.
+  ($l (t--src-code-tag "a\"b<c" "body")
+      "<code class=\"src src-a&quot;b&lt;c\">body</code>"))
 
 (ert-deftest t-src-block ()
   "Tests for `org-w3ctr-src-block'."
   (let ((out (org-export-string-as
               "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
               'w3ctr t)))
-    (should (string-match-p "<pre>\n<code class=\"src src-emacs-lisp\">" out)))
+    (should (string-match-p "<div>\n<pre>\n<code class=\"src src-emacs-lisp\">" out)))
   (let ((out (org-export-string-as
               "#+caption: C\n#+begin_src emacs-lisp\nx\n#+end_src"
               'w3ctr t)))
@@ -4496,6 +4478,51 @@ winner (or `signal') and the number of warnings."
               "#+attr_html: :textarea t\n#+begin_src emacs-lisp\nx\n#+end_src"
               'w3ctr t)))
     (should (string-match-p "<textarea" out)))
+  ;; Attributes come from `#+attr__', or `#+attr_html' when that is
+  ;; absent; `#+attr__' wins over `#+attr_html'.
+  (let ((out (org-export-string-as
+              "#+attr__: [foo]\n#+begin_src emacs-lisp\nx\n#+end_src"
+              'w3ctr t)))
+    (should (string-match-p "<div class=\"foo\">" out)))
+  (let ((out (org-export-string-as
+              "#+attr_html: :class foo\n#+begin_src emacs-lisp\nx\n#+end_src"
+              'w3ctr t)))
+    (should (string-match-p "<div class=\"foo\">" out)))
+  (let ((out (org-export-string-as
+              (concat "#+attr__: [foo]\n#+attr_html: :class bar\n"
+                      "#+begin_src emacs-lisp\nx\n#+end_src")
+              'w3ctr t)))
+    (should (string-match-p "<div class=\"foo\">" out)))
+  ;; A named block gets its id, captioned or not.
+  (let ((org-w3ctr-prefer-user-labels t))
+    (let ((out (org-export-string-as
+                "#+name: nm\n#+begin_src emacs-lisp\nx\n#+end_src" 'w3ctr t)))
+      (should (string-match-p "<div id=\"nm\">" out)))
+    (let ((out (org-export-string-as
+                (concat "#+name: nm\n#+caption: C\n"
+                        "#+begin_src emacs-lisp\nx\n#+end_src")
+                'w3ctr t)))
+      (should (string-match-p "<div id=\"nm\" class=\"example\">" out))))
+  ;; User attributes replace the default class on a captioned block, and
+  ;; the self-link follows the id the block actually emits.
+  (let ((org-w3ctr-prefer-user-labels t))
+    (let ((out (org-export-string-as
+                (concat "#+name: nm\n#+caption: C\n#+attr__: [foo]\n"
+                        "#+begin_src emacs-lisp\nx\n#+end_src")
+                'w3ctr t)))
+      (should (string-match-p "<div id=\"nm\" class=\"foo\">" out))
+      (should (string-match-p "<a class=\"self-link\" href=\"#nm\"" out)))
+    (let ((out (org-export-string-as
+                (concat "#+name: nm\n#+caption: C\n#+attr__: (id \"custom\")\n"
+                        "#+begin_src emacs-lisp\nx\n#+end_src")
+                'w3ctr t)))
+      (should (string-match-p "<div id=\"custom\">" out))
+      (should (string-match-p "<a class=\"self-link\" href=\"#custom\"" out)))
+    (let ((out (org-export-string-as
+                (concat "#+name: nm\n#+attr_html: :class foo\n"
+                        "#+begin_src emacs-lisp\nx\n#+end_src")
+                'w3ctr t)))
+      (should (string-match-p "<div class=\"foo\" id=\"nm\">" out))))
   ;; The per-file option reaches the transcoder through INFO.
   (let ((src "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"))
     (should (string-match-p "ef-k" (org-export-string-as src 'w3ctr t)))
@@ -4525,9 +4552,19 @@ winner (or `signal') and the number of warnings."
       ($l (org-export-string-as
            "#+begin_src nosuchlang\n<x>\n#+end_src" 'w3ctr t
            '(:html-fontify-unknown-language warn))
-          (concat "<pre>\n<code class=\"src src-nosuchlang\">&lt;x&gt;</code>"
-                  "</pre>\n<main>\n</main>\n")))
+          (concat "<div>\n<pre>\n<code class=\"src src-nosuchlang\">&lt;x&gt;</code>"
+                  "</pre></div>\n<main>\n</main>\n")))
     ($l warnings '("No fontify engine handles the nosuchlang code at line 1"))))
+
+(ert-deftest t-src-block-coderef-id ()
+  "A source block that defines a code reference always gets an id."
+  (let ((out (org-export-string-as
+              "#+begin_src text\nx (ref:sc)\n#+end_src" 'w3ctr t)))
+    (should (string-match-p "<div id=\"org[0-9a-f]+\">" out)))
+  ;; Without a code reference there is no id.
+  (let ((out (org-export-string-as "#+begin_src text\nx\n#+end_src"
+                                   'w3ctr t)))
+    ($n (string-match-p "<div id=" out))))
 
 (ert-deftest t-inline-src-block ()
   "Tests for `org-w3ctr-inline-src-block'."
@@ -4544,7 +4581,11 @@ winner (or `signal') and the number of warnings."
     ;; And so does a per-object :fontify header argument.
     ($n (string-match-p
          "ef-" (org-export-string-as
-                "src_emacs-lisp[:fontify nil]{(setq a \"b\")}" 'w3ctr t)))))
+                "src_emacs-lisp[:fontify nil]{(setq a \"b\")}" 'w3ctr t)))
+    ;; LANG is escaped: it comes from the inline header.
+    (let ((out (org-export-string-as "src_\"><img/src=x>{y}" 'w3ctr t)))
+      (should (string-match-p "src-&quot;&gt;&lt;img/src=x&gt;" out))
+      ($n (string-match-p "<img" out)))))
 
 ;;; Objects
 
