@@ -3324,7 +3324,7 @@ the identity renderer, which ignores INFO."
   frag)
 
 (defun t--normalize-latex (frag)
-  "Normalize the delimiters of LaTeX FRAG for client-side MathJax.
+  "Normalize the delimiters of LaTeX FRAG for MathJax.
 
 Inline `$...$' becomes `\\(...\\)' and display `$$...$$' becomes
 `\\[...\\]'.  A FRAG that is not exactly one of those forms is
@@ -3337,6 +3337,7 @@ returned unchanged, so this never signals and never drops text."
          (>= (length frag) 4))
     (concat "\\[" (substring frag 2 -2) "\\]"))
    ((and (not (string-prefix-p "$$" frag))
+         (not (string-suffix-p "$$" frag))
          (string-prefix-p "$" frag)
          (string-suffix-p "$" frag)
          (>= (length frag) 2))
@@ -3361,8 +3362,8 @@ delimiters, call the RPC, and return the string result; signal
   "Return the exported string for LaTeX fragment FRAG under MODE.
 
 MODE is the value of `:with-latex': nil and \\='verbatim return FRAG
-unchanged; `mathjax' (or t) normalizes its delimiters;
-`mathml-by-mathjax' and `svg-by-mathjax' convert it through the
+unchanged; \\='mathjax (or t) normalizes its delimiters;
+\\='mathml-by-mathjax and \\='svg-by-mathjax convert it through the
 jstools RPC; \\='custom calls `:html-math-custom-render-function'
 on FRAG and INFO, and the result may be a string or nil.  An
 unknown MODE or a custom result that is neither signals

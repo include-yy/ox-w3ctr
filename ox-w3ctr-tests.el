@@ -2969,7 +2969,7 @@ the `none' marker."
   ;; a string that is not exactly one of the two forms is returned
   ;; unchanged -- never signalled and never truncated (a lone $ is
   ;; legitimate text)
-  (dolist (s '("" "$" "$$" "$x" "$$x" "$$x$" "x$" "x$$"))
+  (dolist (s '("" "$" "$$" "$$$" "$x" "$$x" "$$x$" "$x$$" "x$" "x$$"))
     ($l (t--normalize-latex s) s)))
 
 (ert-deftest t--latex-rpc ()
@@ -3035,25 +3035,25 @@ the `none' marker."
   (t-check-element-values
    #'t-latex-fragment
    '(("$x^2$" "\\(x^2\\)"))
-   nil '(:with-latex mathjax))
+   t '(:with-latex mathjax))
   ;; under `tex:nil' ox.el prunes the fragment: no call at all
   (t-check-element-values
    #'t-latex-fragment
    '(("$x^2$"))
-   nil '(:with-latex nil))
+   t '(:with-latex nil))
   ;; the legacy t alias renders like mathjax end to end
   (t-check-element-values
    #'t-latex-fragment
    '(("$x^2$" "\\(x^2\\)"))
-   nil '(:with-latex t))
+   t '(:with-latex t))
   ;; `custom' reaches the renderer with the fragment and INFO, pinning
   ;; both the MODE and the INFO passthrough, which every other case
   ;; leaves unobserved
   (t-check-element-values
    #'t-latex-fragment
    '(("$x^2$" "<C>$x^2$</C>"))
-   nil (list :with-latex 'custom :html-math-custom-render-function
-             (lambda (f _i) (format "<C>%s</C>" f))))
+   t (list :with-latex 'custom :html-math-custom-render-function
+           (lambda (f _i) (format "<C>%s</C>" f))))
   ;; a nil :value (not parser-reachable) degrades to the empty string
   ($l (t-latex-fragment (org-element-create 'latex-fragment)
                         nil '(:with-latex mathjax))
@@ -3068,14 +3068,14 @@ the `none' marker."
      ;; the value keeps its content but loses common indentation
      ("  \\begin{equation}\n  x=1\n  \\end{equation}"
       "\\begin{equation}\nx=1\n\\end{equation}"))
-   nil '(:with-latex mathjax))
+   t '(:with-latex mathjax))
   ;; `custom' pins the MODE and INFO passthrough, as for the fragment
   (t-check-element-values
    #'t-latex-environment
    '(("\\begin{equation}\nx=1\n\\end{equation}"
       "<C>\\begin{equation}\nx=1\n\\end{equation}</C>"))
-   nil (list :with-latex 'custom :html-math-custom-render-function
-             (lambda (f _i) (format "<C>%s</C>" f))))
+   t (list :with-latex 'custom :html-math-custom-render-function
+           (lambda (f _i) (format "<C>%s</C>" f))))
   ;; a nil :value (not parser-reachable) degrades to the empty string
   ($l (t-latex-environment (org-element-create 'latex-environment)
                            nil '(:with-latex mathjax))
