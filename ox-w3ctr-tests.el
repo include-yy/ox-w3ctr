@@ -2905,8 +2905,16 @@ the `none' marker."
      (": <b>a & \"b\"</b>"
       "<pre>\n&lt;b&gt;a &amp; \"b\"&lt;/b&gt;\n</pre>")
      ;; a caption is dropped: fixed-width has no W3C caption home
-     ("#+caption: Cap\n: 1" "<pre>\n1\n</pre>"))
+     ("#+caption: Cap\n: 1" "<pre>\n1\n</pre>")
+     ;; a blank value keeps its spaces, id attached
+     ("#+name: t\n:  " "<pre id=\"t\"> </pre>"))
    t '(:html-prefer-user-labels t))
+  ;; Under the default options a NAME is not usable as an id, so the
+  ;; named-only call emits nothing (the fixture above opts in).
+  (t-check-element-values
+   #'t-fixed-width
+   '(("#+name: t\n: 1" "<pre>\n1\n</pre>"))
+   t)
   ;; A synthetic element with nil `:value' falls back to "".
   ($l (t-fixed-width '(fixed-width nil) nil nil) "<pre></pre>"))
 

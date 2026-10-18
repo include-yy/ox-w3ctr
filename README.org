@@ -502,6 +502,13 @@ same session.  Larger or planned work is in the =TODO= list above.
   nothing to land on; a random id with =org-w3ctr-prefer-user-labels=
   off).  Decided 2026-10 to leave it; the Link pass should know before
   touching element references.
+  Fixed-width blocks show the mirror case (measured 2026-10-18,
+  =scratch/_probes/lesser-fixed-width-probe2.el=): with named-only ids
+  and =org-w3ctr-prefer-user-labels= off, =[[t]]= to a =#+name: t=
+  block renders =<a href="#orgXXXX">= while the =<pre>= gets no id,
+  and an explicit =#+attr__: (id custom)= leaves the link pointing at
+  =orgXXXX= -- both dangle.  One anchor/consistency decision covers
+  all of it.
 
 - *Consider dropping the =:textarea= source-block form (lean: drop).*
   =org-w3ctr--textarea-block= keeps ox-html's =#+attr_html: :textarea=

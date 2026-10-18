@@ -3268,7 +3268,15 @@ yields \"\".  A missing :value is read as \"\"."
   "Transcode a FIXED-WIDTH element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<pre> element as a string, with the element's value HTML-escaped."
+<pre> element as a string.  A blank value is emitted as is; a
+non-blank one is wrapped in newlines and HTML-escaped with
+`org-w3ctr--encode-plain-text', which keeps quotes raw.
+
+Attributes come from `org-w3ctr--make-attr__id*' in its named-only
+mode: an anonymous block carries no id, never a random one, and a
+NAME or ID property becomes the id only under
+`org-w3ctr-prefer-user-labels'; an explicit :id wins.  A caption is
+dropped: a bare <pre> has no W3C caption home."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let ((value (or (org-element-property :value fixed-width) "")))
