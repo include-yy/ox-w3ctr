@@ -3562,7 +3562,8 @@ otherwise."
            (important-return-value t))
   (let ((regexp (t--coderef-regexp element))
         labels)
-    (dolist (line (split-string (org-element-property :value element) "\n"))
+    (dolist (line (split-string
+                   (or (org-element-property :value element) "") "\n"))
       (when (string-match regexp line)
         (push (match-string 3 line) labels)))
     (delete-dups (nreverse labels))))
@@ -3582,14 +3583,14 @@ export plist."
     info 'first-match))
 
 (defun t--element-id (element info)
-  "Return the id attribute that ELEMENT's transcoder writes.
+  "Return the id value that ELEMENT's transcoder writes, or nil.
 
 ELEMENT is an element whose transcoder adds an id from its
 reference, such as a `src-block' or an `example-block'.  An explicit
 id in `:attr__' or `:attr_html' wins over the generated reference,
 as in `org-w3ctr--make-attr__id' and
 `org-w3ctr--make-attr_html'.  INFO is the export plist."
-  (declare (ftype (function (t list) t))
+  (declare (ftype (function (t list) (or null string)))
            (important-return-value t))
   (if (org-element-property :attr__ element)
       (if-let* ((explicit (assoc 'id (t--read-attr__ element))))

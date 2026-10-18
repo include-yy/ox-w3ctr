@@ -3243,7 +3243,9 @@ the `none' marker."
         '("a"))
     ;; Source blocks are scanned the same way.
     ($l (f "#+begin_src text\nx (ref:sc)\n#+end_src" 'src-block)
-        '("sc"))))
+        '("sc")))
+  ;; A synthetic element with nil `:value' has no labels.
+  ($n (t--coderef-labels '(example-block nil))))
 
 (ert-deftest t--coderef-labels-format-isolation ()
   "One block's `-l' format does not leak into another block."
@@ -3280,15 +3282,21 @@ the `none' marker."
     ($q (org-element-type (t--coderef-block "b" info)) 'src-block)
     ;; A label no block defines has no block.
     ($n (t--coderef-block "nope" info)))
-  ;; The first block wins when two define the same label.
+  ;; The first block wins when two define the same label, and blocks
+  ;; in `:ignore-list' are skipped.
   (let* ((tree (with-temp-buffer
                  (insert ($c "#+begin_example\nx (ref:d)\n#+end_example\n"
                              "#+begin_example\ny (ref:d)\n#+end_example\n"))
                  (org-mode)
                  (org-element-parse-buffer)))
-         (info (list :parse-tree tree)))
-    ($l (org-element-property :value (t--coderef-block "d" info))
-        "x (ref:d)\n")))
+         (first (car (org-element-map tree 'example-block #'identity))))
+    ($l (org-element-property :value
+                              (t--coderef-block "d" (list :parse-tree tree)))
+        "x (ref:d)\n")
+    ($l (org-element-property
+         :value (t--coderef-block
+                 "d" (list :parse-tree tree :ignore-list (list first))))
+        "y (ref:d)\n")))
 
 (ert-deftest t--element-id ()
   "Tests for `org-w3ctr--element-id'."
@@ -3299,20 +3307,35 @@ the `none' marker."
                         'example-block)
          info)
         "nm")
-    ;; An explicit id in `:attr__' wins over the reference.
+    ;; An explicit id in `:attr__' wins over the reference...
     ($l (t--element-id
          (t-get-element ($c "#+name: nm\n#+attr__: (id custom)\n"
                             "#+begin_example\nx\n#+end_example")
                         'example-block)
          info)
         "custom")
-    ;; ... and so does one in `:attr_html'.
+    ;; ... while `:attr__' without `(id ...)' falls back to the
+    ;; reference and still shadows `:attr_html'.
+    ($l (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr__: [foo]\n"
+                            "#+attr_html: :id ignored\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info)
+        "nm")
+    ;; An explicit `:id' in `:attr_html' wins over the reference, and a
+    ;; nil `:id' suppresses it.
     ($l (t--element-id
          (t-get-element ($c "#+name: nm\n#+attr_html: :id custom\n"
                             "#+begin_example\nx\n#+end_example")
                         'example-block)
          info)
-        "custom"))
+        "custom")
+    ($n (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr_html: :id\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info)))
   ;; Without a name the reference is generated.
   (should (string-match-p
            "\\`org[0-9a-f]\\{7\\}\\'"
