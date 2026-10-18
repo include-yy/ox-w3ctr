@@ -7590,4 +7590,6 @@ that changes them fails here instead of corrupting a TOC silently."
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-") ("$" . "org-w3ctr:test-"))
 ;; coding: utf-8-unix
+;; indent-tabs-mode: nil
+;; fill-column: 72
 ;; End:

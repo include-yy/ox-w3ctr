@@ -7489,4 +7489,6 @@ directory.  Return the output file name."
 ;; Local variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-"))
 ;; coding: utf-8-unix
+;; indent-tabs-mode: nil
+;; fill-column: 72
 ;; End:
