@@ -3289,13 +3289,20 @@ dropped: a bare <pre> has no W3C caption home."
 
 ;; See (info "(org) Horizontal Rules")
 ;; Unlike ox-html, the element honors `#+attr__'/`#+attr_html' and
-;; `#+name:'.
+;; `#+name:' (the name becomes the id only under
+;; `org-w3ctr-prefer-user-labels').
 
 (defun t-horizontal-rule (horizontal-rule _contents info)
   "Transcode a HORIZONTAL-RULE element from Org to HTML.
 
-CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<hr> element as a string."
+CONTENTS is nil.  INFO is the info plist.  Return the void <hr>
+element as a string; it has no closing tag.
+
+Attributes come from `org-w3ctr--make-attr__id*' in its named-only
+mode: an anonymous rule carries no id, never a random one, and a
+NAME or ID property becomes the id only under
+`org-w3ctr-prefer-user-labels'; an explicit :id wins.  A caption is
+dropped: the rule has no caption home."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (t--void-element "hr" (t--make-attr__id* horizontal-rule info t)))

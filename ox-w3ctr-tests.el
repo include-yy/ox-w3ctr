@@ -2933,7 +2933,15 @@ the `none' marker."
      ("#+name: nm\n-----" "<hr id=\"nm\">")
      ;; a caption is dropped: the rule has no caption home
      ("#+caption: Cap\n-----" "<hr>"))
-   t '(:html-prefer-user-labels t)))
+   t '(:html-prefer-user-labels t))
+  ;; Under the default options a NAME is not usable as an id, so the
+  ;; named-only call emits nothing (the fixture above opts in).
+  (t-check-element-values
+   #'t-horizontal-rule
+   '(("#+name: nm\n-----" "<hr>"))
+   t)
+  ;; A synthetic element with no properties yields the bare void tag.
+  ($l (t-horizontal-rule '(horizontal-rule nil) nil nil) "<hr>"))
 
 ;;;; Keyword
 
