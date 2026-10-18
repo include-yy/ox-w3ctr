@@ -221,6 +221,19 @@ and how the pipeline works.
   (key -> format string or function) consulted after the built-in
   branches, with a test for mapped/unmapped/built-in precedence.
 
+- *Second check of the Lesser elements (after v0.2.19).*  The whole
+  part was reviewed function by function, then edited by the coderef,
+  caption, eval-gate and source-block passes and reordered (code
+  references and example moved before the fontify pipeline).  Re-read it
+  as one unit: docstrings, `declare' (ftype, important-return-value,
+  pure), `t--pget'/`t--pput', `t-error', tests (coverage, section order,
+  mutations), no stale REFINE/FIXME, and the backend transcoder /
+  options / defcustom order matching the new source order.  Another
+  model does the first read, then pi goes over its findings.  Shared
+  gate: 320 ERT tests, strict compile, checkdoc, order-check (only the
+  known Headline/CC disorder), test-map (293 functions, 20 uncovered),
+  corpus (57 documents, 0 errors).
+
 *** Tasks
 
 Small items, found while refining a function and usually finished in the
