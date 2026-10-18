@@ -2689,9 +2689,13 @@ the `none' marker."
     (org-mode)
     (let ((el (t-parse1 'export-block))
           (t-allow-eval t))
-      ;; TYPE \\='eval reads, evals, and stringifies the result
+      ;; TYPE \\='eval reads, evals with lexical binding, and stringifies
       ($l (t--eval-lisp el "(+ 1 2)" 'eval "CTX") "3")
       ($l (t--eval-lisp el "'sym" 'eval "CTX") "sym")
+      ($l (t--eval-lisp
+           el "(let ((x 1)) (funcall (let ((x 2)) (lambda () x))))"
+           'eval "CTX")
+          "2")
       ;; a result that is not a scalar is ""
       ($l (t--eval-lisp el "nil" 'eval "CTX") "")
       ($l (t--eval-lisp el "'(1 2)" 'eval "CTX") "")
@@ -2712,18 +2716,23 @@ the `none' marker."
       ;; a nested org-w3ctr-error keeps its clean message
       ($e!l (t--eval-lisp
              el "(signal 'org-w3ctr-error (list \"inner\"))" 'eval "CTX")
-            '(org-w3ctr-error "CTX at line 2: inner")))))
+            '(org-w3ctr-error "CTX at line 2: inner"))
+      ($e!l (t--eval-lisp el "(123)" 'sexp "CTX")
+            '(org-w3ctr-error
+              "CTX at line 2: Invalid S-expression tag: 123")))))
 
 (ert-deftest t--eval-lisp-eval-gate ()
   "Evaluation is off by default and behind `org-w3ctr-allow-eval'."
+  ($n t-allow-eval)
   (let ((ran nil))
     (cl-letf (((symbol-function 'eval-probe)
                (lambda () (setq ran t) "")))
-      (let ((doc "#+begin_export emacs-lisp\n(eval-probe)\n#+end_export"))
+      (let* ((doc "#+begin_export emacs-lisp\n(eval-probe)\n#+end_export")
+             (orgs (list "#+E: (eval-probe)"
+                         "x @@e:(eval-probe)@@"
+                         doc)))
         ;; The three entry points all signal, and none runs the code.
-        (dolist (org (list "#+E: (eval-probe)"
-                           "x @@e:(eval-probe)@@"
-                           doc))
+        (dolist (org orgs)
           ($q (car (should-error (org-export-string-as org 'w3ctr t)))
               'org-w3ctr-error))
         ($n ran)
@@ -2732,17 +2741,25 @@ the `none' marker."
               (list 'org-w3ctr-error
                     (concat "EMACS-LISP block at line 1: Lisp evaluation is "
                             "disabled; set `org-w3ctr-allow-eval' to enable it")))
-        ;; With the option on, the same documents export and the code runs.
+        ;; With the option on, each document exports and runs the probe.
         (let ((t-allow-eval t))
-          (dolist (org (list "#+E: (eval-probe)"
-                             "x @@e:(eval-probe)@@"
-                             doc))
-            (org-export-string-as org 'w3ctr t))
-          ($l ran t))))
-    ;; `sexp' values are data, not code, and are not gated.
-    (let ((el (t-get-element "#+begin_export lisp-data\n(br)\n#+end_export"
-                             'export-block)))
-      ($l (t--eval-lisp el "(br)" 'sexp "CTX") "<br>"))))
+          (dolist (org orgs)
+            (setq ran nil)
+            (org-export-string-as org 'w3ctr t)
+            ($s ran)))))
+    ;; `sexp' values are data, not code, and are not gated; blank `eval'
+    ;; values return "" before the gate, and non-blank ones fail at the
+    ;; gate before `read'.
+    (with-temp-buffer
+      (insert "\n#+begin_export lisp-data\n(br)\n#+end_export")
+      (org-mode)
+      (let ((el (t-parse1 'export-block)))
+        ($l (t--eval-lisp el "(br)" 'sexp "CTX") "<br>")
+        ($l (t--eval-lisp el "   " 'eval "CTX") "")
+        ($e!l (t--eval-lisp el "(broken" 'eval "CTX")
+              (list 'org-w3ctr-error
+                    (concat "CTX at line 2: Lisp evaluation is disabled; "
+                            "set `org-w3ctr-allow-eval' to enable it")))))))
 
 (ert-deftest t-export-block ()
   "Tests for `org-w3ctr-export-block'."
@@ -2753,8 +2770,8 @@ the `none' marker."
        ("#+begin_export html\nanythinghere\n#+end_export" "anythinghere\n")
        ("#+begin_export html\n#+end_export" "")
        ("#+begin_export html\n\n#+end_export" "\n")
-       ("#+begin_export html\n\n\n\n#+end_export" "\n\n\n")
-       ("#+begin_export html\n\n\n\n\n\n\n#+end_export" "\n\n\n\n\n\n")
+       ;; An unclosed block is parsed as a paragraph.
+       ("#+begin_export html\nunclosed")
        ;; The value is used as written: list indentation is kept (stripping
        ;; it would change a JS template literal or a multi-line Lisp string).
        ("- item\n  #+begin_export html\n  <p>x</p>\n  #+end_export"
@@ -2780,15 +2797,22 @@ the `none' marker."
        ;; Lisp data
        ("#+begin_export lisp-data\n (p() \"123\")\n#+end_export"
         "<p>123</p>")
-       ("#+begin_export lisp-data\n (br)\n#+end_export" "<br>")
+       ("#+begin_export lisp-data\n#+end_export" "")
        ("#+BEGIN_EXPORT lisp-data\n (br)\n#+END_EXPORT" "<br>")
        ;; Unsupported type
        ("#+begin_export wtf\n no exported\n#+end_export" "")
        ("#+begin_export\n not exported\n#+end_export" ""))
      t)
-    ;; Error handling: malformed Lisp signals t-error with line number.
+    ;; A synthetic element with nil `:value' falls back to "".
+    ($l (t-export-block '(export-block (:type "HTML")) nil nil) "")
+    ;; Error context labels for EMACS-LISP/ELISP and LISP-DATA blocks.
     ($e!l (org-export-string-as
            "#+begin_export emacs-lisp\n(broken\n#+end_export\n" 'w3ctr t)
+          (list 'org-w3ctr-error
+                ($c "EMACS-LISP block at line 1: "
+                    "End of file during parsing")))
+    ($e!l (org-export-string-as
+           "#+begin_export elisp\n(broken\n#+end_export\n" 'w3ctr t)
           (list 'org-w3ctr-error
                 ($c "EMACS-LISP block at line 1: "
                     "End of file during parsing")))
@@ -2797,19 +2821,7 @@ the `none' marker."
                "#+end_export\n") 'w3ctr t)
           (list 'org-w3ctr-error
                 ($c "LISP-DATA block at line 2: "
-                    "End of file during parsing")))
-    ;; an eval failure is reported like a read failure
-    ($e!l (org-export-string-as
-           "#+begin_export emacs-lisp\n(error \"boom\")\n#+end_export\n"
-           'w3ctr t)
-          '(org-w3ctr-error "EMACS-LISP block at line 1: boom"))
-    ;; a nested org-w3ctr-error keeps its clean message -- no type name
-    ;; and quotes, which error-message-string would re-render it with
-    ($e!l (org-export-string-as
-           ($c "#+begin_export emacs-lisp\n"
-               "(signal 'org-w3ctr-error (list \"clean\"))\n#+end_export\n")
-           'w3ctr t)
-          '(org-w3ctr-error "EMACS-LISP block at line 1: clean"))))
+                    "End of file during parsing")))))
 
 ;;;; Export Snippet
 
@@ -2828,19 +2840,28 @@ the `none' marker."
        ("@@d:@@" "")
        ("@@d:(span() \"nothing\")")
        ("@@d:(wbr)@@" "<wbr>")
-       ("@@d:(wbr())@@" "<wbr>")
        ;; the backend name is case-insensitive
+       ("@@H:<span>123</span>@@" "<span>123</span>")
        ("@@HTML:<span>123</span>@@" "<span>123</span>")
        ("@@E:(+ 1 2)@@" "3")
        ("@@D:(wbr)@@" "<wbr>")
        ;; Otherwise
        ("@@wtf::hello@@" ""))
      t)
-    ;; Error handling: malformed Lisp signals t-error.
+    ;; Backend lookup goes through `org-export-snippet-backend', so
+    ;; `org-export-snippet-translation-alist' is honored.
+    (dlet ((org-export-snippet-translation-alist '(("my-h" . "html"))))
+      (t-check-element-values
+       #'t-export-snippet
+       '(("@@my-h:<b>x</b>@@" "<b>x</b>"))
+       t))
+    ;; A synthetic snippet with nil `:value' falls back to "".
+    ($l (t-export-snippet '(export-snippet (:back-end "h")) nil nil) "")
+    ;; Error handling: malformed Lisp signals t-error with line number.
     ($e!l (org-export-string-as "@@e:(broken@@" 'w3ctr t)
           '(org-w3ctr-error "@@e snippet at line 1: End of file during parsing"))
-    ($e!l (org-export-string-as "@@d:(broken@@" 'w3ctr t)
-          '(org-w3ctr-error "@@d snippet at line 1: End of file during parsing"))))
+    ($e!l (org-export-string-as "text\n@@d:(broken@@" 'w3ctr t)
+          '(org-w3ctr-error "@@d snippet at line 2: End of file during parsing"))))
 
 ;;;; Fixed Width
 

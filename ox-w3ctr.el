@@ -3141,62 +3141,63 @@ contextual information."
 ;;;; Export Block
 
 ;; See (info "(org) Quoting HTML tags")
-;; The parser upcases the type.  HTML is raw passthrough; CSS and JS are
-;; wrapped in <style>/<script>; EMACS-LISP and LISP-DATA are evaluated
-;; when `org-w3ctr-allow-eval' is non-nil (the value is code, not data,
-;; so a document can run arbitrary Lisp at export time).  Other types
-;; belong to another backend and yield "".
+;; The parser upcases `:type' and keeps `:value' as written, list
+;; indentation included (stripping common indentation would alter a JS
+;; template literal or a multi-line Lisp string).
 ;;
-;; The value is emitted as written, indentation included: stripping the
-;; common indentation would change a JS template literal or a multi-line
-;; Lisp string.
+;; `org-w3ctr--eval-lisp' backs all six Lisp-in-Org entry points:
+;; EMACS-LISP/ELISP and LISP-DATA blocks here, @@e:/@@d: snippets, and
+;; #+E:/#+D: keywords.  The `eval' forms run arbitrary code at export
+;; time and require `org-w3ctr-allow-eval'; the `sexp' forms only
+;; render S-expression data as HTML via `org-w3ctr--sexp2html'.
 
 (defun t--eval-lisp (element value type context)
-  "Read VALUE as Lisp and return the result as a string.
+  "Read VALUE as Lisp according to TYPE and return a string.
 
-TYPE is \\='eval to read, eval, and convert via `org-w3ctr--2str',
-or \\='sexp to read and convert via `org-w3ctr--sexp2html'.  An
-empty or whitespace-only VALUE yields \"\".  Evaluation requires
-`org-w3ctr-allow-eval'; when it is nil, a non-blank \\='eval call
-signals before the value is read.  Signal `org-w3ctr-error' with the
-line number from ELEMENT on read or eval failure; CONTEXT labels the
-error message."
+When VALUE is empty or whitespace-only, return \"\" without reading.
+Otherwise read one Lisp form from VALUE:
+- When TYPE is \\='eval, require `org-w3ctr-allow-eval' to be non-nil
+  (signaling before `read' when nil), evaluate the form with lexical
+  binding, and convert the result with `org-w3ctr--2str' (or \"\" when
+  nil).
+- When TYPE is \\='sexp, render the form as HTML with
+  `org-w3ctr--sexp2html'.
+
+If evaluation is disabled, or reading, evaluation, or HTML rendering
+signals an error, signal `org-w3ctr-error' prefixed with CONTEXT and
+the line number of ELEMENT's `:begin' in the current buffer."
   (declare (ftype (function (t string symbol string) string))
            (important-return-value t))
-  (if-let* ((s (t--nw-p value)))
-      (let* ((line (line-number-at-pos
-                    (org-element-property :begin element)))
-             (report (lambda (err)
-                       ;; A nested `org-w3ctr-error' has a clean message
-                       ;; already; do not re-render it with its type name
-                       ;; and quotes, as `error-message-string' would.
-                       (t-error "%s at line %d: %s"
-                                context line
-                                (if (eq (car err) 't-error)
-                                    (cadr err)
-                                  (error-message-string err))))))
-        ;; The gate stays outside `handler-bind': its own message
-        ;; already carries the context and line, so re-wrapping it
-        ;; would repeat them.
-        (when (and (eq type 'eval) (not t-allow-eval))
-          (t-error (concat "%s at line %d: Lisp evaluation is disabled; "
-                           "set `org-w3ctr-allow-eval' to enable it")
-                   context line))
-        (handler-bind ((error report))
-          (let ((data (read s)))
-            (if (eq type 'eval)
-                (or (t--2str (eval data t)) "")
-              (t--sexp2html data)))))
-    ""))
+  (if (not (t--nw-p value)) ""
+    (condition-case err
+        (pcase type
+          ('eval
+           (unless t-allow-eval
+             (t-error (concat "Lisp evaluation is disabled; "
+                              "set `org-w3ctr-allow-eval' to enable it")))
+           (or (t--2str (eval (read value) t)) ""))
+          ('sexp
+           (t--sexp2html (read value))))
+      (error
+       ;; A nested `org-w3ctr-error' (from the gate, `eval', or
+       ;; `org-w3ctr--sexp2html') has a clean message already; do not
+       ;; re-render it with its type name and quotes, as
+       ;; `error-message-string' would.
+       (t-error "%s at line %d: %s"
+                context
+                (line-number-at-pos (org-element-property :begin element))
+                (if (eq (car err) 't-error)
+                    (cadr err)
+                  (error-message-string err)))))))
 
 (defun t-export-block (export-block _contents _info)
   "Transcode an EXPORT-BLOCK element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the exported
-content as a string.  HTML is passed through raw; CSS and JS are
-wrapped in <style> and <script>; EMACS-LISP and LISP-DATA are
-evaluated through `org-w3ctr--eval-lisp'.  Any other type belongs to
-another backend and yields \"\"."
+content as a string.  HTML is passed through raw; CSS and JS (or
+JAVASCRIPT) are wrapped in <style> and <script>; EMACS-LISP (or
+ELISP) and LISP-DATA are handled by `org-w3ctr--eval-lisp'.  Any
+other type belongs to another backend and yields \"\"."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type export-block))
@@ -3215,10 +3216,10 @@ another backend and yields \"\"."
 ;;;; Export Snippet
 
 ;; See (info "(org) Quoting HTML tags")
-;; Only @@html: is standard Org syntax; @@e: and @@d: are ox-w3ctr
-;; extensions mirroring the #+E and #+D keywords.  @@e: evaluates its
-;; value, so an export runs code; it is disabled unless
-;; `org-w3ctr-allow-eval' is non-nil.
+;; Only @@html: is standard Org syntax; @@h: (shorthand for @@html:),
+;; @@e:, and @@d: are ox-w3ctr extensions mirroring the #+H, #+E, and
+;; #+D keywords.  @@e: evaluates its value as Lisp and requires
+;; `org-w3ctr-allow-eval'.
 
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
