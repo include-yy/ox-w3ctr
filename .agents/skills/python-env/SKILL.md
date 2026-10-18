@@ -30,8 +30,8 @@ Install `uv` with `pip install uv`.
    lists it (add `.venv/` if missing).
 
 2. **Install and pin** dependencies, if any.  The repo currently has
-   no third-party Python dependencies (`requirements.txt` is empty);
-   when one appears, install it and freeze:
+   no third-party Python dependencies and no `requirements.txt`; when
+   one appears, install it and create the file by freezing:
 
    ```bash
    uv pip install LIB                 # or: .venv/Scripts/python.exe -m pip install LIB

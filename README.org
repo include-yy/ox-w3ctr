@@ -499,7 +499,8 @@ finishes in seconds.
   before every command, including the env-detect probe, which must see
   the *system* Python.  Keep the venv opt-in per task.
 - Machine facts live in =.agents/env.md= (gitignored); project facts
-  (the venv, its deps) live in =AGENTS.md= and =requirements.txt=.
+  (the venv, its deps) live in =AGENTS.md=, with deps pinned in
+  =requirements.txt= when any exist.
 
 *** env-detect: facts, fallbacks, and never overwriting a choice
 

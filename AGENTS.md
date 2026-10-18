@@ -53,12 +53,14 @@ the mismatch and let the user decide, rather than overwriting silently.
 Only the env-detect skill writes `.agents/env.md`; a skill that changes
 the environment (python-env) re-runs it instead of editing the file.
 Project-level facts (a venv, its dependencies) live in project files
-(`requirements.txt`, AGENTS.md), never in env.md.
+(`AGENTS.md`, plus `requirements.txt` when dependencies exist), never
+in env.md.
 
 Python commands run against the project venv, never the system
 interpreter — the system Python is reserved for the env-detect probe.
-The venv is a project fact: the python-env skill creates it and
-`requirements.txt` records its deps (currently none).  Find the venv
+The venv is a project fact: the python-env skill creates it.  There
+are currently no Python dependencies; when one appears it is pinned in
+`requirements.txt`, which the skill creates on demand.  Find the venv
 python at `.venv/Scripts/python.exe` (Windows) or `.venv/bin/python`
 (POSIX).
 
