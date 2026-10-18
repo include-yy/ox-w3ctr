@@ -117,8 +117,8 @@
     (keyword . t-keyword)                       ; #+name: ...
     (latex-fragment . t-latex-fragment)         ; \(, \[ (an object)
     (latex-environment . t-latex-environment)   ; \begin
-    (paragraph . t-paragraph)                   ; \n ... \n
     (verse-block . t-verse-block)               ; #+begin_verse
+    (paragraph . t-paragraph)                   ; \n ... \n
     (example-block . t-example-block)           ; #+begin_example
     (src-block . t-src-block)                   ; #+begin_src lang
     (inline-src-block . t-inline-src-block)     ; src_LANG{body} (an object)
@@ -3414,6 +3414,31 @@ nothing."
     (or (org-element-property :value latex-environment) ""))
    (t--pget info :with-latex) info))
 
+;;;; Verse Block
+
+;; See (info "(org)Paragraphs")
+;; No `class="verse"' (ox-html hardcodes one): the W3C stylesheet
+;; defines no `.verse' rule, so it would be a dead class; set
+;; `#+attr__:' when a styling hook is wanted.
+(defun t-verse-block (verse-block contents info)
+  "Transcode a VERSE-BLOCK element from Org to HTML.
+
+CONTENTS is the verse block contents, or nil for an empty block.
+INFO is the info plist.  Return the formatted <p> element as a
+string.  Leading whitespace is converted to non-breaking spaces;
+newlines become <br>."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (format
+   "<p%s>\n%s</p>"
+   (t--make-attr__id* verse-block info t)
+   (replace-regexp-in-string
+    "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
+    ;; An explicit `\\' line break is already `<br>\n'; absorb the
+    ;; `<br>' so the newline does not add a second one.
+    (replace-regexp-in-string
+     "\\(?:<br>\\)?[ \t]*\n" "<br>\n" (or contents "")))))
+
 ;;;; Paragraph
 
 ;; See (info "(org) Paragraphs")
@@ -3479,31 +3504,6 @@ wrapped in <figure>."
         (if (string-empty-p c) ""
           (format "<p%s>%s</p>"
                   (t--make-attr__id* paragraph info t) c)))))))
-
-;;;; Verse Block
-
-;; See (info "(org)Paragraphs")
-;; No `class="verse"' (ox-html hardcodes one): the W3C stylesheet
-;; defines no `.verse' rule, so it would be a dead class; set
-;; `#+attr__:' when a styling hook is wanted.
-(defun t-verse-block (verse-block contents info)
-  "Transcode a VERSE-BLOCK element from Org to HTML.
-
-CONTENTS is the verse block contents, or nil for an empty block.
-INFO is the info plist.  Return the formatted <p> element as a
-string.  Leading whitespace is converted to non-breaking spaces;
-newlines become <br>."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (format
-   "<p%s>\n%s</p>"
-   (t--make-attr__id* verse-block info t)
-   (replace-regexp-in-string
-    "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
-    ;; An explicit `\\' line break is already `<br>\n'; absorb the
-    ;; `<br>' so the newline does not add a second one.
-    (replace-regexp-in-string
-     "\\(?:<br>\\)?[ \t]*\n" "<br>\n" (or contents "")))))
 
 ;;;; Code references
 
