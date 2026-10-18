@@ -3246,40 +3246,32 @@ evaluates the value as Lisp; `d' renders it as an S-expression (see
 ;; value is emitted as parsed: the parser already removed the `:'
 ;; marker and the block indentation, so any remaining leading spaces are
 ;; content.  ox-html strips the content's common indentation; this
-;; back-end keeps it.  A `#+caption:' is dropped -- fixed-width has no
-;; W3C caption container.
+;; back-end keeps it.
 
 (defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<pre> element as a string.  The value is HTML-escaped and emitted as
-parsed: a non-blank value is wrapped in a leading and trailing
-newline inside the <pre>, a blank one is used as is.  A
-`#+caption:' is dropped."
+<pre> element as a string, with the element's value HTML-escaped."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
-  (format "<pre%s>%s</pre>"
-          (t--make-attr__id* fixed-width info t)
-          (let ((value (t--encode-plain-text
-                        (or (org-element-property :value fixed-width) ""))))
+  (let ((value (or (org-element-property :value fixed-width) "")))
+    (format "<pre%s>%s</pre>"
+            (t--make-attr__id* fixed-width info t)
             (if (not (t--nw-p value)) value
-              (concat "\n" value "\n")))))
+              (concat "\n" (t--encode-plain-text value) "\n")))))
 
 ;;;; Horizontal Rule
 
 ;; See (info "(org) Horizontal Rules")
 ;; Unlike ox-html, the element honors `#+attr__'/`#+attr_html' and
-;; `#+name:' (the id follows `org-w3ctr-prefer-user-labels').  A
-;; `#+caption:' is dropped.
+;; `#+name:'.
 
 (defun t-horizontal-rule (horizontal-rule _contents info)
   "Transcode a HORIZONTAL-RULE element from Org to HTML.
 
-CONTENTS is nil.  INFO is the info plist.  Return the <hr> element
-as a string.  Attributes come from `#+attr__' or `#+attr_html', and
-a `#+name:' becomes its id when user labels are preferred.  A
-`#+caption:' is dropped."
+CONTENTS is nil.  INFO is the info plist.  Return the formatted
+<hr> element as a string."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (t--void-element "hr" (t--make-attr__id* horizontal-rule info t)))

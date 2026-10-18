@@ -2869,7 +2869,11 @@ the `none' marker."
   "Tests for `org-w3ctr-fixed-width'."
   (t-check-element-values
    #'t-fixed-width
-   '((":           " "<pre>          </pre>")
+   '(;; A colon without a following space or newline is a paragraph.
+     (":1")
+     (":" "<pre></pre>")
+     (":           " "<pre>          </pre>")
+     (":\n:\n:\n:\n" "<pre>\n\n\n</pre>")
      (": 1\n" "<pre>\n1\n</pre>")
      (": 1\n: 2\n" "<pre>\n1\n2\n</pre>")
      ;; leading spaces after the `: ' marker are content
@@ -2879,13 +2883,15 @@ the `none' marker."
       "<pre id=\"t\" class=\"test\">\n1\n2\n3\n</pre>")
      ;; `:attr_html' goes through the same attribute builder
      ("#+attr_html: :class foo\n: 1" "<pre class=\"foo\">\n1\n</pre>")
-     ;; content is HTML-escaped
-     (": <b>x</b>" "<pre>\n&lt;b&gt;x&lt;/b&gt;\n</pre>")
-     (": a & b" "<pre>\na &amp; b\n</pre>")
-     (":\n:\n:\n:\n" "<pre>\n\n\n</pre>")
+     ;; content is HTML-escaped via `org-w3ctr--encode-plain-text'
+     ;; (quotes stay raw)
+     (": <b>a & \"b\"</b>"
+      "<pre>\n&lt;b&gt;a &amp; \"b\"&lt;/b&gt;\n</pre>")
      ;; a caption is dropped: fixed-width has no W3C caption home
      ("#+caption: Cap\n: 1" "<pre>\n1\n</pre>"))
-   nil '(:html-prefer-user-labels t)))
+   t '(:html-prefer-user-labels t))
+  ;; A synthetic element with nil `:value' falls back to "".
+  ($l (t-fixed-width '(fixed-width nil) nil nil) "<pre></pre>"))
 
 ;;;; Horizontal Rule
 
@@ -2893,24 +2899,16 @@ the `none' marker."
   "Tests for `org-w3ctr-horizontal-rule'."
   (t-check-element-values
    #'t-horizontal-rule
-   '(("-")
-     ("--")
-     ("---")
-     ("----")
+   '(("----")
      ("-----" "<hr>")
-     ("------" "<hr>")
-     ("-------" "<hr>")
-     ("--------" "<hr>")
-     ("---------" "<hr>")
-     ("----------" "<hr>")
-     ("-------------------------------" "<hr>")
+     ("  -------  " "<hr>")
      ("#+attr__: [thick]\n-----" "<hr class=\"thick\">")
      ("#+attr_html: :class foo\n-----" "<hr class=\"foo\">")
      ("#+attr__: (id foo)\n-----" "<hr id=\"foo\">")
      ("#+name: nm\n-----" "<hr id=\"nm\">")
      ;; a caption is dropped: the rule has no caption home
      ("#+caption: Cap\n-----" "<hr>"))
-   nil '(:html-prefer-user-labels t)))
+   t '(:html-prefer-user-labels t)))
 
 ;;;; Keyword
 
