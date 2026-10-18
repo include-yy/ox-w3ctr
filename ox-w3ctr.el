@@ -3487,20 +3487,18 @@ wrapped in <figure>."
 CONTENTS is the verse block contents, or nil for an empty block.
 INFO is the info plist.  Return the formatted <p> element as a
 string.  Leading whitespace is converted to non-breaking spaces;
-newlines become <br>.  A `#+caption:' is dropped."
+newlines become <br>."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format
    "<p%s>\n%s</p>"
    (t--make-attr__id* verse-block info t)
-   ;; Replace leading white spaces with non-breaking spaces.
    (replace-regexp-in-string
     "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
-    ;; Replace each newline character with line break.  Also
-    ;; remove any trailing "br" close-tag so as to avoid
-    ;; duplicates.
-    (let ((re (format "\\(?:%s\\)?[ \t]*\n" (regexp-quote "<br>"))))
-      (replace-regexp-in-string re "<br>\n" (or contents ""))))))
+    ;; An explicit `\\' line break is already `<br>\n'; absorb the
+    ;; `<br>' so the newline does not add a second one.
+    (replace-regexp-in-string
+     "\\(?:<br>\\)?[ \t]*\n" "<br>\n" (or contents "")))))
 
 ;;;; Code references
 
