@@ -2862,11 +2862,15 @@ the `none' marker."
        ("@@wtf::hello@@" ""))
      t)
     ;; Backend lookup goes through `org-export-snippet-backend', so
-    ;; `org-export-snippet-translation-alist' is honored.
-    (dlet ((org-export-snippet-translation-alist '(("my-h" . "html"))))
+    ;; `org-export-snippet-translation-alist' is honored; the target
+    ;; may route into the Lisp flavors as well.
+    (dlet ((org-export-snippet-translation-alist
+            '(("my-h" . "html") ("my-e" . "e") ("my-d" . "d"))))
       (t-check-element-values
        #'t-export-snippet
-       '(("@@my-h:<b>x</b>@@" "<b>x</b>"))
+       '(("@@my-h:<b>x</b>@@" "<b>x</b>")
+         ("@@my-e:(+ 1 2)@@" "3")
+         ("@@my-d:(wbr)@@" "<wbr>"))
        t))
     ;; A synthetic snippet with nil `:value' falls back to "".
     ($l (t-export-snippet '(export-snippet (:back-end "h")) nil nil) "")

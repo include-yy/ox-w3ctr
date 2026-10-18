@@ -486,6 +486,16 @@ same session.  Larger or planned work is in the =TODO= list above.
   passes -- fix per section.  The literal-apostrophe use around the
   attribute example in =org-w3ctr--make-attr__= is correct and stays.
 
+- *An export snippet without a backend leaks a primitive error.*  A
+  synthetic =(export-snippet (:value \u2026))= with no =:back-end= dies inside
+  =org-export-snippet-backend='s =(intern nil)= with
+  =wrong-type-argument stringp nil= instead of =org-w3ctr-error=.
+  Unreachable from documents (the parser always fills =:back-end=;
+  =@@:x@@= is not a snippet at all), so left alone deliberately:
+  guarding would mean reading =:back-end= behind the translation
+  lookup the tests pin.  Probed in
+  =scratch/_probes/lesser-export-snippet-probe.el=.
+
 - *Export blocks take no attributes or ids (deferred).*  Raw passthrough
   is the contract: a =#+name:= on an export block emits no anchor, so a
   link to it dangles (measured: =[[x]]= renders =<a href="#x">= with

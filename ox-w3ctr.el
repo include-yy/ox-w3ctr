@@ -3234,10 +3234,16 @@ yields \"\".  A missing :value is read as \"\"."
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
 
-CONTENTS and INFO are unused.  The backend name is matched
-without regard to case.  `html' (or `h') is raw passthrough; `e'
-evaluates the value as Lisp; `d' renders it as an S-expression (see
-`org-w3ctr--eval-lisp').  Any other backend yields \"\"."
+CONTENTS and INFO are unused.  Return the exported content as a
+string.  The backend name is translated through
+`org-export-snippet-translation-alist' (a case-sensitive lookup),
+then matched without regard to case: `html' (or `h') is raw
+passthrough; `e' evaluates the value as Lisp and requires
+`org-w3ctr-allow-eval'; `d' renders it as an S-expression.
+
+The Lisp flavors run through `org-w3ctr--eval-lisp' and may signal
+`org-w3ctr-error' with the snippet's line number.  Any other backend
+yields \"\".  A missing :value is read as \"\"."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
