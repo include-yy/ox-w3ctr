@@ -3317,9 +3317,14 @@ dropped: the rule has no caption home."
   "Transcode a KEYWORD element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the transcoded
-keyword as a string, or nil when nothing is emitted.  H and HTML are
-passed through raw; E and D are handled by `org-w3ctr--eval-lisp';
-TOC is handled by `org-w3ctr--keyword-toc'."
+keyword as a string, or nil when nothing is emitted.  The key is
+matched as the parser upcases it (a lowercase synthetic :key falls
+through): H and HTML are passed through raw; E evaluates the value
+as Lisp and requires `org-w3ctr-allow-eval'; D renders it as an
+S-expression.  The Lisp flavors run through `org-w3ctr--eval-lisp'
+and may signal `org-w3ctr-error' with the keyword's line number.
+TOC is delegated to `org-w3ctr--keyword-toc', whose nil passes
+through.  A missing :value is read as \"\"."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (let ((key (org-element-property :key keyword))

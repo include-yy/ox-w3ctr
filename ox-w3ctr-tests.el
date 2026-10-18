@@ -2967,10 +2967,14 @@ the `none' marker."
        ("#+d: (br)" "<br>")
        ("#+d: (p((data-x \"1\"))123)" "<p data-x=\"1\">123</p>")
        ;; Otherwise
-       ("#+hello: world" nil))
+       ("#+hello: world" nil)
+       ;; TOC with a value that selects nothing passes the nil through
+       ("#+TOC: garbage" nil))
      t)
     ;; A synthetic keyword with nil `:value' falls back to "".
     ($l (t-keyword '(keyword (:key "H")) nil nil) "")
+    ;; A synthetic lowercase :key falls through (the parser upcases).
+    ($l (t-keyword '(keyword (:key "h" :value "x")) nil nil) nil)
     ;; Error handling: malformed Lisp signals t-error with line number.
     ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
           '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
