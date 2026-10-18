@@ -3013,8 +3013,21 @@ the `none' marker."
       "<p class=\"foo\">\na<br>\n</p>")
      ;; a caption is dropped: a verse block has no W3C caption home
      ("#+caption: Cap\n#+begin_verse\na\n#+end_verse"
-      "<p>\na<br>\n</p>"))
-   t '(:html-prefer-user-labels t)))
+      "<p>\na<br>\n</p>")
+     ;; consecutive Org line breaks: one <br> each, none doubled
+     ("#+begin_verse\na\\\\\n\\\\\nb\n#+end_verse"
+      "<p>\na<br>\n<br>\nb<br>\n</p>")
+     ;; a line break as the block's last line is absorbed too
+     ("#+begin_verse\na\\\\\n#+end_verse" "<p>\na<br>\n</p>"))
+   t '(:html-prefer-user-labels t))
+  ;; Under the default options a NAME is not usable as an id, so the
+  ;; named-only call emits nothing (the fixture above opts in).
+  (t-check-element-values
+   #'t-verse-block
+   '(("#+name: this\n#+begin_verse\na\n#+end_verse" "<p>\na<br>\n</p>"))
+   t)
+  ;; A synthetic element with nil CONTENTS falls back to "".
+  ($l (t-verse-block '(verse-block nil) nil nil) "<p>\n</p>"))
 
 ;;;; LaTeX
 

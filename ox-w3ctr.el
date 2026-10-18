@@ -3345,10 +3345,18 @@ through.  A missing :value is read as \"\"."
 (defun t-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 
-CONTENTS is the verse block contents, or nil for an empty block.
-INFO is the info plist.  Return the formatted <p> element as a
-string.  Leading whitespace is converted to non-breaking spaces;
-newlines become <br>."
+CONTENTS is the verse block contents; nil (an empty block) is read
+as \"\".  INFO is the info plist.  Return the formatted <p> element
+as a string.  Every leading whitespace character becomes a
+non-breaking space (&#xa0;), trailing whitespace before a newline is
+consumed, and each newline becomes <br>.  A <br> already ending the
+line is absorbed, so an Org line break or a raw <br> never doubles.
+
+Attributes come from `org-w3ctr--make-attr__id*' in its named-only
+mode: an anonymous block carries no id, never a random one, and a
+NAME or ID property becomes the id only under
+`org-w3ctr-prefer-user-labels'; an explicit :id wins.  A caption is
+dropped: a verse block has no W3C caption home."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format
