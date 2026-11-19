@@ -3155,15 +3155,15 @@ contextual information."
 TYPE is `eval' or `sexp':
 - With `eval', require `org-w3ctr-allow-eval' to be non-nil
   (signaling before `read' when nil), evaluate one form from VALUE with
-  lexical binding, and convert the result with `org-w3ctr--2str' (or
-  \"\" when nil).  The result string is inserted into the output raw,
-  never escaped.
+  lexical binding, and convert the result with `org-w3ctr--2str',
+  falling back to \"\" when it returns nil (as for nil or non-scalars).
+  The result string is inserted into the output raw, never escaped.
 - With `sexp', render one form from VALUE as HTML with
   `org-w3ctr--sexp2html'.
 
 Only the first Lisp form in VALUE is used; anything after it is
-ignored.  When VALUE is empty or whitespace-only, return \"\" without
-reading.
+ignored.  When VALUE is empty or whitespace-only, return \"\"
+immediately without checking `org-w3ctr-allow-eval' or reading.
 
 Signal `org-w3ctr-error' for any TYPE other than `eval' and `sexp',
 and when the evaluation gate, reading, evaluation, or HTML rendering
@@ -3207,7 +3207,8 @@ JAVASCRIPT) are wrapped in <style> and <script>; EMACS-LISP (or
 ELISP) and LISP-DATA are handled by `org-w3ctr--eval-lisp', which
 needs `org-w3ctr-allow-eval' for the eval flavor and may signal
 `org-w3ctr-error'.  Any other type belongs to another backend and
-yields \"\".  A missing :value is read as \"\"."
+yields \"\".  A missing `:value' is read as \"\".  Attributes, names,
+and captions are ignored."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type export-block))
@@ -3243,7 +3244,7 @@ passthrough; `e' evaluates the value as Lisp and requires
 
 The Lisp flavors run through `org-w3ctr--eval-lisp' and may signal
 `org-w3ctr-error' with the snippet's line number.  Any other backend
-yields \"\".  A missing :value is read as \"\"."
+yields \"\".  A missing `:value' is read as \"\"."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
@@ -3268,15 +3269,16 @@ yields \"\".  A missing :value is read as \"\"."
   "Transcode a FIXED-WIDTH element from Org to HTML.
 
 CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<pre> element as a string.  A blank value is emitted as is; a
-non-blank one is wrapped in newlines and HTML-escaped with
-`org-w3ctr--encode-plain-text', which keeps quotes raw.
+<pre> element as a string.  A missing `:value' is read as \"\".  A
+blank value is emitted as is; a non-blank one is wrapped in newlines
+and HTML-escaped with `org-w3ctr--encode-plain-text', which keeps
+quotes raw.
 
 Attributes come from `org-w3ctr--make-attr__id*' in its named-only
 mode: an anonymous block carries no id, never a random one, and a
 NAME or ID property becomes the id only under
-`org-w3ctr-prefer-user-labels'; an explicit :id wins.  A caption is
-dropped: a bare <pre> has no W3C caption home."
+`org-w3ctr-prefer-user-labels'; an explicit id attribute wins.  A
+caption is dropped: a bare <pre> has no W3C caption home."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let ((value (or (org-element-property :value fixed-width) "")))
@@ -3301,8 +3303,8 @@ element as a string; it has no closing tag.
 Attributes come from `org-w3ctr--make-attr__id*' in its named-only
 mode: an anonymous rule carries no id, never a random one, and a
 NAME or ID property becomes the id only under
-`org-w3ctr-prefer-user-labels'; an explicit :id wins.  A caption is
-dropped: the rule has no caption home."
+`org-w3ctr-prefer-user-labels'; an explicit id attribute wins.  A
+caption is dropped: the rule has no caption home."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (t--void-element "hr" (t--make-attr__id* horizontal-rule info t)))
@@ -3318,13 +3320,13 @@ dropped: the rule has no caption home."
 
 CONTENTS is nil.  INFO is the info plist.  Return the transcoded
 keyword as a string, or nil when nothing is emitted.  The key is
-matched as the parser upcases it (a lowercase synthetic :key falls
+matched as the parser upcases it (a lowercase synthetic `:key' falls
 through): H and HTML are passed through raw; E evaluates the value
 as Lisp and requires `org-w3ctr-allow-eval'; D renders it as an
 S-expression.  The Lisp flavors run through `org-w3ctr--eval-lisp'
 and may signal `org-w3ctr-error' with the keyword's line number.
 TOC is delegated to `org-w3ctr--keyword-toc', whose nil passes
-through.  A missing :value is read as \"\"."
+through.  A missing `:value' is read as \"\"."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (let ((key (org-element-property :key keyword))
@@ -3342,6 +3344,7 @@ through.  A missing :value is read as \"\"."
 ;; No `class="verse"' (ox-html hardcodes one): the W3C stylesheet
 ;; defines no `.verse' rule, so it would be a dead class; set
 ;; `#+attr__:' when a styling hook is wanted.
+
 (defun t-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
 
@@ -3355,8 +3358,8 @@ line is absorbed, so an Org line break or a raw <br> never doubles.
 Attributes come from `org-w3ctr--make-attr__id*' in its named-only
 mode: an anonymous block carries no id, never a random one, and a
 NAME or ID property becomes the id only under
-`org-w3ctr-prefer-user-labels'; an explicit :id wins.  A caption is
-dropped: a verse block has no W3C caption home."
+`org-w3ctr-prefer-user-labels'; an explicit id attribute wins.  A
+caption is dropped: a verse block has no W3C caption home."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format

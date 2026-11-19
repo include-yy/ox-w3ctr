@@ -2692,6 +2692,8 @@ the `none' marker."
       ;; TYPE `eval' reads, evals with lexical binding, and stringifies
       ($l (t--eval-lisp el "(+ 1 2)" 'eval "CTX") "3")
       ($l (t--eval-lisp el "'sym" 'eval "CTX") "sym")
+      ;; the eval result is inserted raw, never HTML-escaped
+      ($l (t--eval-lisp el "\"<b>a & b</b>\"" 'eval "CTX") "<b>a & b</b>")
       ($l (t--eval-lisp
            el "(let ((x 1)) (funcall (let ((x 2)) (lambda () x))))"
            'eval "CTX")
@@ -2811,7 +2813,10 @@ the `none' marker."
        ("#+BEGIN_EXPORT lisp-data\n (br)\n#+END_EXPORT" "<br>")
        ;; Unsupported type
        ("#+begin_export wtf\n no exported\n#+end_export" "")
-       ("#+begin_export\n not exported\n#+end_export" ""))
+       ("#+begin_export\n not exported\n#+end_export" "")
+       ;; Attributes, names, and captions are ignored
+       ("#+name: x\n#+attr__: [c]\n#+caption: Cap\n#+begin_export css\np{}\n#+end_export"
+        "<style>\np{}\n</style>"))
      t)
     ;; A synthetic element with nil `:value' falls back to "".
     ($l (t-export-block '(export-block (:type "HTML")) nil nil) "")
@@ -2851,6 +2856,7 @@ the `none' marker."
        ("@@e:(+ 1 2)@@" "3")
        ("@@e:'(1 2 3)@@" "")
        ("@@d:@@" "")
+       ;; Missing closing @@: not parsed as an export snippet.
        ("@@d:(span() \"nothing\")")
        ("@@d:(wbr)@@" "<wbr>")
        ;; the backend name is case-insensitive
@@ -2924,7 +2930,8 @@ the `none' marker."
   "Tests for `org-w3ctr-horizontal-rule'."
   (t-check-element-values
    #'t-horizontal-rule
-   '(("----")
+   '(;; Fewer than five hyphens is a paragraph, not a horizontal rule.
+     ("----")
      ("-----" "<hr>")
      ("  -------  " "<hr>")
      ("#+attr__: [thick]\n-----" "<hr class=\"thick\">")
@@ -3018,7 +3025,9 @@ the `none' marker."
      ("#+begin_verse\na\\\\\n\\\\\nb\n#+end_verse"
       "<p>\na<br>\n<br>\nb<br>\n</p>")
      ;; a line break as the block's last line is absorbed too
-     ("#+begin_verse\na\\\\\n#+end_verse" "<p>\na<br>\n</p>"))
+     ("#+begin_verse\na\\\\\n#+end_verse" "<p>\na<br>\n</p>")
+     ;; a raw <br> at line end is absorbed just like an Org line break
+     ("#+begin_verse\na@@h:<br>@@\nb\n#+end_verse" "<p>\na<br>\nb<br>\n</p>"))
    t '(:html-prefer-user-labels t))
   ;; Under the default options a NAME is not usable as an id, so the
   ;; named-only call emits nothing (the fixture above opts in).
