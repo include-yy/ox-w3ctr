@@ -3822,10 +3822,13 @@ is not all whitespace."
     (should-error (t-show-fontify-report) :type 'user-error))
   (let ((t--fontify-last-state (make-hash-table :test #'equal)))
     (t--fontify-note t--fontify-last-state 'engine 'engrave)
-    (save-window-excursion
-      (t-show-fontify-report)
-      ($l (with-current-buffer "*ox-w3ctr fontify report*" (buffer-string))
-          (t--fontify-report-text t--fontify-last-state)))))
+    (unwind-protect
+        (save-window-excursion
+          (t-show-fontify-report)
+          ($l (with-current-buffer "*ox-w3ctr fontify report*" (buffer-string))
+              (t--fontify-report-text t--fontify-last-state)))
+      (when-let* ((buf (get-buffer "*ox-w3ctr fontify report*")))
+        (kill-buffer buf)))))
 
 ;;;; Fontify stylesheet
 
