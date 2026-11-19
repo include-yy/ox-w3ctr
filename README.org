@@ -299,28 +299,20 @@ and how the pipeline works.
 Small items, found while refining a function and usually finished in the
 same session.  Larger or planned work is in the =TODO= list above.
 
-- *=org-w3ctr-check-element-values= expects its values in reverse.*
-  The fixture =push=-accumulates =org-w3ctr-test-values=, so EXPECTED is
-  in reverse call order (a test pins this).  Either document it or
-  =nreverse= it in the fixture; the latter flips nearly every EXPECTED
-  list in the suite.
-
 - *The OINFO source-scanning tests hardcode =info=.*  Both
   =org-w3ctr--oinfo-props-are-looked-up= and
   =org-w3ctr--oinfo-props-go-through-pget= match the literal variable
   =info=; a differently named INFO plist would false-fail.  Loosen to
   =[^ \t\n()]+= if that ever changes.
 
-- *checkdoc leftovers outside the REFINE passes.*  Emacs 31.1's checkdoc
-  reports 17 warnings; 10 sit in the Link =REFINE:= section and its pass
-  clears them.  Seven have no owner: =t-creator-string='s docstring first
-  line is not a complete sentence (it ends at the =%c= placeholder); the
-  =t-export-as-html= / =t-export-to-html= docstrings never mention ASYNC
-  (the argument is used -- it goes to =org-export-to-buffer= /
-  =org-export-to-file= -- so the docstring should say so, not the name
-  mangled); two docstrings name the bare word =org-publish= where checkdoc
-  wants it quoted; and two say =jsonrpc-process-connection= without
-  "class" or "symbol" in front of it.  The =ox-w3ctr-lint= skill's
+- *checkdoc leftovers outside the REFINE passes.*  Emacs 32's checkdoc
+  reports 10 warnings; 7 sit in the Link =REFINE:= section and its pass
+  clears them.  Three have no owner: =t-creator-string='s docstring
+  first line is not a complete sentence (it ends at the =%c=
+  placeholder); and the =t-export-as-html= / =t-export-to-html=
+  docstrings never mention ASYNC (the argument is used -- it goes to
+  =org-export-to-buffer= / =org-export-to-file= -- so the docstring
+  should say so, not the name mangled).  The =ox-w3ctr-lint= skill's
   =scripts/checkdoc.el= lists them.
 
 - *=org-w3ctr--read-attr='s error message prints the property keyword as
@@ -376,9 +368,9 @@ same session.  Larger or planned work is in the =TODO= list above.
   its pass will fix: =t-inline-image-rules=, =t-inline-image-p=, =t-link=,
   =t--link-path=, =t--link-target=, =t--link-equation= (Link).
 
-- *Three test sections sit out of source order.*  =order-check.el= flags
-  Link, Headline and CC license badges.  Reorder them to the source
-  function order when those sections are next touched.
+- *Two test sections sit out of source order.*  =order-check.el= flags
+  Headline and CC license badges.  Reorder them to the source function
+  order when those sections are next touched.
 
 - *Other transcoders take CONTENTS as =string= with no nil guard.*  ox.el
   prunes math under =tex:nil=, so a paragraph whose only content was
@@ -479,12 +471,12 @@ same session.  Larger or planned work is in the =TODO= list above.
   help buffer shows ='sym.  Offenders:
   =org-w3ctr--format-latex='s MODE values (verbatim, mathjax, custom),
   =org-w3ctr--get-info-timezone-offset= /
-  =org-w3ctr--get-info-export-timezone-offset= (local),
-  =org-w3ctr--get-markup-format= (bold), and in the tests the =t-parse1=
-  harness docstring.  =org-w3ctr--eval-lisp= (TYPE values) was fixed in
-  the Lesser elements second pass; the rest sit in sections for later
-  passes -- fix per section.  The literal-apostrophe use around the
-  attribute example in =org-w3ctr--make-attr__= is correct and stays.
+  =org-w3ctr--get-info-export-timezone-offset= (local), and
+  =org-w3ctr--get-markup-format= (bold).  =org-w3ctr--eval-lisp= and the
+  test harness (=org-w3ctr-get-parsed-elements=) were fixed; the rest
+  sit in sections for later passes -- fix per section.  The
+  literal-apostrophe use around the attribute example in
+  =org-w3ctr--make-attribute-string= is correct and stays.
 
 - *An export snippet without a backend leaks a primitive error.*  A
   synthetic =(export-snippet (:value \u2026))= with no =:back-end= dies inside
@@ -495,20 +487,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   guarding would mean reading =:back-end= behind the translation
   lookup the tests pin.  Probed in
   =scratch/_probes/lesser-export-snippet-probe.el=.
-
-- *Export blocks take no attributes or ids (deferred).*  Raw passthrough
-  is the contract: a =#+name:= on an export block emits no anchor, so a
-  link to it dangles (measured: =[[x]]= renders =<a href="#x">= with
-  nothing to land on; a random id with =org-w3ctr-prefer-user-labels=
-  off).  Decided 2026-10 to leave it; the Link pass should know before
-  touching element references.
-  Fixed-width blocks show the mirror case (measured 2026-10-18,
-  =scratch/_probes/lesser-fixed-width-probe2.el=): with named-only ids
-  and =org-w3ctr-prefer-user-labels= off, =[[t]]= to a =#+name: t=
-  block renders =<a href="#orgXXXX">= while the =<pre>= gets no id,
-  and an explicit =#+attr__: (id custom)= leaves the link pointing at
-  =orgXXXX= -- both dangle.  One anchor/consistency decision covers
-  all of it.
 
 - *Consider dropping the =:textarea= source-block form (lean: drop).*
   =org-w3ctr--textarea-block= keeps ox-html's =#+attr_html: :textarea=
