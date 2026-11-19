@@ -3707,7 +3707,10 @@ cookie-less column is remembered as the `none' marker."
     ($n (entry '(("c" :engrave c-mode)) "sh"))
     ($n (entry nil "c"))
     ;; Every entry is checked, not only the one asked for.
-    (dolist (bad '(("c" . c-mode) ("c" :engrave) (c :engrave c-mode) "c"))
+    ;; Keys are distinct keywords, but any keyword will do.
+    ($l (entry '(("c" :my-engine x)) "c") '(:my-engine x))
+    (dolist (bad '(("c" . c-mode) ("c" :engrave) (c :engrave c-mode) "c"
+                   ("c" engrave c-mode) ("c" :engrave c-mode :engrave nil)))
       ($e!l (entry (list '("sh" :jstools "bash") bad) "sh")
             (list 'org-w3ctr-error
                   (format "Malformed fontify language entry: %S" bad))))
@@ -4288,44 +4291,45 @@ cookie-less column is remembered as the `none' marker."
 
 (ert-deftest t--engrave-tokens ()
   "Tests for `org-w3ctr--engrave-tokens'."
-  (let* ((code "(defun foo () (message \"<s>\"))")
-         (info (t-test-fontify-info))
-         (tokens (t--engrave-tokens code "emacs-lisp" info)))
-    ($s (member '("k" . "defun") tokens))
-    ($s (member '("s" . "\"<s>\"") tokens))
-    ;; Raw text, not HTML: the tokens give the code back.
-    ($l (mapconcat #'cdr tokens) code)
-    ($q (t--fontify-check-tokens tokens code 'engrave info) tokens))
-  (let ((info (t-test-fontify-info)))
-    ($q (t--engrave-tokens "x" "no-such-lang" info) :decline))
-  ;; Mode hooks run only when asked to.
-  (let* ((runs 0)
-         (emacs-lisp-mode-hook (list (lambda () (setq runs (1+ runs))))))
-    (ignore (t--engrave-tokens "(a)" "emacs-lisp" (t-test-fontify-info)))
-    ($l runs 0)
-    (ignore (t--engrave-tokens "(a)" "emacs-lisp"
-                               (t-test-fontify-info
-                                :html-fontify-run-mode-hooks t)))
-    ($l runs 1))
-  ($e!l (t--engrave-tokens "x" "emacs-lisp"
-                           (t-test-fontify-info
-                            :html-fontify-face-fallback 'bogus))
-        '(org-w3ctr-error "Unknown fontify face fallback: bogus"))
-  ;; A tree-sitter mode declines without a parser, and may not offer
-  ;; to install its grammar; with a parser, it fontifies.  A stand-in
-  ;; mode keeps this independent of the grammars installed.
-  (let ((info (t-test-fontify-info
-               :html-fontify-lang-alist '(("fake" :engrave t-test-fake-ts-mode))))
-        (install 'unset)
-        (parsers nil))
-    (cl-letf (((symbol-function 't-test-fake-ts-mode)
-               (lambda () (setq install treesit-auto-install-grammar)))
-              ((symbol-function 'treesit-parser-list)
-               (lambda (&rest _) parsers)))
-      ($q (t--engrave-tokens "x = 1" "fake" info) :decline)
-      ($q install 'never)
-      (setq parsers '(parser))
-      ($l (t--engrave-tokens "x = 1" "fake" info) '((nil . "x = 1"))))))
+  (let ((t--fontify-last-state nil))
+    (let* ((code "(defun foo () (message \"<s>\"))")
+           (info (t-test-fontify-info))
+           (tokens (t--engrave-tokens code "emacs-lisp" info)))
+      ($s (member '("k" . "defun") tokens))
+      ($s (member '("s" . "\"<s>\"") tokens))
+      ;; Raw text, not HTML: the tokens give the code back.
+      ($l (mapconcat #'cdr tokens) code)
+      ($q (t--fontify-check-tokens tokens code 'engrave info) tokens))
+    (let ((info (t-test-fontify-info)))
+      ($q (t--engrave-tokens "x" "no-such-lang" info) :decline))
+    ;; Mode hooks run only when asked to.
+    (let* ((runs 0)
+           (emacs-lisp-mode-hook (list (lambda () (setq runs (1+ runs))))))
+      (ignore (t--engrave-tokens "(a)" "emacs-lisp" (t-test-fontify-info)))
+      ($l runs 0)
+      (ignore (t--engrave-tokens "(a)" "emacs-lisp"
+                                 (t-test-fontify-info
+                                  :html-fontify-run-mode-hooks t)))
+      ($l runs 1))
+    ($e!l (t--engrave-tokens "x" "emacs-lisp"
+                             (t-test-fontify-info
+                              :html-fontify-face-fallback 'bogus))
+          '(org-w3ctr-error "Unknown fontify face fallback: bogus"))
+    ;; A tree-sitter mode declines without a parser, and may not offer
+    ;; to install its grammar; with a parser, it fontifies.  A stand-in
+    ;; mode keeps this independent of the grammars installed.
+    (let ((info (t-test-fontify-info
+                 :html-fontify-lang-alist '(("fake" :engrave t-test-fake-ts-mode))))
+          (install 'unset)
+          (parsers nil))
+      (cl-letf (((symbol-function 't-test-fake-ts-mode)
+                 (lambda () (setq install treesit-auto-install-grammar)))
+                ((symbol-function 'treesit-parser-list)
+                 (lambda (&rest _) parsers)))
+        ($q (t--engrave-tokens "x = 1" "fake" info) :decline)
+        ($q install 'never)
+        (setq parsers '(parser))
+        ($l (t--engrave-tokens "x = 1" "fake" info) '((nil . "x = 1")))))))
 
 ;;;; Fontify jstools engine
 
@@ -4357,7 +4361,17 @@ cookie-less column is remembered as the `none' marker."
   ($s (booleanp (t--jstools-available-p nil)))
   ;; Without node on `exec-path' the engine is unavailable.
   (let ((exec-path nil))
-    ($n (t--jstools-available-p nil))))
+    ($n (t--jstools-available-p nil)))
+  ;; With node, it still needs Shiki under jstools/node_modules.
+  (let ((t--dir (make-temp-file "ox-w3ctr-jstools" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 'executable-find)
+                   (lambda (name &rest _) (and (equal name "node") "node"))))
+          ($n (t--jstools-available-p nil))
+          (make-directory
+           (file-name-concat t--dir "jstools" "node_modules" "shiki") t)
+          ($q (t--jstools-available-p nil) t))
+      (delete-directory t--dir t))))
 
 (ert-deftest t--jstools-lang ()
   "Tests for `org-w3ctr--jstools-lang'."
@@ -4371,32 +4385,50 @@ cookie-less column is remembered as the `none' marker."
     ($l (t--jstools-lang "sh" info) "sh"))
   ($e!l (t--jstools-lang "c" (t-test-fontify-info
                               :html-fontify-lang-alist '(("c" . "cpp"))))
-        '(org-w3ctr-error "Malformed fontify language entry: (\"c\" . \"cpp\")")))
+        '(org-w3ctr-error "Malformed fontify language entry: (\"c\" . \"cpp\")"))
+  ;; The `:jstools' value is nil or a non-blank string.
+  (dolist (bad '(emacs-lisp "" " " 1))
+    ($e!l (t--jstools-lang "el" (t-test-fontify-info
+                                 :html-fontify-lang-alist
+                                 `(("el" :jstools ,bad))))
+          (list 'org-w3ctr-error
+                (format "Malformed :jstools language for el: %S" bad)))))
 
 (ert-deftest t--jstools-languages ()
   "Tests for `org-w3ctr--jstools-languages'."
-  (let ((calls 0))
+  (let ((t--fontify-last-state nil)
+        (calls 0))
     (cl-letf (((symbol-function 't--jcall)
-               (lambda (_client method _params &optional _timeout)
+               (lambda (client method params &optional timeout)
                  (setq calls (1+ calls))
+                 ;; The client, the method and INFO's timeout go through.
+                 ($q client t--jstools)
                  ($q method 'highlightLanguages)
+                 ($n params)
+                 ($l timeout 7)
                  '(:engine "shiki" :languages ["c" "python"]))))
-      (let ((info (t-test-fontify-info)))
+      (let ((info (t-test-fontify-info :html-fontify-jstools-timeout 7)))
         ($l (t--jstools-languages info) '("c" "python"))
         ;; Asked once per export.
         ($l (t--jstools-languages info) '("c" "python"))
         ($l calls 1)
-        (ignore (t--jstools-languages (t-test-fontify-info)))
-        ($l calls 2))))
-  (cl-letf (((symbol-function 't--jcall)
-             (lambda (&rest _) '(:languages [1 2]))))
-    ($e!l (t--jstools-languages (t-test-fontify-info))
-          '(org-w3ctr-error
-            "Malformed highlightLanguages reply: (:languages [1 2])"))))
+        (ignore (t--jstools-languages
+                 (t-test-fontify-info :html-fontify-jstools-timeout 7)))
+        ($l calls 2)))
+    ;; The whole reply is reported when `:languages' is not a non-empty
+    ;; vector of strings.
+    (dolist (reply '((:languages [1 2]) (:languages 42) (:languages t)
+                     (:languages []) (:languages ("c")) (:other 1) 42))
+      (cl-letf (((symbol-function 't--jcall) (lambda (&rest _) reply)))
+        ($e!l (t--jstools-languages (t-test-fontify-info))
+              (list 'org-w3ctr-error
+                    (format "Malformed highlightLanguages reply: %S"
+                            reply)))))))
 
 (ert-deftest t--jstools-pairs ()
   "Tests for `org-w3ctr--jstools-pairs'."
-  (let ((info (t-test-fontify-info)))
+  (let ((t--fontify-last-state nil)
+        (info (t-test-fontify-info)))
     ($l (t--jstools-pairs [["def" "k"] [" " nil] ["x" "zz"]] info)
         '(("k" . "def") (nil . " ") (nil . "x")))
     ;; The unknown slug was dropped, and counted.
@@ -4411,15 +4443,23 @@ cookie-less column is remembered as the `none' marker."
 
 (ert-deftest t--jstools-tokens ()
   "Tests for `org-w3ctr--jstools-tokens'."
-  (let* ((highlights 0)
+  (let* ((t--fontify-last-state nil)
+         (highlights 0)
          (reply '(:tokens [["x" "k"] [" = 1" nil]]))
-         (jcall (lambda (_client method params &optional _timeout)
+         (jcall (lambda (client method params &optional timeout)
+                  ;; The client and INFO's timeout go through.
+                  ($q client t--jstools)
+                  ($l timeout 7)
                   (pcase method
-                    ('highlightLanguages '(:languages ["python" "c"]))
+                    ('highlightLanguages
+                     '(:languages ["python" "c" "other" "num"]))
                     ('highlight
                      (setq highlights (1+ highlights))
                      (pcase (plist-get params :lang)
-                       ("python" reply)
+                       ("python" ($l (plist-get params :code) "x = 1")
+                        reply)
+                       ("other" '(:other 1))
+                       ("num" 42)
                        ("c" (signal 'jsonrpc-error
                                     `((jsonrpc-error-code
                                        . ,t--jstools-unknown-language))))
@@ -4428,6 +4468,7 @@ cookie-less column is remembered as the `none' marker."
                                      . "Timed out"))))))))))
     (cl-letf (((symbol-function 't--jcall) jcall))
       (let ((info (t-test-fontify-info
+                   :html-fontify-jstools-timeout 7
                    :html-fontify-lang-alist '(("py" :jstools "python")
                                               ("off" :jstools nil)))))
         ($l (t--jstools-tokens "x = 1" "py" info) '(("k" . "x") (nil . " = 1")))
@@ -4437,6 +4478,11 @@ cookie-less column is remembered as the `none' marker."
         ($l highlights 1)
         ;; Declined by the helper's error code.
         ($q (t--jstools-tokens "x" "c" info) :decline)
+        ;; A reply without a `:tokens' vector is reported whole.
+        ($e!l (t--jstools-tokens "x" "other" info)
+              '(org-w3ctr-error "Malformed highlight reply: (:other 1)"))
+        ($e!l (t--jstools-tokens "x" "num" info)
+              '(org-w3ctr-error "Malformed highlight reply: 42"))
         ;; Any other error propagates.
         (let ((t--fontify-last-state nil)
               (info (t-test-fontify-info
@@ -4453,19 +4499,35 @@ cookie-less column is remembered as the `none' marker."
 (ert-deftest t--jstools-tokens-live ()
   "The jstools engine against the real Node helper."
   (skip-unless (t--jstools-available-p nil))
-  (let* ((info (t-test-fontify-info))
-         (code "def f(x):\r\n    return x + 1  # c\n")
-         (tokens (t--jstools-tokens code "python" info)))
-    ($l (mapconcat #'cdr tokens) code)
-    ($s (member '("k" . "def") tokens))
-    ($s (member '("op" . "+") tokens))
-    ($q (t--fontify-check-tokens tokens code 'jstools info) tokens)
-    ($q (t--jstools-tokens "x" "no-such-lang" info) :decline)
-    ;; Through the dispatcher: engrave declines YAML here, jstools takes it.
-    (let ((result (t--fontify-dispatch "a: 1\n" "yaml" '(engrave jstools plain)
-                                       info nil)))
-      ($q (car result) 'jstools)
-      ($s (member '("n" . "1") (cdr result))))))
+  (let* ((t--fontify-last-state nil)
+         (name (t--jrpc--name t--jstools))
+         (conn (t--jrpc--conn t--jstools))
+         (was-running (and conn (jsonrpc-running-p conn))))
+    (unwind-protect
+        (let* ((info (t-test-fontify-info
+                      ;; engrave must decline YAML whatever is installed.
+                      :html-fontify-lang-alist '(("yaml" :engrave nil))))
+               (code "def f(x):\r\n    return x + 1  # c\n")
+               (tokens (t--jstools-tokens code "python" info)))
+          ($l (mapconcat #'cdr tokens) code)
+          ($s (member '("k" . "def") tokens))
+          ($s (member '("op" . "+") tokens))
+          ($q (t--fontify-check-tokens tokens code 'jstools info) tokens)
+          ($q (t--jstools-tokens "x" "no-such-lang" info) :decline)
+          ;; Through the dispatcher: engrave declines YAML, jstools takes it.
+          (let ((result (t--fontify-dispatch "a: 1\n" "yaml"
+                                             '(engrave jstools plain)
+                                             info nil)))
+            ($q (car result) 'jstools)
+            ($s (member '("n" . "1") (cdr result)))))
+      ;; A helper this test started is stopped, with its buffers.
+      (unless was-running
+        (t--jrpc-shutdown t--jstools)
+        (dolist (b (list (format "*%s events*" name)
+                         (format "*%s stderr*" name)
+                         (format " *%s stderr*" name)
+                         (format " *%s output*" name)))
+          (when (get-buffer b) (kill-buffer b)))))))
 
 ;;;; Fontify dispatcher
 

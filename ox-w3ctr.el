@@ -3732,7 +3732,9 @@ references).  A non-blank caption becomes an unstyled <span> before
 ;; checked by `org-w3ctr--fontify-check-tokens', merged by
 ;; `org-w3ctr--fontify-merge' and turned into markup only by
 ;; `org-w3ctr--fontify-render', so escaping lives in one place.  The
-;; CSS for the slugs is in assets/style.css (".ef-SLUG").
+;; CSS for the slugs is in assets/style.css (".ef-SLUG").  The readers
+;; of the option tables every engine shares (the face tables and the
+;; language alist) live here too, ahead of the engines.
 
 (defun t--fontify-face-table (info)
   "Return the (FACE . SLUG) alist in force for INFO.
@@ -3777,15 +3779,23 @@ duplicates."
 LANG is a language name as a string, and INFO the info plist.
 Return nil when LANG has no entry.  Signal `org-w3ctr-error' unless
 the alist is a list of (LANG . PLIST) entries, each LANG a string
-and each PLIST a property list."
+and each PLIST a property list whose keys are distinct keywords.
+Any keyword is allowed, so that an engine of one's own can read its
+key."
   (declare (ftype (function (string list) list))
            (important-return-value t))
   (let ((alist (t--pget info :html-fontify-lang-alist)))
     (unless (proper-list-p alist)
       (t-error "Fontify language alist must be a list: %S" alist))
     (dolist (entry alist)
-      (unless (and (consp entry) (stringp (car entry)) (plistp (cdr entry)))
-        (t-error "Malformed fontify language entry: %S" entry)))
+      (let ((keys (and (consp entry) (plistp (cdr entry))
+                       (let ((p (cdr entry)) ks)
+                         (while p (push (pop p) ks) (pop p))
+                         ks))))
+        (unless (and (consp entry) (stringp (car entry)) (plistp (cdr entry))
+                     (seq-every-p #'keywordp keys)
+                     (equal keys (delete-dups (copy-sequence keys))))
+          (t-error "Malformed fontify language entry: %S" entry))))
     (cdr (assoc lang alist))))
 
 (defun t--fontify-check-tokens (tokens code engine info)
@@ -4331,10 +4341,12 @@ unknown `:html-fontify-face-fallback'."
 
 (defconst t--jstools-unknown-language -32010
   "The JSON-RPC error code of the helper for a language it lacks.
+
 It must match UNKNOWN_LANGUAGE in jstools/lib/highlight.js.")
 
 (defun t--jstools-available-p (_info)
-  "Return non-nil when the jstools engine can run.
+  "Return non-nil when the `jstools' engine can run.
+
 That needs the node executable on the variable `exec-path' and
 Shiki installed under jstools/node_modules (run \"npm ci\" in
 jstools/).  INFO is ignored."
@@ -4347,19 +4359,29 @@ jstools/).  INFO is ignored."
 
 (defun t--jstools-lang (lang info)
   "Return the Shiki language name for LANG under INFO, or nil.
+
 The `:jstools' key of LANG's entry in INFO's
-`:html-fontify-lang-alist' wins when present; otherwise LANG itself
-is the name."
+`:html-fontify-lang-alist' (see `org-w3ctr--fontify-lang-entry')
+wins when present; otherwise LANG itself is the name.  Signal
+`org-w3ctr-error' unless that key's value is nil or a non-blank
+string."
   (declare (ftype (function (string list) (or null string)))
            (important-return-value t))
   (let ((entry (t--fontify-lang-entry lang info)))
-    (if (plist-member entry :jstools) (plist-get entry :jstools) lang)))
+    (if (not (plist-member entry :jstools))
+        lang
+      (let ((name (plist-get entry :jstools)))
+        (unless (or (null name) (t--nw-p name))
+          (t-error "Malformed :jstools language for %s: %S" lang name))
+        name))))
 
 (defun t--jstools-languages (info)
   "Return the language names the helper accepts, as a list of strings.
+
 The list is asked for once per export (the `highlightLanguages'
 method) and kept in INFO's fontify state.  Signal `org-w3ctr-error'
-when the reply is malformed; RPC errors propagate."
+unless the reply's `:languages' is a non-empty vector of strings;
+RPC errors propagate."
   (declare (ftype (function (list) list))
            (important-return-value t))
   (let ((state (t--fontify-state info))
@@ -4367,13 +4389,15 @@ when the reply is malformed; RPC errors propagate."
     (or (gethash key state)
         (let* ((reply (t--jcall t--jstools 'highlightLanguages nil
                                 (t--pget info :html-fontify-jstools-timeout)))
-               (names (append (plist-get reply :languages) nil)))
-          (unless (and names (seq-every-p #'stringp names))
+               (names (plist-get reply :languages)))
+          (unless (and (vectorp names) (> (length names) 0)
+                       (seq-every-p #'stringp names))
             (t-error "Malformed highlightLanguages reply: %S" reply))
-          (puthash key names state)))))
+          (puthash key (append names nil) state)))))
 
 (defun t--jstools-pairs (pairs info)
   "Return the helper's PAIRS as a list of (CLASS . TEXT) tokens.
+
 PAIRS is the decoded `tokens' array: [TEXT SLUG] vectors, SLUG a
 string or nil.  A slug that INFO's face tables do not know becomes
 nil and is counted as `unknown-slug' in the fontify state.  Signal
@@ -4397,14 +4421,16 @@ nil and is counted as `unknown-slug' in the fontify state.  Signal
             pairs)))
 
 (defun t--jstools-tokens (code lang info)
-  "Fontify CODE (a string) in LANG with the jstools helper.
+  "Fontify CODE (a string) in LANG with the `jstools' helper.
+
 LANG is a language name as a string, mapped by
-`org-w3ctr--jstools-lang'; INFO is the export plist.  Return the
+`org-w3ctr--jstools-lang'.  INFO is the info plist.  Return the
 tokens of `org-w3ctr--jstools-pairs', or `:decline' when the
 helper does not know the language (checked against
-`org-w3ctr--jstools-languages', and again by its error code).  Other
-errors, a timeout among them, propagate: the dispatcher counts
-them as failures."
+`org-w3ctr--jstools-languages', and again by its error code).
+Signal `org-w3ctr-error', with the whole reply, when the reply has
+no `:tokens' vector.  Other errors, a timeout among them, propagate:
+the dispatcher counts them as failures."
   (declare (ftype (function (string string list) (or list keyword)))
            (important-return-value t))
   (let ((name (t--jstools-lang lang info)))
@@ -4419,9 +4445,11 @@ them as failures."
                                t--jstools-unknown-language)
                           :decline
                         (signal err))))))
-        (if (eq reply :decline)
-            :decline
-          (t--jstools-pairs (plist-get reply :tokens) info))))))
+        (cond
+         ((eq reply :decline) :decline)
+         ((vectorp (plist-get reply :tokens))
+          (t--jstools-pairs (plist-get reply :tokens) info))
+         (t (t-error "Malformed highlight reply: %S" reply)))))))
 
 ;;;; Fontify dispatcher
 
