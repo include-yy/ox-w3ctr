@@ -1681,24 +1681,18 @@ the cache off this does nothing."
 (defun t-oinfo-cleanup-before-export (&rest _)
   "Clear the OINFO caches at the start of an export.
 
-Add this function to `org-export-before-processing-functions' to have
-every export start clean; it is not installed by default: a full export
-clears the caches at its end, and it is the aborted or body-only export
-that would leave them populated.  `org-export-as' runs that hook before it
-transcodes anything, so the caches are already empty when the first
-`org-w3ctr--pget' runs.  Any arguments it is called with (the backend
-symbol) are ignored.
-
-`org-w3ctr--oinfo-cleanup' runs only after a full transcode, so an export
-aborted by an error -- or a body-only export, which never reaches
-`org-w3ctr-template' -- would otherwise leave every oclosure holding the
-dead INFO plist and its parse tree."
+Add this to `org-export-before-processing-functions' to start every
+export clean (not installed by default).  `org-w3ctr--oinfo-cleanup'
+runs only at the end of a full export, so an aborted or body-only
+export would otherwise leave dead INFO plists and parse trees in the
+oclosures.  Any hook arguments (the backend symbol) are ignored."
   (declare (ftype (function (&rest t) null)))
   (t--oinfo-cleanup))
 
 (defun t-collect-oinfo-statistics ()
   "Display how often each cached OINFO key has been looked up.
 
+\\<tabulated-list-mode-map>\
 Present the statistics in a `tabulated-list-mode' buffer where you can
 click column headers to re-sort, or press \\[tabulated-list-sort] on a
 column.  Press \\[revert-buffer] to refresh the statistics.
@@ -1733,8 +1727,8 @@ Interactive; useful for judging which keys are worth caching at all."
       (switch-to-buffer-other-window (current-buffer)))))
 
 (defun t--oinfo-compare-count (a b)
-  "Compare two OINFO statistic entries A and B by count.
-The count is stored as a text property on the Count column string."
+  "Return t if OINFO statistic entry A has a smaller count than B.
+Each entry stores its count as the `count' text property on column 1."
   (declare (ftype (function (list list) boolean))
            (pure t)
            (important-return-value t))
@@ -1810,7 +1804,8 @@ Otherwise, return an empty string."
   (if (stringp contents) (concat "\n" contents) ""))
 
 (defun t--make-string (n string)
-  "Return a new string by repeating STRING N times."
+  "Return a new string by repeating STRING N times.
+Return \"\" when N is not positive or STRING is empty."
   (declare (ftype (function (integer string) string))
            (pure t) (important-return-value t))
   (if (and (> n 0) (not (string= string "")))
@@ -1866,11 +1861,12 @@ Signal `org-w3ctr-error' if the value is not a valid Lisp s-expression."
         (error (t-error "Invalid attribute #+%s: %s" attribute str))))))
 
 (defun t--read-attr__ (element)
-  "Parse the `:attr__' (#+attr__:) property from ELEMENT.
+  "Parse the `:attr__' (`#+attr__:') property from ELEMENT.
 
 A vector such as [class1 class2] becomes the attribute form
 \(\"class\" \"class1 class2\"); an empty vector [] becomes a nil
-element.  Return nil if the property is absent."
+element.  Return nil if the property is absent.  Signal
+`org-w3ctr-error' on invalid Lisp syntax (via `org-w3ctr--read-attr')."
   (declare (ftype (function (t) list))
            (important-return-value t))
   (when-let* ((attrs (t--read-attr :attr__ element)))
@@ -1882,18 +1878,17 @@ element.  Return nil if the property is absent."
             attrs)))
 
 (defun t--make-attr (list)
-  "Format a single Lisp LIST into an HTML attribute string.
+  "Format a single Lisp LIST into an HTML attribute string, or nil.
 
-It handles two formats:
+Handle two formats:
+- Boolean attribute: (ATTR) becomes \" attr\".
+- Valued attribute: (ATTR VAL1 VAL2) becomes \" attr=\\\"VAL1VAL2...\\\"\".
 
-- A boolean attribute: (ATTR) becomes \" ATTR\".
-- An attribute with values: (ATTR VAL1 VAL2) becomes
-  \" attr=\"VAL1VAL2...\".
-
-The attribute name is lowercased, and its values are concatenated
-without spaces.  All values are escaped for safety using
-`org-w3ctr--encode-plain-text*'."
-  (declare (ftype (function (list) (or string null)))
+The name is lowercased, values are concatenated without spaces and
+escaped via `org-w3ctr--encode-plain-text*', and the result starts
+with a leading space.  Return nil when LIST is nil or its car cannot
+be converted by `org-w3ctr--2str'."
+  (declare (ftype (function (list) (or null string)))
            (pure t) (important-return-value t))
   ;; (car nil) => nil
   (when-let* (((not (null list)))
@@ -1906,31 +1901,23 @@ without spaces.  All values are escaped for safety using
       (concat " " (downcase name)))))
 
 (defun t--make-attr__ (attributes)
-  "Convert a list of attribute specifications into a single string.
+  "Format attribute list ATTRIBUTES into an HTML attribute string.
 
-This function takes a list, ATTRIBUTES, where each element
-specifies one HTML attribute.  It calls `org-w3ctr--make-attr'
-on each element and concatenates the results.
-
-Each element in ATTRIBUTES can be an atom for a boolean attribute
-\(for example, `disabled') or a list for an attribute with a
-value (for example, (id \"foo\") )."
+Each element is either an atom for a boolean attribute (for example
+`disabled') or a list for a valued attribute (for example (id \"foo\")).
+Each entry is formatted by `org-w3ctr--make-attr' and concatenated."
   (declare (ftype (function (list) string))
            (pure t) (important-return-value t))
   (mapconcat (lambda (x) (t--make-attr (if (atom x) (list x) x)))
              attributes))
 
 (defun t--make-attribute-string (attributes)
-  "Format a property list into an HTML attribute string.
+  "Format plist ATTRIBUTES into an HTML attribute string.
 
-This function is a local copy of `org-html--make-attribute-string'.
-It converts a property list, ATTRIBUTES, into a single string of
-HTML attributes (for example, \\='id=\"foo\" class=\"bar\"\\=').
-
-ATTRIBUTES should be a plist where keys are attribute names (as
-keywords or plain symbols) and values are strings.  A key with a nil
-value is omitted; values are escaped for an attribute with
-`org-w3ctr--encode-plain-text*'."
+Local copy of `org-html--make-attribute-string'.  Keys are keywords
+or symbols and values are strings (for example
+\\='id=\"foo\" class=\"bar\"\\=').  Keys with nil values are omitted;
+values are escaped via `org-w3ctr--encode-plain-text*'."
   (declare (ftype (function (list) string))
            (pure t) (important-return-value t))
   (let (output)
@@ -1944,16 +1931,15 @@ value is omitted; values are escaped for an attribute with
             (setcar output (format "%s=\"%s\"" key value))))))))
 
 (defun t--make-attr__id (element info &optional named-only)
-  "Format `:attr__' attributes, adding an `id' attribute if needed.
+  "Format `:attr__' attributes for ELEMENT, adding an `id' if needed.
+INFO is the info plist.  When NAMED-ONLY is non-nil, only named
+elements receive an id (see `org-w3ctr--reference').
 
-ELEMENT is the element, INFO the info plist, and NAMED-ONLY, when
-non-nil, restricts the id to elements with an explicit name.  Read and
-parse the `:attr__' property from ELEMENT, then add an `id' attribute
-based on the element's reference, unless an `id' is already explicitly
-defined in the property.
-
-`org-w3ctr--make-attr__' formats the final, combined list of
-attributes into a single string."
+Read `:attr__' via `org-w3ctr--read-attr__', prepend an `id' from
+`org-w3ctr--reference' unless an explicit `(id ...)' entry is present,
+and format with `org-w3ctr--make-attr__'.  Return a string with a
+leading space, or \"\" when empty.  Signal `org-w3ctr-error' on
+invalid `:attr__' syntax."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (let* ((reference (t--reference element info named-only))
@@ -1967,16 +1953,14 @@ attributes into a single string."
     (if (t--nw-p a) a "")))
 
 (defun t--make-attr_html (element info &optional named-only)
-  "Format attributes from `:attr_html', adding an `id' if needed.
+  "Format `:attr_html' attributes for ELEMENT, adding an `id' if needed.
+INFO is the info plist.  When NAMED-ONLY is non-nil, only named
+elements receive an id (see `org-w3ctr--reference').
 
-ELEMENT is the element, INFO the info plist, and NAMED-ONLY, when
-non-nil, restricts the id to elements with an explicit name.  Process
-the standard Org `:attr_html' property from ELEMENT, then add an `id'
-attribute based on the element's reference, unless an `id' is already
-present in the property list.
-
-`org-w3ctr--make-attribute-string' formats the final property list
-into a single string."
+Read `:attr_html' via `org-export-read-attribute', add `:id' unless
+`:id' is already a member of the plist, and format with
+`org-w3ctr--make-attribute-string'.  Return a string with a leading
+space, or \"\" when empty."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (let* ((attrs (org-export-read-attribute :attr_html element))
@@ -1987,18 +1971,15 @@ into a single string."
     (if (t--nw-p a) (concat " " a) "")))
 
 (defun t--make-attr__id* (element info &optional named-only)
-  "Format attributes, using `:attr__' with a fallback to `:attr_html'.
+  "Format ELEMENT's attributes via `:attr__', or fall back to `:attr_html'.
+INFO is the info plist.  NAMED-ONLY is passed through to the chosen
+helper.
 
-ELEMENT is the element, INFO the info plist, and NAMED-ONLY, when
-non-nil, restricts the id to elements with an explicit name.  This is
-the main function for generating an element's complete attribute
-string.  It first checks for the custom `:attr__' property and
-processes it with `org-w3ctr--make-attr__id'.
-
-If `:attr__' is absent, it falls back to processing the standard
-`:attr_html' property using `org-w3ctr--make-attr_html'.  A present
-`#+attr__:', even empty, wins: its presence alone selects the
-`:attr__' syntax, so `#+attr_html:' is ignored."
+If ELEMENT has `:attr__' (even empty), delegate to
+`org-w3ctr--make-attr__id' and ignore `:attr_html'; otherwise delegate
+to `org-w3ctr--make-attr_html'.  Return a string with a leading space,
+or \"\" when empty.  Signal `org-w3ctr-error' on invalid `:attr__'
+syntax."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   ;; `#+attr__:' takes priority even when empty -- its presence alone
@@ -2065,12 +2046,10 @@ function returns nil.  A match of length zero is skipped."
           "img" "input" "link" "meta" "param"
           "source" "track" "wbr")
       string-end)
-  "A regular expression that matches HTML void elements.
+  "Regexp matching HTML void elements.
 
-Void elements, also known as self-closing or empty tags, are
-elements in HTML that cannot have any child nodes.  Therefore,
-they do not require a closing tag.  This regexp is used to
-identify such tags during HTML generation.")
+Void elements cannot have child nodes and have no closing tag.  Used
+to omit closing tags during HTML generation.")
 
 (defun t--void-element (tag attrs)
   "Return a void element string for TAG with ATTRS.
@@ -2089,7 +2068,7 @@ form \"<TAG ...>\", or \"<TAG>\" when ATTRS is blank."
 TAG must be a non-nil symbol; anything else signals
 `org-w3ctr-error'."
   (declare (ftype (function (t) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (unless (and tag (symbolp tag))
     (t-error "Invalid S-expression tag: %S" tag))
   (downcase (symbol-name tag)))
@@ -2100,34 +2079,27 @@ ATTR-LS is nil or t for no attributes, or a list of attribute
 specifications for `org-w3ctr--make-attr__'; anything else signals
 `org-w3ctr-error'."
   (declare (ftype (function (t) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (cond ((booleanp attr-ls) "")
         ((proper-list-p attr-ls) (t--make-attr__ attr-ls))
         (t (t-error "Invalid S-expression attribute list: %S" attr-ls))))
 
 (defun t--sexp2html (data)
-  "Recursively convert an S-expression, DATA, into an HTML string.
+  "Recursively convert Lisp S-expression DATA into an HTML string.
 
-This function translates a Lisp S-expression into its HTML
-representation.  The expected format is:
+DATA may be:
+- nil: return \"\".
+- A symbol, string, or number: convert via `org-w3ctr--2str' and
+  escape via `org-w3ctr--encode-plain-text'.
+- A list (TAG ATTRS . CHILDREN): TAG is a non-nil symbol (lowercased;
+  void tags omit the closing tag), ATTRS is nil, t, or an attribute
+  list for `org-w3ctr--make-attr__', and CHILDREN are converted
+  recursively.  For example, (p ((class \"foo\")) \"Hi\") becomes
+  \"<p class=\\\"foo\\\">Hi</p>\".
+- Anything else (for example a vector): dropped as \"\".
 
-  (TAG-SYMBOL ATTRIBUTE-LIST ...CHILDREN)
-
-- TAG-SYMBOL: A symbol for the HTML tag (for example, `p', `div').
-  It is automatically converted to lowercase.
-- ATTRIBUTE-LIST: A list of attribute specifications suitable for
-  `org-w3ctr--make-attr__'.  Use nil or an empty list for no attributes.
-- CHILDREN: Zero or more child elements, which are recursively
-  converted.  Children can be other S-expressions, strings, or numbers.
-  Any other child (a vector, say) is dropped, rendering as nothing.
-
-For example, the expression (p ((class \"foo\")) \"Hello\") is
-converted to \"<p class=\\\"foo\\\">Hello</p>\".
-
-The function correctly handles void elements (like `br') and
-sanitizes string content using `org-w3ctr--encode-plain-text'.
-Signal `org-w3ctr-error' when a list's first element is not a symbol,
-or when its attribute list is neither nil, t, nor a proper list."
+Signal `org-w3ctr-error' when a list's TAG is not a non-nil symbol or
+its ATTRS is neither nil, t, nor a proper list."
   (declare (ftype (function (t) string))
            (important-return-value t))
   (pcase data
@@ -2155,7 +2127,7 @@ or when its attribute list is neither nil, t, nor a proper list."
 
 (defun t--new-reference (references)
   "Return a unique reference number not already in REFERENCES.
-REFERENCES is the :internal-references alist.  Use
+REFERENCES is the `:internal-references' alist.  Use
 `org-w3ctr--format-reference' to turn the result into a string."
   (declare (ftype (function (list) integer))
            (important-return-value t))
@@ -2172,10 +2144,10 @@ REFERENCE is a number as returned by `org-w3ctr--new-reference'."
 
 (defun t--get-reference (datum info)
   "Return a unique reference string for DATUM.
-DATUM is an element or object.  INFO is the export state plist.
+DATUM is an element or object.  INFO is the info plist.
 
 Unlike `org-export-get-reference', this function does not consult
-:crossrefs and therefore does not depend on org-publish."
+`:crossrefs' and therefore does not depend on `org-publish'."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((cache (t--pget info :internal-references)))
@@ -2206,9 +2178,8 @@ letter followed by letters, digits, hyphens or underscores."
 
 (defun t--reference (datum info &optional named-only)
   "Return an appropriate reference for DATUM.
-
 DATUM is an element or a target/radio-target object.  INFO is the
-current export state, as a plist.
+info plist.
 
 This names in-document datums only: every caller passes a datum
 from the current parse tree, never an external target.  Cross-file
@@ -2252,24 +2223,23 @@ exempt."
 ;;;; Filter Functions
 
 (defun t-image-link-filter (data _backend info)
-  "Filter to insert image links inside link descriptions.
+  "Insert image links inside link descriptions in DATA.
+BACKEND is unused.  INFO is the info plist.
 
-This is the backend's `:filter-parse-tree' filter.  DATA is the parse
-tree, BACKEND the backend symbol (unused), and INFO the export options
-plist.  Return DATA with any image that is a link's description turned
-into a proper nested link; `org-w3ctr-inline-image-rules' decides which
-links count as images.  See `org-export-insert-image-links'."
+This is the backend's `:filter-parse-tree' filter.  Return DATA with
+any image link description turned into a nested link according to
+`org-w3ctr-inline-image-rules'.  See `org-export-insert-image-links'."
   (declare (ftype (function (t t list) t))
            (important-return-value t))
   (org-export-insert-image-links data info t-inline-image-rules))
 
 (defun t-final-function (contents _backend info)
-  "Indent the HTML when `:html-indent' is non-nil, and return it.
+  "Indent HTML CONTENTS when `:html-indent' is non-nil, and return it.
+BACKEND is unused.  INFO is the info plist.
 
-This is the backend's `:filter-final-output' filter.  CONTENTS is the
-exported HTML string and INFO the export plist.  The major mode is set
-only when indenting, so that the HTML indentation rules apply; its hooks
-are delayed, as in `org-html-final-function'."
+This is the backend's `:filter-final-output' filter.  Set the major
+mode only when indenting, with delayed hooks as in
+`org-html-final-function'."
   (declare (ftype (function (string t list) string))
            (important-return-value t))
   (with-temp-buffer
@@ -2283,9 +2253,9 @@ are delayed, as in `org-html-final-function'."
 
 ;; A JSON-RPC 2.0 client built on `jsonrpc.el'.  `org-w3ctr--jrpc' is the
 ;; generic layer; `org-w3ctr--jstools' is the one instance used here, whose
-;; COMMAND starts the node MathJax helper.  The helper speaks Content-Length
-;; framing (see jstools/index.js), which is what `jsonrpc.el' reads and
-;; writes too.
+;; COMMAND starts the jstools Node helper (MathJax and Shiki).  The helper
+;; speaks Content-Length framing (see jstools/index.js), which is what
+;; `jsonrpc.el' reads and writes too.
 
 (oclosure-define t--jrpc
   "Callable JSON-RPC client.
@@ -2344,7 +2314,7 @@ child's stderr merged into stdout and corrupt the protocol."
 (defun t--jrpc-shutdown (client)
   "Shut down CLIENT's connection and clear its `conn' slot.
 
-CLIENT is a `org-w3ctr--jrpc' object.  Return nil."
+CLIENT is an `org-w3ctr--jrpc' object.  Return nil."
   (declare (ftype (function (t) null)))
   (let ((conn (t--jrpc--conn client)))
     (when conn (ignore-errors (jsonrpc-shutdown conn t)))
@@ -2353,7 +2323,7 @@ CLIENT is a `org-w3ctr--jrpc' object.  Return nil."
 (defun t--jrpc-ensure (client)
   "Return CLIENT's live connection, starting one if needed.
 
-CLIENT is a `org-w3ctr--jrpc' object.  A dead or absent connection is
+CLIENT is an `org-w3ctr--jrpc' object.  A dead or absent connection is
 shut down and rebuilt from CLIENT's `command', and the result is stored
 back in CLIENT's `conn' slot."
   (declare (ftype (function (t) t)))
@@ -2368,7 +2338,7 @@ back in CLIENT's `conn' slot."
 (defun t--jrpc-restart (client)
   "Restart CLIENT's server process and return the new connection.
 
-CLIENT is a `org-w3ctr--jrpc' object."
+CLIENT is an `org-w3ctr--jrpc' object."
   (declare (ftype (function (t) t)))
   (t--jrpc-shutdown client)
   (t--jrpc-ensure client))
@@ -2376,7 +2346,7 @@ CLIENT is a `org-w3ctr--jrpc' object."
 (defun t--jcall (client method params &optional timeout)
   "Call METHOD on CLIENT, restarting its connection if needed.
 
-CLIENT is a `org-w3ctr--jrpc' object.  METHOD is a method name and
+CLIENT is an `org-w3ctr--jrpc' object.  METHOD is a method name and
 PARAMS the JSON-RPC params value.  TIMEOUT overrides CLIENT's default.
 Return the decoded `result' of the response.  Signal `org-w3ctr-error'
 when METHOD is outside CLIENT's METHODS; a remote error or a timeout
@@ -2393,17 +2363,17 @@ surfaces as `jsonrpc-error'."
   '(tex2mml tex2svg highlight highlightLanguages)
   "The RPC methods ox-w3ctr exposes from the jstools helper.
 
-tex2mml and tex2svg convert math (see `org-w3ctr--latex-rpc'),
-highlight and highlightLanguages fontify code (see
-`org-w3ctr--jstools-tokens').  The node helper also answers the test
-methods echo and add; they stay unexposed.")
+`tex2mml' and `tex2svg' convert math (see `org-w3ctr--latex-rpc'),
+`highlight' and `highlightLanguages' fontify code (see
+`org-w3ctr--jstools-tokens').  The Node helper also answers the test
+methods `echo' and `add'; they stay unexposed.")
 
 (defvar t--jstools
   (t--jrpc-make "ox-w3ctr-jstools"
                 (list "node" (file-name-concat t--dir "jstools/index.js")
                       "--timeout" "30000")
                 nil t--jstools-methods)
-  "The JSON-RPC client for the node MathJax helper.")
+  "The JSON-RPC client for the jstools Node helper (MathJax and Shiki).")
 
 (defun t-show-jstools-events ()
   "Show the JSON-RPC event log for the jstools connection."
