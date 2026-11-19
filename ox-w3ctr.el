@@ -3439,15 +3439,15 @@ delimiters, call the RPC, and return the string result; signal
 
 (defun t--format-latex (frag mode info)
   "Return the exported string for LaTeX fragment FRAG under MODE.
+INFO is the info plist.
 
-MODE is the value of `:with-latex': nil and \\='verbatim return nil,
-both having been taken care of by ox.el before the transcoders run;
-\\='mathjax (or t) normalizes its delimiters;
-\\='mathml-by-mathjax and \\='svg-by-mathjax convert it through the
-jstools RPC; \\='custom calls `:html-math-custom-render-function'
-on FRAG and INFO, and the result may be a string or nil.  An
-unknown MODE or a custom result that is neither signals
-`org-w3ctr-error'."
+MODE is the value of `:with-latex': nil and `verbatim' return nil,
+both handled by ox.el before the transcoders run; `mathjax' (or t)
+normalizes delimiters; `mathml-by-mathjax' and `svg-by-mathjax'
+convert through the jstools RPC; `custom' calls
+`:html-math-custom-render-function' on FRAG and INFO (returning a
+string or nil).  An unknown MODE or a non-string/nil custom result
+signals `org-w3ctr-error'."
   (declare (ftype (function (string t list) (or null string)))
            (important-return-value t))
   (pcase mode
@@ -3467,14 +3467,15 @@ unknown MODE or a custom result that is neither signals
        (unless (string-or-null-p out)
          (t-error "Custom LaTeX renderer returned a non-string: %S" out))
        out))
-    (other (t-error "Unknown LaTeX mode: %s" other))))
+    (other (t-error "Unknown LaTeX mode: %S" other))))
 
 (defun t-latex-fragment (latex-fragment _contents info)
   "Transcode a LATEX-FRAGMENT object from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  Return the fragment
-formatted for the `:with-latex' mode (see
-`org-w3ctr--format-latex'), or nil when that mode emits nothing."
+Return the fragment formatted for `:with-latex' via
+`org-w3ctr--format-latex', or nil when that mode emits nothing.  A
+missing `:value' defaults to \"\"."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex
@@ -3483,11 +3484,12 @@ formatted for the `:with-latex' mode (see
 
 (defun t-latex-environment (latex-environment _contents info)
   "Transcode a LATEX-ENVIRONMENT element from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  Return the environment,
-with common indentation removed, formatted for the `:with-latex'
-mode (see `org-w3ctr--format-latex'), or nil when that mode emits
-nothing."
+Return the environment, with common indentation removed, formatted
+for `:with-latex' via `org-w3ctr--format-latex', or nil when that
+mode emits nothing.  A missing `:value' defaults to \"\"; attributes,
+names, and captions are ignored."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex

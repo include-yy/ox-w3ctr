@@ -3170,6 +3170,8 @@ cookie-less column is remembered as the `none' marker."
   "Tests for `org-w3ctr--normalize-latex'."
   ($l (t--normalize-latex "$x$") "\\(x\\)")
   ($l (t--normalize-latex "$$x$$") "\\[x\\]")
+  ($l (t--normalize-latex "$$$$") "\\[\\]")
+  ($l (t--normalize-latex "$$\na+b\n$$") "\\[\na+b\n\\]")
   ($l (t--normalize-latex "\\(x\\)") "\\(x\\)")
   ($l (t--normalize-latex "\\[x\\]") "\\[x\\]")
   ($l (t--normalize-latex "\\begin{equation}\nx=1\n\\end{equation}")
@@ -3246,7 +3248,10 @@ cookie-less column is remembered as the `none' marker."
   ;; never calls the back-end transcoder, so only `mathjax' is tested.
   (t-check-element-values
    #'t-latex-fragment
-   '(("$x^2$" "\\(x^2\\)"))
+   '(("$x^2$" "\\(x^2\\)")
+     ("$$x^2$$" "\\[x^2\\]")
+     ("\\(x\\)" "\\(x\\)")
+     ("\\[x\\]" "\\[x\\]"))
    t '(:with-latex mathjax))
   ;; under `tex:nil' ox.el prunes the fragment: no call at all
   (t-check-element-values
@@ -3279,8 +3284,16 @@ cookie-less column is remembered as the `none' marker."
       "\\begin{equation}\nx=1\n\\end{equation}")
      ;; the value keeps its content but loses common indentation
      ("  \\begin{equation}\n  x=1\n  \\end{equation}"
+      "\\begin{equation}\nx=1\n\\end{equation}")
+     ;; attributes, names, and captions are ignored
+     ("#+name: eq1\n#+caption: Cap\n#+attr__: [cls]\n\\begin{equation}\nx=1\n\\end{equation}"
       "\\begin{equation}\nx=1\n\\end{equation}"))
    t '(:with-latex mathjax))
+  ;; under `tex:nil' ox.el prunes the environment: no call at all
+  (t-check-element-values
+   #'t-latex-environment
+   '(("\\begin{equation}\nx=1\n\\end{equation}"))
+   t '(:with-latex nil))
   ;; `custom' pins the MODE and INFO passthrough, as for the fragment
   (t-check-element-values
    #'t-latex-environment
