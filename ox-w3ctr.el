@@ -3852,8 +3852,11 @@ unwrapped.  The result has no wrapper element."
 ;; of export to hook into).
 
 (defvar t--fontify-last-state nil
-  "The fontify state of the most recent export, or nil.
-See `org-w3ctr--fontify-state'.")
+  "The fontify state of the most recent fontifying run, or nil.
+
+A run is an export, or a call to `org-w3ctr-fontify-code' outside
+one, that fontified some code; a run with no non-empty code in a
+language leaves this alone.  See `org-w3ctr--fontify-state'.")
 
 (defconst t--fontify-report-sections
   '((engine . "Blocks fontified, by engine")
@@ -3867,8 +3870,10 @@ See `org-w3ctr--fontify-state'.")
 
 (defun t--fontify-state (info)
   "Return the fontify state of the export INFO, creating it if needed.
-A new state is stored in INFO under `:html-fontify-state' and made
-`org-w3ctr--fontify-last-state'."
+
+INFO is the info plist; it must be non-empty, since a new state is
+stored in it under `:html-fontify-state' and a nil plist cannot keep
+it.  A new state is also made `org-w3ctr--fontify-last-state'."
   (declare (ftype (function (list) hash-table))
            (important-return-value t))
   (or (t--pget info :html-fontify-state)
@@ -3878,18 +3883,22 @@ A new state is stored in INFO under `:html-fontify-state' and made
 
 (defun t--fontify-note (state kind key)
   "Count one KIND event about KEY in STATE; return the new count.
+
 KIND is one of the symbols of `org-w3ctr--fontify-report-sections'
-or an internal marker; KEY is an engine, a language or a face."
+or an internal marker; KEY is what the event is about: an engine, a
+language, a face or a slug."
   (declare (ftype (function (hash-table symbol t) integer)))
   (puthash (cons kind key) (1+ (gethash (cons kind key) state 0)) state))
 
 (defun t--fontify-report-text (state)
   "Return the text of the fontify report for STATE.
+
 Each section of `org-w3ctr--fontify-report-sections' with at least
-one entry lists its keys, the most frequent first; with no entry at
-all, say there is nothing to report."
+one entry lists its keys, the most frequent first; entries of other
+kinds are ignored.  With no entry to show at all, say there is
+nothing to report."
   (declare (ftype (function (hash-table) string))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (let ((by-kind (make-hash-table :test #'eq))
         parts)
     (maphash (lambda (k n)
@@ -3911,11 +3920,14 @@ all, say there is nothing to report."
       "Nothing to report.\n")))
 
 (defun t-show-fontify-report ()
-  "Show what code highlighting did in the most recent export.
-List, most frequent first, the blocks each engine fontified or
-declined, the engines that failed or were unavailable, the
-languages no engine took, and the faces that found no slug in
-`org-w3ctr-fontify-faces'.  See `org-w3ctr--fontify-report-text'."
+  "Show what code highlighting did in the most recent fontifying run.
+
+The run is the one `org-w3ctr--fontify-last-state' records.  List,
+most frequent first, the blocks each engine fontified or declined,
+the engines that failed or were unavailable, the languages no engine
+took, the faces that found no slug in the face tables, and the slugs
+an engine sent that no face table knows.  See
+`org-w3ctr--fontify-report-text'."
   (interactive)
   (unless t--fontify-last-state
     (user-error "No export has fontified code yet"))

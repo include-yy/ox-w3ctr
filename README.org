@@ -373,9 +373,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   - =org-w3ctr--fontify-engine= does not validate the engine plist: an
     engine missing =:fontify= or =:available= fails with =funcall nil=
     rather than an =org-w3ctr-error= naming the engine.
-  - =org-w3ctr--fontify-report-text= is side-effect free and signal-free,
-    so it qualifies for =(pure t)=, but is not marked;
-    =org-w3ctr--fontify-merge= and =org-w3ctr--fontify-render= are.
   - The unknown-language predicate in =org-w3ctr--fontify-dispatch=
     (~(and (> tried 0) (= tried declined) (eq (car result) 'plain))~) is
     correct but opaque; a comment or a clearer formulation helps.

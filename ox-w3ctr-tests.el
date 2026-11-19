@@ -3804,6 +3804,8 @@ cookie-less column is remembered as the `none' marker."
         (info (t-test-fontify-info)))
     (let ((state (t--fontify-state info)))
       ($s (hash-table-p state))
+      ;; Keys are fresh (KIND . KEY) conses.
+      ($q (hash-table-test state) 'equal)
       ;; Stored in INFO and published as the last state.
       ($q (t--pget info :html-fontify-state) state)
       ($q t--fontify-last-state state)
@@ -3824,12 +3826,18 @@ cookie-less column is remembered as the `none' marker."
   "Tests for `org-w3ctr--fontify-report-text'."
   (let ((state (make-hash-table :test #'equal)))
     ($l (t--fontify-report-text state) "Nothing to report.\n")
-    (dotimes (_ 3) (t--fontify-note state 'engine 'engrave))
+    ;; Later sections are filled first: the order comes from
+    ;; `org-w3ctr--fontify-report-sections', not from insertion.
+    (t--fontify-note state 'unknown-slug "zz")
     (dotimes (_ 5) (t--fontify-note state 'missed-face 'foo))
     (dotimes (_ 2) (t--fontify-note state 'missed-face 'sh-quoted-exec))
     (dotimes (_ 2) (t--fontify-note state 'missed-face 'bold))
-    ;; Kinds without a section stay out of the report.
+    (dotimes (_ 3) (t--fontify-note state 'engine 'engrave))
+    ;; Internal entries, with the non-count values a real export
+    ;; stores, stay out of the report.
     (t--fontify-note state 'internal-marker 'x)
+    (puthash '(broken . boom) t state)
+    (puthash '(cache . jstools-languages) '("py" "js") state)
     ;; Sections in their fixed order, rows by count then by name.
     ($l (t--fontify-report-text state)
         (concat "Blocks fontified, by engine\n"
@@ -3838,7 +3846,10 @@ cookie-less column is remembered as the `none' marker."
                 "Faces without a slug (runs)\n"
                 "     5  foo\n"
                 "     2  bold\n"
-                "     2  sh-quoted-exec\n"))))
+                "     2  sh-quoted-exec\n"
+                "\n"
+                "Slugs an engine sent but no table knows\n"
+                "     1  zz\n"))))
 
 (ert-deftest t-show-fontify-report ()
   "Tests for `org-w3ctr-show-fontify-report'."
@@ -3849,8 +3860,15 @@ cookie-less column is remembered as the `none' marker."
     (unwind-protect
         (save-window-excursion
           (t-show-fontify-report)
-          ($l (with-current-buffer "*ox-w3ctr fontify report*" (buffer-string))
-              (t--fontify-report-text t--fontify-last-state)))
+          ;; A second run replaces the read-only text of the first.
+          (t--fontify-note t--fontify-last-state 'decline 'shiki)
+          (t-show-fontify-report)
+          (with-current-buffer "*ox-w3ctr fontify report*"
+            ($l (buffer-string)
+                (t--fontify-report-text t--fontify-last-state))
+            ($s (derived-mode-p 'special-mode))
+            ($s buffer-read-only)
+            ($l (point) (point-min))))
       (when-let* ((buf (get-buffer "*ox-w3ctr fontify report*")))
         (kill-buffer buf)))))
 
