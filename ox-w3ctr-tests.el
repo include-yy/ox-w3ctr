@@ -1361,10 +1361,6 @@ stubs `random' to hand back a taken number first and counts the draws."
     ($n (t--element-id
          (t-get-element "#+name: d\n#+begin: foo\nx\n#+end:" 'dynamic-block)
          info))
-    ($n (t--element-id
-         (t-get-element "#+name: s\n#+attr_html: :textarea t\n#+begin_src text\nx\n#+end_src"
-                        'src-block)
-         info))
     ($n (t--element-id '(table (:type table.el :name "tbl")) info))
     ;; Headlines and targets delegate directly to `org-w3ctr--reference'.
     ($l (t--element-id
@@ -4641,23 +4637,6 @@ winner (or `signal') and the number of warnings."
   (let ((t-fontify-method nil))
     ($n (plist-get (t--fontify-default-info) :html-fontify-method))))
 
-(ert-deftest t--textarea-block ()
-  "Tests for `org-w3ctr--textarea-block'."
-  (cl-flet ((f (str) (t--textarea-block (t-get-element str 'src-block))))
-    ;; Defaults: 80 cols, one row per code line.
-    ($l (f "#+attr_html: :textarea t\n#+begin_src emacs-lisp\nx\ny\n#+end_src")
-        "<p>\n<textarea cols=\"80\" rows=\"2\">\nx\ny</textarea>\n</p>")
-    ;; A literal closing tag in the code cannot end the element early.
-    ($l (f (concat "#+attr_html: :textarea t\n#+begin_src emacs-lisp\n"
-                   "(a \"</textarea>\" & b)\n#+end_src"))
-        (concat "<p>\n<textarea cols=\"80\" rows=\"1\">\n"
-                "(a \"&lt;/textarea&gt;\" &amp; b)</textarea>\n</p>"))
-    ;; :width and :height win, and are escaped as attribute values.
-    ($l (f (concat "#+attr_html: :textarea t :width \"4\\\"0\" :height 3\n"
-                   "#+begin_src emacs-lisp\nx\n#+end_src"))
-        (concat "<p>\n<textarea cols=\"&quot;4\\&quot;0&quot;\" rows=\"3\">\n"
-                "x</textarea>\n</p>"))))
-
 (ert-deftest t-fontify-code ()
   "Tests for `org-w3ctr-fontify-code'."
   ;; Without INFO the options decide.
@@ -4735,10 +4714,6 @@ winner (or `signal') and the number of warnings."
     (should (string-match-p "<div id=\"org[^\"]*\" class=\"example\">" out))
     (should (string-match-p "self-link" out))
     (should (string-match-p "<span>C</span>" out)))
-  (let ((out (org-export-string-as
-              "#+attr_html: :textarea t\n#+begin_src emacs-lisp\nx\n#+end_src"
-              'w3ctr t)))
-    (should (string-match-p "<textarea" out)))
   ;; Attributes come from `#+attr__', or `#+attr_html' when that is
   ;; absent; `#+attr__' wins over `#+attr_html'.
   (let ((out (org-export-string-as
@@ -5908,14 +5883,7 @@ winner (or `signal') and the number of warnings."
   ;; White space cannot be part of an id.
   ($e!l (t--link-coderef "a b" nil nil "")
         '(org-w3ctr-error "Invalid code reference label: a b"))
-  ;; A :textarea block emits no id, so it cannot be a target.
-  ($e!l (org-export-string-as
-         (concat "#+attr_html: :textarea t\n#+begin_src text\nx (ref:sc)\n"
-                 "#+end_src\n\nSee [[(sc)]].")
-         'w3ctr t)
-        '(org-w3ctr-error
-          "Code reference sc is in a :textarea block, which has no id"))
-  ;; A block whose id is explicitly suppressed cannot be a target either.
+  ;; A block whose id is explicitly suppressed cannot be a target.
   ($e!l (org-export-string-as
          (concat "#+attr_html: :id\n#+begin_example\nx (ref:sc)\n"
                  "#+end_example\n\nSee [[(sc)]].")

@@ -118,7 +118,8 @@ and how the pipeline works.
     reduced form: =[[(label)]]= points at the defining block's id, the
     label text is stripped from the code (as ox-html does), and the
     =-r=/=-k= switches are not implemented.
-  - =:html-wrap-src-lines= and =:html-klipsify-src=.
+  - =:html-wrap-src-lines=, =:html-klipsify-src=, and
+    =#+attr_html: :textarea=.
   - Listing number in captions.
   - example-block fontification / line numbers.  The token list
     (=org-w3ctr--fontify-dispatch=) is where line numbers would be cut,
@@ -425,17 +426,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   guarding would mean reading =:back-end= behind the translation
   lookup the tests pin.  Probed in
   =scratch/_probes/lesser-export-snippet-probe.el=.
-
-- *Consider dropping the =:textarea= source-block form (lean: drop).*
-  =org-w3ctr--textarea-block= keeps ox-html's =#+attr_html: :textarea=
-  behaviour: the block renders as a =<textarea>= instead of =<pre><code>=.
-  It is a compatibility relic with no W3C TR rationale -- a form control
-  in a spec, unstyled by base.css, and a silent output-shape switch.  It
-  is the lone survivor of the dropped ox-html src-block features (line
-  numbers, coderef, retain-labels, ...).  Delete it and add it to the
-  Roadmap's dropped-features list; the only reason to keep it is ox-html
-  compatibility, which this package does not promise.  If kept instead,
-  record the decision like the Export blocks entry does.
 
 *** Non-goals
 

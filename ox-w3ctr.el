@@ -2217,21 +2217,18 @@ ELEMENT is an element or target/radio-target object.  INFO is the
 info plist.  NAMED-ONLY is passed through to `org-w3ctr--reference'.
 
 Return nil for elements that never emit an id (`export-block',
-`latex-environment', `dynamic-block', `keyword', a `:textarea'
-`src-block', or a `table.el' `table').  For `headline', `target',
-and `radio-target', delegate directly to `org-w3ctr--reference'.
-For all other elements, mirror `org-w3ctr--make-attr__id*': an
-explicit `(id ...)' in `:attr__' or `:id' in `:attr_html' wins over
-`org-w3ctr--reference', and an empty or nil explicit id suppresses
-it (returning nil)."
+`latex-environment', `dynamic-block', `keyword', or a `table.el'
+`table').  For `headline', `target', and `radio-target', delegate
+directly to `org-w3ctr--reference'.  For all other elements, mirror
+`org-w3ctr--make-attr__id*': an explicit `(id ...)' in `:attr__' or
+`:id' in `:attr_html' wins over `org-w3ctr--reference', and an empty
+or nil explicit id suppresses it (returning nil)."
   (declare (ftype (function (t list &optional boolean) (or null string)))
            (important-return-value t))
   (let ((type (org-element-type element)))
     (cond
      ;; Elements whose transcoders never emit an id attribute.
      ((or (memq type '(export-block latex-environment dynamic-block keyword))
-          (and (eq type 'src-block)
-               (org-export-read-attribute :attr_html element :textarea))
           (and (eq type 'table)
                (eq (org-element-property :type element) 'table.el)))
       nil)
@@ -4610,26 +4607,6 @@ options gets the value of its variable."
                                        (symbol-value (nth 3 option)))))))
     plist))
 
-(defun t--textarea-block (element)
-  "Transcode ELEMENT into a <textarea> wrapped in a <p>.
-
-ELEMENT is a source block whose `:attr_html' asks for a textarea.
-Its `:width' gives the cols (80 by default) and its `:height' the
-rows (the number of code lines by default).  The code and both
-values are escaped, so a literal \"</textarea>\" in the code cannot
-close the element early; the browser decodes the entities back, so
-the textarea still shows the code as written."
-  (declare (ftype (function (t) string))
-           (important-return-value t))
-  (let* ((code (t--code-text element))
-         (attr (org-export-read-attribute :attr_html element))
-         (value (lambda (v) (t--encode-plain-text* (format "%s" v)))))
-    (format "<p>\n<textarea cols=\"%s\" rows=\"%s\">\n%s</textarea>\n</p>"
-            (funcall value (or (plist-get attr :width) 80))
-            (funcall value (or (plist-get attr :height)
-                               (org-count-lines code)))
-            (t--encode-plain-text code))))
-
 (defun t-fontify-code (code lang &optional info element)
   "Colorize CODE (a string) for LANG, returning bare fontified HTML.
 
@@ -4683,43 +4660,41 @@ A nil LANG yields a plain <code> without a language class."
 
 (defun t-src-block (src-block _contents info)
   "Transcode a SRC-BLOCK element from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  A `:textarea' attribute
-yields a <textarea>; otherwise the code is wrapped in a <div><pre>
-pair, with the block's attributes and id on the <div>.  A block with
-a non-blank caption adds a self-link and the caption in an unstyled
-<span>, and its <div> carries class=\"example\" unless the author
-supplies attributes."
+Return a <div><pre><code>...</code></pre></div> string, with the
+block's attributes and id on the <div>.  A block with a non-blank
+caption adds a self-link and the caption in an unstyled <span>, and
+its <div> carries class=\"example\" unless the author supplies
+attributes."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
-  (if (org-export-read-attribute :attr_html src-block :textarea)
-      (t--textarea-block src-block)
-    (let* ((lang (org-element-property :language src-block))
-           (code (t--src-code-tag lang (t--src-code src-block lang info)))
-           (caption (when-let* ((cap (org-export-get-caption src-block)))
-                      (t--nw-trim (org-export-data cap info)))))
-      (if caption
-          (let ((has-user-attrs
-                 (or (org-element-property :attr__ src-block)
-                     (org-element-property :attr_html src-block)))
-                (id (or (t--element-id src-block info) "")))
-            (format (concat "<div%s%s>\n"
-                            "<a class=\"self-link\" href=\"#%s\""
-                            " aria-label=\"source block\"></a>\n"
-                            "<span>%s</span>\n<pre>\n%s</pre></div>")
-                    ;; A captioned block always gets an id: the
-                    ;; self-link needs one.
-                    (t--make-attr__id* src-block info)
-                    (if has-user-attrs "" " class=\"example\"")
-                    (t--encode-plain-text* id)
-                    caption
-                    code))
-        (format "<div%s>\n<pre>\n%s</pre></div>"
-                ;; A block that defines a code reference is a
-                ;; `[[(LABEL)]]' target, so it always gets an id.
-                (t--make-attr__id* src-block info
-                                   (not (t--coderef-labels src-block)))
-                code)))))
+  (let* ((lang (org-element-property :language src-block))
+         (code (t--src-code-tag lang (t--src-code src-block lang info)))
+         (caption (when-let* ((cap (org-export-get-caption src-block)))
+                    (t--nw-trim (org-export-data cap info)))))
+    (if caption
+        (let ((has-user-attrs
+               (or (org-element-property :attr__ src-block)
+                   (org-element-property :attr_html src-block)))
+              (id (or (t--element-id src-block info) "")))
+          (format (concat "<div%s%s>\n"
+                          "<a class=\"self-link\" href=\"#%s\""
+                          " aria-label=\"source block\"></a>\n"
+                          "<span>%s</span>\n<pre>\n%s</pre></div>")
+                  ;; A captioned block always gets an id: the
+                  ;; self-link needs one.
+                  (t--make-attr__id* src-block info)
+                  (if has-user-attrs "" " class=\"example\"")
+                  (t--encode-plain-text* id)
+                  caption
+                  code))
+      (format "<div%s>\n<pre>\n%s</pre></div>"
+              ;; A block that defines a code reference is a
+              ;; `[[(LABEL)]]' target, so it always gets an id.
+              (t--make-attr__id* src-block info
+                                 (not (t--coderef-labels src-block)))
+              code))))
 
 (defun t-inline-src-block (inline-src-block _contents info)
   "Transcode an INLINE-SRC-BLOCK object from Org to HTML.
@@ -5565,10 +5540,6 @@ LABEL cannot be an id, or when no block defines it."
   (let ((block (or (t--coderef-block label info)
                    (t-error "No example or source block defines (ref:%s)"
                             label))))
-    ;; A `:textarea' source block emits no id, so it cannot be a target.
-    (when (org-export-read-attribute :attr_html block :textarea)
-      (t-error "Code reference %s is in a :textarea block, which has no id"
-               label))
     (let ((id (or (t--element-id block info)
                   (t-error "Code reference %s is in a block with no id"
                            label)))
