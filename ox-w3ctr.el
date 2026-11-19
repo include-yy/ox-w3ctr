@@ -4061,7 +4061,7 @@ nil."
    ((symbolp prop) (list prop))
    ((not (consp prop)) nil)
    ((eq (car prop) 'quote) (t--engrave-normalize-face (car-safe (cdr prop))))
-   ((keywordp (car prop)) (list prop))
+   ((and (keywordp (car prop)) (proper-list-p prop)) (list prop))
    ((eq (car prop) 'foreground-color) (list (list :foreground (cdr prop))))
    ((eq (car prop) 'background-color) (list (list :background (cdr prop))))
    ((proper-list-p prop) (mapcan #'t--engrave-normalize-face prop))))
@@ -4159,38 +4159,14 @@ the `inline' FALLBACK gives (style . CSS) from
              (when-let* ((css (t--engrave-inline-style faces)))
                (cons 'style css))))))
 
-(defun t--engrave-overlay-faces-at (pos)
-  "Return the non-nil `face' values of overlays at POS."
-  (declare (ftype (function (integer) list))
-           (important-return-value t))
-  (delq nil (mapcar (lambda (o) (overlay-get o 'face)) (overlays-at pos))))
-
-(defun t--engrave-next-face-change (pos &optional limit)
-  "Return the position of the next face change after POS, up to LIMIT.
-Merges text-property and overlay faces, and extends over `display'
-properties.  Lifted from htmlize, via engrave-faces [2024-04-12]."
-  (declare (ftype (function (integer &optional integer) integer))
-           (important-return-value t))
-  (unless limit (setq limit (point-max)))
-  (let ((next-prop (next-single-property-change pos 'face nil limit))
-        (overlay-faces (t--engrave-overlay-faces-at pos)))
-    (while (progn
-             (setq pos (next-overlay-change pos))
-             (and (< pos next-prop)
-                  (equal overlay-faces (t--engrave-overlay-faces-at pos)))))
-    (setq pos (min pos next-prop))
-    (when (get-char-property pos 'display)
-      (setq pos (next-single-char-property-change pos 'display nil limit)))
-    pos))
-
 (defun t--engrave-collect (table fallback &optional state)
   "Return the current buffer's text as a list of (CLASS . TEXT) tokens.
 The buffer must already be fontified (see `font-lock-ensure').  The
-text is cut at every face change found by
-`org-w3ctr--engrave-next-face-change', and each run's CLASS comes
-from `org-w3ctr--engrave-face-class' with TABLE and FALLBACK.  When
-STATE is non-nil, every face of a run that found no slug (other than
-`default') is counted there as `missed-face'.  Point is preserved."
+text is cut at every `face' text-property change, and each run's
+CLASS comes from `org-w3ctr--engrave-face-class' with TABLE and
+FALLBACK.  When STATE is non-nil, every face of a run that found no
+slug (other than `default') is counted there as `missed-face'.
+Point is preserved."
   (declare (ftype (function (list symbol &optional (or null hash-table))
                             list))
            (important-return-value t))
@@ -4198,7 +4174,8 @@ STATE is non-nil, every face of a run that found no slug (other than
     (goto-char (point-min))
     (let (tokens)
       (while (not (eobp))
-        (let* ((next (t--engrave-next-face-change (point)))
+        (let* ((next (next-single-property-change
+                      (point) 'face nil (point-max)))
                (text (buffer-substring-no-properties (point) next))
                (prop (get-text-property (point) 'face))
                (class (t--engrave-face-class prop table fallback)))
@@ -4207,9 +4184,7 @@ STATE is non-nil, every face of a run that found no slug (other than
               (unless (eq face 'default)
                 (t--fontify-note state 'missed-face
                                  (if (symbolp face) face "(anonymous face)")))))
-          ;; An invisible run can be empty; it contributes nothing.
-          (unless (string-empty-p text)
-            (push (cons class text) tokens))
+          (push (cons class text) tokens)
           (goto-char next)))
       (nreverse tokens))))
 

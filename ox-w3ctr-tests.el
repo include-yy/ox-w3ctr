@@ -3983,6 +3983,7 @@ WCAG formula rather than by the generator."
       '((:background "red")))
   ;; Anything else is not a face.
   ($n (t--engrave-normalize-face '(a . b)))
+  ($n (t--engrave-normalize-face '(:foreground . "red")))
   ($n (t--engrave-normalize-face 3))
   ($n (t--engrave-normalize-face "face")))
 
@@ -4069,38 +4070,6 @@ WCAG formula rather than by the generator."
     ($l (t--engrave-face-class 'bold table 'inline)
         '(style . "font-weight: 700;"))
     ($n (t--engrave-face-class '(:height 2.0) table 'inline))))
-
-(ert-deftest t--engrave-overlay-faces-at ()
-  "Tests for `org-w3ctr--engrave-overlay-faces-at'."
-  (with-temp-buffer
-    (insert "abc")
-    ($n (t--engrave-overlay-faces-at 2))
-    (let ((ov (make-overlay 1 4)))
-      (overlay-put ov 'face 'font-lock-keyword-face)
-      ($l (t--engrave-overlay-faces-at 2) '(font-lock-keyword-face)))))
-
-(ert-deftest t--engrave-next-face-change ()
-  "Tests for `org-w3ctr--engrave-next-face-change'."
-  (with-temp-buffer
-    (insert "abcdef")
-    (put-text-property 1 4 'face 'font-lock-keyword-face)
-    ($l (t--engrave-next-face-change 1) 4)
-    ($l (t--engrave-next-face-change 4) (point-max)))
-  ;; Overlay face changes cut runs; an overlay without `face' does not.
-  (with-temp-buffer
-    (insert "abcdef")
-    (let ((ov1 (make-overlay 2 5))
-          (ov2 (make-overlay 3 4)))
-      (overlay-put ov1 'face 'font-lock-keyword-face)
-      (overlay-put ov2 'help-echo "x")
-      ($l (t--engrave-next-face-change 1) 2)
-      ($l (t--engrave-next-face-change 2) 5)))
-  ;; A `display' property at the boundary extends to the end of that display.
-  (with-temp-buffer
-    (insert "abcdef")
-    (put-text-property 1 3 'face 'font-lock-keyword-face)
-    (put-text-property 3 5 'display "X")
-    ($l (t--engrave-next-face-change 1) 5)))
 
 (ert-deftest t--engrave-collect ()
   "Tests for `org-w3ctr--engrave-collect'."
