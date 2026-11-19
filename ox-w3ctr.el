@@ -2643,6 +2643,23 @@ CHECKBOX is non-nil and `:html-checkbox-type' is unknown."
   (let ((a (t--checkbox checkbox info)))
     (concat a (and a " "))))
 
+(defun t--splice-checkbox (checkbox contents)
+  "Prepend CHECKBOX to CONTENTS, splicing inside a leading <p> tag.
+CHECKBOX is a formatted checkbox string (or \"\").  CONTENTS is the
+trimmed item contents (or nil).
+
+When both are non-empty and CONTENTS starts with a <p> opening tag,
+insert CHECKBOX right after that tag so the checkbox stays inline with
+the first paragraph; otherwise concatenate CHECKBOX and CONTENTS."
+  (declare (ftype (function (string (or null string)) string))
+           (pure t) (important-return-value t))
+  (let ((body (or contents "")))
+    (if (and (not (string-empty-p checkbox))
+             (string-match "\\`\\(<p\\(?: [^>]*\\)?>\\)" body))
+        (concat (match-string 1 body) checkbox
+                (substring body (match-end 1)))
+      (concat checkbox body))))
+
 (defun t--format-ordered-item (contents checkbox info cnt)
   "Format an ordered list item into HTML.
 CONTENTS is nil or a string.  CHECKBOX and INFO are passed to
@@ -2654,8 +2671,9 @@ CNT is non-nil."
            (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (counter (if (not cnt) "" (format " value=\"%s\"" cnt))))
-    (concat (format "<li%s>" counter) checkbox
-            (t--nw-trim contents) "</li>")))
+    (concat (format "<li%s>" counter)
+            (t--splice-checkbox checkbox (t--nw-trim contents))
+            "</li>")))
 
 (defun t--format-unordered-item (contents checkbox info)
   "Format an unordered list item into HTML.
@@ -2666,7 +2684,9 @@ Return an <li> element as a string."
   (declare (ftype (function ((or null string) t list) string))
            (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info)))
-    (concat "<li>" checkbox (t--nw-trim contents) "</li>")))
+    (concat "<li>"
+            (t--splice-checkbox checkbox (t--nw-trim contents))
+            "</li>")))
 
 (defun t--format-descriptive-item (contents checkbox info term)
   "Format a descriptive list item into HTML.
@@ -3541,36 +3561,35 @@ tag.  Return the formatted <figure> element as a string."
 CONTENTS is the paragraph text (nil when pruned, as under `tex:nil').
 INFO is the info plist.
 
-Return the formatted HTML string, or \"\" for an empty paragraph.  The
-first paragraph in a list item omits <p> (wrapping in <span> if it has
-attributes); a standalone image becomes <figure>; other paragraphs
-become <p>.  Attributes use `org-w3ctr--make-attr__id*' (named-only)."
+Return the formatted HTML string, or \"\" for an empty paragraph.  A
+standalone image becomes <figure>.  The first paragraph in a list item
+omits <p> (wrapping in <span> if it has attributes) when it is alone
+or followed at most by a sub-list.  Other paragraphs become <p>.
+Attributes use `org-w3ctr--make-attr__id*' (named-only)."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   ;; Org hands us nil, not an empty string, when everything inside the
   ;; paragraph was pruned.
   (let ((contents (or contents "")))
     (cond
-     (;; Item's first line.  Broader than ox-html's alone-or-sublist
-      ;; rule on purpose: a checkbox is emitted before the item
-      ;; contents, so wrapping the first paragraph in <p> would drop the
-      ;; box onto its own line.  The cost is that the next <p> becomes
-      ;; the <li>'s or <dd>'s first element and loses its top margin
-      ;; (li > p:first-child).
-      ;; FIXME: splice the checkbox into the first <p> in the item
-      ;; formatters and restore ox-html's condition, so multi-block
-      ;; items keep their paragraph spacing.
-      (and (eq (org-element-type (org-element-parent paragraph)) 'item)
-           (not (org-export-get-previous-element paragraph info)))
-      (let ((c (t--trim contents))
-            (attrs (t--make-attr__id* paragraph info t)))
-        (if (string-empty-p attrs) c
-          (format "<span%s>%s</span>" attrs c))))
      ;; Standalone image.
      ((t-standalone-image-p paragraph info)
       (let* ((caption (org-export-get-caption paragraph))
              (cap (if caption (org-export-data caption info) "")))
         (t--wrap-image contents cap (t--make-attr__id* paragraph info t))))
+     ;; First paragraph in a list item, alone or followed at most by a
+     ;; sub-list (matches ox-html; multi-block items keep <p> so
+     ;; `li > p:first-child' / `dd > p:first-child' spacing works).
+     ((and (eq (org-element-type (org-element-parent paragraph)) 'item)
+           (not (org-export-get-previous-element paragraph info))
+           (let ((followers (org-export-get-next-element paragraph info 2)))
+             (and (not (cdr followers))
+                  (org-element-type-p (car followers) '(nil plain-list)))))
+      (let ((c (t--trim contents)))
+        (if (string-empty-p c) ""
+          (let ((attrs (t--make-attr__id* paragraph info t)))
+            (if (string-empty-p attrs) c
+              (format "<span%s>%s</span>" attrs c))))))
      ;; Regular paragraph.
      (t
       (let ((c (t--trim contents)))

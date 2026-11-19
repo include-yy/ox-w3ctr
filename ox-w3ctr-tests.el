@@ -2025,6 +2025,21 @@ int a = 1;</code></p>\n</details>")
     ($l (t--format-checkbox '(1 . 2) info) "")
     ($l (t--format-checkbox #s(hello wtf) info) "")))
 
+(ert-deftest t--splice-checkbox ()
+  "Tests for `org-w3ctr--splice-checkbox'."
+  ($l (t--splice-checkbox "" nil) "")
+  ($l (t--splice-checkbox "" "<p>a</p>") "<p>a</p>")
+  ($l (t--splice-checkbox "&#x2610; " nil) "&#x2610; ")
+  ($l (t--splice-checkbox "&#x2610; " "123") "&#x2610; 123")
+  ;; leading <p> (bare or with attributes) gets the checkbox inside
+  ($l (t--splice-checkbox "&#x2610; " "<p>a</p>\n\n<p>b</p>")
+      "<p>&#x2610; a</p>\n\n<p>b</p>")
+  ($l (t--splice-checkbox "&#x2610; " "<p id=\"x\" class=\"hi\">a</p>")
+      "<p id=\"x\" class=\"hi\">&#x2610; a</p>")
+  ;; tags that merely start with `<p' (like `<pre>') are not matched
+  ($l (t--splice-checkbox "&#x2610; " "<pre>a</pre>")
+      "&#x2610; <pre>a</pre>"))
+
 (ert-deftest t--format-ordered-item ()
   "Tests for `org-w3ctr--format-ordered-item'."
   ($l (t--format-ordered-item "" nil nil nil) "<li></li>")
@@ -2047,7 +2062,9 @@ int a = 1;</code></p>\n</details>")
     ($l (t--format-ordered-item "123" 'trans info nil)
         "<li>&#x2612; 123</li>")
     ($l (t--format-ordered-item "123" 'on info 114)
-        "<li value=\"114\">&#x2611; 123</li>")))
+        "<li value=\"114\">&#x2611; 123</li>")
+    ($l (t--format-ordered-item "<p>a</p>\n\n<p>b</p>" 'off info nil)
+        "<li><p>&#x2610; a</p>\n\n<p>b</p></li>")))
 
 (ert-deftest t--format-unordered-item ()
   "Tests for `org-w3ctr--format-unordered-item'."
@@ -2064,7 +2081,9 @@ int a = 1;</code></p>\n</details>")
     ($l (t--format-unordered-item "123" 'on info)
         "<li>&#x2611; 123</li>")
     ($l (t--format-unordered-item "123" 'trans info)
-        "<li>&#x2612; 123</li>")))
+        "<li>&#x2612; 123</li>")
+    ($l (t--format-unordered-item "<p>a</p>\n\n<p>b</p>" 'off info)
+        "<li><p>&#x2610; a</p>\n\n<p>b</p></li>")))
 
 (ert-deftest t--format-descriptive-item ()
   "Tests for `org-w3ctr--format-descriptive-item'."
@@ -2107,13 +2126,13 @@ int a = 1;</code></p>\n</details>")
    '(("- 123" "<li>123</li>")
      ("- hello \n 123" "<li>hello \n123</li>")
      ("- hello \n\n123" "<li>hello</li>")
-     ("- hello \n\n 123" "<li>hello\n\n<p>123</p></li>")
-     ("- hello \n\n     \t123" "<li>hello\n\n<p>123</p></li>")
+     ("- hello \n\n 123" "<li><p>hello</p>\n\n<p>123</p></li>")
+     ("- hello \n\n     \t123" "<li><p>hello</p>\n\n<p>123</p></li>")
      ("- [ ] 123" "<li>&#x2610; 123</li>")
      ("- [X] 123" "<li>&#x2611; 123</li>")
      ("- [ ] 123   \n 234" "<li>&#x2610; 123   \n234</li>")
      ("- [ ] 123 \n\n234" "<li>&#x2610; 123</li>")
-     ("- [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>")
+     ("- [ ] 123 \n\n 234" "<li><p>&#x2610; 123</p>\n\n<p>234</p></li>")
      ("- [ ] [@1] 123" "<li>&#x2610; [@1] 123</li>")
      ("- [ ] [@1]123" "<li>&#x2610; [@1]123</li>")
      ("- [@2] 123" "<li>123</li>")
@@ -2134,13 +2153,13 @@ int a = 1;</code></p>\n</details>")
    '(("1. 123" "<li>123</li>")
      ("1. hello \n 123" "<li>hello \n123</li>")
      ("1. hello \n\n123" "<li>hello</li>")
-     ("1. hello \n\n 123" "<li>hello\n\n<p>123</p></li>")
-     ("1. hello \n\n     \t123" "<li>hello\n\n<p>123</p></li>")
+     ("1. hello \n\n 123" "<li><p>hello</p>\n\n<p>123</p></li>")
+     ("1. hello \n\n     \t123" "<li><p>hello</p>\n\n<p>123</p></li>")
      ("1. [ ] 123" "<li>&#x2610; 123</li>")
      ("1. [X] 123" "<li>&#x2611; 123</li>")
      ("1. [ ] 123   \n 234" "<li>&#x2610; 123   \n234</li>")
      ("1. [ ] 123 \n\n234" "<li>&#x2610; 123</li>")
-     ("1. [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>")
+     ("1. [ ] 123 \n\n 234" "<li><p>&#x2610; 123</p>\n\n<p>234</p></li>")
      ("1. [ ] [@1] 123" "<li>&#x2610; [@1] 123</li>")
      ("1. [ ] [@1]123" "<li>&#x2610; [@1]123</li>")
      ("1. [@2] 123" "<li value=\"2\">123</li>")
@@ -2171,8 +2190,8 @@ int a = 1;</code></p>\n</details>")
      ("- h :: w \n123" "<dt>h</dt><dd>w</dd>")
      ("- h :: w \n 123" "<dt>h</dt><dd>w \n123</dd>")
      ("- h :: w \n\n123" "<dt>h</dt><dd>w</dd>")
-     ("- h :: w \n\n 123" "<dt>h</dt><dd>w\n\n<p>123</p></dd>")
-     ("- h :: w \n\n 123\n 456" "<dt>h</dt><dd>w\n\n<p>123\n456</p></dd>")
+     ("- h :: w \n\n 123" "<dt>h</dt><dd><p>w</p>\n\n<p>123</p></dd>")
+     ("- h :: w \n\n 123\n 456" "<dt>h</dt><dd><p>w</p>\n\n<p>123\n456</p></dd>")
      ("- [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
      ("- [X] 123 ::" "<dt>&#x2611; 123</dt><dd></dd>")
      ("- [ ] 123 ::  \n 234" "<dt>&#x2610; 123</dt><dd>234</dd>")
@@ -2202,7 +2221,7 @@ int a = 1;</code></p>\n</details>")
    #'t-item
    '(("- [@a] [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
      ("1. [@1] [ ] 123" "<li value=\"1\">&#x2610; 123</li>")
-     ("- [ ] 123 \n\n 234" "<li>&#x2610; 123\n\n<p>234</p></li>"))
+     ("- [ ] 123 \n\n 234" "<li><p>&#x2610; 123</p>\n\n<p>234</p></li>"))
    nil '(:html-checkbox-type unicode))
   ($e!l (t-item nil "123" nil)
         '(org-w3ctr-error "Unknown list item type: nil")))
@@ -3366,26 +3385,28 @@ cookie-less column is remembered as the `none' marker."
      ("123\n\t234" "<p>123\n\t234</p>")
      ;; two newline, two paragraph
      ("123\n\n234" "<p>234</p>" "<p>123</p>")
-     ;; unordered list item's first object
+     ;; unordered list item's first object: bare when alone or followed
+     ;; at most by a sub-list
      ("- 123 234" "123 234")
      ("- [ ] 123" "123")
      ("- 123\n 234" "123\n234")
-     ("- 123\n\n   234" "<p>234</p>" "123")
-     ;; the item-first branch shadows the standalone-image one: a leading
-     ;; image is not wrapped in <figure> (see the FIXME in
-     ;; `org-w3ctr-paragraph'), and `#+attr_html' stays on the <span>
-     ;; without duplicating onto <img>
+     ("- 123\n  - sub" "sub" "123")
+     ;; multi-block items keep <p> on the first paragraph too, so
+     ;; `li > p:first-child' / `dd > p:first-child' spacing works
+     ("- 123\n\n   234" "<p>234</p>" "<p>123</p>")
+     ("- term :: text\n\n  more" "<p>more</p>" "<p>text</p>")
+     ;; a standalone image in a list item is still wrapped in <figure>
      ("- [[./1.png]]\n\n  after"
-      "<p>after</p>" "<img src=\"./1.png\" alt=\"1.png\">")
+      "<p>after</p>"
+      "<figure>\n<img src=\"./1.png\" alt=\"1.png\">\n</figure>")
      ("-\n  #+attr_html: :class foo\n  [[./1.png]]"
-      "<span class=\"foo\"><img src=\"./1.png\" alt=\"1.png\"></span>")
-     ;; descriptive list item: the <dd> paragraph is bare too
-     ("- term :: text\n\n  more" "<p>more</p>" "text")
-     ;; first object with attributes
+      "<figure class=\"foo\">\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
+     ;; single-paragraph list item with attributes gets <span>; in a
+     ;; multi-paragraph item the first paragraph gets <p>
      ("-\n  #+attr__: [example]\n  123"
       "<span class=\"example\">123</span>")
      ("-\n  #+name: id\n  123\n\n  #+name: id2\n  456"
-      "<p id=\"id2\">456</p>" "<span id=\"id\">123</span>")
+      "<p id=\"id2\">456</p>" "<p id=\"id\">123</p>")
      ;; standalone image
      ("[[./1.png]]"
       "<figure>\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
