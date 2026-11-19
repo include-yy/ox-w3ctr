@@ -3150,25 +3150,16 @@ contextual information."
 ;; render S-expression data as HTML via `org-w3ctr--sexp2html'.
 
 (defun t--eval-lisp (element value type context)
-  "Read VALUE as Lisp according to TYPE and return a string.
+  "Read the first Lisp form in VALUE according to TYPE and return a string.
 
-TYPE is `eval' or `sexp':
-- With `eval', require `org-w3ctr-allow-eval' to be non-nil
-  (signaling before `read' when nil), evaluate one form from VALUE with
-  lexical binding, and convert the result with `org-w3ctr--2str',
-  falling back to \"\" when it returns nil (as for nil or non-scalars).
-  The result string is inserted into the output raw, never escaped.
-- With `sexp', render one form from VALUE as HTML with
-  `org-w3ctr--sexp2html'.
+When TYPE is `eval', require `org-w3ctr-allow-eval' before reading,
+evaluate the form with lexical binding, and return it raw via
+`org-w3ctr--2str' (or \"\" on nil).  When TYPE is `sexp', render it via
+`org-w3ctr--sexp2html'.  Trailing forms are ignored; a blank VALUE
+returns \"\" without reading or checking `org-w3ctr-allow-eval'.
 
-Only the first Lisp form in VALUE is used; anything after it is
-ignored.  When VALUE is empty or whitespace-only, return \"\"
-immediately without checking `org-w3ctr-allow-eval' or reading.
-
-Signal `org-w3ctr-error' for any TYPE other than `eval' and `sexp',
-and when the evaluation gate, reading, evaluation, or HTML rendering
-fails.  The message is prefixed with CONTEXT and the line number of
-ELEMENT's `:begin' in the current buffer."
+Signal `org-w3ctr-error', prefixed with CONTEXT and ELEMENT's `:begin'
+line number, on an unknown TYPE or any failure."
   (declare (ftype (function (t string symbol string) string))
            (important-return-value t))
   (condition-case err
@@ -3200,15 +3191,15 @@ ELEMENT's `:begin' in the current buffer."
 
 (defun t-export-block (export-block _contents _info)
   "Transcode an EXPORT-BLOCK element from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  Return the exported
-content as a string.  HTML is passed through raw; CSS and JS (or
-JAVASCRIPT) are wrapped in <style> and <script>; EMACS-LISP (or
-ELISP) and LISP-DATA are handled by `org-w3ctr--eval-lisp', which
-needs `org-w3ctr-allow-eval' for the eval flavor and may signal
-`org-w3ctr-error'.  Any other type belongs to another backend and
-yields \"\".  A missing `:value' is read as \"\".  Attributes, names,
-and captions are ignored."
+Return the exported content as a string.  HTML is passed through raw;
+CSS and JS (or JAVASCRIPT) are wrapped in <style> and <script>;
+EMACS-LISP (or ELISP) and LISP-DATA are handled by
+`org-w3ctr--eval-lisp', which needs `org-w3ctr-allow-eval' for the eval
+flavor and may signal `org-w3ctr-error'.  Any other type belongs to
+another backend and yields \"\".  A missing `:value' is read as \"\".
+Attributes, names, and captions are ignored."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type export-block))
@@ -3235,16 +3226,14 @@ and captions are ignored."
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
 
-CONTENTS and INFO are unused.  Return the exported content as a
-string.  The backend name is translated through
-`org-export-snippet-translation-alist' (a case-sensitive lookup),
-then matched without regard to case: `html' (or `h') is raw
-passthrough; `e' evaluates the value as Lisp and requires
-`org-w3ctr-allow-eval'; `d' renders it as an S-expression.
-
-The Lisp flavors run through `org-w3ctr--eval-lisp' and may signal
-`org-w3ctr-error' with the snippet's line number.  Any other backend
-yields \"\".  A missing `:value' is read as \"\"."
+CONTENTS is nil.  INFO is the info plist.  Return the exported
+content as a string.  The backend name is translated via
+`org-export-snippet-translation-alist' (case-sensitive), then
+matched case-insensitively: `html'/`h' passes through raw; `e' and
+`d' run through `org-w3ctr--eval-lisp' as `eval' (needing
+`org-w3ctr-allow-eval') and `sexp', and may signal
+`org-w3ctr-error'.  Any other backend yields \"\".  A missing
+`:value' is read as \"\"."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
@@ -3267,18 +3256,12 @@ yields \"\".  A missing `:value' is read as \"\"."
 
 (defun t-fixed-width (fixed-width _contents info)
   "Transcode a FIXED-WIDTH element from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<pre> element as a string.  A missing `:value' is read as \"\".  A
-blank value is emitted as is; a non-blank one is wrapped in newlines
-and HTML-escaped with `org-w3ctr--encode-plain-text', which keeps
-quotes raw.
-
-Attributes come from `org-w3ctr--make-attr__id*' in its named-only
-mode: an anonymous block carries no id, never a random one, and a
-NAME or ID property becomes the id only under
-`org-w3ctr-prefer-user-labels'; an explicit id attribute wins.  A
-caption is dropped: a bare <pre> has no W3C caption home."
+Return a bare <pre> element: a missing `:value' defaults to \"\", a
+blank value is kept as is, and a non-blank one is newline-wrapped and
+escaped via `org-w3ctr--encode-plain-text'.  Attributes use
+`org-w3ctr--make-attr__id*' (named-only); captions are dropped."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let ((value (or (org-element-property :value fixed-width) "")))

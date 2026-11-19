@@ -2880,7 +2880,7 @@ the `none' marker."
        t))
     ;; A synthetic snippet with nil `:value' falls back to "".
     ($l (t-export-snippet '(export-snippet (:back-end "h")) nil nil) "")
-    ;; Error handling: malformed Lisp signals t-error with line number.
+    ;; Error handling: malformed Lisp signals `org-w3ctr-error' with line number.
     ($e!l (org-export-string-as "@@e:(broken@@" 'w3ctr t)
           '(org-w3ctr-error "@@e snippet at line 1: End of file during parsing"))
     ($e!l (org-export-string-as "text\n@@d:(broken@@" 'w3ctr t)
