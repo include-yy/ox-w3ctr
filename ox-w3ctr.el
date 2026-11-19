@@ -193,8 +193,6 @@
     (:html-inline-images nil nil t-inline-images)
     (:html-inline-image-rules nil nil t-inline-image-rules)
     (:html-extension nil nil t-extension)
-    (:html-equation-reference-format
-     "HTML_EQUATION_REFERENCE_FORMAT" nil t-equation-reference-format)
     (:html-honor-ox-external-links nil nil t-honor-ox-external-links)
     ;; Markup texts
     (:html-text-markup-alist nil nil t-text-markup-alist)
@@ -587,18 +585,6 @@ See `org-html-inline-image-rules' for more information."
   :group 'org-export-w3ctr
   :type 'string)
 
-(defcustom t-equation-reference-format "\\eqref{%s}"
-  "The command to use when referencing an equation.
-
-A format control string expecting the label as its single
-argument.  It is inserted verbatim, so it only makes sense with
-client-side MathJax (`mathjax' mode), where \\eqref and \\ref are
-resolved in the browser.
-
-See `org-html-equation-reference-format' for more information."
-  :group 'org-export-w3ctr
-  :type 'string)
-
 (defcustom t-honor-ox-external-links t
   "Non-nil means resolve cross-file links through org-publish, as ox-html does.
 
@@ -899,7 +885,7 @@ The value specifies the rendering method:
 <script
   id='MathJax-script'
   async
-  src='https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js'>
+  src='https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js'>
 </script>"
   "Configuration for MathJax rendering in HTML export.
 Used for MathJax rendering (:with-latex is set to `mathjax', or
@@ -1582,7 +1568,6 @@ oclosure through that symbol.  KEY is a property keyword."
        ;; link
        :html-extension :html-link-org-files-as-html
        :html-inline-images :html-inline-image-rules
-       :html-equation-reference-format
        :html-honor-ox-external-links
        )
     "List of property keys the OINFO cache keeps an oclosure for.
@@ -3402,53 +3387,85 @@ the identity renderer, which ignores INFO."
            (pure t) (important-return-value t))
   frag)
 
-(defun t--normalize-latex (frag)
-  "Normalize the delimiters of LaTeX FRAG for MathJax.
+(defun t--split-latex (frag)
+  "Split LaTeX FRAG into a (TEX . KIND) cons cell.
 
-Inline `$...$' becomes `\\(...\\)' and display `$$...$$' becomes
-`\\[...\\]'.  A FRAG that is not exactly one of those forms is
-returned unchanged, so this never signals and never drops text."
-  (declare (ftype (function (string) string))
+Strip outer `$$...$$' or `\\[...\\]' delimiters with KIND `display',
+and outer `$...$' or `\\(...\\)' delimiters with KIND `inline'.  Any
+other string (such as a `\\begin{...}' environment or a bare TeX
+command) is kept as is with KIND nil."
+  (declare (ftype (function (string) cons))
            (pure t) (important-return-value t))
   (cond
    ((and (string-prefix-p "$$" frag)
          (string-suffix-p "$$" frag)
          (>= (length frag) 4))
-    (concat "\\[" (substring frag 2 -2) "\\]"))
+    (cons (substring frag 2 -2) 'display))
+   ((and (string-prefix-p "\\[" frag)
+         (string-suffix-p "\\]" frag)
+         (>= (length frag) 4))
+    (cons (substring frag 2 -2) 'display))
    ((and (not (string-prefix-p "$$" frag))
          (not (string-suffix-p "$$" frag))
          (string-prefix-p "$" frag)
          (string-suffix-p "$" frag)
          (>= (length frag) 2))
-    (concat "\\(" (substring frag 1 -1) "\\)"))
-   (t frag)))
+    (cons (substring frag 1 -1) 'inline))
+   ((and (string-prefix-p "\\(" frag)
+         (string-suffix-p "\\)" frag)
+         (>= (length frag) 4))
+    (cons (substring frag 2 -2) 'inline))
+   (t (cons frag nil))))
 
-(defun t--latex-rpc (method frag)
+(defun t--normalize-latex (frag)
+  "Normalize the delimiters of LaTeX FRAG for MathJax.
+
+Inline `$...$' becomes `\\(...\\)' and display `$$...$$' becomes
+`\\[...\\]'.  A FRAG that is not one of those forms is returned
+unchanged, so this never signals and never drops text."
+  (declare (ftype (function (string) string))
+           (pure t) (important-return-value t))
+  (pcase (t--split-latex frag)
+    (`(,tex . display) (concat "\\[" tex "\\]"))
+    (`(,tex . inline)  (concat "\\(" tex "\\)"))
+    (`(,tex . nil)     tex)))
+
+(defun t--latex-rpc (method frag &optional default-display)
   "Convert LaTeX FRAG through the jstools RPC METHOD.
 
-METHOD is one of `org-w3ctr--jstools-methods'.  Normalize FRAG's
-delimiters, call the RPC, and return the string result; signal
-`org-w3ctr-error' when the result is not a string."
-  (declare (ftype (function (symbol string) string))
+METHOD is one of `org-w3ctr--jstools-methods'.  Split FRAG with
+`org-w3ctr--split-latex' (using DEFAULT-DISPLAY when FRAG has no
+outer math delimiters), send `(:tex ... :display ...)' to the RPC,
+and return the string result.  Signal `org-w3ctr-error' when the
+result is not a string."
+  (declare (ftype (function (symbol string &optional boolean) string))
            (important-return-value t))
-  (let ((out (t--jcall t--jstools method
-                       (list :fragment (t--normalize-latex frag)))))
+  (pcase-let* ((`(,tex . ,kind) (t--split-latex frag))
+               (display (pcase kind
+                          ('display t)
+                          ('inline :json-false)
+                          (_ (if default-display t :json-false))))
+               (out (t--jcall t--jstools method
+                              (list :tex tex :display display))))
     (unless (stringp out)
       (t-error "RPC method %s returned a non-string: %S" method out))
     out))
 
-(defun t--format-latex (frag mode info)
+(defun t--format-latex (frag mode info &optional default-display)
   "Return the exported string for LaTeX fragment FRAG under MODE.
-INFO is the info plist.
+INFO is the info plist.  DEFAULT-DISPLAY is forwarded to
+`org-w3ctr--latex-rpc' for delimiter-less input.
 
 MODE is the value of `:with-latex': nil and `verbatim' return nil,
 both handled by ox.el before the transcoders run; `mathjax' (or t)
-normalizes delimiters; `mathml-by-mathjax' and `svg-by-mathjax'
-convert through the jstools RPC; `custom' calls
+normalizes delimiters and HTML-escapes `<', `>', and `&' via
+`org-w3ctr--encode-plain-text'; `mathml-by-mathjax' and
+`svg-by-mathjax' convert through the jstools RPC; `custom' calls
 `:html-math-custom-render-function' on FRAG and INFO (returning a
 string or nil).  An unknown MODE or a non-string/nil custom result
 signals `org-w3ctr-error'."
-  (declare (ftype (function (string t list) (or null string)))
+  (declare (ftype (function (string t list &optional boolean)
+                            (or null string)))
            (important-return-value t))
   (pcase mode
     ((or `nil `verbatim) nil)
@@ -3457,9 +3474,9 @@ signals `org-w3ctr-error'."
     ;; `verbatim' (`org-export--remove-uninterpreted-data') before the
     ;; transcoders run.  The nil above means "seen, not handled" -- the
     ;; export drops the math -- and is only reachable from a direct call.
-    ((or `mathjax `t) (t--normalize-latex frag))
-    (`mathml-by-mathjax (t--latex-rpc 'tex2mml frag))
-    (`svg-by-mathjax (t--latex-rpc 'tex2svg frag))
+    ((or `mathjax `t) (t--encode-plain-text (t--normalize-latex frag)))
+    (`mathml-by-mathjax (t--latex-rpc 'tex2mml frag default-display))
+    (`svg-by-mathjax (t--latex-rpc 'tex2svg frag default-display))
     (`custom
      (let ((out (funcall (or (t--pget info :html-math-custom-render-function)
                              #'t-math-custom-default-render-function)
@@ -3480,7 +3497,7 @@ missing `:value' defaults to \"\"."
            (important-return-value t))
   (t--format-latex
    (or (org-element-property :value latex-fragment) "")
-   (t--pget info :with-latex) info))
+   (t--pget info :with-latex) info nil))
 
 (defun t-latex-environment (latex-environment _contents info)
   "Transcode a LATEX-ENVIRONMENT element from Org to HTML.
@@ -3495,7 +3512,7 @@ names, and captions are ignored."
   (t--format-latex
    (org-remove-indentation
     (or (org-element-property :value latex-environment) ""))
-   (t--pget info :with-latex) info))
+   (t--pget info :with-latex) info t))
 
 ;;;; Paragraph
 
@@ -5215,8 +5232,6 @@ is the info plist.  Return the formatted timestamp string."
 ;; - :html-inline-images (`org-w3ctr-inline-images')
 ;; - :html-inline-image-rules (`org-w3ctr-inline-image-rules')
 ;; - :html-extension (`org-w3ctr-extension')
-;; - :html-equation-reference-format
-;;   (`org-w3ctr-equation-reference-format')
 
 ;; The "exactly one link" rule below fixes an upstream Org bug found
 ;; while refactoring `ox-html.el'; see
@@ -5461,23 +5476,6 @@ export state."
                       (org-element-property :title destination) info)))))
     (format "<a href=\"#%s\"%s>%s</a>" href attributes desc)))
 
-(defun t--link-equation (destination info)
-  "Return the raw equation-reference string for DESTINATION.
-DESTINATION is a math latex-environment and INFO the export state.
-This is a legacy path: equation references are unsupported, so the
-\\eqref it emits has no matching \\label (see the FIXME below)."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  ;; FIXME: Equation references are unsupported: the back-end does not
-  ;; inject a matching \label, so the \eqref emitted here dangles under
-  ;; MathJax.  Decision: drop ref/label support; remove this function and
-  ;; the `:html-equation-reference-format' path in the Link pass.  A link
-  ;; to an equation should then fall through to `org-w3ctr--link-target'
-  ;; and require the equation to be wrapped in a named block, which
-  ;; carries the id.
-  (format (t--pget info :html-equation-reference-format)
-          (t--reference destination info)))
-
 (defun t--link-target (desc info destination attributes)
   "Transcode a link whose fuzzy DESTINATION is a target or element.
 The description is the link's own DESC; no number is generated for
@@ -5525,20 +5523,11 @@ DESC and ATTRIBUTES are as computed in `org-w3ctr-link'."
           (org-element-property :raw-link link))))
       (`nil (t--link-broken link desc info))
       (`headline (t--link-to-headline destination desc attributes info))
-      (_
-       ;; FIXME: LaTeX handling is weak here: only math
-       ;; `latex-environment's under the `mathjax' (and legacy `t')
-       ;; `:with-latex' mode reach `t--link-equation'.  The
-       ;; `mathml-by-mathjax' / `svg-by-mathjax' / `custom' modes and
-       ;; non-math environments fall through to `t--link-target'.
-       (if (and destination
-                (memq (t--pget info :with-latex) '(mathjax t))
-                (eq 'latex-environment (org-element-type destination))
-                (eq 'math (org-latex--environment-type destination)))
-           ;; The label lives inside the LaTeX; let client-side MathJax
-           ;; resolve the reference.
-           (t--link-equation destination info)
-         (t--link-target desc info destination attributes))))))
+      ;; Equation links (`org-w3ctr--link-equation') were removed: a link
+      ;; to a `latex-environment' falls through to `org-w3ctr--link-target'
+      ;; and signals `org-w3ctr-error' (wrap the equation in a named block,
+      ;; place a `<<target>>' beside it, or use native TeX \label/\eqref).
+      (_ (t--link-target desc info destination attributes)))))
 
 (defun t--link-coderef (label desc info attributes)
   "Transcode the code-reference link [[(LABEL)]].

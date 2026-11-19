@@ -1,14 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { unwrap, stripNoise, escapeAttr, tex2mml, tex2svg } from '../lib/math.js'
-
-test('unwrap reads the delimiters', () => {
-    assert.deepEqual(unwrap('\\(a+b\\)'), { tex: 'a+b', display: false })
-    assert.deepEqual(unwrap('\\[a\\]'), { tex: 'a', display: true })
-    assert.deepEqual(unwrap('\\begin{x}y\\end{x}'),
-                     { tex: '\\begin{x}y\\end{x}', display: true })
-})
+import { stripNoise, escapeAttr, tex2mml, tex2svg } from '../lib/math.js'
 
 test('stripNoise and escapeAttr', () => {
     assert.equal(stripNoise('<math xmlns="m" data-latex="x">\n  <mi>x</mi>\n</math>'),
@@ -16,8 +9,17 @@ test('stripNoise and escapeAttr', () => {
     assert.equal(escapeAttr('a<"&'), 'a&lt;&quot;&amp;')
 })
 
-test('tex2mml and tex2svg still convert (MathJax loads lazily)', async () => {
-    assert.match(await tex2mml({ fragment: '\\(x^2\\)' }), /^<math><msup>/)
-    const svg = await tex2svg({ fragment: '\\[x\\]' })
+test('tex2mml and tex2svg convert explicit { tex, display }', async () => {
+    assert.match(await tex2mml({ tex: 'x^2', display: false }), /^<math><msup>/)
+    assert.match(await tex2mml({ tex: 'x^2', display: true }),
+                 /^<math display="block"><msup>/)
+    // Inner \(...\) inside an environment must not truncate the environment.
+    const env = '\\begin{equation}\\text{if } \\(x\\) \\text{ then } y\\end{equation}'
+    const envMml = await tex2mml({ tex: env, display: true })
+    assert.match(envMml, /<math display="block">/)
+    assert.match(envMml, /then/)
+    assert.match(await tex2svg({ tex: 'x', display: false }),
+                 /^<svg aria-label="x" /)
+    const svg = await tex2svg({ tex: 'x', display: true })
     assert.match(svg, /^<span class="math-display"><svg aria-label="x" /)
 })

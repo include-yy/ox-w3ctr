@@ -3166,6 +3166,23 @@ cookie-less column is remembered as the `none' marker."
   ;; the default renderer is the identity
   ($l (t-math-custom-default-render-function "$x$" nil) "$x$"))
 
+(ert-deftest t--split-latex ()
+  "Tests for `org-w3ctr--split-latex'."
+  ($l (t--split-latex "$x$") '("x" . inline))
+  ($l (t--split-latex "$$x$$") '("x" . display))
+  ($l (t--split-latex "\\(x\\)") '("x" . inline))
+  ($l (t--split-latex "\\[x\\]") '("x" . display))
+  ($l (t--split-latex "$$$$") '("" . display))
+  ($l (t--split-latex "\\(\\)") '("" . inline))
+  ($l (t--split-latex "\\[\\]") '("" . display))
+  ;; an environment containing inner \(...\) stays intact with KIND nil
+  (let ((env "\\begin{equation}\n\\text{if } \\(x\\) \\text{ then } y\n\\end{equation}"))
+    ($l (t--split-latex env) (cons env nil)))
+  ;; bare TeX commands and malformed delimiters return KIND nil
+  ($l (t--split-latex "\\foo{bar}") '("\\foo{bar}" . nil))
+  (dolist (s '("" "$" "$$" "$$$" "$x" "$$x" "$$x$" "$x$$" "x$" "x$$" "\\(" "\\["))
+    ($l (t--split-latex s) (cons s nil))))
+
 (ert-deftest t--normalize-latex ()
   "Tests for `org-w3ctr--normalize-latex'."
   ($l (t--normalize-latex "$x$") "\\(x\\)")
@@ -3184,14 +3201,21 @@ cookie-less column is remembered as the `none' marker."
 
 (ert-deftest t--latex-rpc ()
   "Tests for `org-w3ctr--latex-rpc'."
-  ;; normalize the delimiters, call the client, and return the result
+  ;; split the delimiters, send explicit :tex and :display, return the result
   (let (got)
     (cl-letf (((symbol-function 't--jcall)
                (lambda (client method params)
                  (setq got (list client method params))
                  "<M>")))
-      ($l (t--latex-rpc 'tex2mml "$x$") "<M>")
-      ($l got (list t--jstools 'tex2mml '(:fragment "\\(x\\)")))))
+      ($l (t--latex-rpc 'tex2mml "$a < b$") "<M>")
+      ($l got (list t--jstools 'tex2mml '(:tex "a < b" :display :json-false)))
+      ($l (t--latex-rpc 'tex2svg "$$x$$") "<M>")
+      ($l got (list t--jstools 'tex2svg '(:tex "x" :display t)))
+      ($l (t--latex-rpc 'tex2mml "\\begin{equation}\nx=1\n\\end{equation}" t)
+          "<M>")
+      ($l got (list t--jstools 'tex2mml
+                    '(:tex "\\begin{equation}\nx=1\n\\end{equation}"
+                           :display t)))))
   ;; a non-string result signals
   (cl-letf (((symbol-function 't--jcall) (lambda (&rest _) 42)))
     ($e!l (t--latex-rpc 'tex2svg "$x$")
@@ -3206,10 +3230,12 @@ cookie-less column is remembered as the `none' marker."
   ;; reaches these two cases, and the export drops the math.
   ($l (t--format-latex "$x$" nil nil) nil)
   ($l (t--format-latex "$x$" 'verbatim nil) nil)
-  ;; mathjax normalizes the delimiters for client-side MathJax, and the
-  ;; legacy t alias behaves the same
+  ;; mathjax normalizes the delimiters and HTML-escapes <, >, & for
+  ;; client-side MathJax, and the legacy t alias behaves the same
   ($l (t--format-latex "$x$" 'mathjax nil) "\\(x\\)")
   ($l (t--format-latex "$x$" t nil) "\\(x\\)")
+  ($l (t--format-latex "$a < b > c & d$" 'mathjax nil)
+      "\\(a &lt; b &gt; c &amp; d\\)")
   ;; custom calls the render function on the fragment and INFO
   (let* (got
          (renderer (lambda (f i) (setq got (list f i)) "<M>"))
@@ -3224,20 +3250,21 @@ cookie-less column is remembered as the `none' marker."
   (let ((info '(:html-math-custom-render-function (lambda (_f _i) 42))))
     ($e!l (t--format-latex "$x$" 'custom info)
           '(org-w3ctr-error "Custom LaTeX renderer returned a non-string: 42")))
-  ;; the RPC modes call the jstools MathJax helpers with the
-  ;; normalized fragment
-  (cl-flet ((rpc (mode)
+  ;; the RPC modes call the jstools MathJax helpers with explicit :tex
+  ;; and :display (un-escaped TeX)
+  (cl-flet ((rpc (mode frag &optional disp)
               (let (got)
                 (cl-letf (((symbol-function 't--jcall)
                            (lambda (client method params)
                              (setq got (list client method params))
                              "<M>")))
-                  ($l (t--format-latex "$x$" mode nil) "<M>"))
+                  ($l (t--format-latex frag mode nil disp) "<M>"))
                 got)))
-    ($l (rpc 'mathml-by-mathjax)
-        (list t--jstools 'tex2mml (list :fragment "\\(x\\)")))
-    ($l (rpc 'svg-by-mathjax)
-        (list t--jstools 'tex2svg (list :fragment "\\(x\\)"))))
+    ($l (rpc 'mathml-by-mathjax "$a < b$")
+        (list t--jstools 'tex2mml (list :tex "a < b" :display :json-false)))
+    ($l (rpc 'svg-by-mathjax "\\begin{equation}\nx=1\n\\end{equation}" t)
+        (list t--jstools 'tex2svg
+              (list :tex "\\begin{equation}\nx=1\n\\end{equation}" :display t))))
   ;; any other mode signals org-w3ctr-error
   ($e!l (t--format-latex "$x$" 'bogus nil)
         '(org-w3ctr-error "Unknown LaTeX mode: bogus")))
@@ -3251,7 +3278,8 @@ cookie-less column is remembered as the `none' marker."
    '(("$x^2$" "\\(x^2\\)")
      ("$$x^2$$" "\\[x^2\\]")
      ("\\(x\\)" "\\(x\\)")
-     ("\\[x\\]" "\\[x\\]"))
+     ("\\[x\\]" "\\[x\\]")
+     ("$a < b & c$" "\\(a &lt; b &amp; c\\)"))
    t '(:with-latex mathjax))
   ;; under `tex:nil' ox.el prunes the fragment: no call at all
   (t-check-element-values
@@ -3287,7 +3315,10 @@ cookie-less column is remembered as the `none' marker."
       "\\begin{equation}\nx=1\n\\end{equation}")
      ;; attributes, names, and captions are ignored
      ("#+name: eq1\n#+caption: Cap\n#+attr__: [cls]\n\\begin{equation}\nx=1\n\\end{equation}"
-      "\\begin{equation}\nx=1\n\\end{equation}"))
+      "\\begin{equation}\nx=1\n\\end{equation}")
+     ;; HTML special characters are escaped in mathjax mode
+     ("\\begin{align}\na &< b\n\\end{align}"
+      "\\begin{align}\na &amp;&lt; b\n\\end{align}"))
    t '(:with-latex mathjax))
   ;; under `tex:nil' ox.el prunes the environment: no call at all
   (t-check-element-values
@@ -5780,14 +5811,6 @@ winner (or `signal') and the number of warnings."
     ($l (t--link-to-file "other.org" "xyz" nil "" info)
         "<a href=\"other.html#ID-xyz\">other.org</a>")))
 
-(ert-deftest t--link-equation ()
-  "Tests for `org-w3ctr--link-equation'."
-  (t-check-element-values
-   #'t-link
-   '(("#+name: eq\n\\begin{equation}\nx=1\n\\end{equation}\n\nSee [[eq]]."
-      "\\eqref{eq}"))
-   t '(:with-latex mathjax :html-prefer-user-labels t)))
-
 (ert-deftest t--link-target ()
   "Tests for `org-w3ctr--link-target'."
   ;; An explicit id attribute on the target wins over #+name: so the
@@ -5810,7 +5833,13 @@ winner (or `signal') and the number of warnings."
   ($e!l (org-export-string-as
          "[[t]]\n\n#+name: t\n#+attr_html: :id\n: 1"
          'w3ctr t)
-        '(org-w3ctr-error "Link target fixed-width at line 3 has no id")))
+        '(org-w3ctr-error "Link target fixed-width at line 3 has no id"))
+  ;; Equation links were removed: linking to a latex-environment signals
+  ;; `org-w3ctr-error' in mathjax mode as well.
+  ($e!l (org-export-string-as
+         "#+name: eq\n\\begin{equation}\nx=1\n\\end{equation}\n\nSee [[eq]]."
+         'w3ctr t '(:with-latex mathjax :html-prefer-user-labels t))
+        '(org-w3ctr-error "Link target latex-environment at line 1 has no id")))
 
 (ert-deftest t--link-dispatch ()
   "Tests for `org-w3ctr--link-dispatch'."
