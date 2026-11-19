@@ -3693,6 +3693,30 @@ cookie-less column is remembered as the `none' marker."
                     (t-test-fontify-info :html-fontify-extra-faces
                                          '((foo . "zz")))))))
 
+(ert-deftest t--fontify-lang-entry ()
+  "Tests for `org-w3ctr--fontify-lang-entry'."
+  (cl-flet ((entry (alist lang)
+              (t--fontify-lang-entry
+               lang (t-test-fontify-info :html-fontify-lang-alist alist))))
+    ($l (entry '(("c" :engrave c-mode) ("sh" :jstools "bash")) "sh")
+        '(:jstools "bash"))
+    ;; The first entry for LANG wins; an empty plist is an entry.
+    ($l (entry '(("c" :engrave c-mode) ("c" :engrave nil)) "c")
+        '(:engrave c-mode))
+    ($n (entry '(("c")) "c"))
+    ($n (entry '(("c" :engrave c-mode)) "sh"))
+    ($n (entry nil "c"))
+    ;; Every entry is checked, not only the one asked for.
+    (dolist (bad '(("c" . c-mode) ("c" :engrave) (c :engrave c-mode) "c"))
+      ($e!l (entry (list '("sh" :jstools "bash") bad) "sh")
+            (list 'org-w3ctr-error
+                  (format "Malformed fontify language entry: %S" bad))))
+    ($e!l (entry 'x "c")
+          '(org-w3ctr-error "Fontify language alist must be a list: x"))
+    ($e!l (entry '(("c") . x) "c")
+          '(org-w3ctr-error
+            "Fontify language alist must be a list: ((\"c\") . x)"))))
+
 (ert-deftest t--fontify-check-tokens ()
   "Tests for `org-w3ctr--fontify-check-tokens'."
   (let ((info (t-test-fontify-info))
@@ -4093,7 +4117,17 @@ cookie-less column is remembered as the `none' marker."
   ($n (t--engrave-normalize-face '(a . b)))
   ($n (t--engrave-normalize-face '(:foreground . "red")))
   ($n (t--engrave-normalize-face 3))
-  ($n (t--engrave-normalize-face "face")))
+  ($n (t--engrave-normalize-face "face"))
+  ($n (t--engrave-normalize-face t))
+  ($n (t--engrave-normalize-face :foreground))
+  ($n (t--engrave-normalize-face '(quote bold extra)))
+  ($n (t--engrave-normalize-face '(foreground-color . 1)))
+  ($n (t--engrave-normalize-face '(background-color)))
+  ($l (t--engrave-normalize-face '(t bold :weight)) '(bold))
+  ;; An odd-length plist is dropped whole, not mined for face names.
+  ($n (t--engrave-normalize-face '(:foreground)))
+  ($n (t--engrave-normalize-face '(:foreground "red" :weight)))
+  ($n (t--engrave-normalize-face '(:inherit bold :weight))))
 
 (ert-deftest t--engrave-face-slug ()
   "Tests for `org-w3ctr--engrave-face-slug'."
@@ -4114,7 +4148,13 @@ cookie-less column is remembered as the `none' marker."
     (cl-letf (((symbol-function 'facep) (lambda (f) (memq f '(ta tb))))
               ((symbol-function 'face-attribute)
                (lambda (f _a &rest _) (if (eq f 'ta) 'tb 'ta))))
-      ($n (t--engrave-face-slug 'ta table t)))))
+      ($n (t--engrave-face-slug 'ta table t))))
+  ;; Depth first: a's ancestor c is tried before a's sibling b.
+  (cl-letf (((symbol-function 'facep) (lambda (f) (memq f '(a b c))))
+            ((symbol-function 'face-attribute)
+             (lambda (f _a &rest _) (if (eq f 'a) 'c 'unspecified))))
+    ($l (t--engrave-face-slug '(:inherit (a b)) '((b . "B") (c . "C")) t)
+        "C")))
 
 (ert-deftest t--engrave-color ()
   "Tests for `org-w3ctr--engrave-color'."
@@ -4135,6 +4175,8 @@ cookie-less column is remembered as the `none' marker."
                                  :foreground)
       "blue")
   ($l (t--engrave-face-attribute '(bold) :weight) 'bold)
+  ;; A symbol's value includes what it inherits (here from `error').
+  ($l (t--engrave-face-attribute '(font-lock-warning-face) :weight) 'bold)
   ($n (t--engrave-face-attribute '(bold) :foreground))
   ($n (t--engrave-face-attribute nil :foreground)))
 
@@ -4150,7 +4192,17 @@ cookie-less column is remembered as the `none' marker."
   ;; Nothing worth a declaration.
   ($n (t--engrave-inline-style '((:weight normal :slant normal))))
   ($n (t--engrave-inline-style '(default)))
-  ($n (t--engrave-inline-style nil)))
+  ($n (t--engrave-inline-style nil))
+  ;; The `default' face is ignored even when it has a colour.
+  (let ((orig (symbol-function 'face-attribute)))
+    (cl-letf (((symbol-function 'face-attribute)
+               (lambda (face attribute &rest rest)
+                 (if (and (eq face 'default) (eq attribute :foreground))
+                     "red"
+                   (apply orig face attribute rest)))))
+      ($l (face-attribute 'default :foreground) "red")
+      ($n (t--engrave-inline-style '(default)))
+      ($l (t--engrave-inline-style '(default bold)) "font-weight: 700;"))))
 
 (ert-deftest t--engrave-face-class ()
   "Tests for `org-w3ctr--engrave-face-class'."
@@ -4204,7 +4256,12 @@ cookie-less column is remembered as the `none' marker."
               ("c" . ";x")))
         ($l (gethash '(missed-face . bold) state) 1)
         ($l (gethash '(missed-face . "(anonymous face)") state) 1)
-        ($n (gethash '(missed-face . default) state))))))
+        ($n (gethash '(missed-face . default) state)))
+      ;; Under `inline' such a face gets a style, and is still counted.
+      (let ((state (make-hash-table :test #'equal)))
+        ($s (member '((style . "color: #ff0000;") . "d")
+                    (t--engrave-collect table 'inline state)))
+        ($l (gethash '(missed-face . "(anonymous face)") state) 1)))))
 
 (ert-deftest t--engrave-lang-mode ()
   "Tests for `org-w3ctr--engrave-lang-mode'."
@@ -4220,6 +4277,12 @@ cookie-less column is remembered as the `none' marker."
     ($n (with-alist '(("emacs-lisp" :engrave nil)) "emacs-lisp"))
     ($q (with-alist '(("c" :engrave fundamental-mode)) "c") 'fundamental-mode)
     ($n (with-alist '(("c" :engrave no-such-mode)) "c"))
+    ;; A macro or a special form is not a mode.
+    ($n (with-alist '(("c" :engrave when)) "c"))
+    ($n (with-alist '(("c" :engrave if)) "c"))
+    ;; A malformed alist fails loudly.
+    ($e!l (with-alist '(("c" . c-mode)) "c")
+          '(org-w3ctr-error "Malformed fontify language entry: (\"c\" . c-mode)"))
     ;; An entry without :engrave leaves the choice to Org.
     ($q (with-alist '(("c" :other x)) "c") 'c-mode)))
 
@@ -4248,15 +4311,21 @@ cookie-less column is remembered as the `none' marker."
                            (t-test-fontify-info
                             :html-fontify-face-fallback 'bogus))
         '(org-w3ctr-error "Unknown fontify face fallback: bogus"))
-  ;; A tree-sitter mode without its grammar declines, without asking
-  ;; to install the grammar.
-  (when (and (fboundp 'treesit-language-available-p)
-             (not (treesit-language-available-p 'python)))
-    ($q (t--engrave-tokens "x = 1" "py"
-                           (t-test-fontify-info
-                            :html-fontify-lang-alist
-                            '(("py" :engrave python-ts-mode))))
-        :decline)))
+  ;; A tree-sitter mode declines without a parser, and may not offer
+  ;; to install its grammar; with a parser, it fontifies.  A stand-in
+  ;; mode keeps this independent of the grammars installed.
+  (let ((info (t-test-fontify-info
+               :html-fontify-lang-alist '(("fake" :engrave t-test-fake-ts-mode))))
+        (install 'unset)
+        (parsers nil))
+    (cl-letf (((symbol-function 't-test-fake-ts-mode)
+               (lambda () (setq install treesit-auto-install-grammar)))
+              ((symbol-function 'treesit-parser-list)
+               (lambda (&rest _) parsers)))
+      ($q (t--engrave-tokens "x = 1" "fake" info) :decline)
+      ($q install 'never)
+      (setq parsers '(parser))
+      ($l (t--engrave-tokens "x = 1" "fake" info) '((nil . "x = 1"))))))
 
 ;;;; Fontify jstools engine
 
@@ -4299,7 +4368,10 @@ cookie-less column is remembered as the `none' marker."
                                           ("sh" :engrave sh-mode)))))
     ($l (t--jstools-lang "el" info) "emacs-lisp")
     ($n (t--jstools-lang "c" info))
-    ($l (t--jstools-lang "sh" info) "sh")))
+    ($l (t--jstools-lang "sh" info) "sh"))
+  ($e!l (t--jstools-lang "c" (t-test-fontify-info
+                              :html-fontify-lang-alist '(("c" . "cpp"))))
+        '(org-w3ctr-error "Malformed fontify language entry: (\"c\" . \"cpp\")")))
 
 (ert-deftest t--jstools-languages ()
   "Tests for `org-w3ctr--jstools-languages'."

@@ -387,6 +387,17 @@ same session.  Larger or planned work is in the =TODO= list above.
     body itself as hot -- and it must erase + insert + =font-lock-ensure=
     + collect, minding buffer-local state leaking between blocks.
 
+- *Fontify configuration errors are downgraded to engine failures.*
+  =org-w3ctr--fontify-dispatch= catches every =error= an engine signals,
+  =org-w3ctr-error= included, so a malformed option checked inside an
+  engine (=:html-fontify-face-fallback=, the face tables,
+  =:html-fontify-lang-alist=) becomes "engine failed": under the
+  default =warn= policy one warning, the engine broken for the export,
+  and plain output.  Check these options up front, outside the
+  =condition-case=, as the dispatcher already does for its two
+  policies -- in the Fontify dispatch pass.  Probed in
+  =scratch/_probes/engrave-config-errors.el=.
+
 - *Unnamed elements get a fresh random id on every export.*  With no
   explicit label, =t--reference= falls back to =org-export-get-reference=,
   which mints an =orgXXXXXXX= id from a randomly seeded counter.  Four of
@@ -436,7 +447,10 @@ Explicitly out of scope for now.
 - *Option validation.*  Checking user-supplied export options and
   customization variables for well-formedness.  Options are trusted as
   given; the back-end verifies explicit markup only (attributes, block
-  parameters), where malformed input fails loudly.  Not now.
+  parameters), where malformed input fails loudly.  Not now.  Exception:
+  the fontify options (face tables, palette, policies, face fallback,
+  language alist) are already checked, since a typo there silently
+  changes the highlighting.
 - *Own export framework: streaming renderer / half-parser.*  Replace
   =org-export-data='s bottom-up string building and =org-element=
   parsing with a single-pass, head-to-tail renderer over a partial

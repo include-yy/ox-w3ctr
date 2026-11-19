@@ -3771,6 +3771,23 @@ duplicates."
            (important-return-value t))
   (delete-dups (mapcar #'cdr (t--fontify-face-table info))))
 
+(defun t--fontify-lang-entry (lang info)
+  "Return the PLIST of LANG's entry in INFO's `:html-fontify-lang-alist'.
+
+LANG is a language name as a string, and INFO the info plist.
+Return nil when LANG has no entry.  Signal `org-w3ctr-error' unless
+the alist is a list of (LANG . PLIST) entries, each LANG a string
+and each PLIST a property list."
+  (declare (ftype (function (string list) list))
+           (important-return-value t))
+  (let ((alist (t--pget info :html-fontify-lang-alist)))
+    (unless (proper-list-p alist)
+      (t-error "Fontify language alist must be a list: %S" alist))
+    (dolist (entry alist)
+      (unless (and (consp entry) (stringp (car entry)) (plistp (cdr entry)))
+        (t-error "Malformed fontify language entry: %S" entry)))
+    (cdr (assoc lang alist))))
+
 (defun t--fontify-check-tokens (tokens code engine info)
   "Return TOKENS after checking that they faithfully describe CODE.
 
@@ -3968,8 +3985,8 @@ using it.
 Signal `org-w3ctr-error' unless PALETTE is a non-empty list of
 entries (SLUG . PLIST) with distinct SLUGs, each SLUG a lowercase
 letter followed by lowercase letters, digits or hyphens, and PLIST
-a property list with the keys :light and :dark, each a lowercase
-#rrggbb colour, and optionally :style, a list of `bold' and
+a property list with the keys `:light' and `:dark', each a lowercase
+#rrggbb colour, and optionally `:style', a list of `bold' and
 `italic'; no other key, and no key twice."
   (declare (ftype (function (t) string))
            (important-return-value t))
@@ -4088,30 +4105,40 @@ cache is cleared (`org-w3ctr-clear-css').  Return FILE."
     (bold . 700) (extra-bold . 800) (extrabold . 800) (ultra-bold . 800)
     (ultrabold . 800) (black . 900) (heavy . 900) (ultra-heavy . 1000))
   "Alist of Emacs font weights to CSS `font-weight' values.
+
 Normal weights are absent: they need no declaration.")
 
 (defun t--engrave-normalize-face (prop)
   "Return the face property PROP as a list of faces, the first winning.
-PROP is what a `face' text property may hold: nil, a face name, an
-anonymous face (a plist), a (foreground-color . COLOR) or
-\(background-color . COLOR) pair, or a list of those; a value
-written as (quote X) is unwrapped, as engrave-faces does.  Each
-face in the result is a symbol or a plist.  Anything else gives
-nil."
+
+PROP is what a `face' text property may hold: nil, a face name (a
+symbol other than t or a keyword), an anonymous face (a property
+list starting with a keyword), a (foreground-color . COLOR) or
+\(background-color . COLOR) pair with a string COLOR, or a list of
+those; a value written as (quote X) is unwrapped, as engrave-faces
+does.  Each face in the result is a symbol or a plist.  Anything
+else gives nil."
   (declare (ftype (function (t) list))
            (pure t) (important-return-value t))
   (cond
    ((null prop) nil)
-   ((symbolp prop) (list prop))
+   ((symbolp prop) (and (not (eq prop t)) (not (keywordp prop)) (list prop)))
    ((not (consp prop)) nil)
-   ((eq (car prop) 'quote) (t--engrave-normalize-face (car-safe (cdr prop))))
-   ((and (keywordp (car prop)) (proper-list-p prop)) (list prop))
-   ((eq (car prop) 'foreground-color) (list (list :foreground (cdr prop))))
-   ((eq (car prop) 'background-color) (list (list :background (cdr prop))))
+   ((eq (car prop) 'quote)
+    (and (proper-list-p prop) (= (length prop) 2)
+         (t--engrave-normalize-face (cadr prop))))
+   ;; A malformed plist must not fall through to the list case below,
+   ;; which would pick faces out of its values.
+   ((keywordp (car prop)) (and (plistp prop) (list prop)))
+   ((eq (car prop) 'foreground-color)
+    (and (stringp (cdr prop)) (list (list :foreground (cdr prop)))))
+   ((eq (car prop) 'background-color)
+    (and (stringp (cdr prop)) (list (list :background (cdr prop)))))
    ((proper-list-p prop) (mapcan #'t--engrave-normalize-face prop))))
 
 (defun t--engrave-face-slug (face table inherit)
   "Return the slug that TABLE gives FACE, or nil.
+
 FACE is a face symbol or an anonymous face (a plist), and TABLE an
 alist of (FACE . SLUG).  When INHERIT is non-nil, a face without an
 entry is looked up through its `:inherit' chain, depth first, and
@@ -4135,6 +4162,7 @@ once, so a cycle ends."
 
 (defun t--engrave-color (color)
   "Return COLOR, a color name or spec, as a \"#rrggbb\" string, or nil.
+
 The value is the color's standard definition, from
 `tty-color-standard-values', whatever the display: a batch Emacs
 would otherwise round it to its terminal palette."
@@ -4147,6 +4175,7 @@ would otherwise round it to its terminal palette."
 
 (defun t--engrave-face-attribute (faces attribute)
   "Return the first specified value of ATTRIBUTE among FACES, or nil.
+
 FACES is a list of face symbols and plists, the first winning; a
 symbol's value includes what it inherits, but not the `default'
 face's."
@@ -4161,6 +4190,7 @@ face's."
 
 (defun t--engrave-inline-style (faces)
   "Return the CSS declarations for the merged attributes of FACES, or nil.
+
 FACES is a list of face symbols and plists, the first winning; the
 `default' face is ignored.  Colors, weight, slant, underline and
 strike-through are translated; nil means none of them is set."
@@ -4186,6 +4216,7 @@ strike-through are translated; nil means none of them is set."
 
 (defun t--engrave-face-class (prop table fallback)
   "Return the token CLASS for the face property PROP.
+
 TABLE is the (FACE . SLUG) alist and FALLBACK one of `inherit',
 `inline' or `none' (see `org-w3ctr-fontify-face-fallback').  The
 faces of PROP are tried in order, each through
@@ -4205,6 +4236,7 @@ the `inline' FALLBACK gives (style . CSS) from
 
 (defun t--engrave-collect (table fallback &optional state)
   "Return the current buffer's text as a list of (CLASS . TEXT) tokens.
+
 The buffer must already be fontified (see `font-lock-ensure').  The
 text is cut at every `face' text-property change, and each run's
 CLASS comes from `org-w3ctr--engrave-face-class' with TABLE and
@@ -4233,22 +4265,25 @@ Point is preserved."
       (nreverse tokens))))
 
 (defun t--engrave-lang-mode (lang info)
-  "Return the major mode the engrave engine uses for LANG, or nil.
+  "Return the major mode the `engrave' engine uses for LANG, or nil.
+
 LANG is a language name as a string, and INFO the info plist.  The
-entry for LANG in INFO's `:html-fontify-lang-alist' decides when it
-has an `:engrave' key (a nil value meaning no mode); otherwise
-`org-src-get-lang-mode' does.  A mode that is not a defined function
-gives nil."
+entry for LANG in INFO's `:html-fontify-lang-alist' (see
+`org-w3ctr--fontify-lang-entry') decides when it has an `:engrave'
+key (a nil value meaning no mode); otherwise `org-src-get-lang-mode'
+does.  A mode that is not a symbol naming a function (a macro or a
+special form is not one) gives nil."
   (declare (ftype (function (string list) symbol))
            (important-return-value t))
-  (let* ((entry (cdr (assoc lang (t--pget info :html-fontify-lang-alist))))
+  (let* ((entry (t--fontify-lang-entry lang info))
          (mode (if (plist-member entry :engrave)
                    (plist-get entry :engrave)
                  (org-src-get-lang-mode lang))))
-    (and mode (symbolp mode) (fboundp mode) mode)))
+    (and mode (symbolp mode) (functionp mode) mode)))
 
 (defun t--engrave-tokens (code lang info)
   "Fontify CODE (a string) in LANG's major mode and return its tokens.
+
 LANG is a language name as a string.  INFO is the info plist: it
 picks the mode (`org-w3ctr--engrave-lang-mode'), the face table and
 fallback, and whether the mode's hooks run
@@ -4317,7 +4352,7 @@ The `:jstools' key of LANG's entry in INFO's
 is the name."
   (declare (ftype (function (string list) (or null string)))
            (important-return-value t))
-  (let ((entry (cdr (assoc lang (t--pget info :html-fontify-lang-alist)))))
+  (let ((entry (t--fontify-lang-entry lang info)))
     (if (plist-member entry :jstools) (plist-get entry :jstools) lang)))
 
 (defun t--jstools-languages (info)
