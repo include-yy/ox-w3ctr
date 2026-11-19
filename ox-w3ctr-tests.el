@@ -3636,22 +3636,38 @@ cookie-less column is remembered as the `none' marker."
 (ert-deftest t--fontify-face-table ()
   "Tests for `org-w3ctr--fontify-face-table'."
   ($l (t--fontify-face-table (t-test-fontify-info)) t-fontify-faces)
-  ;; An extra entry comes first, so it shadows the default one.
+  ;; An extra entry comes first, so it shadows the default one; slugs
+  ;; may contain digits and hyphens after the leading letter.
   (let ((table (t--fontify-face-table
                 (t-test-fontify-info :html-fontify-extra-faces
-                                     '((font-lock-keyword-face . "kw"))))))
+                                     '((font-lock-keyword-face . "kw")
+                                       (my-face . "k2-a"))))))
     ($l (car table) '(font-lock-keyword-face . "kw"))
-    ($l (cdr (assq 'font-lock-keyword-face table)) "kw"))
+    ($l (cdr (assq 'font-lock-keyword-face table)) "kw")
+    ($l (cdr (assq 'my-face table)) "k2-a"))
   ;; Malformed entries fail loudly; slugs are lowercase even under
   ;; `case-fold-search'.
   (let ((case-fold-search t))
-    (dolist (bad '(("face" . "x") (foo . "K") (foo . "1a") (foo . k) foo))
+    (dolist (bad '(("face" . "x") (nil . "x") (t . "x") (:kw . "x")
+                   (foo . "") (foo . "K") (foo . "1a") (foo . "-a")
+                   (foo . "a_b") (foo . "a\n") (foo . k) foo))
       ($e!l (t--fontify-face-table
              (t-test-fontify-info :html-fontify-extra-faces (list bad)))
             (list 'org-w3ctr-error
                   (format "Malformed fontify face entry: %S" bad)))))
   ($e!l (t--fontify-face-table (t-test-fontify-info :html-fontify-faces 'x))
-        '(org-w3ctr-error "Fontify face tables must be lists: nil, x")))
+        '(org-w3ctr-error "Fontify face tables must be lists: nil, x"))
+  ($e!l (t--fontify-face-table
+         (t-test-fontify-info :html-fontify-extra-faces 'x))
+        (list 'org-w3ctr-error
+              (format "Fontify face tables must be lists: x, %S"
+                      t-fontify-faces)))
+  ($e!l (t--fontify-face-table
+         (t-test-fontify-info :html-fontify-extra-faces '((foo . "k") . bar)))
+        (list 'org-w3ctr-error
+              (format
+               "Fontify face tables must be lists: ((foo . \"k\") . bar), %S"
+               t-fontify-faces))))
 
 (ert-deftest t--fontify-slugs ()
   "Tests for `org-w3ctr--fontify-slugs'."
@@ -3666,8 +3682,9 @@ cookie-less column is remembered as the `none' marker."
       (skip-unless (file-readable-p css))
       (with-temp-buffer
         (insert-file-contents css)
-        (let (rules)
-          (while (re-search-forward "^\\.ef-\\([a-z-]+\\) {" nil t)
+        (let ((case-fold-search nil)
+              rules)
+          (while (re-search-forward "^\\.ef-\\([a-z][a-z0-9-]*\\) {" nil t)
             (push (match-string 1) rules))
           ($l (sort (copy-sequence slugs) #'string<)
               (sort (delete-dups rules) #'string<))))))
@@ -3687,7 +3704,9 @@ cookie-less column is remembered as the `none' marker."
     ($e!l (t--fontify-check-tokens '(a . b) "x" 'eng info)
           '(org-w3ctr-error "Engine eng returned a non-list: (a . b)"))
     (dolist (bad '("x" (nil . "") (nil . 1) ("zz" . "a") (k . "a")
-                   ((style . 1) . "a") ((css . "x") . "a")))
+                   ((style . 1) . "a") ((style . "") . "a")
+                   ((style . "  \t\n") . "a") ((style "x") . "a")
+                   ((css . "x") . "a")))
       ($e!l (t--fontify-check-tokens (list bad) "a" 'eng info)
             (list 'org-w3ctr-error
                   (format "Engine eng returned a malformed token: %S" bad))))
@@ -3705,12 +3724,15 @@ cookie-less column is remembered as the `none' marker."
 (ert-deftest t--fontify-merge ()
   "Tests for `org-w3ctr--fontify-merge'."
   ($n (t--fontify-merge nil))
-  (let* ((tokens (list '("k" . "a") '("k" . "b") '(nil . "c") '(nil . "d")
-                       '("k" . "e") '((style . "x") . "f")
-                       '((style . "x") . "g")))
+  (let* ((tokens (list '("k" . "a") '("k" . "b") '("k" . "c")
+                       '(nil . "d") '(nil . "e")
+                       '("k" . "f")
+                       '((style . "x") . "g") '((style . "x") . "h")
+                       '((style . "y") . "i")))
          (copy (copy-tree tokens)))
     ($l (t--fontify-merge tokens)
-        '(("k" . "ab") (nil . "cd") ("k" . "e") ((style . "x") . "fg")))
+        '(("k" . "abc") (nil . "de") ("k" . "f")
+          ((style . "x") . "gh") ((style . "y") . "i")))
     ;; The input is left alone.
     ($l tokens copy)))
 
@@ -3723,8 +3745,10 @@ cookie-less column is remembered as the `none' marker."
   ($l (t--fontify-render '(("k" . "<&>") (nil . "<&>")))
       "<span class=\"ef-k\">&lt;&amp;&gt;</span>&lt;&amp;&gt;")
   ;; A whitespace-only run is never wrapped, whatever its class.
-  ($l (t--fontify-render '(("k" . "  \n\t ") ("c" . " ;c")))
-      "  \n\t <span class=\"ef-c\"> ;c</span>")
+  ($l (t--fontify-render '(("k" . "  \n\t\r\f ")
+                           ((style . "color: red;") . " \r\f\n\t")
+                           ("c" . " ;c")))
+      "  \n\t\r\f  \r\f\n\t<span class=\"ef-c\"> ;c</span>")
   ;; Adjacent runs of one class are not merged here.
   ($l (t--fontify-render '(("k" . "a") ("k" . "b")))
       "<span class=\"ef-k\">a</span><span class=\"ef-k\">b</span>")
@@ -3733,13 +3757,13 @@ cookie-less column is remembered as the `none' marker."
       "<span style=\"color: #f00;&quot;\">&lt;x&gt;</span>"))
 
 (ert-deftest t--fontify-render-roundtrip ()
-  "Exhaustive sweep: rendering loses nothing and wraps the right runs.
-Every string of length 1 to 3 over an alphabet of HTML-special
-characters, quotes, a newline, a space and a letter is rendered with
-no class and with a class; the result must be escaped, stripping
-the span and decoding the three entities must give the string back,
-and a span must appear exactly when there is a class and the string
-is not all whitespace."
+  "Exhaustive sweep: rendering loses nothing and wraps the right runs."
+  ;; Every string of length 1 to 3 over an alphabet of HTML-special
+  ;; characters, quotes, a newline, a space and a letter is rendered
+  ;; with no class and with a class; the result must be escaped,
+  ;; stripping the span and decoding the three entities must give the
+  ;; string back, and a span must appear exactly when there is a class
+  ;; and the string is not all whitespace.
   (let* ((alphabet '("<" "&" ">" "\"" "'" "\n" " " "a"))
          (strings alphabet)
          (longest alphabet))

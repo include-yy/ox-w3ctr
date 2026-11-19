@@ -3736,11 +3736,13 @@ references).  A non-blank caption becomes an unstyled <span> before
 
 (defun t--fontify-face-table (info)
   "Return the (FACE . SLUG) alist in force for INFO.
+
 It is INFO's `:html-fontify-extra-faces' followed by its
 `:html-fontify-faces', so an extra entry shadows a default one.
-Signal `org-w3ctr-error' on an entry that is not a (SYMBOL . SLUG)
-pair, a SLUG being a lowercase letter followed by lowercase
-letters, digits or hyphens."
+Signal `org-w3ctr-error' on a non-list table or an entry that is not
+a (FACE . SLUG) pair, FACE being a non-boolean, non-keyword symbol
+and SLUG a lowercase letter followed by lowercase letters, digits or
+hyphens."
   (declare (ftype (function (list) list))
            (important-return-value t))
   (let ((extra (t--pget info :html-fontify-extra-faces))
@@ -3750,13 +3752,19 @@ letters, digits or hyphens."
       (t-error "Fontify face tables must be lists: %S, %S" extra faces))
     (let ((table (append extra faces)))
       (dolist (entry table table)
-        (unless (and (consp entry) (symbolp (car entry))
-                     (stringp (cdr entry))
-                     (string-match-p "\\`[a-z][a-z0-9-]*\\'" (cdr entry)))
-          (t-error "Malformed fontify face entry: %S" entry))))))
+        (let ((face (car-safe entry))
+              (slug (cdr-safe entry)))
+          (unless (and (consp entry)
+                       (symbolp face)
+                       (not (booleanp face))
+                       (not (keywordp face))
+                       (stringp slug)
+                       (string-match-p "\\`[a-z][a-z0-9-]*\\'" slug))
+            (t-error "Malformed fontify face entry: %S" entry)))))))
 
 (defun t--fontify-slugs (info)
   "Return the slugs a token CLASS may take under INFO.
+
 They are the SLUGs of `org-w3ctr--fontify-face-table', without
 duplicates."
   (declare (ftype (function (list) list))
@@ -3765,11 +3773,13 @@ duplicates."
 
 (defun t--fontify-check-tokens (tokens code engine info)
   "Return TOKENS after checking that they faithfully describe CODE.
+
 TOKENS is the list of (CLASS . TEXT) that ENGINE, a symbol, returned
-for the string CODE under the export plist INFO.  Each TEXT must be
-a non-empty string; each CLASS nil, one of `org-w3ctr--fontify-slugs'
-or (style . STRING); and the texts must concatenate back to CODE
-exactly.  Signal `org-w3ctr-error' naming ENGINE otherwise."
+for the string CODE.  INFO is the info plist.  Each TEXT must be a
+non-empty string; each CLASS nil, one of `org-w3ctr--fontify-slugs'
+or (style . CSS) with a non-blank string CSS; and the texts must
+concatenate back to CODE exactly.  Signal `org-w3ctr-error' naming
+ENGINE otherwise."
   (declare (ftype (function (t string symbol list) list))
            (important-return-value t))
   (unless (proper-list-p tokens)
@@ -3783,7 +3793,7 @@ exactly.  Signal `org-w3ctr-error' naming ENGINE otherwise."
                      (or (null class)
                          (member class slugs)
                          (and (eq (car-safe class) 'style)
-                              (stringp (cdr class))))))
+                              (t--nw-p (cdr class))))))
         (t-error "Engine %s returned a malformed token: %S" engine token))))
   (unless (string= (mapconcat #'cdr tokens) code)
     (t-error "Engine %s returned tokens that do not add up to the code"
@@ -3792,6 +3802,7 @@ exactly.  Signal `org-w3ctr-error' naming ENGINE otherwise."
 
 (defun t--fontify-merge (tokens)
   "Return TOKENS with each run of adjacent equal classes joined.
+
 TOKENS is a list of (CLASS . TEXT); classes are compared with
 `equal'.  The texts and their order are kept, so the result still
 concatenates to the same code.  TOKENS itself is not modified."
@@ -3805,12 +3816,13 @@ concatenates to the same code.  TOKENS itself is not modified."
 
 (defun t--fontify-render (tokens)
   "Return the bare HTML for the checked TOKENS.
+
 TOKENS is a list of (CLASS . TEXT), as accepted by
 `org-w3ctr--fontify-check-tokens'.  Each TEXT is HTML-escaped.  A
 slug CLASS wraps it in <span class=\"ef-SLUG\">, a (style . CSS)
-CLASS in <span style=\"CSS\">; a nil CLASS, or a TEXT that is only
-spaces, tabs and line breaks, leaves it unwrapped.  The result has
-no wrapper element."
+CLASS in <span style=\"CSS\"> with CSS attribute-escaped; a nil
+CLASS, or a TEXT that is only spaces, tabs and line breaks, leaves it
+unwrapped.  The result has no wrapper element."
   (declare (ftype (function (list) string))
            (pure t) (important-return-value t))
   (mapconcat
