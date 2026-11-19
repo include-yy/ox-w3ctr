@@ -366,10 +366,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   =npm test= and the math export tests, rather than =npm audit fix=.
 
 - *Fontify subsystem polish (from the 0.2.18 review; none urgent).*
-  - =org-w3ctr--fontify-stylesheet= lacks the =proper-list-p= check that
-    =org-w3ctr--fontify-face-table= has, so a dotted palette slips into a
-    primitive =wrong-type-argument= instead of an =org-w3ctr-error= with
-    context -- the most worth fixing of these.
   - =org-w3ctr--fontify-engine= does not validate the engine plist: an
     engine missing =:fontify= or =:available= fails with =funcall nil=
     rather than an =org-w3ctr-error= naming the engine.

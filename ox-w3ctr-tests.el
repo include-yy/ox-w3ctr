@@ -3904,33 +3904,52 @@ cookie-less column is remembered as the `none' marker."
                    ("k" :light "#111111" :dark "#eeeeee" :style (underline))
                    (k :light "#111111" :dark "#eeeeee")
                    ("k" . :light)
-                   "k"))
+                   "k"
+                   ("k")
+                   ("k" :light "#111111" :dark "#eeeeee" :style)
+                   ("k" :light "#111111" :dark "#eeeeee" :styles (bold))
+                   ("k" :light "#111111" :dark "#eeeeee" :light "#222222")
+                   ("k" :light "#111111" :dark "#eeeeee"
+                    :style (bold) :style (italic))))
       ($e!l (t--fontify-stylesheet (list bad))
             (list 'org-w3ctr-error
                   (format "Malformed fontify palette entry: %S" bad)))))
-  ;; A non-list or dotted palette signals `org-w3ctr-error'.
+  ;; Slugs may carry digits and hyphens, and keys come in any order.
+  ($l (t--fontify-stylesheet '(("k2-a" :style (bold) :dark "#eeeeee"
+                                :light "#111111")))
+      (concat t--fontify-css-begin "\n"
+              ":root {\n  --ef-k2-a: #111111;\n}\n"
+              "@media (prefers-color-scheme: dark) {\n"
+              "  :root {\n    --ef-k2-a: #eeeeee;\n  }\n}\n"
+              ".ef-k2-a { color: var(--ef-k2-a); font-weight: 700; }\n"
+              t--fontify-css-end "\n"))
+  ;; A slug defined twice is rejected, not emitted twice.
+  ($e!l (t--fontify-stylesheet '(("k" :light "#111111" :dark "#eeeeee")
+                                 ("c" :light "#222222" :dark "#dddddd")
+                                 ("k" :light "#333333" :dark "#cccccc")))
+        '(org-w3ctr-error "Duplicate fontify palette slug: \"k\""))
+  ;; An empty, non-list or dotted palette signals `org-w3ctr-error'.
+  ($e!l (t--fontify-stylesheet nil)
+        '(org-w3ctr-error "Fontify palette must be a non-empty list: nil"))
   ($e!l (t--fontify-stylesheet 'x)
-        '(org-w3ctr-error "Fontify palette must be a list: x"))
+        '(org-w3ctr-error "Fontify palette must be a non-empty list: x"))
   ($e!l (t--fontify-stylesheet '(("k" :light "#111111" :dark "#eeeeee") . bad))
         '(org-w3ctr-error
-          "Fontify palette must be a list: ((\"k\" :light \"#111111\" :dark \"#eeeeee\") . bad)")))
+          "Fontify palette must be a non-empty list: ((\"k\" :light \"#111111\" :dark \"#eeeeee\") . bad)")))
 
 (ert-deftest t--fontify-stylesheet-shipped ()
-  "The shipped palette, the face table and the stylesheet agree.
-Drift: the block in assets/style.css is exactly what the default
-`org-w3ctr-fontify-palette' generates.  Coverage: the palette has
-one entry per slug of the default `org-w3ctr-fontify-faces'.
-Contrast: every colour reaches the WCAG AA ratio 4.5 on every
-background code is drawn on in that theme (light: the page, the
-`pre > code.src' tint and that tint inside an `.example' box; dark:
-the same three with the dark-theme values), computed here from the
-WCAG formula rather than by the generator."
+  "The shipped palette, the face table and the stylesheet agree."
   (let ((palette (eval (car (get 't-fontify-palette 'standard-value)) t))
         (faces (eval (car (get 't-fontify-faces 'standard-value)) t)))
-    ;; Coverage.
+    ;; Coverage: the palette has one entry per slug of the default
+    ;; `org-w3ctr-fontify-faces'.
     ($l (sort (mapcar #'car palette) #'string<)
         (sort (delete-dups (mapcar #'cdr faces)) #'string<))
-    ;; Contrast.
+    ;; Contrast: every colour reaches the WCAG AA ratio 4.5 on every
+    ;; background code is drawn on in that theme (light: the page, the
+    ;; `pre > code.src' tint and that tint inside an `.example' box;
+    ;; dark: the same three with the dark-theme values), computed here
+    ;; from the WCAG formula rather than by the generator.
     (let* ((lin (lambda (c) (let ((c (/ c 255.0)))
                               (if (<= c 0.03928) (/ c 12.92)
                                 (expt (/ (+ c 0.055) 1.055) 2.4)))))
@@ -3954,7 +3973,8 @@ WCAG formula rather than by the generator."
                 (push (format "%s %s on %s: %.2f" slug (car theme) bg r)
                       low))))))
       ($l low nil))
-    ;; Drift.
+    ;; Drift: the block in assets/style.css is exactly what the default
+    ;; `org-w3ctr-fontify-palette' generates.
     (let ((css (file-name-concat t--dir "assets" "style.css")))
       (skip-unless (file-readable-p css))
       (with-temp-buffer
@@ -3984,6 +4004,27 @@ WCAG formula rather than by the generator."
     ($e!l (t--fontify-stylesheet-bounds)
           (list 'org-w3ctr-error
                 (format "Expected one line %S, found 2" t--fontify-css-begin))))
+  ;; The closing marker is checked the same way.
+  (dolist (tail (list "" (concat t--fontify-css-end "\n"
+                                 t--fontify-css-end "\n")))
+    (with-temp-buffer
+      (insert t--fontify-css-begin "\n" tail)
+      ($e!l (t--fontify-stylesheet-bounds)
+            (list 'org-w3ctr-error
+                  (format "Expected one line %S, found %d"
+                          t--fontify-css-end (if (equal tail "") 0 2))))))
+  ;; A marker must fill its line, in its own case, even under
+  ;; `case-fold-search'.
+  (dolist (begin (list (downcase t--fontify-css-begin)
+                       (concat " " t--fontify-css-begin)
+                       (concat t--fontify-css-begin " x")))
+    (with-temp-buffer
+      (setq-local case-fold-search t)
+      (insert begin "\n" t--fontify-css-end "\n")
+      ($e!l (t--fontify-stylesheet-bounds)
+            (list 'org-w3ctr-error
+                  (format "Expected one line %S, found 0"
+                          t--fontify-css-begin)))))
   (with-temp-buffer
     (insert t--fontify-css-end "\n" t--fontify-css-begin "\n")
     ($e!l (t--fontify-stylesheet-bounds)
@@ -3991,20 +4032,45 @@ WCAG formula rather than by the generator."
 
 (ert-deftest t-fontify-update-stylesheet ()
   "Tests for `org-w3ctr-fontify-update-stylesheet'."
-  (let ((file (make-temp-file "ox-w3ctr-css" nil ".css"))
-        (t-fontify-palette '(("k" :light "#111111" :dark "#eeeeee"))))
+  (let* ((dir (make-temp-file "ox-w3ctr-css" t))
+         (file (file-name-concat dir "a.css"))
+         (t-fontify-palette '(("k" :light "#111111" :dark "#eeeeee")))
+         ;; The input has CRLF line ends and a non-ASCII character; the
+         ;; output must be UTF-8 with LF line ends.
+         (write (lambda (f)
+                  (let ((coding-system-for-write 'utf-8-dos))
+                    (with-temp-file f
+                      (insert "a {} /* \u00a7 */\n" t--fontify-css-begin
+                              "\nstale\n" t--fontify-css-end "\nb {}\n")))))
+         (bytes (lambda (f)
+                  (with-temp-buffer
+                    (set-buffer-multibyte nil)
+                    (insert-file-contents-literally f)
+                    (buffer-string))))
+         (expected (encode-coding-string
+                    (concat "a {} /* \u00a7 */\n"
+                            (t--fontify-stylesheet t-fontify-palette)
+                            "b {}\n")
+                    'utf-8-unix)))
     (unwind-protect
         (progn
-          (with-temp-file file
-            (insert "a {}\n" t--fontify-css-begin "\nstale\n"
-                    t--fontify-css-end "\nb {}\n"))
-          ($l (t-fontify-update-stylesheet file) file)
-          ($l (with-temp-buffer
-                (insert-file-contents-literally file)
-                (buffer-string))
-              (concat "a {}\n" (t--fontify-stylesheet t-fontify-palette)
-                      "b {}\n")))
-      (delete-file file))))
+          (funcall write file)
+          ;; The CSS cache is cleared.
+          (let ((t--style-cache "cached"))
+            ($l (t-fontify-update-stylesheet file) file)
+            ($n t--style-cache))
+          ($l (funcall bytes file) expected)
+          ;; Without FILE, assets/style.css under `org-w3ctr--dir' is
+          ;; written; the guard keeps the real stylesheet out of reach.
+          (let ((t--dir dir)
+                (default (file-name-concat dir "assets" "style.css")))
+            (make-directory (file-name-directory default))
+            (funcall write default)
+            ($l (file-name-concat t--dir "assets" "style.css") default)
+            (let ((t--style-cache nil))
+              ($l (t-fontify-update-stylesheet) default))
+            ($l (funcall bytes default) expected)))
+      (delete-directory dir t))))
 
 ;;;; Engrave-faces subset
 

@@ -3959,30 +3959,46 @@ an engine sent that no face table knows.  See
 
 (defun t--fontify-stylesheet (palette)
   "Return the CSS for the highlighting PALETTE, marker lines included.
+
 PALETTE has the shape of `org-w3ctr-fontify-palette'.  The CSS
 defines --ef-SLUG for the light theme on :root, redefines it under
 `prefers-color-scheme: dark', and gives each slug an .ef-SLUG rule
-using it.  Signal `org-w3ctr-error' on a malformed entry."
+using it.
+
+Signal `org-w3ctr-error' unless PALETTE is a non-empty list of
+entries (SLUG . PLIST) with distinct SLUGs, each SLUG a lowercase
+letter followed by lowercase letters, digits or hyphens, and PLIST
+a property list with the keys :light and :dark, each a lowercase
+#rrggbb colour, and optionally :style, a list of `bold' and
+`italic'; no other key, and no key twice."
   (declare (ftype (function (t) string))
            (important-return-value t))
-  (unless (proper-list-p palette)
-    (t-error "Fontify palette must be a list: %S" palette))
+  (unless (and (proper-list-p palette) palette)
+    (t-error "Fontify palette must be a non-empty list: %S" palette))
   (let ((case-fold-search nil)
-        light dark rules)
+        light dark rules seen)
     (dolist (entry palette)
       (let* ((slug (car-safe entry))
              (plist (cdr-safe entry))
-             (lc (and (proper-list-p plist) (plist-get plist :light)))
-             (dc (and (proper-list-p plist) (plist-get plist :dark)))
-             (styles (and (proper-list-p plist) (plist-get plist :style))))
+             (keys (and (plistp plist)
+                        (let ((p plist) ks)
+                          (while p (push (pop p) ks) (pop p))
+                          ks)))
+             (lc (and keys (plist-get plist :light)))
+             (dc (and keys (plist-get plist :dark)))
+             (styles (and keys (plist-get plist :style))))
         (unless (and (stringp slug)
                      (string-match-p "\\`[a-z][a-z0-9-]*\\'" slug)
-                     (proper-list-p plist)
+                     (null (seq-difference keys '(:light :dark :style)))
+                     (equal keys (delete-dups (copy-sequence keys)))
                      (stringp lc) (string-match-p "\\`#[0-9a-f]\\{6\\}\\'" lc)
                      (stringp dc) (string-match-p "\\`#[0-9a-f]\\{6\\}\\'" dc)
                      (proper-list-p styles)
                      (null (seq-difference styles '(bold italic))))
           (t-error "Malformed fontify palette entry: %S" entry))
+        (when (member slug seen)
+          (t-error "Duplicate fontify palette slug: %S" slug))
+        (push slug seen)
         (push (format "  --ef-%s: %s;" slug lc) light)
         (push (format "    --ef-%s: %s;" slug dc) dark)
         (push (concat (format ".ef-%s { color: var(--ef-%s);" slug slug)
@@ -3999,14 +4015,17 @@ using it.  Signal `org-w3ctr-error' on a malformed entry."
 
 (defun t--fontify-stylesheet-bounds ()
   "Return (BEG . END) of the generated block in the current buffer.
+
 BEG is the start of the line `org-w3ctr--fontify-css-begin' and END
 the end of the line `org-w3ctr--fontify-css-end', past its newline.
-Signal `org-w3ctr-error' unless each marker appears exactly once,
-the opening one first."
+Each marker must fill its line exactly, in its own case.  Signal
+`org-w3ctr-error' unless each marker appears exactly once, the
+opening one first."
   (declare (ftype (function () cons))
            (important-return-value t))
   (save-excursion
-    (let* ((find (lambda (line)
+    (let* ((case-fold-search nil)
+           (find (lambda (line)
                    (goto-char (point-min))
                    (let ((re (concat "^" (regexp-quote line) "$")) hits)
                      (while (re-search-forward re nil t)
@@ -4025,6 +4044,7 @@ the opening one first."
 
 (defun t-fontify-update-stylesheet (&optional file)
   "Write `org-w3ctr-fontify-palette' into the stylesheet FILE.
+
 FILE defaults to assets/style.css of this package.  The text
 between the marker lines (see `org-w3ctr--fontify-stylesheet-bounds')
 is replaced by `org-w3ctr--fontify-stylesheet'; the rest of FILE is
