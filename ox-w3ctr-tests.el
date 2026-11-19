@@ -3861,10 +3861,17 @@ is not all whitespace."
                    ("k" :light "#111111")
                    ("k" :light "#111111" :dark "#eeeeee" :style (underline))
                    (k :light "#111111" :dark "#eeeeee")
+                   ("k" . :light)
                    "k"))
       ($e!l (t--fontify-stylesheet (list bad))
             (list 'org-w3ctr-error
-                  (format "Malformed fontify palette entry: %S" bad))))))
+                  (format "Malformed fontify palette entry: %S" bad)))))
+  ;; A non-list or dotted palette signals `org-w3ctr-error'.
+  ($e!l (t--fontify-stylesheet 'x)
+        '(org-w3ctr-error "Fontify palette must be a list: x"))
+  ($e!l (t--fontify-stylesheet '(("k" :light "#111111" :dark "#eeeeee") . bad))
+        '(org-w3ctr-error
+          "Fontify palette must be a list: ((\"k\" :light \"#111111\" :dark \"#eeeeee\") . bad)")))
 
 (ert-deftest t--fontify-stylesheet-shipped ()
   "The shipped palette, the face table and the stylesheet agree.
@@ -4078,7 +4085,22 @@ WCAG formula rather than by the generator."
     (insert "abcdef")
     (put-text-property 1 4 'face 'font-lock-keyword-face)
     ($l (t--engrave-next-face-change 1) 4)
-    ($l (t--engrave-next-face-change 4) (point-max))))
+    ($l (t--engrave-next-face-change 4) (point-max)))
+  ;; Overlay face changes cut runs; an overlay without `face' does not.
+  (with-temp-buffer
+    (insert "abcdef")
+    (let ((ov1 (make-overlay 2 5))
+          (ov2 (make-overlay 3 4)))
+      (overlay-put ov1 'face 'font-lock-keyword-face)
+      (overlay-put ov2 'help-echo "x")
+      ($l (t--engrave-next-face-change 1) 2)
+      ($l (t--engrave-next-face-change 2) 5)))
+  ;; A `display' property at the boundary extends to the end of that display.
+  (with-temp-buffer
+    (insert "abcdef")
+    (put-text-property 1 3 'face 'font-lock-keyword-face)
+    (put-text-property 3 5 'display "X")
+    ($l (t--engrave-next-face-change 1) 5)))
 
 (ert-deftest t--engrave-collect ()
   "Tests for `org-w3ctr--engrave-collect'."
@@ -4145,19 +4167,19 @@ WCAG formula rather than by the generator."
                                (t-test-fontify-info
                                 :html-fontify-run-mode-hooks t)))
     ($l runs 1))
+  ($e!l (t--engrave-tokens "x" "emacs-lisp"
+                           (t-test-fontify-info
+                            :html-fontify-face-fallback 'bogus))
+        '(org-w3ctr-error "Unknown fontify face fallback: bogus"))
   ;; A tree-sitter mode without its grammar declines, without asking
   ;; to install the grammar.
-  (when (fboundp 'treesit-language-available-p)
-    (skip-unless (not (treesit-language-available-p 'python)))
+  (when (and (fboundp 'treesit-language-available-p)
+             (not (treesit-language-available-p 'python)))
     ($q (t--engrave-tokens "x = 1" "py"
                            (t-test-fontify-info
                             :html-fontify-lang-alist
                             '(("py" :engrave python-ts-mode))))
-        :decline))
-  ($e!l (t--engrave-tokens "x" "emacs-lisp"
-                           (t-test-fontify-info
-                            :html-fontify-face-fallback 'bogus))
-        '(org-w3ctr-error "Unknown fontify face fallback: bogus")))
+        :decline)))
 
 ;;;; Fontify jstools engine
 

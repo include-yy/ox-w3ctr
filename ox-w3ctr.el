@@ -3939,18 +3939,21 @@ PALETTE has the shape of `org-w3ctr-fontify-palette'.  The CSS
 defines --ef-SLUG for the light theme on :root, redefines it under
 `prefers-color-scheme: dark', and gives each slug an .ef-SLUG rule
 using it.  Signal `org-w3ctr-error' on a malformed entry."
-  (declare (ftype (function (list) string))
+  (declare (ftype (function (t) string))
            (important-return-value t))
+  (unless (proper-list-p palette)
+    (t-error "Fontify palette must be a list: %S" palette))
   (let ((case-fold-search nil)
         light dark rules)
     (dolist (entry palette)
       (let* ((slug (car-safe entry))
              (plist (cdr-safe entry))
-             (lc (plist-get plist :light))
-             (dc (plist-get plist :dark))
-             (styles (plist-get plist :style)))
+             (lc (and (proper-list-p plist) (plist-get plist :light)))
+             (dc (and (proper-list-p plist) (plist-get plist :dark)))
+             (styles (and (proper-list-p plist) (plist-get plist :style))))
         (unless (and (stringp slug)
                      (string-match-p "\\`[a-z][a-z0-9-]*\\'" slug)
+                     (proper-list-p plist)
                      (stringp lc) (string-match-p "\\`#[0-9a-f]\\{6\\}\\'" lc)
                      (stringp dc) (string-match-p "\\`#[0-9a-f]\\{6\\}\\'" dc)
                      (proper-list-p styles)
@@ -4212,7 +4215,7 @@ STATE is non-nil, every face of a run that found no slug (other than
 
 (defun t--engrave-lang-mode (lang info)
   "Return the major mode the engrave engine uses for LANG, or nil.
-LANG is a language name as a string, and INFO the export plist.  The
+LANG is a language name as a string, and INFO the info plist.  The
 entry for LANG in INFO's `:html-fontify-lang-alist' decides when it
 has an `:engrave' key (a nil value meaning no mode); otherwise
 `org-src-get-lang-mode' does.  A mode that is not a defined function
@@ -4227,7 +4230,7 @@ gives nil."
 
 (defun t--engrave-tokens (code lang info)
   "Fontify CODE (a string) in LANG's major mode and return its tokens.
-LANG is a language name as a string.  INFO is the export plist: it
+LANG is a language name as a string.  INFO is the info plist: it
 picks the mode (`org-w3ctr--engrave-lang-mode'), the face table and
 fallback, and whether the mode's hooks run
 \(`:html-fontify-run-mode-hooks'), and holds the fontify state.
