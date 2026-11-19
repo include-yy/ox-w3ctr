@@ -4589,7 +4589,7 @@ options gets the value of its variable."
 
 The result contains <span> runs only, with no wrapper element:
 callers wrap it in <code> as appropriate (block vs inline).  LANG
-is a language name as a string, or nil.  INFO is the export plist;
+is a language name as a string, or nil.  INFO is the info plist;
 without it, the current option values are used
 \(`org-w3ctr--fontify-default-info').  ELEMENT is the source block
 or inline source block, if any: its `:fontify' header argument
@@ -4615,7 +4615,7 @@ escaped, but the method is still checked: an unknown one signals
 (defun t--src-code (src-block lang info)
   "Return bare fontified HTML for SRC-BLOCK's code in LANG.
 
-INFO is the export plist; it and SRC-BLOCK (for its `:fontify'
+INFO is the info plist; it and SRC-BLOCK (for its `:fontify'
 header argument) are handed to `org-w3ctr-fontify-code'.  The code
 text comes from `org-w3ctr--code-text', which also removes the
 code-reference labels."
@@ -4641,9 +4641,9 @@ CONTENTS is nil.  INFO is the info plist.
 
 Return a <div><pre><code>...</code></pre></div> string, with the
 block's attributes and id on the <div>.  A block with a non-blank
-caption adds a self-link and the caption in an unstyled <span>, and
-its <div> carries class=\"example\" unless the author supplies
-attributes."
+caption adds the caption in an unstyled <span> (plus a self-link
+when the block has an id), and its <div> carries class=\"example\"
+unless the author supplies attributes."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((lang (org-element-property :language src-block))
@@ -4654,16 +4654,17 @@ attributes."
         (let ((has-user-attrs
                (or (org-element-property :attr__ src-block)
                    (org-element-property :attr_html src-block)))
-              (id (or (t--element-id src-block info) "")))
-          (format (concat "<div%s%s>\n"
-                          "<a class=\"self-link\" href=\"#%s\""
-                          " aria-label=\"source block\"></a>\n"
-                          "<span>%s</span>\n<pre>\n%s</pre></div>")
+              (id (t--element-id src-block info)))
+          (format "<div%s%s>\n%s<span>%s</span>\n<pre>\n%s</pre></div>"
                   ;; A captioned block always gets an id: the
                   ;; self-link needs one.
                   (t--make-attr__id* src-block info)
                   (if has-user-attrs "" " class=\"example\"")
-                  (t--encode-plain-text* id)
+                  (if id
+                      (format (concat "<a class=\"self-link\" href=\"#%s\""
+                                      " aria-label=\"source block\"></a>\n")
+                              (t--encode-plain-text* id))
+                    "")
                   caption
                   code))
       (format "<div%s>\n<pre>\n%s</pre></div>"
@@ -4675,10 +4676,10 @@ attributes."
 
 (defun t-inline-src-block (inline-src-block _contents info)
   "Transcode an INLINE-SRC-BLOCK object from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  The code is fontified
-bare by `org-w3ctr-fontify-code' and wrapped here in a single
-<code class=\"src-inline src-LANG\"> (no nesting)."
+Return a single <code class=\"src-inline src-LANG\"> element (no
+nesting), with the code fontified bare by `org-w3ctr-fontify-code'."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((lang (org-element-property :language inline-src-block))

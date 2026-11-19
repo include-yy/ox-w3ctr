@@ -4753,7 +4753,14 @@ winner (or `signal') and the number of warnings."
                         "#+begin_src emacs-lisp\nx\n#+end_src")
                 'w3ctr t)))
       (should (string-match-p "<div class=\"foo\" id=\"nm\">" out))
-      (should (string-match-p "<a class=\"self-link\" href=\"#nm\"" out))))
+      (should (string-match-p "<a class=\"self-link\" href=\"#nm\"" out)))
+    ;; When the id is explicitly suppressed, no broken self-link is emitted.
+    (let ((out (org-export-string-as
+                (concat "#+caption: C\n#+attr_html: :id\n"
+                        "#+begin_src emacs-lisp\nx\n#+end_src")
+                'w3ctr t)))
+      (should (string-match-p "<span>C</span>" out))
+      ($n (string-match-p "self-link" out))))
   ;; An empty or blank caption is treated as uncaptioned.
   (let ((out (org-export-string-as
               "#+caption:   \n#+begin_src emacs-lisp\nx\n#+end_src"
@@ -4820,7 +4827,8 @@ winner (or `signal') and the number of warnings."
          "ef-" (org-export-string-as
                 "src_emacs-lisp[:fontify nil]{(setq a \"b\")}" 'w3ctr t)))
     ;; LANG is escaped: it comes from the inline header.
-    (let ((out (org-export-string-as "src_\"><img/src=x>{y}" 'w3ctr t)))
+    (let ((out (org-export-string-as "src_\"><img/src=x>{y}" 'w3ctr t
+                                     '(:html-fontify-unknown-language plain))))
       (should (string-match-p "src-&quot;&gt;&lt;img/src=x&gt;" out))
       ($n (string-match-p "<img" out)))))
 
