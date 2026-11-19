@@ -180,6 +180,16 @@
     ;; Table
     (:html-table-use-header-tags-for-first-column
      nil nil t-table-use-header-tags-for-first-column)
+    ;; Src Block
+    (:html-fontify-method nil "fontify" t-fontify-method)
+    (:html-fontify-faces nil nil t-fontify-faces)
+    (:html-fontify-extra-faces nil nil t-fontify-extra-faces)
+    (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
+    (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
+    (:html-fontify-lang-alist nil nil t-fontify-lang-alist)
+    (:html-fontify-on-error nil nil t-fontify-on-error)
+    (:html-fontify-unknown-language nil nil t-fontify-unknown-language)
+    (:html-fontify-jstools-timeout nil nil t-fontify-jstools-timeout)
     ;; Timestamp
     (:html-timezone "HTML_TIMEZONE" nil t-timezone)
     (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
@@ -252,17 +262,7 @@
     (:html-fixup-js "HTML_FIXUP_JS" nil t-fixup-js newline)
     (:subtitle "SUBTITLE" nil nil parse)
     ;; Misc
-    (:html-indent nil nil t-indent)
-    ;; Src Block
-    (:html-fontify-method nil "fontify" t-fontify-method)
-    (:html-fontify-faces nil nil t-fontify-faces)
-    (:html-fontify-extra-faces nil nil t-fontify-extra-faces)
-    (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
-    (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
-    (:html-fontify-lang-alist nil nil t-fontify-lang-alist)
-    (:html-fontify-on-error nil nil t-fontify-on-error)
-    (:html-fontify-unknown-language nil nil t-fontify-unknown-language)
-    (:html-fontify-jstools-timeout nil nil t-fontify-jstools-timeout)))
+    (:html-indent nil nil t-indent)))
 
 ;;; User Configuration Variables.
 
@@ -403,6 +403,206 @@ The cells use <th scope=\"row\"> instead of <td>."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
+
+;;;; Src Block
+(defcustom t-fontify-method 'engrave
+  "Method used to fontify source code.
+
+The value is an engine name from `org-w3ctr-fontify-engines', a
+list of them tried in order until one takes the block, or nil for
+no highlighting.  The `plain' engine, which only HTML-escapes the
+code, always ends the list.  The shipped engines are:
+- `engrave': colour the code with Emacs font-lock, through a
+  subset of engrave-faces (see `org-w3ctr--engrave-tokens').
+- `jstools': colour it with the Node helper in jstools/ (see
+  `org-w3ctr--jstools-tokens').
+- `plain': no colour.
+
+An unknown name signals `org-w3ctr-error' during export.  Set it
+per file with `#+OPTIONS: fontify:nil' (or `fontify:(jstools
+engrave)'), and per block with the `:fontify' header argument,
+e.g. `#+begin_src python :fontify nil'."
+  :group 'org-export-w3ctr
+  :type '(choice (const :tag "Emacs font-lock" engrave)
+                 (const :tag "No highlighting" nil)
+                 (symbol :tag "Engine")
+                 (repeat :tag "Engines, in order" symbol)))
+
+(defcustom t-fontify-engines
+  '((engrave :fontify t--engrave-tokens :available always)
+    (jstools :fontify t--jstools-tokens :available t--jstools-available-p
+             :hint "it needs node on `exec-path' and \"npm ci\" in jstools/")
+    (plain :fontify t--plain-tokens :available always))
+  "Alist of (NAME . PLIST): the highlighting engines.
+NAME is the symbol used in `org-w3ctr-fontify-method'.  PLIST holds:
+- `:fontify', a function called with CODE, LANG and INFO that
+  returns a list of (CLASS . TEXT) tokens covering CODE (see
+  `org-w3ctr--fontify-check-tokens'), or `:decline' when it does
+  not handle LANG; it may signal an error when it fails.
+- `:available', a function called with INFO that returns nil when
+  the engine cannot run at all (a missing program, say); such an
+  engine is skipped without being called, and reported as
+  `org-w3ctr-fontify-on-error' says.
+- `:hint', optionally, a string saying what the engine needs, added
+  to the message about an unavailable engine.
+The `plain' engine is the last resort and must stay registered."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type symbol :value-type plist))
+
+(defcustom t-fontify-on-error 'warn
+  "What to do when a highlighting engine fails on a block.
+A failure is the engine signaling an error, or returning tokens
+that do not match the code.  Either way the engine is not used
+again for the rest of the export, and the block goes to the next
+engine of the method (in the end to `plain'), unless the value is:
+- `error': signal `org-w3ctr-error' naming the engine and block.
+- `warn': warn once per engine and export, then carry on.
+- `silent': carry on; `org-w3ctr-show-fontify-report' still counts
+  the failures."
+  :group 'org-export-w3ctr
+  :type '(choice (const error) (const warn) (const silent)))
+
+(defcustom t-fontify-unknown-language 'warn
+  "What to do when every engine of the method declines a language.
+The block is then exported as plain escaped text, unless the value
+is:
+- `error': signal `org-w3ctr-error' naming the language and block.
+- `warn': warn once per language and export, then carry on.
+- `plain': carry on; the report still lists the language.
+A block without a language never counts."
+  :group 'org-export-w3ctr
+  :type '(choice (const error) (const warn) (const plain)))
+
+(defcustom t-fontify-faces
+  '(;; faces.el, excluding bold, italic, bold-italic, underline, ...
+    (shadow . "h")
+    (success . "sc")
+    (warning . "w")
+    (error . "e")
+    ;; font-lock.el
+    (font-lock-comment-face . "c")
+    (font-lock-comment-delimiter-face . "cd")
+    (font-lock-string-face . "s")
+    (font-lock-doc-face . "d")
+    (font-lock-doc-markup-face . "m")
+    (font-lock-keyword-face . "k")
+    (font-lock-builtin-face . "b")
+    (font-lock-function-name-face . "f")
+    (font-lock-variable-name-face . "v")
+    (font-lock-type-face . "t")
+    (font-lock-constant-face . "o")
+    (font-lock-warning-face . "wr")
+    (font-lock-negation-char-face . "nc")
+    (font-lock-preprocessor-face . "pp")
+    (font-lock-regexp-grouping-construct . "rc")
+    (font-lock-regexp-grouping-backslash . "rb")
+    ;; font-lock.el, the faces added with tree-sitter that inherit
+    ;; from none of the above.
+    (font-lock-number-face . "n")
+    (font-lock-operator-face . "op")
+    ;; css-mode: reuse the function-name / keyword colours.
+    (css-property . "f")
+    (css-selector . "k"))
+  "Alist of (FACE . SLUG) pairs used to highlight code.
+A run of code in FACE becomes <span class=\"ef-SLUG\">; the colours
+of the slugs live in the stylesheet (see `org-w3ctr-fontify-palette').
+A SLUG is a lowercase letter followed by lowercase letters, digits
+or hyphens.  A face without an entry is looked up through its
+`:inherit' chain (see `org-w3ctr-fontify-face-fallback'), so most
+derived faces need none.  `default' is deliberately absent: plain
+text gets no span.  Add your own pairs to
+`org-w3ctr-fontify-extra-faces' rather than here."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type face :value-type string))
+
+(defcustom t-fontify-palette
+  '(("h" :light "#57606a" :dark "#8b949e")
+    ("sc" :light "#116329" :dark "#56d364")
+    ("w" :light "#7d4e00" :dark "#e3b341" :style (bold))
+    ("e" :light "#cf222e" :dark "#ff7b72")
+    ("c" :light "#57606a" :dark "#8b949e" :style (italic))
+    ("cd" :light "#57606a" :dark "#8b949e" :style (italic))
+    ("s" :light "#0a3069" :dark "#a5d6ff")
+    ("d" :light "#1a7f37" :dark "#7ee787")
+    ("m" :light "#0550ae" :dark "#79c0ff")
+    ("k" :light "#cf222e" :dark "#ff7b72")
+    ("b" :light "#953800" :dark "#ffa657")
+    ("f" :light "#6f42c1" :dark "#d2a8ff")
+    ("v" :light "#0550ae" :dark "#79c0ff")
+    ("t" :light "#0b6e75" :dark "#56d4dd")
+    ("o" :light "#0550ae" :dark "#79c0ff")
+    ("wr" :light "#cf222e" :dark "#ff7b72" :style (bold))
+    ("nc" :light "#cf222e" :dark "#ff7b72")
+    ("pp" :light "#8a4600" :dark "#f0883e")
+    ("rc" :light "#116329" :dark "#56d364")
+    ("rb" :light "#7d4e00" :dark "#e3b341")
+    ("n" :light "#0550ae" :dark "#79c0ff")
+    ("op" :light "#a0361c" :dark "#ff9b80"))
+  "Colours of the highlighting slugs, for the light and dark themes.
+Each entry is (SLUG :light COLOR :dark COLOR [:style STYLES]): SLUG
+is a slug of `org-w3ctr-fontify-faces', each COLOR a \"#rrggbb\"
+string, and STYLES a list of `bold' and `italic'.  The stylesheet
+does not read this option: `org-w3ctr-fontify-update-stylesheet'
+writes it into the stylesheet as CSS custom properties
+\(--ef-SLUG), one value per theme, and an .ef-SLUG rule per slug.
+The shipped colours reach a WCAG contrast of at least 4.5:1 on
+every code background of assets/style.css, in both themes."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type string :value-type plist))
+
+(defcustom t-fontify-extra-faces nil
+  "Alist of (FACE . SLUG) pairs consulted before `org-w3ctr-fontify-faces'.
+Use it to map a mode's own faces to existing slugs, or to new ones
+that your own stylesheet colours."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type face :value-type string))
+
+(defcustom t-fontify-face-fallback 'inherit
+  "What to do with a face that has no slug of its own.
+
+- `inherit': follow the face's `:inherit' chain and use the first
+  ancestor with a slug; a face with none gets no span.
+- `inline': as `inherit', and a face still without a slug gets an
+  inline style built from its attributes.  Those depend on the
+  theme and display of the exporting Emacs, so the result is not
+  reproducible and ignores the page's light/dark switch.
+- `none': only faces listed in the tables count.
+
+Faces left without a slug are listed by
+`org-w3ctr-show-fontify-report'."
+  :group 'org-export-w3ctr
+  :type '(choice (const inherit) (const inline) (const none)))
+
+(defcustom t-fontify-run-mode-hooks nil
+  "Non-nil means run the major mode's hooks when fontifying code.
+By default the mode's hooks are delayed (see the function
+`delay-mode-hooks'), so personal hooks (LSP clients, linters, minor
+modes that add faces) can neither slow the export nor make its
+output depend on the machine."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
+(defcustom t-fontify-lang-alist
+  '(("json" :engrave js-json-mode))
+  "Alist of (LANG . PLIST) choosing how each engine handles LANG.
+LANG is a source block language as written in the Org file.  The
+PLIST key `:engrave' names the major mode the `engrave' engine uses
+for LANG, overriding `org-src-get-lang-mode'; `:jstools' names the
+Shiki language the `jstools' engine uses, LANG itself by default.
+A nil value makes that engine decline LANG.  The default maps
+\"json\", for which Org guesses the absent `json-mode', to the
+built-in `js-json-mode'."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type string :value-type plist))
+
+(defcustom t-fontify-jstools-timeout 10
+  "Seconds the `jstools' engine waits for the helper's answer.
+A request that takes longer counts as a failure of the engine (see
+`org-w3ctr-fontify-on-error'), which is then not used again in that
+export.  The first request of a session also starts the helper
+process and loads Shiki."
+  :group 'org-export-w3ctr
+  :type 'number)
 
 ;;;; Timestamp
 (defconst t-timezone-regex
@@ -1254,206 +1454,6 @@ as in (let ((org-w3ctr-allow-eval t)) ...).
 HTML and never evaluate anything, so they are unaffected."
   :group 'org-export-w3ctr
   :type 'boolean)
-
-;;;; Src Block
-(defcustom t-fontify-method 'engrave
-  "Method used to fontify source code.
-
-The value is an engine name from `org-w3ctr-fontify-engines', a
-list of them tried in order until one takes the block, or nil for
-no highlighting.  The `plain' engine, which only HTML-escapes the
-code, always ends the list.  The shipped engines are:
-- `engrave': colour the code with Emacs font-lock, through a
-  subset of engrave-faces (see `org-w3ctr--engrave-tokens').
-- `jstools': colour it with the Node helper in jstools/ (see
-  `org-w3ctr--jstools-tokens').
-- `plain': no colour.
-
-An unknown name signals `org-w3ctr-error' during export.  Set it
-per file with `#+OPTIONS: fontify:nil' (or `fontify:(jstools
-engrave)'), and per block with the `:fontify' header argument,
-e.g. `#+begin_src python :fontify nil'."
-  :group 'org-export-w3ctr
-  :type '(choice (const :tag "Emacs font-lock" engrave)
-                 (const :tag "No highlighting" nil)
-                 (symbol :tag "Engine")
-                 (repeat :tag "Engines, in order" symbol)))
-
-(defcustom t-fontify-engines
-  '((engrave :fontify t--engrave-tokens :available always)
-    (jstools :fontify t--jstools-tokens :available t--jstools-available-p
-             :hint "it needs node on `exec-path' and \"npm ci\" in jstools/")
-    (plain :fontify t--plain-tokens :available always))
-  "Alist of (NAME . PLIST): the highlighting engines.
-NAME is the symbol used in `org-w3ctr-fontify-method'.  PLIST holds:
-- `:fontify', a function called with CODE, LANG and INFO that
-  returns a list of (CLASS . TEXT) tokens covering CODE (see
-  `org-w3ctr--fontify-check-tokens'), or `:decline' when it does
-  not handle LANG; it may signal an error when it fails.
-- `:available', a function called with INFO that returns nil when
-  the engine cannot run at all (a missing program, say); such an
-  engine is skipped without being called, and reported as
-  `org-w3ctr-fontify-on-error' says.
-- `:hint', optionally, a string saying what the engine needs, added
-  to the message about an unavailable engine.
-The `plain' engine is the last resort and must stay registered."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type symbol :value-type plist))
-
-(defcustom t-fontify-on-error 'warn
-  "What to do when a highlighting engine fails on a block.
-A failure is the engine signaling an error, or returning tokens
-that do not match the code.  Either way the engine is not used
-again for the rest of the export, and the block goes to the next
-engine of the method (in the end to `plain'), unless the value is:
-- `error': signal `org-w3ctr-error' naming the engine and block.
-- `warn': warn once per engine and export, then carry on.
-- `silent': carry on; `org-w3ctr-show-fontify-report' still counts
-  the failures."
-  :group 'org-export-w3ctr
-  :type '(choice (const error) (const warn) (const silent)))
-
-(defcustom t-fontify-unknown-language 'warn
-  "What to do when every engine of the method declines a language.
-The block is then exported as plain escaped text, unless the value
-is:
-- `error': signal `org-w3ctr-error' naming the language and block.
-- `warn': warn once per language and export, then carry on.
-- `plain': carry on; the report still lists the language.
-A block without a language never counts."
-  :group 'org-export-w3ctr
-  :type '(choice (const error) (const warn) (const plain)))
-
-(defcustom t-fontify-faces
-  '(;; faces.el, excluding bold, italic, bold-italic, underline, ...
-    (shadow . "h")
-    (success . "sc")
-    (warning . "w")
-    (error . "e")
-    ;; font-lock.el
-    (font-lock-comment-face . "c")
-    (font-lock-comment-delimiter-face . "cd")
-    (font-lock-string-face . "s")
-    (font-lock-doc-face . "d")
-    (font-lock-doc-markup-face . "m")
-    (font-lock-keyword-face . "k")
-    (font-lock-builtin-face . "b")
-    (font-lock-function-name-face . "f")
-    (font-lock-variable-name-face . "v")
-    (font-lock-type-face . "t")
-    (font-lock-constant-face . "o")
-    (font-lock-warning-face . "wr")
-    (font-lock-negation-char-face . "nc")
-    (font-lock-preprocessor-face . "pp")
-    (font-lock-regexp-grouping-construct . "rc")
-    (font-lock-regexp-grouping-backslash . "rb")
-    ;; font-lock.el, the faces added with tree-sitter that inherit
-    ;; from none of the above.
-    (font-lock-number-face . "n")
-    (font-lock-operator-face . "op")
-    ;; css-mode: reuse the function-name / keyword colours.
-    (css-property . "f")
-    (css-selector . "k"))
-  "Alist of (FACE . SLUG) pairs used to highlight code.
-A run of code in FACE becomes <span class=\"ef-SLUG\">; the colours
-of the slugs live in the stylesheet (see `org-w3ctr-fontify-palette').
-A SLUG is a lowercase letter followed by lowercase letters, digits
-or hyphens.  A face without an entry is looked up through its
-`:inherit' chain (see `org-w3ctr-fontify-face-fallback'), so most
-derived faces need none.  `default' is deliberately absent: plain
-text gets no span.  Add your own pairs to
-`org-w3ctr-fontify-extra-faces' rather than here."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type face :value-type string))
-
-(defcustom t-fontify-palette
-  '(("h" :light "#57606a" :dark "#8b949e")
-    ("sc" :light "#116329" :dark "#56d364")
-    ("w" :light "#7d4e00" :dark "#e3b341" :style (bold))
-    ("e" :light "#cf222e" :dark "#ff7b72")
-    ("c" :light "#57606a" :dark "#8b949e" :style (italic))
-    ("cd" :light "#57606a" :dark "#8b949e" :style (italic))
-    ("s" :light "#0a3069" :dark "#a5d6ff")
-    ("d" :light "#1a7f37" :dark "#7ee787")
-    ("m" :light "#0550ae" :dark "#79c0ff")
-    ("k" :light "#cf222e" :dark "#ff7b72")
-    ("b" :light "#953800" :dark "#ffa657")
-    ("f" :light "#6f42c1" :dark "#d2a8ff")
-    ("v" :light "#0550ae" :dark "#79c0ff")
-    ("t" :light "#0b6e75" :dark "#56d4dd")
-    ("o" :light "#0550ae" :dark "#79c0ff")
-    ("wr" :light "#cf222e" :dark "#ff7b72" :style (bold))
-    ("nc" :light "#cf222e" :dark "#ff7b72")
-    ("pp" :light "#8a4600" :dark "#f0883e")
-    ("rc" :light "#116329" :dark "#56d364")
-    ("rb" :light "#7d4e00" :dark "#e3b341")
-    ("n" :light "#0550ae" :dark "#79c0ff")
-    ("op" :light "#a0361c" :dark "#ff9b80"))
-  "Colours of the highlighting slugs, for the light and dark themes.
-Each entry is (SLUG :light COLOR :dark COLOR [:style STYLES]): SLUG
-is a slug of `org-w3ctr-fontify-faces', each COLOR a \"#rrggbb\"
-string, and STYLES a list of `bold' and `italic'.  The stylesheet
-does not read this option: `org-w3ctr-fontify-update-stylesheet'
-writes it into the stylesheet as CSS custom properties
-\(--ef-SLUG), one value per theme, and an .ef-SLUG rule per slug.
-The shipped colours reach a WCAG contrast of at least 4.5:1 on
-every code background of assets/style.css, in both themes."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type string :value-type plist))
-
-(defcustom t-fontify-extra-faces nil
-  "Alist of (FACE . SLUG) pairs consulted before `org-w3ctr-fontify-faces'.
-Use it to map a mode's own faces to existing slugs, or to new ones
-that your own stylesheet colours."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type face :value-type string))
-
-(defcustom t-fontify-face-fallback 'inherit
-  "What to do with a face that has no slug of its own.
-
-- `inherit': follow the face's `:inherit' chain and use the first
-  ancestor with a slug; a face with none gets no span.
-- `inline': as `inherit', and a face still without a slug gets an
-  inline style built from its attributes.  Those depend on the
-  theme and display of the exporting Emacs, so the result is not
-  reproducible and ignores the page's light/dark switch.
-- `none': only faces listed in the tables count.
-
-Faces left without a slug are listed by
-`org-w3ctr-show-fontify-report'."
-  :group 'org-export-w3ctr
-  :type '(choice (const inherit) (const inline) (const none)))
-
-(defcustom t-fontify-run-mode-hooks nil
-  "Non-nil means run the major mode's hooks when fontifying code.
-By default the mode's hooks are delayed (see the function
-`delay-mode-hooks'), so personal hooks (LSP clients, linters, minor
-modes that add faces) can neither slow the export nor make its
-output depend on the machine."
-  :group 'org-export-w3ctr
-  :type 'boolean)
-
-(defcustom t-fontify-lang-alist
-  '(("json" :engrave js-json-mode))
-  "Alist of (LANG . PLIST) choosing how each engine handles LANG.
-LANG is a source block language as written in the Org file.  The
-PLIST key `:engrave' names the major mode the `engrave' engine uses
-for LANG, overriding `org-src-get-lang-mode'; `:jstools' names the
-Shiki language the `jstools' engine uses, LANG itself by default.
-A nil value makes that engine decline LANG.  The default maps
-\"json\", for which Org guesses the absent `json-mode', to the
-built-in `js-json-mode'."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type string :value-type plist))
-
-(defcustom t-fontify-jstools-timeout 10
-  "Seconds the `jstools' engine waits for the helper's answer.
-A request that takes longer counts as a failure of the engine (see
-`org-w3ctr-fontify-on-error'), which is then not used again in that
-export.  The first request of a session also starts the helper
-process and loads Shiki."
-  :group 'org-export-w3ctr
-  :type 'number)
 
 ;;; Basic utilities
 
