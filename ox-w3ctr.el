@@ -2226,6 +2226,44 @@ datum still falls through to a generated `orgXXXXXXX' reference when
      ;; fallback back to upstream.
      (t (t--get-reference datum info)))))
 
+(defun t--element-id (element info &optional named-only)
+  "Return the HTML id string ELEMENT's transcoder emits, or nil.
+ELEMENT is an element or target/radio-target object.  INFO is the
+info plist.  NAMED-ONLY is passed through to `org-w3ctr--reference'.
+
+Return nil for elements that never emit an id (`export-block',
+`latex-environment', `dynamic-block', `keyword', a `:textarea'
+`src-block', or a `table.el' `table').  For `headline', `target',
+and `radio-target', delegate directly to `org-w3ctr--reference'.
+For all other elements, mirror `org-w3ctr--make-attr__id*': an
+explicit `(id ...)' in `:attr__' or `:id' in `:attr_html' wins over
+`org-w3ctr--reference', and an empty or nil explicit id suppresses
+it (returning nil)."
+  (declare (ftype (function (t list &optional boolean) (or null string)))
+           (important-return-value t))
+  (let ((type (org-element-type element)))
+    (cond
+     ;; Elements whose transcoders never emit an id attribute.
+     ((or (memq type '(export-block latex-environment dynamic-block keyword))
+          (and (eq type 'src-block)
+               (org-export-read-attribute :attr_html element :textarea))
+          (and (eq type 'table)
+               (eq (org-element-property :type element) 'table.el)))
+      nil)
+     ;; Headlines and targets do not read `:attr__' / `:attr_html' for id.
+     ((memq type '(headline target radio-target))
+      (t--reference element info named-only))
+     ;; Mirror `org-w3ctr--make-attr__id*': `:attr__' shadows `:attr_html'.
+     ((org-element-property :attr__ element)
+      (if-let* ((explicit (assoc 'id (t--read-attr__ element))))
+          (t--nw-p (mapconcat #'t--2str (cdr explicit) ""))
+        (t--reference element info named-only)))
+     (t
+      (let ((attrs (org-export-read-attribute :attr_html element)))
+        (if (plist-member attrs :id)
+            (t--nw-p (plist-get attrs :id))
+          (t--reference element info named-only)))))))
+
 ;;;; Filter Functions
 
 (defun t-image-link-filter (data _backend info)
@@ -3602,25 +3640,6 @@ export plist."
     (lambda (block)
       (and (member label (t--coderef-labels block)) block))
     info 'first-match))
-
-(defun t--element-id (element info)
-  "Return the id value that ELEMENT's transcoder writes, or nil.
-
-ELEMENT is an element whose transcoder adds an id from its
-reference, such as a `src-block' or an `example-block'.  An explicit
-id in `:attr__' or `:attr_html' wins over the generated reference,
-as in `org-w3ctr--make-attr__id' and
-`org-w3ctr--make-attr_html'.  INFO is the export plist."
-  (declare (ftype (function (t list) (or null string)))
-           (important-return-value t))
-  (if (org-element-property :attr__ element)
-      (if-let* ((explicit (assoc 'id (t--read-attr__ element))))
-          (mapconcat #'t--2str (cdr explicit) "")
-        (t--reference element info))
-    (let ((attrs (org-export-read-attribute :attr_html element)))
-      (if (plist-member attrs :id)
-          (plist-get attrs :id)
-        (t--reference element info)))))
 
 ;;;; Example Block
 
@@ -5461,16 +5480,22 @@ This is a legacy path: equation references are unsupported, so the
   "Transcode a link whose fuzzy DESTINATION is a target or element.
 The description is the link's own DESC; no number is generated for
 it, so a link without a description falls back to a fixed string.
-DESC and ATTRIBUTES are as in `org-w3ctr-link'."
+DESC and ATTRIBUTES are as in `org-w3ctr-link'.  INFO is the info
+plist.  Signal `org-w3ctr-error' when DESTINATION emits no id."
   (declare (ftype (function ((or null string) list t string) string))
            (important-return-value t))
   ;; FIXME: Rethink whether to use information from the destination
   ;; (image alt/caption, target value, ...) to build the description
   ;; instead of the fixed string below.
-  (format "<a href=\"#%s\"%s>%s</a>"
-          (t--reference destination info)
-          attributes
-          (or desc "No description for this link")))
+  (let ((id (t--element-id destination info)))
+    (unless id
+      (t-error "Link target %s at line %d has no id"
+               (org-element-type destination)
+               (line-number-at-pos (org-element-property :begin destination))))
+    (format "<a href=\"#%s\"%s>%s</a>"
+            (t--encode-plain-text* id)
+            attributes
+            (or desc "No description for this link"))))
 
 (defun t--link-dispatch (link desc info attributes)
   "Transcode LINK resolved through its ID, custom ID or fuzzy target.
@@ -5536,10 +5561,12 @@ LABEL cannot be an id, or when no block defines it."
     (when (org-export-read-attribute :attr_html block :textarea)
       (t-error "Code reference %s is in a :textarea block, which has no id"
                label))
-    (let ((id (t--element-id block info))
+    (let ((id (or (t--element-id block info)
+                  (t-error "Code reference %s is in a block with no id"
+                           label)))
           (text (format (org-export-get-coderef-format label desc) label)))
       (format "<a href=\"#%s\" class=\"coderef\"%s>%s</a>"
-              (t--encode-plain-text* (format "%s" id))
+              (t--encode-plain-text* id)
               attributes text))))
 
 (defun t--link-external (path desc attributes)
@@ -7201,8 +7228,8 @@ guarantee.  INFO is the export options plist.
 
 Each list item displays the element's caption -- the short one
 when it has one, else the full one -- and links to the element
-when it has a reference label.  Only named elements are linked:
-unnamed ones carry fresh random ids on every export."
+when `org-w3ctr--element-id' returns an id (named-only).  Elements
+without an id are rendered as plain text."
   (declare (ftype (function (function list) (or null string)))
            (important-return-value t))
   (when-let* ((entries (funcall collect-fn info)))
@@ -7210,13 +7237,14 @@ unnamed ones carry fresh random ids on every export."
      "<ul class=\"index\">\n"
      (mapconcat
       (lambda (entry)
-        (let* ((label (t--reference entry info t))
+        (let* ((label (t--element-id entry info t))
                (caption (or (org-export-get-caption entry t)
                             (org-export-get-caption entry)))
                (title (t--trim (org-export-data caption info))))
           (format "<li>%s</li>"
                   (if (not label) title
-                    (format "<a href=\"#%s\">%s</a>" label title)))))
+                    (format "<a href=\"#%s\">%s</a>"
+                            (t--encode-plain-text* label) title)))))
       entries "\n")
      "\n</ul>")))
 

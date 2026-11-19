@@ -1300,6 +1300,95 @@ stubs `random' to hand back a taken number first and counts the draws."
     ($l (t--reference (t-get-element "<<<bar>>>" 'radio-target) no-labels t)
         "bar")))
 
+(ert-deftest t--element-id ()
+  "Tests for `org-w3ctr--element-id'."
+  (let ((info (list :html-prefer-user-labels t)))
+    ;; The reference is the name when user labels are preferred.
+    ($l (t--element-id
+         (t-get-element "#+name: nm\n#+begin_example\nx\n#+end_example"
+                        'example-block)
+         info)
+        "nm")
+    ;; An explicit id in `:attr__' wins over the reference...
+    ($l (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr__: (id custom)\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info)
+        "custom")
+    ;; ... while `:attr__' without `(id ...)' falls back to the
+    ;; reference and still shadows `:attr_html'.
+    ($l (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr__: [foo]\n"
+                            "#+attr_html: :id ignored\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info)
+        "nm")
+    ;; An empty `(id)' in `:attr__' suppresses the id (returns nil).
+    ($n (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr__: (id)\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info))
+    ;; An explicit `:id' in `:attr_html' wins over the reference, and a
+    ;; nil or empty `:id' suppresses it.
+    ($l (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr_html: :id custom\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info)
+        "custom")
+    ($n (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr_html: :id\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info))
+    ($n (t--element-id
+         (t-get-element ($c "#+name: nm\n#+attr_html: :id \"\"\n"
+                            "#+begin_example\nx\n#+end_example")
+                        'example-block)
+         info))
+    ;; Elements whose transcoders never emit an id return nil.
+    ($n (t--element-id
+         (t-get-element "#+name: e\n#+begin_export html\nx\n#+end_export"
+                        'export-block)
+         info))
+    ($n (t--element-id
+         (t-get-element "#+name: l\n\\begin{equation}\nx\n\\end{equation}"
+                        'latex-environment)
+         info))
+    ($n (t--element-id
+         (t-get-element "#+name: d\n#+begin: foo\nx\n#+end:" 'dynamic-block)
+         info))
+    ($n (t--element-id
+         (t-get-element "#+name: s\n#+attr_html: :textarea t\n#+begin_src text\nx\n#+end_src"
+                        'src-block)
+         info))
+    ($n (t--element-id '(table (:type table.el :name "tbl")) info))
+    ;; Headlines and targets delegate directly to `org-w3ctr--reference'.
+    ($l (t--element-id
+         (t-get-element "* H\n:PROPERTIES:\n:CUSTOM_ID: cid\n:END:" 'headline)
+         info)
+        "cid")
+    ($l (t--element-id (t-get-element "<<tgt>>" 'target) info) "tgt")
+    ;; NAMED-ONLY: anonymous element without explicit id returns nil,
+    ;; while an explicit id attribute still wins.
+    ($n (t--element-id
+         (t-get-element "#+begin_example\nx\n#+end_example" 'example-block)
+         info t))
+    ($l (t--element-id
+         (t-get-element "#+attr__: (id ex1)\n#+begin_example\nx\n#+end_example"
+                        'example-block)
+         info t)
+        "ex1"))
+  ;; Without a name (and NAMED-ONLY nil) the reference is generated.
+  (should (string-match-p
+           "\\`org[0-9a-f]\\{7\\}\\'"
+           (t--element-id
+            (t-get-element "#+begin_example\nx\n#+end_example" 'example-block)
+            (list :html-prefer-user-labels nil)))))
+
 ;;;; Filter Functions
 
 (ert-deftest t-image-link-filter ()
@@ -3404,51 +3493,6 @@ cookie-less column is remembered as the `none' marker."
          :value (t--coderef-block
                  "d" (list :parse-tree tree :ignore-list (list first))))
         "y (ref:d)\n")))
-
-(ert-deftest t--element-id ()
-  "Tests for `org-w3ctr--element-id'."
-  (let ((info (list :html-prefer-user-labels t)))
-    ;; The reference is the name when user labels are preferred.
-    ($l (t--element-id
-         (t-get-element "#+name: nm\n#+begin_example\nx\n#+end_example"
-                        'example-block)
-         info)
-        "nm")
-    ;; An explicit id in `:attr__' wins over the reference...
-    ($l (t--element-id
-         (t-get-element ($c "#+name: nm\n#+attr__: (id custom)\n"
-                            "#+begin_example\nx\n#+end_example")
-                        'example-block)
-         info)
-        "custom")
-    ;; ... while `:attr__' without `(id ...)' falls back to the
-    ;; reference and still shadows `:attr_html'.
-    ($l (t--element-id
-         (t-get-element ($c "#+name: nm\n#+attr__: [foo]\n"
-                            "#+attr_html: :id ignored\n"
-                            "#+begin_example\nx\n#+end_example")
-                        'example-block)
-         info)
-        "nm")
-    ;; An explicit `:id' in `:attr_html' wins over the reference, and a
-    ;; nil `:id' suppresses it.
-    ($l (t--element-id
-         (t-get-element ($c "#+name: nm\n#+attr_html: :id custom\n"
-                            "#+begin_example\nx\n#+end_example")
-                        'example-block)
-         info)
-        "custom")
-    ($n (t--element-id
-         (t-get-element ($c "#+name: nm\n#+attr_html: :id\n"
-                            "#+begin_example\nx\n#+end_example")
-                        'example-block)
-         info)))
-  ;; Without a name the reference is generated.
-  (should (string-match-p
-           "\\`org[0-9a-f]\\{7\\}\\'"
-           (t--element-id
-            (t-get-element "#+begin_example\nx\n#+end_example" 'example-block)
-            (list :html-prefer-user-labels nil)))))
 
 ;;;; Example Block
 
@@ -5731,6 +5775,30 @@ winner (or `signal') and the number of warnings."
       "\\eqref{eq}"))
    t '(:with-latex mathjax :html-prefer-user-labels t)))
 
+(ert-deftest t--link-target ()
+  "Tests for `org-w3ctr--link-target'."
+  ;; An explicit id attribute on the target wins over #+name: so the
+  ;; link href matches the emitted element id.
+  (let ((out (org-export-string-as
+              "[[t][go]]\n\n#+name: t\n#+attr__: (id custom)\n: 1"
+              'w3ctr t)))
+    ($s (string-match-p "<a href=\"#custom\">go</a>" out))
+    ($s (string-match-p "<pre id=\"custom\">\n1\n</pre>" out)))
+  (let ((out (org-export-string-as
+              "[[t][go]]\n\n#+name: t\n#+attr_html: :id custom\n: 1"
+              'w3ctr t)))
+    ($s (string-match-p "<a href=\"#custom\">go</a>" out))
+    ($s (string-match-p "<pre id=\"custom\">\n1\n</pre>" out)))
+  ;; Linking to a target that emits no id signals `org-w3ctr-error'.
+  ($e!l (org-export-string-as
+         "[[x]]\n\n#+name: x\n#+begin_export html\n<p>hi</p>\n#+end_export"
+         'w3ctr t)
+        '(org-w3ctr-error "Link target export-block at line 3 has no id"))
+  ($e!l (org-export-string-as
+         "[[t]]\n\n#+name: t\n#+attr_html: :id\n: 1"
+         'w3ctr t)
+        '(org-w3ctr-error "Link target fixed-width at line 3 has no id")))
+
 (ert-deftest t--link-dispatch ()
   "Tests for `org-w3ctr--link-dispatch'."
   ;; Strict mode rejects a cross-file id: link.
@@ -5782,6 +5850,13 @@ winner (or `signal') and the number of warnings."
          'w3ctr t)
         '(org-w3ctr-error
           "Code reference sc is in a :textarea block, which has no id"))
+  ;; A block whose id is explicitly suppressed cannot be a target either.
+  ($e!l (org-export-string-as
+         (concat "#+attr_html: :id\n#+begin_example\nx (ref:sc)\n"
+                 "#+end_example\n\nSee [[(sc)]].")
+         'w3ctr t)
+        '(org-w3ctr-error
+          "Code reference sc is in a block with no id"))
   ;; An unnamed block gets a generated id, and the link reuses it.
   (let* ((out (org-export-string-as
                "#+begin_example\nx (ref:sc)\n#+end_example\n\nSee [[(sc)]]."
@@ -7560,7 +7635,7 @@ that changes them fails here instead of corrupting a TOC silently."
   (cl-letf (((symbol-function 'org-export-get-caption)
              (lambda (_e &optional _s) "CAP"))
             ((symbol-function 'org-export-data) (lambda (c _i) c))
-            ((symbol-function 't--reference)
+            ((symbol-function 't--element-id)
              (lambda (_e _i &optional _n) "id")))
     ($l (t--list-of-elements (lambda (_i) '(e1)) nil)
         "<ul class=\"index\">\n<li><a href=\"#id\">CAP</a></li>\n</ul>"))
@@ -7568,7 +7643,7 @@ that changes them fails here instead of corrupting a TOC silently."
   (cl-letf (((symbol-function 'org-export-get-caption)
              (lambda (_e &optional _s) "CAP"))
             ((symbol-function 'org-export-data) (lambda (c _i) c))
-            ((symbol-function 't--reference)
+            ((symbol-function 't--element-id)
              (lambda (_e _i &optional _n) nil)))
     ($l (t--list-of-elements (lambda (_i) '(e1)) nil)
         "<ul class=\"index\">\n<li>CAP</li>\n</ul>"))
@@ -7576,7 +7651,7 @@ that changes them fails here instead of corrupting a TOC silently."
   (cl-letf (((symbol-function 'org-export-get-caption)
              (lambda (_e &optional short) (if short "SHORT" "FULL")))
             ((symbol-function 'org-export-data) (lambda (c _i) c))
-            ((symbol-function 't--reference)
+            ((symbol-function 't--element-id)
              (lambda (_e _i &optional _n) nil)))
     ($l (t--list-of-elements (lambda (_i) '(e1)) nil)
         "<ul class=\"index\">\n<li>SHORT</li>\n</ul>"))
@@ -7584,12 +7659,19 @@ that changes them fails here instead of corrupting a TOC silently."
   (cl-letf (((symbol-function 'org-export-get-caption)
              (lambda (_e &optional short) (unless short "FULL")))
             ((symbol-function 'org-export-data) (lambda (c _i) c))
-            ((symbol-function 't--reference)
+            ((symbol-function 't--element-id)
              (lambda (_e _i &optional _n) nil)))
     ($l (t--list-of-elements (lambda (_i) '(e1)) nil)
         "<ul class=\"index\">\n<li>FULL</li>\n</ul>"))
   ;; No entries, no list.
-  ($n (t--list-of-elements (lambda (_i) nil) nil)))
+  ($n (t--list-of-elements (lambda (_i) nil) nil))
+  ;; End-to-end: a table with an explicit id attribute is linked in
+  ;; #+TOC: tables, matching the id on <table>.
+  (let ((out (org-export-string-as
+              "#+TOC: tables\n\n#+caption: My Table\n#+attr__: (id tbl1)\n| a |"
+              'w3ctr t)))
+    ($s (string-match-p "<li><a href=\"#tbl1\">My Table</a></li>" out))
+    ($s (string-match-p "<table id=\"tbl1\">" out))))
 
 (ert-deftest t--list-of-listings ()
   "Tests for `org-w3ctr--list-of-listings'."
