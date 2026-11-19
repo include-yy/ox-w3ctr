@@ -3693,6 +3693,16 @@ cookie-less column is remembered as the `none' marker."
                     (t-test-fontify-info :html-fontify-extra-faces
                                          '((foo . "zz")))))))
 
+(ert-deftest t--fontify-plist-p ()
+  "Tests for `org-w3ctr--fontify-plist-p'."
+  ($q (t--fontify-plist-p nil) t)
+  ($q (t--fontify-plist-p '(:a 1 :b nil)) t)
+  ($q (t--fontify-plist-p '(:a 1) '(:a :b)) t)
+  (dolist (bad '((:a) (:a 1 :b) (a 1) ("a" 1) (:a 1 :a 2) (:a . 1) x 1))
+    ($n (t--fontify-plist-p bad)))
+  ;; With KEYS, any other key is rejected.
+  ($n (t--fontify-plist-p '(:a 1 :c 2) '(:a :b))))
+
 (ert-deftest t--fontify-lang-entry ()
   "Tests for `org-w3ctr--fontify-lang-entry'."
   (cl-flet ((entry (alist lang)
@@ -3709,8 +3719,16 @@ cookie-less column is remembered as the `none' marker."
     ;; Every entry is checked, not only the one asked for.
     ;; Keys are distinct keywords, but any keyword will do.
     ($l (entry '(("c" :my-engine x)) "c") '(:my-engine x))
+    ;; `:engrave' is a symbol other than t, `:jstools' nil or a
+    ;; non-blank string.
+    ($l (entry '(("c" :engrave nil :jstools nil)) "c")
+        '(:engrave nil :jstools nil))
+    ($l (entry '(("c" :engrave no-such-mode)) "c") '(:engrave no-such-mode))
     (dolist (bad '(("c" . c-mode) ("c" :engrave) (c :engrave c-mode) "c"
-                   ("c" engrave c-mode) ("c" :engrave c-mode :engrave nil)))
+                   ("c" engrave c-mode) ("c" :engrave c-mode :engrave nil)
+                   ("c" :engrave "c-mode") ("c" :engrave t)
+                   ("c" :jstools emacs-lisp) ("c" :jstools "")
+                   ("c" :jstools " ") ("c" :jstools 1)))
       ($e!l (entry (list '("sh" :jstools "bash") bad) "sh")
             (list 'org-w3ctr-error
                   (format "Malformed fontify language entry: %S" bad))))
@@ -4383,16 +4401,12 @@ cookie-less column is remembered as the `none' marker."
     ($l (t--jstools-lang "el" info) "emacs-lisp")
     ($n (t--jstools-lang "c" info))
     ($l (t--jstools-lang "sh" info) "sh"))
-  ($e!l (t--jstools-lang "c" (t-test-fontify-info
-                              :html-fontify-lang-alist '(("c" . "cpp"))))
-        '(org-w3ctr-error "Malformed fontify language entry: (\"c\" . \"cpp\")"))
-  ;; The `:jstools' value is nil or a non-blank string.
-  (dolist (bad '(emacs-lisp "" " " 1))
-    ($e!l (t--jstools-lang "el" (t-test-fontify-info
-                                 :html-fontify-lang-alist
-                                 `(("el" :jstools ,bad))))
-          (list 'org-w3ctr-error
-                (format "Malformed :jstools language for el: %S" bad)))))
+  ;; The alist is checked by `org-w3ctr--fontify-lang-entry'.
+  ($e!l (t--jstools-lang "el" (t-test-fontify-info
+                               :html-fontify-lang-alist
+                               '(("el" :jstools emacs-lisp))))
+        '(org-w3ctr-error
+          "Malformed fontify language entry: (\"el\" :jstools emacs-lisp)")))
 
 (ert-deftest t--jstools-languages ()
   "Tests for `org-w3ctr--jstools-languages'."
@@ -4554,7 +4568,27 @@ COUNTER, a cons cell, has its car incremented on every call."
   ($q (plist-get (t--fontify-engine 'engrave) :fontify) 't--engrave-tokens)
   ($q (plist-get (t--fontify-engine 'plain) :fontify) 't--plain-tokens)
   ($n (t--fontify-engine 'no-such-engine))
-  ($n (t--fontify-engine "engrave")))
+  ($n (t--fontify-engine "engrave"))
+  ;; A malformed entry names the engine; only the entry asked for is
+  ;; checked.
+  (dolist (bad '((e) (e :available always) (e :fontify ignore)
+                 (e :fontify ignore :available 1)
+                 (e :fontify ignore :available always :hint "")
+                 (e :fontify ignore :available always :hint x)
+                 (e :fontify ignore :available always :avaliable always)
+                 (e :fontify ignore :available always :fontify ignore)
+                 (e :fontify ignore :available)))
+    (let ((t-fontify-engines (list bad '(ok :fontify ignore
+                                            :available always))))
+      ($l (t--fontify-engine 'ok) '(:fontify ignore :available always))
+      ($e!l (t--fontify-engine 'e)
+            (list 'org-w3ctr-error
+                  (format "Malformed fontify engine: %S" bad)))))
+  (dolist (engines '(x ((ok :fontify ignore :available always) . x)))
+    (let ((t-fontify-engines engines))
+      ($e!l (t--fontify-engine 'ok)
+            (list 'org-w3ctr-error
+                  (format "Fontify engines must be a list: %S" engines))))))
 
 (ert-deftest t--fontify-chain ()
   "Tests for `org-w3ctr--fontify-chain'."
@@ -4570,7 +4604,14 @@ COUNTER, a cons cell, has its car incremented on every call."
                   ((engrave . plain) . (engrave . plain))))
     ($e!l (t--fontify-chain (car case))
           (list 'org-w3ctr-error
-                (format "Unknown fontify method: %S" (cdr case))))))
+                (format "Unknown fontify method: %S" (cdr case)))))
+  ;; Without a `plain' engine the registry is blamed, not the method.
+  (let ((t-fontify-engines '((engrave :fontify ignore :available always))))
+    (dolist (method '(nil engrave (engrave)))
+      ($e!l (t--fontify-chain method)
+            '(org-w3ctr-error "Missing required fontify engine: plain")))
+    ($e!l (t--fontify-chain 'bogus)
+          '(org-w3ctr-error "Unknown fontify method: bogus"))))
 
 (ert-deftest t--fontify-line ()
   "Tests for `org-w3ctr--fontify-line'."
@@ -4635,9 +4676,27 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($e!l (t--fontify-policy info :html-fontify-on-error '(error))
           '(org-w3ctr-error "Unknown value for :html-fontify-on-error: warn"))))
 
+(ert-deftest t--fontify-check-options ()
+  "Tests for `org-w3ctr--fontify-check-options'."
+  ($n (t--fontify-check-options (t-test-fontify-info) "c"))
+  (pcase-dolist (`(,message ,key ,value)
+                 '(("Unknown value for :html-fontify-on-error: loud"
+                    :html-fontify-on-error loud)
+                   ("Unknown value for :html-fontify-unknown-language: loud"
+                    :html-fontify-unknown-language loud)
+                   ("Unknown value for :html-fontify-face-fallback: bogus"
+                    :html-fontify-face-fallback bogus)
+                   ("Malformed fontify face entry: (foo . \"K\")"
+                    :html-fontify-extra-faces ((foo . "K")))
+                   ("Malformed fontify language entry: (\"x\" :engrave \"x-mode\")"
+                    :html-fontify-lang-alist (("x" :engrave "x-mode")))))
+    ($e!l (t--fontify-check-options (t-test-fontify-info key value) "c")
+          (list 'org-w3ctr-error message))))
+
 (ert-deftest t--fontify-failure ()
   "Tests for `org-w3ctr--fontify-failure'."
-  (let ((err '(error "boom")))
+  (let ((t--fontify-last-state nil)
+        (err '(error "boom")))
     (dolist (policy '(error warn silent))
       (let ((info (t-test-fontify-info :html-fontify-on-error policy))
             (warnings nil))
@@ -4666,14 +4725,19 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--fontify-unavailable ()
   "Tests for `org-w3ctr--fontify-unavailable'."
-  (let ((t-fontify-engines '((off :hint "needs x") (bare)))
+  (let ((t--fontify-last-state nil)
+        (t-fontify-engines
+         '((off :fontify ignore :available ignore :hint "needs x")
+           (bare :fontify ignore :available ignore)))
         (warnings nil))
     (cl-letf (((symbol-function 'display-warning)
                (lambda (_type msg &rest _) (push msg warnings))))
       (let ((info (t-test-fontify-info :html-fontify-on-error 'warn)))
+        ;; Twice: the warning comes once per engine and export.
+        ($n (t--fontify-unavailable 'off info))
         ($n (t--fontify-unavailable 'off info))
         ($n (t--fontify-unavailable 'bare info))
-        ($l (gethash '(unavailable . off) (t--fontify-state info)) 1)
+        ($l (gethash '(unavailable . off) (t--fontify-state info)) 2)
         ($s (gethash '(broken . off) (t--fontify-state info))))
       ($n (t--fontify-unavailable
            'off (t-test-fontify-info :html-fontify-on-error 'silent))))
@@ -4686,7 +4750,8 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--fontify-unknown ()
   "Tests for `org-w3ctr--fontify-unknown'."
-  (let ((warnings nil))
+  (let ((t--fontify-last-state nil)
+        (warnings nil))
     (cl-letf (((symbol-function 'display-warning)
                (lambda (_type msg &rest _) (push msg warnings))))
       (let ((info (t-test-fontify-info :html-fontify-unknown-language 'warn)))
@@ -4698,128 +4763,184 @@ COUNTER, a cons cell, has its car incremented on every call."
            "rust" nil (t-test-fontify-info :html-fontify-unknown-language
                                            'plain))))
     ($l (nreverse warnings) '("No fontify engine handles the rust code"
-                              "No fontify engine handles the go code")))
-  ($e!l (t--fontify-unknown
-         "rust" nil (t-test-fontify-info :html-fontify-unknown-language 'error))
-        '(org-w3ctr-error "No fontify engine handles the rust code")))
+                              "No fontify engine handles the go code"))
+    ($e!l (t--fontify-unknown
+           "rust" nil (t-test-fontify-info :html-fontify-unknown-language
+                                           'error))
+          '(org-w3ctr-error "No fontify engine handles the rust code"))))
 
 (ert-deftest t--fontify-dispatch ()
   "Tests for `org-w3ctr--fontify-dispatch'."
-  ;; The real engrave engine wins for a language it knows.
-  (let* ((info (t-test-fontify-info))
-         (result (t--fontify-dispatch "(defun f ())" "emacs-lisp"
-                                      '(engrave plain) info nil)))
-    ($q (car result) 'engrave)
-    ($s (member '("k" . "defun") (cdr result)))
-    ($l (gethash '(engine . engrave) (t--fontify-state info)) 1))
-  ;; A failed engine is broken for the rest of the export only.
-  (let* ((calls (list 0))
-         (t-fontify-engines
-          `((boom :fontify ,(t-test-fontify-stub 'error calls)
-                  :available always)
-            (plain :fontify t--plain-tokens :available always)))
-         (info (t-test-fontify-info :html-fontify-on-error 'silent)))
-    ($l (t--fontify-dispatch "x" "l" '(boom plain) info nil)
-        '(plain (nil . "x")))
-    ($l (t--fontify-dispatch "y" "l" '(boom plain) info nil)
-        '(plain (nil . "y")))
-    ($l (car calls) 1)
-    ($l (gethash '(failure . boom) (t--fontify-state info)) 1)
-    ;; A failure is not an unknown language.
-    ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
-    (ignore (t--fontify-dispatch
+  (let ((t--fontify-last-state nil))
+    ;; The real engrave engine wins for a language it knows.
+    (let* ((info (t-test-fontify-info))
+           (result (t--fontify-dispatch "(defun f ())" "emacs-lisp"
+                                        '(engrave plain) info nil)))
+      ($q (car result) 'engrave)
+      ($s (member '("k" . "defun") (cdr result)))
+      ($l (gethash '(engine . engrave) (t--fontify-state info)) 1))
+    ;; A failed engine is broken for the rest of the export only.
+    (let* ((calls (list 0))
+           (t-fontify-engines
+            `((boom :fontify ,(t-test-fontify-stub 'error calls)
+                    :available always)
+              (plain :fontify t--plain-tokens :available always)))
+           (info (t-test-fontify-info :html-fontify-on-error 'silent)))
+      ($l (t--fontify-dispatch "x" "l" '(boom plain) info nil)
+          '(plain (nil . "x")))
+      ($l (t--fontify-dispatch "y" "l" '(boom plain) info nil)
+          '(plain (nil . "y")))
+      ($l (car calls) 1)
+      ($l (gethash '(failure . boom) (t--fontify-state info)) 1)
+      ;; A failure is not an unknown language.
+      ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
+      (ignore (t--fontify-dispatch
+               "x" "l" '(boom plain)
+               (t-test-fontify-info :html-fontify-on-error 'silent) nil))
+      ($l (car calls) 2))
+    ;; An unavailable engine is never called, warned about once per
+    ;; export (with its hint), and does not make the language unknown.
+    (let* ((calls (list 0))
+           (warnings nil)
+           (t-fontify-engines
+            `((off :fontify ,(t-test-fontify-stub 'decline calls)
+                   :available ignore :hint "needs a thing")
+              (plain :fontify t--plain-tokens :available always)))
+           (info (t-test-fontify-info)))
+      (cl-letf (((symbol-function 'display-warning)
+                 (lambda (_type msg &rest _) (push msg warnings))))
+        ($q (car (t--fontify-dispatch "x" "l" '(off plain) info nil)) 'plain)
+        ($q (car (t--fontify-dispatch "y" "l" '(off plain) info nil)) 'plain))
+      ($l (car calls) 0)
+      ($l warnings '("Fontify engine off is unavailable: needs a thing"))
+      ($l (gethash '(unavailable . off) (t--fontify-state info)) 1)
+      ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
+      ;; Under the `error' policy it signals.
+      ($e!l (t--fontify-dispatch
+             "x" "l" '(off plain)
+             (t-test-fontify-info :html-fontify-on-error 'error) nil)
+            '(org-w3ctr-error
+              "Fontify engine off is unavailable: needs a thing")))
+    ;; Warnings: once per engine, and once per language, per export.
+    (let* ((warnings nil)
+           (t-fontify-engines
+            `((boom :fontify ,(t-test-fontify-stub 'bad) :available always)
+              (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
+              (plain :fontify t--plain-tokens :available always)))
+           (info (t-test-fontify-info)))
+      (cl-letf (((symbol-function 'display-warning)
+                 (lambda (_type msg &rest _) (push msg warnings))))
+        (dotimes (_ 2)
+          (ignore (t--fontify-dispatch "x" "l" '(boom plain) info nil))
+          (ignore (t--fontify-dispatch "x" "m" '(nope plain) info nil))))
+      ($l (nreverse warnings)
+          (list (concat "Fontify engine boom failed on the l code: Engine boom"
+                        " returned tokens that do not add up to the code")
+                "No fontify engine handles the m code"))
+      ($l (gethash '(unknown-language . "m") (t--fontify-state info)) 2))
+    ;; The `error' policies signal, with the block's line.
+    (let ((t-fontify-engines
+           `((boom :fontify ,(t-test-fontify-stub 'error) :available always)
+             (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
+             (plain :fontify t--plain-tokens :available always)))
+          (el (t-get-element "#+begin_src l\nx\n#+end_src" 'src-block)))
+      ($e!l (t--fontify-dispatch
              "x" "l" '(boom plain)
-             (t-test-fontify-info :html-fontify-on-error 'silent) nil))
-    ($l (car calls) 2))
-  ;; An unavailable engine is never called, warned about once per
-  ;; export (with its hint), and does not make the language unknown.
-  (let* ((calls (list 0))
-         (warnings nil)
-         (t-fontify-engines
-          `((off :fontify ,(t-test-fontify-stub 'decline calls)
-                 :available ignore :hint "needs a thing")
-            (plain :fontify t--plain-tokens :available always)))
-         (info (t-test-fontify-info)))
-    (cl-letf (((symbol-function 'display-warning)
-               (lambda (_type msg &rest _) (push msg warnings))))
-      ($q (car (t--fontify-dispatch "x" "l" '(off plain) info nil)) 'plain)
-      ($q (car (t--fontify-dispatch "y" "l" '(off plain) info nil)) 'plain))
-    ($l (car calls) 0)
-    ($l warnings '("Fontify engine off is unavailable: needs a thing"))
-    ($l (gethash '(unavailable . off) (t--fontify-state info)) 1)
-    ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
-    ;; Under the `error' policy it signals.
-    ($e!l (t--fontify-dispatch
-           "x" "l" '(off plain)
-           (t-test-fontify-info :html-fontify-on-error 'error) nil)
+             (t-test-fontify-info :html-fontify-on-error 'error) el)
+            '(org-w3ctr-error
+              "Fontify engine boom failed on the l code at line 1: boom"))
+      ($e!l (t--fontify-dispatch
+             "x" "l" '(nope plain)
+             (t-test-fontify-info :html-fontify-unknown-language 'error) el)
+            '(org-w3ctr-error "No fontify engine handles the l code at line 1")))
+    ;; Both policies are checked even when unused.
+    ($e!l (t--fontify-dispatch "x" "l" '(plain)
+                               (t-test-fontify-info :html-fontify-on-error 'loud)
+                               nil)
+          '(org-w3ctr-error "Unknown value for :html-fontify-on-error: loud"))
+    ($e!l (t--fontify-dispatch "x" "l" '(plain)
+                               (t-test-fontify-info
+                                :html-fontify-unknown-language 'loud)
+                               nil)
           '(org-w3ctr-error
-            "Fontify engine off is unavailable: needs a thing")))
-  ;; Warnings: once per engine, and once per language, per export.
-  (let* ((warnings nil)
-         (t-fontify-engines
-          `((boom :fontify ,(t-test-fontify-stub 'bad) :available always)
-            (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
-            (plain :fontify t--plain-tokens :available always)))
-         (info (t-test-fontify-info)))
-    (cl-letf (((symbol-function 'display-warning)
-               (lambda (_type msg &rest _) (push msg warnings))))
-      (dotimes (_ 2)
-        (ignore (t--fontify-dispatch "x" "l" '(boom plain) info nil))
-        (ignore (t--fontify-dispatch "x" "m" '(nope plain) info nil))))
-    ($l (nreverse warnings)
-        (list (concat "Fontify engine boom failed on the l code: Engine boom"
-                      " returned tokens that do not add up to the code")
-              "No fontify engine handles the m code"))
-    ($l (gethash '(unknown-language . "m") (t--fontify-state info)) 2))
-  ;; The `error' policies signal, with the block's line.
-  (let ((t-fontify-engines
-         `((boom :fontify ,(t-test-fontify-stub 'error) :available always)
-           (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
-           (plain :fontify t--plain-tokens :available always)))
-        (el (t-get-element "#+begin_src l\nx\n#+end_src" 'src-block)))
-    ($e!l (t--fontify-dispatch
-           "x" "l" '(boom plain)
-           (t-test-fontify-info :html-fontify-on-error 'error) el)
+            "Unknown value for :html-fontify-unknown-language: loud"))
+    ;; Malformed options signal under the default `warn' policy, instead
+    ;; of failing the engines into plain output.
+    ($e!l (t--fontify-dispatch "(a)" "emacs-lisp" '(engrave plain)
+                               (t-test-fontify-info
+                                :html-fontify-face-fallback 'bogus)
+                               nil)
           '(org-w3ctr-error
-            "Fontify engine boom failed on the l code at line 1: boom"))
-    ($e!l (t--fontify-dispatch
-           "x" "l" '(nope plain)
-           (t-test-fontify-info :html-fontify-unknown-language 'error) el)
-          '(org-w3ctr-error "No fontify engine handles the l code at line 1")))
-  ;; Both policies are checked even when unused.
-  ($e!l (t--fontify-dispatch "x" "l" '(plain)
-                             (t-test-fontify-info :html-fontify-on-error 'loud)
-                             nil)
-        '(org-w3ctr-error "Unknown value for :html-fontify-on-error: loud"))
-  ($e!l (t--fontify-dispatch "x" "l" '(plain)
-                             (t-test-fontify-info
-                              :html-fontify-unknown-language 'loud)
-                             nil)
-        '(org-w3ctr-error
-          "Unknown value for :html-fontify-unknown-language: loud")))
+            "Unknown value for :html-fontify-face-fallback: bogus"))
+    ($e!l (t--fontify-dispatch "(a)" "emacs-lisp" '(plain)
+                               (t-test-fontify-info
+                                :html-fontify-extra-faces '((foo . "K")))
+                               nil)
+          '(org-w3ctr-error "Malformed fontify face entry: (foo . \"K\")"))
+    ($e!l (t--fontify-dispatch "(a)" "emacs-lisp" '(engrave plain)
+                               (t-test-fontify-info
+                                :html-fontify-lang-alist
+                                '(("emacs-lisp" . emacs-lisp-mode)))
+                               nil)
+          '(org-w3ctr-error
+            "Malformed fontify language entry: (\"emacs-lisp\" . emacs-lisp-mode)"))
+    ;; A chain without `plain' still ends in plain tokens, and a
+    ;; language every engine declined is unknown.
+    (let ((t-fontify-engines
+           `((nope :fontify ,(t-test-fontify-stub 'decline) :available always)
+             (plain :fontify t--plain-tokens :available always)))
+          (info (t-test-fontify-info :html-fontify-unknown-language 'plain)))
+      ($l (t--fontify-dispatch "x" "l" '(nope) info nil) '(plain (nil . "x")))
+      ($l (gethash '(unknown-language . "l") (t--fontify-state info)) 1))
+    ;; An `:available' function that signals is a failure of its engine:
+    ;; it counts as tried, so a later decline does not make the language
+    ;; unknown.
+    (let* ((calls (list 0))
+           (t-fontify-engines
+            `((unready :fontify ,(t-test-fontify-stub 'tokens calls)
+                       :available ,(lambda (_) (error "unready")))
+              (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
+              (plain :fontify t--plain-tokens :available always)))
+           (info (t-test-fontify-info :html-fontify-on-error 'silent)))
+      ($l (t--fontify-dispatch "x" "l" '(unready nope plain) info nil)
+          '(plain (nil . "x")))
+      ($l (car calls) 0)
+      ($l (gethash '(failure . unready) (t--fontify-state info)) 1)
+      ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
+      ($e!l (t--fontify-dispatch
+             "x" "l" '(unready plain)
+             (t-test-fontify-info :html-fontify-on-error 'error) nil)
+            '(org-w3ctr-error
+              "Fontify engine unready failed on the l code: unready")))))
 
 (ert-deftest t--fontify-dispatch-matrix ()
-  "Exhaustive sweep of the dispatcher against a model of its rules.
-Two stub engines A and B, each returning tokens, declining, failing
-with an error or returning tokens that miss the code, are chained
-before `plain', under every `:html-fontify-on-error' and every
-`:html-fontify-unknown-language' value: 4 x 4 x 3 x 3 = 144 cases.
-The model walks A then B: tokens win; a decline passes on; a failure
-signals under `error', warns under `warn' and passes on.  With no
-winner `plain' takes the block, and when both declined the
-unknown-language policy signals or warns.  Each case compares the
-winner (or `signal') and the number of warnings."
-  (let ((behaviors '(tokens decline error bad))
+  "Exhaustive sweep of the dispatcher against a model of its rules."
+  ;; Two stub engines A and B are chained before `plain', under every
+  ;; `:html-fontify-on-error' and `:html-fontify-unknown-language'
+  ;; value: 6 x 6 x 3 x 3 = 324 cases.  Each engine returns tokens,
+  ;; declines, fails with an error, returns tokens that miss the code,
+  ;; is unavailable, or fails in its `:available' function.  The model
+  ;; walks A then B: tokens win; a decline passes on; a failure or an
+  ;; unavailable engine signals under `error', warns under `warn' and
+  ;; passes on.  With no winner `plain' takes the block, and when
+  ;; every engine tried (an unavailable one is not) declined, the
+  ;; unknown-language policy signals or warns.  Each case compares
+  ;; the winner (or `signal') and the number of warnings.
+  (let ((t--fontify-last-state nil)
+        (behaviors '(tokens decline error bad unavailable available-error))
         (cases 0))
     (dolist (ba behaviors)
       (dolist (bb behaviors)
         (dolist (on-error '(error warn silent))
           (dolist (unknown '(error warn plain))
             (setq cases (1+ cases))
-            (let ((winner nil) (warned 0) (signaled nil) (declines 0))
+            (let ((winner nil) (warned 0) (signaled nil) (tried 0)
+                  (declines 0))
               ;; The model.
               (catch 'done
                 (dolist (step (list (cons 'a ba) (cons 'b bb)))
+                  (unless (eq (cdr step) 'unavailable)
+                    (setq tried (1+ tried)))
                   (pcase (cdr step)
                     ('tokens (setq winner (car step)) (throw 'done nil))
                     ('decline (setq declines (1+ declines)))
@@ -4828,16 +4949,29 @@ winner (or `signal') and the number of warnings."
                          ('warn (setq warned (1+ warned))))))))
               (unless (or winner signaled)
                 (setq winner 'plain)
-                (when (= declines 2)
+                (when (and (> tried 0) (= tried declines))
                   (pcase unknown
                     ('error (setq signaled t))
                     ('warn (setq warned (1+ warned))))))
               ;; The implementation.
               (let* ((warnings 0)
+                     (engine
+                      (lambda (name behavior)
+                        (list name
+                              :fontify (t-test-fontify-stub
+                                        (if (memq behavior
+                                                  '(unavailable available-error))
+                                            'tokens
+                                          behavior))
+                              :available
+                              (pcase behavior
+                                ('unavailable #'ignore)
+                                ('available-error
+                                 (lambda (_) (error "unready")))
+                                (_ #'always)))))
                      (t-fontify-engines
-                      `((a :fontify ,(t-test-fontify-stub ba) :available always)
-                        (b :fontify ,(t-test-fontify-stub bb) :available always)
-                        (plain :fontify t--plain-tokens :available always)))
+                      (list (funcall engine 'a ba) (funcall engine 'b bb)
+                            '(plain :fontify t--plain-tokens :available always)))
                      (info (t-test-fontify-info
                             :html-fontify-on-error on-error
                             :html-fontify-unknown-language unknown))
@@ -4852,7 +4986,7 @@ winner (or `signal') and the number of warnings."
                 ($l (list ba bb on-error unknown outcome warnings)
                     (list ba bb on-error unknown
                           (if signaled 'signal winner) warned))))))))
-    ($l cases 144)))
+    ($l cases 324)))
 
 ;;;; Source block
 

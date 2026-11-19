@@ -3773,29 +3773,48 @@ duplicates."
            (important-return-value t))
   (delete-dups (mapcar #'cdr (t--fontify-face-table info))))
 
+(defun t--fontify-plist-p (object &optional keys)
+  "Return non-nil if OBJECT is a property list with distinct keyword keys.
+
+When KEYS, a list of keywords, is non-nil, each key of OBJECT must
+also be one of KEYS."
+  (declare (ftype (function (t &optional list) boolean))
+           (pure t) (important-return-value t))
+  (and (plistp object)
+       (let ((p object) seen (ok t))
+         (while (and ok p)
+           (let ((key (car p)))
+             (if (and (keywordp key) (not (memq key seen))
+                      (or (null keys) (memq key keys)))
+                 (push key seen)
+               (setq ok nil)))
+           (setq p (cddr p)))
+         ok)))
+
 (defun t--fontify-lang-entry (lang info)
   "Return the PLIST of LANG's entry in INFO's `:html-fontify-lang-alist'.
 
 LANG is a language name as a string, and INFO the info plist.
 Return nil when LANG has no entry.  Signal `org-w3ctr-error' unless
 the alist is a list of (LANG . PLIST) entries, each LANG a string
-and each PLIST a property list whose keys are distinct keywords.
-Any keyword is allowed, so that an engine of one's own can read its
-key."
+and each PLIST a property list with distinct keyword keys (see
+`org-w3ctr--fontify-plist-p'), where `:engrave', if present, is a
+symbol other than t and `:jstools' is nil or a non-blank string.
+Any other keyword is allowed, so that an engine of one's own can
+read its key.  The whole alist is checked, not only LANG's entry."
   (declare (ftype (function (string list) list))
            (important-return-value t))
   (let ((alist (t--pget info :html-fontify-lang-alist)))
     (unless (proper-list-p alist)
       (t-error "Fontify language alist must be a list: %S" alist))
     (dolist (entry alist)
-      (let ((keys (and (consp entry) (plistp (cdr entry))
-                       (let ((p (cdr entry)) ks)
-                         (while p (push (pop p) ks) (pop p))
-                         ks))))
-        (unless (and (consp entry) (stringp (car entry)) (plistp (cdr entry))
-                     (seq-every-p #'keywordp keys)
-                     (equal keys (delete-dups (copy-sequence keys))))
-          (t-error "Malformed fontify language entry: %S" entry))))
+      (unless (and (consp entry) (stringp (car entry))
+                   (t--fontify-plist-p (cdr entry))
+                   (let ((mode (plist-get (cdr entry) :engrave)))
+                     (and (symbolp mode) (not (eq mode t))))
+                   (let ((name (plist-get (cdr entry) :jstools)))
+                     (or (null name) (t--nw-p name))))
+        (t-error "Malformed fontify language entry: %S" entry)))
     (cdr (assoc lang alist))))
 
 (defun t--fontify-check-tokens (tokens code engine info)
@@ -4007,17 +4026,12 @@ a property list with the keys `:light' and `:dark', each a lowercase
     (dolist (entry palette)
       (let* ((slug (car-safe entry))
              (plist (cdr-safe entry))
-             (keys (and (plistp plist)
-                        (let ((p plist) ks)
-                          (while p (push (pop p) ks) (pop p))
-                          ks)))
-             (lc (and keys (plist-get plist :light)))
-             (dc (and keys (plist-get plist :dark)))
-             (styles (and keys (plist-get plist :style))))
+             (okp (t--fontify-plist-p plist '(:light :dark :style)))
+             (lc (and okp (plist-get plist :light)))
+             (dc (and okp (plist-get plist :dark)))
+             (styles (and okp (plist-get plist :style))))
         (unless (and (stringp slug)
                      (string-match-p "\\`[a-z][a-z0-9-]*\\'" slug)
-                     (null (seq-difference keys '(:light :dark :style)))
-                     (equal keys (delete-dups (copy-sequence keys)))
                      (stringp lc) (string-match-p "\\`#[0-9a-f]\\{6\\}\\'" lc)
                      (stringp dc) (string-match-p "\\`#[0-9a-f]\\{6\\}\\'" dc)
                      (proper-list-p styles)
@@ -4362,18 +4376,11 @@ jstools/).  INFO is ignored."
 
 The `:jstools' key of LANG's entry in INFO's
 `:html-fontify-lang-alist' (see `org-w3ctr--fontify-lang-entry')
-wins when present; otherwise LANG itself is the name.  Signal
-`org-w3ctr-error' unless that key's value is nil or a non-blank
-string."
+wins when present; otherwise LANG itself is the name."
   (declare (ftype (function (string list) (or null string)))
            (important-return-value t))
   (let ((entry (t--fontify-lang-entry lang info)))
-    (if (not (plist-member entry :jstools))
-        lang
-      (let ((name (plist-get entry :jstools)))
-        (unless (or (null name) (t--nw-p name))
-          (t-error "Malformed :jstools language for %s: %S" lang name))
-        name))))
+    (if (plist-member entry :jstools) (plist-get entry :jstools) lang)))
 
 (defun t--jstools-languages (info)
   "Return the language names the helper accepts, as a list of strings.
@@ -4465,6 +4472,7 @@ the dispatcher counts them as failures."
 
 (defun t--plain-tokens (code _lang _info)
   "The `plain' engine: return CODE as a single token without a class.
+
 An empty CODE gives no token.  LANG and INFO are ignored."
   (declare (ftype (function (string t t) list))
            (pure t) (important-return-value t))
@@ -4472,17 +4480,34 @@ An empty CODE gives no token.  LANG and INFO are ignored."
 
 (defun t--fontify-engine (name)
   "Return the plist of the engine NAME in `org-w3ctr-fontify-engines'.
-Return nil when no engine has that NAME."
+
+Return nil when no engine has that NAME.  Signal `org-w3ctr-error'
+unless `org-w3ctr-fontify-engines' is a list, or when NAME's entry
+is not a property list with distinct keys among `:fontify',
+`:available' and `:hint', the first two functions and `:hint' nil
+or a non-blank string."
   (declare (ftype (function (t) list))
            (important-return-value t))
-  (and (symbolp name) (cdr (assq name t-fontify-engines))))
+  (unless (proper-list-p t-fontify-engines)
+    (t-error "Fontify engines must be a list: %S" t-fontify-engines))
+  (when-let* ((entry (and (symbolp name) (assq name t-fontify-engines))))
+    (let ((plist (cdr entry)))
+      (unless (and (t--fontify-plist-p plist '(:fontify :available :hint))
+                   (functionp (plist-get plist :fontify))
+                   (functionp (plist-get plist :available))
+                   (let ((hint (plist-get plist :hint)))
+                     (or (null hint) (t--nw-p hint))))
+        (t-error "Malformed fontify engine: %S" entry))
+      plist)))
 
 (defun t--fontify-chain (method)
   "Return the engine chain for the fontify METHOD, ending with `plain'.
+
 METHOD is nil (no highlighting, so just `plain'), an engine name, or
 a list of engine names tried in order; `plain' is appended unless
 listed.  Signal `org-w3ctr-error' for anything else, naming the
-offending value."
+offending value, and when `org-w3ctr-fontify-engines' has no
+`plain' engine."
   (declare (ftype (function (t) list))
            (important-return-value t))
   (let ((names (cond ((null method) nil)
@@ -4492,6 +4517,8 @@ offending value."
     (dolist (name names)
       (unless (and name (t--fontify-engine name))
         (t-error "Unknown fontify method: %S" name)))
+    (unless (t--fontify-engine 'plain)
+      (t-error "Missing required fontify engine: plain"))
     (if (memq 'plain names) names (append names '(plain)))))
 
 (defun t--fontify-line (element)
@@ -4503,6 +4530,7 @@ offending value."
 
 (defun t--fontify-where (lang element)
   "Describe the code being fontified, for messages.
+
 LANG is its language and ELEMENT its block or inline block, or nil."
   (declare (ftype (function (t t) string))
            (important-return-value t))
@@ -4511,6 +4539,7 @@ LANG is its language and ELEMENT its block or inline block, or nil."
 
 (defun t--fontify-read-method (value element)
   "Read VALUE, the `:fontify' header argument of ELEMENT, as a method.
+
 VALUE must be the text of exactly one Lisp object: nil, an engine
 name or a parenthesized list of them.  It is only read, never
 evaluated.  Signal `org-w3ctr-error' with ELEMENT's line otherwise."
@@ -4525,7 +4554,8 @@ evaluated.  Signal `org-w3ctr-error' with ELEMENT's line otherwise."
     (car read)))
 
 (defun t--fontify-chain-for (info element)
-  "Return the engine chain for ELEMENT under the export plist INFO.
+  "Return the engine chain for ELEMENT under INFO, the info plist.
+
 ELEMENT's `:fontify' header argument, when present, gives the method
 \(see `org-w3ctr--fontify-read-method'); otherwise INFO's
 `:html-fontify-method' does.  Header arguments are parsed without
@@ -4547,6 +4577,7 @@ an error about a block's own method gets the block's line."
 
 (defun t--fontify-policy (info key choices)
   "Return INFO's value for KEY, which must be one of CHOICES.
+
 Signal `org-w3ctr-error' otherwise."
   (declare (ftype (function (list symbol list) symbol))
            (important-return-value t))
@@ -4555,8 +4586,28 @@ Signal `org-w3ctr-error' otherwise."
       (t-error "Unknown value for %s: %S" key value))
     value))
 
+(defun t--fontify-check-options (info lang)
+  "Check the fontify options of INFO for code in LANG; return nil.
+
+INFO is the info plist.  The policies, the face fallback, the face
+tables (`org-w3ctr--fontify-face-table') and the language alist
+\(`org-w3ctr--fontify-lang-entry') must be well-formed; signal
+`org-w3ctr-error' otherwise.  The engines read these options too,
+but an error inside an engine counts as its failure, which the
+default policy only warns about."
+  (declare (ftype (function (list string) null)))
+  (ignore (t--fontify-policy info :html-fontify-on-error
+                             '(error warn silent))
+          (t--fontify-policy info :html-fontify-unknown-language
+                             '(error warn plain))
+          (t--fontify-policy info :html-fontify-face-fallback
+                             '(inherit inline none))
+          (t--fontify-face-table info)
+          (t--fontify-lang-entry lang info)))
+
 (defun t--fontify-failure (engine err lang element info)
   "Handle the failure ERR of ENGINE on LANG code in ELEMENT.
+
 ERR is the error condition.  Count it in INFO's fontify state and
 break ENGINE for the rest of the export, then follow INFO's
 `:html-fontify-on-error': signal, warn once per engine, or stay
@@ -4579,9 +4630,11 @@ silent."
 
 (defun t--fontify-unavailable (engine info)
   "Handle ENGINE, whose `:available' function returned nil.
+
 Count it in INFO's fontify state and break it for the rest of the
-export, then follow INFO's `:html-fontify-on-error': signal, warn,
-or stay silent.  The message adds the engine's `:hint', if any."
+export, then follow INFO's `:html-fontify-on-error': signal, warn
+once per engine, or stay silent.  The message adds the engine's
+`:hint', if any."
   (declare (ftype (function (symbol list) null)))
   (let* ((state (t--fontify-state info))
          (policy (t--fontify-policy info :html-fontify-on-error
@@ -4593,11 +4646,14 @@ or stay silent.  The message adds the engine's `:hint', if any."
     (puthash (cons 'broken engine) t state)
     (pcase policy
       ('error (t-error "%s" msg))
-      ('warn (display-warning 'ox-w3ctr msg)))
+      ('warn (when (= 1 (t--fontify-note state 'warned
+                                         (cons 'unavailable engine)))
+               (display-warning 'ox-w3ctr msg))))
     nil))
 
 (defun t--fontify-unknown (lang element info)
   "Handle LANG, which every engine declined, in ELEMENT.
+
 Count it in INFO's fontify state, then follow INFO's
 `:html-fontify-unknown-language': signal, warn once per language,
 or carry on."
@@ -4616,48 +4672,52 @@ or carry on."
 
 (defun t--fontify-dispatch (code lang chain info element)
   "Run the engines of CHAIN on CODE in LANG until one returns tokens.
+
 Return (ENGINE . TOKENS), the TOKENS checked by
-`org-w3ctr--fontify-check-tokens'.  INFO is the export plist and
-ELEMENT the block, for messages.  An engine broken earlier in the
-export is skipped; one whose `:available' function returns nil goes
-through `org-w3ctr--fontify-unavailable'; one that returns
-`:decline' passes; one that fails goes through
-`org-w3ctr--fontify-failure'.  When every engine before `plain'
-that was tried declined, `org-w3ctr--fontify-unknown' is called.
-Each step is counted in INFO's fontify state."
+`org-w3ctr--fontify-check-tokens'.  INFO is the info plist, and
+ELEMENT the block, for messages.  The options are checked first
+\(`org-w3ctr--fontify-check-options'), so that a malformed one
+signals instead of counting as an engine failure.  An engine broken
+earlier in the export is skipped; one whose `:available' function
+returns nil goes through `org-w3ctr--fontify-unavailable'; one that
+returns `:decline' passes; one that fails, in its `:available' or
+its `:fontify' function, goes through `org-w3ctr--fontify-failure'.
+When every engine other than `plain' that was tried declined,
+`org-w3ctr--fontify-unknown' is called.  Each step is counted in
+INFO's fontify state."
   (declare (ftype (function (string string list list t) cons))
            (important-return-value t))
-  ;; Check both policies up front, not only when one is needed.
-  (ignore (t--fontify-policy info :html-fontify-on-error
-                             '(error warn silent))
-          (t--fontify-policy info :html-fontify-unknown-language
-                             '(error warn plain)))
+  (t--fontify-check-options info lang)
   (let ((state (t--fontify-state info))
         (tried 0) (declined 0) result)
     (while (and chain (not result))
       (let* ((name (pop chain))
              (engine (t--fontify-engine name)))
-        (cond
-         ((gethash (cons 'broken name) state))
-         ((not (funcall (plist-get engine :available) info))
-          (t--fontify-unavailable name info))
-         (t
-          (unless (eq name 'plain) (setq tried (1+ tried)))
+        (unless (gethash (cons 'broken name) state)
           (let ((tokens
                  (condition-case err
-                     (let ((out (funcall (plist-get engine :fontify)
-                                         code lang info)))
-                       (if (eq out :decline) out
-                         (t--fontify-check-tokens out code name info)))
+                     (if (not (funcall (plist-get engine :available) info))
+                         :unavailable
+                       (let ((out (funcall (plist-get engine :fontify)
+                                           code lang info)))
+                         (if (eq out :decline) out
+                           (t--fontify-check-tokens out code name info))))
                    (error (t--fontify-failure name err lang element info)
                           :failed))))
+            ;; TRIED counts the engines other than `plain' that were
+            ;; available, whether they fontified, declined or failed.
+            (unless (or (eq name 'plain) (eq tokens :unavailable))
+              (setq tried (1+ tried)))
             (pcase tokens
+              (:unavailable (t--fontify-unavailable name info))
               (:decline (setq declined (1+ declined))
                         (t--fontify-note state 'decline name))
               (:failed nil)
               (_ (t--fontify-note state 'engine name)
-                 (setq result (cons name tokens)))))))))
-    (when (and (> tried 0) (= tried declined) (eq (car result) 'plain))
+                 (setq result (cons name tokens))))))))
+    ;; A winner other than `plain', or a failure, makes TRIED exceed
+    ;; DECLINED; so equality means only `plain', if anything, took it.
+    (when (and (> tried 0) (= tried declined))
       (t--fontify-unknown lang element info))
     (or result (cons 'plain (t--plain-tokens code lang info)))))
 

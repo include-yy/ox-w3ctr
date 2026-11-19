@@ -366,15 +366,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   =npm test= and the math export tests, rather than =npm audit fix=.
 
 - *Fontify subsystem polish (from the 0.2.18 review; none urgent).*
-  - =org-w3ctr--fontify-engine= does not validate the engine plist: an
-    engine missing =:fontify= or =:available= fails with =funcall nil=
-    rather than an =org-w3ctr-error= naming the engine.
-  - The unknown-language predicate in =org-w3ctr--fontify-dispatch=
-    (~(and (> tried 0) (= tried declined) (eq (car result) 'plain))~) is
-    correct but opaque; a comment or a clearer formulation helps.
-  - =org-w3ctr--fontify-failure= has an explicit warn-once guard while
-    =org-w3ctr--fontify-unavailable= relies on the =broken= marking; the
-    asymmetry reads as a possible oversight.
   - Efficiency, only if profiling flags the engrave engine: memoize
     =org-w3ctr--engrave-face-slug= per export (the state already has the
     =(cache . jstools-languages)= pattern); and =org-w3ctr--fontify-merge=
@@ -386,17 +377,6 @@ same session.  Larger or planned work is in the =TODO= list above.
     already removes the dominant cost, so only if profiling shows the mode
     body itself as hot -- and it must erase + insert + =font-lock-ensure=
     + collect, minding buffer-local state leaking between blocks.
-
-- *Fontify configuration errors are downgraded to engine failures.*
-  =org-w3ctr--fontify-dispatch= catches every =error= an engine signals,
-  =org-w3ctr-error= included, so a malformed option checked inside an
-  engine (=:html-fontify-face-fallback=, the face tables,
-  =:html-fontify-lang-alist=) becomes "engine failed": under the
-  default =warn= policy one warning, the engine broken for the export,
-  and plain output.  Check these options up front, outside the
-  =condition-case=, as the dispatcher already does for its two
-  policies -- in the Fontify dispatch pass.  Probed in
-  =scratch/_probes/engrave-config-errors.el=.
 
 - *Unnamed elements get a fresh random id on every export.*  With no
   explicit label, =t--reference= falls back to =org-export-get-reference=,
