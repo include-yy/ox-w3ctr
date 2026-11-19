@@ -3189,13 +3189,12 @@ line number, on an unknown TYPE or any failure."
   "Transcode an EXPORT-BLOCK element from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return the exported content as a string.  HTML is passed through raw;
-CSS and JS (or JAVASCRIPT) are wrapped in <style> and <script>;
-EMACS-LISP (or ELISP) and LISP-DATA are handled by
-`org-w3ctr--eval-lisp', which needs `org-w3ctr-allow-eval' for the eval
-flavor and may signal `org-w3ctr-error'.  Any other type belongs to
-another backend and yields \"\".  A missing `:value' is read as \"\".
-Attributes, names, and captions are ignored."
+Return the exported string.  The upcased `:type' dispatches: HTML
+passes through raw; CSS and JS/JAVASCRIPT wrap in <style>/<script>;
+EMACS-LISP/ELISP and LISP-DATA run through `org-w3ctr--eval-lisp' as
+`eval' (needing `org-w3ctr-allow-eval') and `sexp', and may signal
+`org-w3ctr-error'; any other type yields \"\".  A missing `:value'
+defaults to \"\"; attributes, names, and captions are ignored."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type export-block))
@@ -3228,7 +3227,7 @@ via `org-export-snippet-translation-alist' (case-sensitive), then
 matched case-insensitively: `html'/`h' passes through raw; `e' and `d'
 run through `org-w3ctr--eval-lisp' as `eval' (needing
 `org-w3ctr-allow-eval') and `sexp', and may signal `org-w3ctr-error'.
-Any other backend yields \"\".  A missing `:value' is read as \"\"."
+Any other backend yields \"\".  A missing `:value' defaults to \"\"."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))

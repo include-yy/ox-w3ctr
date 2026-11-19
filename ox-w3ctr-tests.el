@@ -39,9 +39,10 @@ Text properties are stripped from string results."
 (defun t-check-element-values (fn pairs &optional body-only plist)
   "Check that FN returns the expected values when exporting.
 
-FN is a function to advice.  PAIRS is a list of the form
+FN is a function to advise.  PAIRS is a list of the form
 ((INPUT . EXPECTED) ...).  INPUT is a string of Org markup to be
-exported.  EXPECTED is a list of expected return values from FN.
+exported.  EXPECTED is a list of expected return values from FN, in
+reverse call order (`org-w3ctr-test-values' is push-accumulated).
 BODY-ONLY and PLIST are optional arguments passed to
 `org-export-string-as'.
 
@@ -72,7 +73,7 @@ the advice onto subsequent tests."
   "Parse STR as an Org buffer and return a list of elements of TYPE.
 
 STR is a string containing Org content.  TYPE is an Org element type
-symbol (such as \\='headline, \\='paragraph, etc)."
+symbol (for example `headline' or `paragraph')."
   (with-temp-buffer
     (save-excursion (insert str))
     (t-parse type)))
@@ -90,7 +91,7 @@ fontify options (`org-w3ctr--fontify-default-info').  The list is
 fresh: the code under test may store its state in it."
   (append plist (t--fontify-default-info)))
 
-;;;; `t-check-element-values'
+;;;; `org-w3ctr-check-element-values'
 
 (ert-deftest t-check-element-values ()
   "Tests for `org-w3ctr-check-element-values'.
@@ -253,16 +254,17 @@ closures, and that both the read and the write go through them."
   "Tests for `org-w3ctr-oinfo-enabled'.
 The switch is resolved at macro-expansion time: the flag never reaches
 the expanded call, and the oclosure is inlined when the cache is on.
-`macroexpand-all' runs `org-w3ctr--pget''s compiler macro, the same
-mechanism the byte compiler uses."
+`macroexpand-all' runs the compiler macro of `org-w3ctr--pget', the
+same mechanism the byte compiler uses."
   (let ((symbols (flatten-tree (macroexpand-all '(t--pget info :title)))))
     ($n (memq 'org-w3ctr-oinfo-enabled symbols))
     ($l (and (memq 'org-w3ctr--oinfo:title symbols) t)
         t--oinfo-cache-p)))
 
 (ert-deftest t--oinfo-props-are-looked-up ()
-  "Static check: every `org-w3ctr--oinfo-cache-props' key appears as
-a literal second argument to `org-w3ctr--pget' in the source file."
+  "Static check: every cached OINFO key is looked up via `org-w3ctr--pget'.
+Every `org-w3ctr--oinfo-cache-props' key must appear as a literal
+second argument to `org-w3ctr--pget' in the source file."
   (let* ((build (symbol-file 'org-w3ctr--pget 'defun))
          (source (and build (concat (file-name-sans-extension build) ".el"))))
     (skip-unless (and source (file-readable-p source)))
@@ -276,10 +278,11 @@ a literal second argument to `org-w3ctr--pget' in the source file."
                  nil t))))))
 
 (ert-deftest t--oinfo-props-go-through-pget ()
-  "Static check: no `org-w3ctr--oinfo-cache-props' key is read or
-written with a literal `plist-get', `plist-put' or
-`setf (plist-get ...)' in the source file.
-Only literal keys are checked: a computed key cannot be seen here."
+  "Static check: no cached OINFO key bypasses `org-w3ctr--pget'/`org-w3ctr--pput'.
+No `org-w3ctr--oinfo-cache-props' key may be read or written with a
+literal `plist-get', `plist-put' or `setf (plist-get ...)' in the
+source file.  Only literal keys are checked: a computed key cannot be
+seen here."
   (let* ((build (symbol-file 'org-w3ctr--pget 'defun))
          (source (and build (concat (file-name-sans-extension build) ".el"))))
     (skip-unless (and source (file-readable-p source)))
@@ -313,7 +316,7 @@ Only literal keys are checked: a computed key cannot be seen here."
 (ert-deftest t-test-oinfo-cache-guarded ()
   "Static check: every throwaway-cache test is guarded by `skip-unless'.
 `org-w3ctr-test-oinfo-cache' only makes sense when the cache is on, so
-a test that uses it must also `skip-unless' `org-w3ctr-oinfo-cache-p';
+a test that uses it must also `skip-unless' `org-w3ctr--oinfo-cache-p';
 otherwise its cached assertions fail in the nil build."
   (let* ((build (symbol-file 'org-w3ctr-test-oinfo-cache 'defun))
          (source (and build (concat (file-name-sans-extension build) ".el")))
@@ -351,9 +354,9 @@ otherwise its cached assertions fail in the nil build."
         (intern (concat "org-w3ctr--oinfo" (symbol-name key))))))
 
 (ert-deftest t--oinfo-cache-alist-matches-props ()
-  "Structural check: `org-w3ctr--oinfo-cache-alist' keys match
-`org-w3ctr--oinfo-cache-props', and each entry points to a live
-oclosure with the correct key."
+  "Structural check: OINFO cache alist matches cached property keys.
+`org-w3ctr--oinfo-cache-alist' keys match `org-w3ctr--oinfo-cache-props',
+and each entry points to a live oclosure with the correct key."
   (unless t--oinfo-cache-p
     ($l t--oinfo-cache-alist nil))
   (when t--oinfo-cache-p
@@ -367,8 +370,8 @@ oclosure with the correct key."
 
 (ert-deftest t--oinfo-cache-props-invariants ()
   "Every cached property is a keyword, with no duplicates.
-A non-keyword or a duplicate would break `org-w3ctr--oinfo-oclosure'\='s
-naming and the alist built from it."
+A non-keyword or a duplicate would break the naming in
+`org-w3ctr--oinfo-oclosure' and the alist built from it."
   ($s (cl-every #'keywordp t--oinfo-cache-props))
   ($l (length t--oinfo-cache-props)
       (length (delete-dups (copy-sequence t--oinfo-cache-props)))))
@@ -522,8 +525,7 @@ too."
       ($l (eval '(t--pget info :a)) 1))))
 
 (ert-deftest t--oinfo-plain-flavor ()
-  "Tests for `org-w3ctr--pget' and `org-w3ctr--pput' when
-the OINFO cache is off."
+  "Tests for `org-w3ctr--pget'/`org-w3ctr--pput' with the cache off."
   (skip-when t--oinfo-cache-p)
   (dlet ((info (list :a 1)))
     ($l (eval '(t--pget info :a)) 1)
@@ -1522,8 +1524,9 @@ stubs `random' to hand back a taken number first and counts the draws."
       ($l sent '(fresh tex2mml (:fragment "x") (:timeout 10.0))))))
 
 (ert-deftest t--jstools-methods-drift ()
-  "Static check: every method `org-w3ctr--jstools-methods' exposes is
-implemented by an `addMethod' call in jstools/index.js."
+  "Static check: every exposed jstools method exists in jstools/index.js.
+Every method in `org-w3ctr--jstools-methods' must have a matching
+`addMethod' call in jstools/index.js."
   (let ((file (file-name-concat t--dir "jstools/index.js"))
         (re "addMethod([ \t]*['\"]\\([^'\"]+\\)['\"]"))
     (skip-unless (file-readable-p file))
@@ -1870,7 +1873,7 @@ int a = 1;</code></p>\n</details>")
       ($s (> (length (cdr state)) 0)))))
 
 (ert-deftest t--checkbox ()
-  "Tests for `org-w3ctr-checkbox'."
+  "Tests for `org-w3ctr--checkbox'."
   (let ((info '(:html-checkbox-type unicode)))
     ($l (t--checkbox 'on info) "&#x2611;")
     ($l (t--checkbox 'off info) "&#x2610;")
@@ -2491,9 +2494,9 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t--table-cell-align-memo ()
   "Tests for the per-table memoization of `org-w3ctr--table-cell-align'.
-A second lookup must come from the cache, `t--table-column-cookie' is
-consulted once per column, and a cookie-less column is remembered as
-the `none' marker."
+A second lookup must come from the cache,
+`org-w3ctr--table-column-cookie' is consulted once per column, and a
+cookie-less column is remembered as the `none' marker."
   (let* ((cells (t-get-parsed-elements "| <l> | <r> |\n| a | b |\n| c | d |"
                                        'table-cell))
          (info (list :html-table-align-cache nil))
