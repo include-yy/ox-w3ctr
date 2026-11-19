@@ -2982,7 +2982,7 @@ the `none' marker."
     ($l (t-keyword '(keyword (:key "H")) nil nil) "")
     ;; A synthetic lowercase :key falls through (the parser upcases).
     ($l (t-keyword '(keyword (:key "h" :value "x")) nil nil) nil)
-    ;; Error handling: malformed Lisp signals t-error with line number.
+    ;; Error handling: malformed Lisp signals `org-w3ctr-error' with line number.
     ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
           '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
     ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)

@@ -3225,15 +3225,14 @@ Attributes, names, and captions are ignored."
 
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  Return the exported
-content as a string.  The backend name is translated via
-`org-export-snippet-translation-alist' (case-sensitive), then
-matched case-insensitively: `html'/`h' passes through raw; `e' and
-`d' run through `org-w3ctr--eval-lisp' as `eval' (needing
-`org-w3ctr-allow-eval') and `sexp', and may signal
-`org-w3ctr-error'.  Any other backend yields \"\".  A missing
-`:value' is read as \"\"."
+Return the exported content as a string.  The backend name is translated
+via `org-export-snippet-translation-alist' (case-sensitive), then
+matched case-insensitively: `html'/`h' passes through raw; `e' and `d'
+run through `org-w3ctr--eval-lisp' as `eval' (needing
+`org-w3ctr-allow-eval') and `sexp', and may signal `org-w3ctr-error'.
+Any other backend yields \"\".  A missing `:value' is read as \"\"."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((backend (org-export-snippet-backend export-snippet))
@@ -3279,15 +3278,10 @@ escaped via `org-w3ctr--encode-plain-text'.  Attributes use
 
 (defun t-horizontal-rule (horizontal-rule _contents info)
   "Transcode a HORIZONTAL-RULE element from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  Return the void <hr>
-element as a string; it has no closing tag.
-
-Attributes come from `org-w3ctr--make-attr__id*' in its named-only
-mode: an anonymous rule carries no id, never a random one, and a
-NAME or ID property becomes the id only under
-`org-w3ctr-prefer-user-labels'; an explicit id attribute wins.  A
-caption is dropped: the rule has no caption home."
+Return a void <hr> element as a string.  Attributes use
+`org-w3ctr--make-attr__id*' (named-only); captions are dropped."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (t--void-element "hr" (t--make-attr__id* horizontal-rule info t)))
@@ -3300,16 +3294,14 @@ caption is dropped: the rule has no caption home."
 
 (defun t-keyword (keyword _contents info)
   "Transcode a KEYWORD element from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  Return the transcoded
-keyword as a string, or nil when nothing is emitted.  The key is
-matched as the parser upcases it (a lowercase synthetic `:key' falls
-through): H and HTML are passed through raw; E evaluates the value
-as Lisp and requires `org-w3ctr-allow-eval'; D renders it as an
-S-expression.  The Lisp flavors run through `org-w3ctr--eval-lisp'
-and may signal `org-w3ctr-error' with the keyword's line number.
-TOC is delegated to `org-w3ctr--keyword-toc', whose nil passes
-through.  A missing `:value' is read as \"\"."
+Return a string, or nil when nothing is emitted.  The upcased `:key'
+dispatches: H/HTML passes through raw; E and D run through
+`org-w3ctr--eval-lisp' as `eval' (needing `org-w3ctr-allow-eval') and
+`sexp', and may signal `org-w3ctr-error'; TOC delegates to
+`org-w3ctr--keyword-toc'; any other key yields nil.  A missing
+`:value' defaults to \"\"."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (let ((key (org-element-property :key keyword))
@@ -3330,19 +3322,12 @@ through.  A missing `:value' is read as \"\"."
 
 (defun t-verse-block (verse-block contents info)
   "Transcode a VERSE-BLOCK element from Org to HTML.
+CONTENTS is the block text (nil becomes \"\").  INFO is the info plist.
 
-CONTENTS is the verse block contents; nil (an empty block) is read
-as \"\".  INFO is the info plist.  Return the formatted <p> element
-as a string.  Every leading whitespace character becomes a
-non-breaking space (&#xa0;), trailing whitespace before a newline is
-consumed, and each newline becomes <br>.  A <br> already ending the
-line is absorbed, so an Org line break or a raw <br> never doubles.
-
-Attributes come from `org-w3ctr--make-attr__id*' in its named-only
-mode: an anonymous block carries no id, never a random one, and a
-NAME or ID property becomes the id only under
-`org-w3ctr-prefer-user-labels'; an explicit id attribute wins.  A
-caption is dropped: a verse block has no W3C caption home."
+Return a <p> element as a string: leading whitespace becomes &#xa0;,
+trailing whitespace before newlines is consumed, and each newline
+becomes <br> (absorbing any trailing <br>).  Attributes use
+`org-w3ctr--make-attr__id*' (named-only); captions are dropped."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format
