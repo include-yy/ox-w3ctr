@@ -167,6 +167,10 @@ cd jstools && npm test
   false` in the clone and convert the working tree back to LF.
 
 - Do not commit changes unless explicitly asked.
+- **Wait for the user's decision.**  Before making a design decision,
+  applying unapproved edits, or committing/pushing, present the options
+  and wait for an actual reply from the user — never act on a
+  self-generated or hallucinated confirmation.
 - **Docstring**: every `defun`/`defsubst` gets a full docstring — a
   one-line summary first, then parameter / return-value notes where
   they are non-obvious.
