@@ -3239,9 +3239,13 @@ cookie-less column is remembered as the `none' marker."
      ("- 123\n 234" "123\n234")
      ("- 123\n\n   234" "<p>234</p>" "123")
      ;; the item-first branch shadows the standalone-image one: a leading
-     ;; image is not wrapped in <figure> (see the FIXME in t-paragraph)
+     ;; image is not wrapped in <figure> (see the FIXME in
+     ;; `org-w3ctr-paragraph'), and `#+attr_html' stays on the <span>
+     ;; without duplicating onto <img>
      ("- [[./1.png]]\n\n  after"
       "<p>after</p>" "<img src=\"./1.png\" alt=\"1.png\">")
+     ("-\n  #+attr_html: :class foo\n  [[./1.png]]"
+      "<span class=\"foo\"><img src=\"./1.png\" alt=\"1.png\"></span>")
      ;; descriptive list item: the <dd> paragraph is bare too
      ("- term :: text\n\n  more" "<p>more</p>" "text")
      ;; first object with attributes
@@ -3265,19 +3269,27 @@ cookie-less column is remembered as the `none' marker."
      ("[[https://example.com/1.jpg][file:1.jpg]]"
       ,($c "<figure>\n<a href=\"https://example.com/1.jpg\">"
            "<img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
-     ;; `:attr_html' applies to the image element, not the figure
+     ;; `#+attr_html' applies to the <figure>, just like every other block
      ("#+attr_html: :class foo\n[[./1.png]]"
-      "<figure>\n<img src=\"./1.png\" alt=\"1.png\" class=\"foo\"></figure>")
+      "<figure class=\"foo\">\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
      ("#+attr_html: :class foo\n[[https://example.com/1.jpg][file:1.jpg]]"
-      ,($c "<figure>\n<a href=\"https://example.com/1.jpg\">"
-           "<img src=\"1.jpg\" alt=\"1.jpg\" class=\"foo\"></a></figure>"))
+      ,($c "<figure class=\"foo\">\n<a href=\"https://example.com/1.jpg\">"
+           "<img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
      ;; in a non-standalone paragraph `:attr_html' stays on the <p>
      ("#+attr_html: :class foo\n[[./1.png]] [[./2.png]]"
       "<p class=\"foo\"><img src=\"./1.png\" alt=\"1.png\"> <img src=\"./2.png\" alt=\"2.png\"></p>")
-     ;; `:attr__' applies to the figure
-     ("#+attr__: [bar]\n[[https://example.com/1.jpg][file:1.jpg]]"
-      "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
+     ;; `#+attr__' takes priority over `#+attr_html' on <figure>
+     ("#+attr__: [bar]\n#+attr_html: :class foo\n[[https://example.com/1.jpg][file:1.jpg]]"
+      "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>")
+     ;; a caption on a regular paragraph is dropped
+     ("#+caption: Cap\nregular text" "<p>regular text</p>"))
    t '(:html-prefer-user-labels t))
+  ;; When inline images are disabled, a sole image link stays a <p>, not
+  ;; a <figure>.
+  (t-check-element-values
+   #'t-paragraph
+   '(("[[./1.png]]" "<p><a href=\"./1.png\">./1.png</a></p>"))
+   t '(:html-inline-images nil))
   ;; nil CONTENTS: math under `tex:nil' is pruned before the
   ;; transcoder runs, and the empty paragraph is ""
   (t-check-element-values

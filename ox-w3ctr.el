@@ -3463,8 +3463,8 @@ nothing."
 ;; A paragraph holding one image becomes <figure><figcaption>.  The
 ;; "Figure N" label is the W3C stylesheet's counter on figcaption; do not
 ;; compute it in Elisp (see the caption item in README.org).  `#+attr__'
-;; styles the figure, while `#+attr_html' is reserved for the image
-;; element itself.
+;; and `#+attr_html' apply to the <figure> through
+;; `org-w3ctr--make-attr__id*', just like every other block.
 
 (defun t--wrap-image (contents caption attrs)
   "Wrap CONTENTS in a <figure> element for standalone images.
@@ -3481,13 +3481,13 @@ tag.  Return the formatted <figure> element as a string."
 
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML.
+CONTENTS is the paragraph text (nil when pruned, as under `tex:nil').
+INFO is the info plist.
 
-CONTENTS is the contents of the paragraph, as a string, or nil
-when Org pruned everything inside (math under `tex:nil').  INFO
-is the info plist.  Return the formatted paragraph as a string,
-or an empty string for empty paragraphs.  The first paragraph in
-a list item is rendered without a <p> tag; a standalone image is
-wrapped in <figure>."
+Return the formatted HTML string, or \"\" for an empty paragraph.  The
+first paragraph in a list item omits <p> (wrapping in <span> if it has
+attributes); a standalone image becomes <figure>; other paragraphs
+become <p>.  Attributes use `org-w3ctr--make-attr__id*' (named-only)."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   ;; Org hands us nil, not an empty string, when everything inside the
@@ -3509,13 +3509,11 @@ wrapped in <figure>."
             (attrs (t--make-attr__id* paragraph info t)))
         (if (string-empty-p attrs) c
           (format "<span%s>%s</span>" attrs c))))
-     (;; Standalone image.  Only `:attr__' applies to the figure here;
-      ;; `:attr_html' is reserved for the image element itself (see
-      ;; `org-w3ctr--link-attributes').
-      (t-standalone-image-p paragraph info)
+     ;; Standalone image.
+     ((t-standalone-image-p paragraph info)
       (let* ((caption (org-export-get-caption paragraph))
              (cap (if caption (org-export-data caption info) "")))
-        (t--wrap-image contents cap (t--make-attr__id paragraph info t))))
+        (t--wrap-image contents cap (t--make-attr__id* paragraph info t))))
      ;; Regular paragraph.
      (t
       (let ((c (t--trim contents)))
@@ -5278,7 +5276,8 @@ An element or object is a standalone image when
   (let ((paragraph (pcase (org-element-type element)
                      (`paragraph element)
                      (`link (org-element-parent element)))))
-    (and (eq (org-element-type paragraph) 'paragraph)
+    (and (t--pget info :html-inline-images)
+         (eq (org-element-type paragraph) 'paragraph)
          (or (not predicate) (funcall predicate paragraph))
          (t--sole-image-link-p
           (org-element-contents paragraph)
@@ -5370,32 +5369,18 @@ link types get their \"TYPE:\" prefix and URL encoding."
                        (org-element-property :path link)
                        option)))))))))
 
-(defun t--link-attributes (link info)
-  "Return the HTML attribute plist for LINK.
+;; FIXME: simplify or remove it.
+(defun t--link-attributes (link _info)
+  "Return the HTML attribute plist attached directly to LINK.
+INFO is unused.
 
-Attributes are read from LINK itself and, when LINK is the image of
-a standalone-image paragraph (i.e., it becomes the <img> element of
-a figure), from that paragraph as well, so that `#+attr_html' on
-the paragraph applies to the image.  In any other paragraph the
-attribute stays on the paragraph and is not duplicated onto every
-image it contains."
+A link is an object, not an element, and `:attr_html' is an
+affiliated keyword, so this is almost always nil; it only has a
+value when set programmatically on LINK.  Paragraph attributes are
+never copied onto images: they stay on the <figure> or <p>."
   (declare (ftype (function (t list) list))
            (important-return-value t))
-  (let ((parent (org-element-parent-element link)))
-    (org-combine-plists
-     ;; `org-element-parent-element' returns the nearest *element*
-     ;; (paragraph, item, ...), skipping intermediate objects, so the
-     ;; enclosing link of a clickable image is never consulted here.
-     ;; The parent's attribute is inherited only in a standalone-image
-     ;; paragraph; otherwise it belongs to the paragraph itself.
-     (and (org-export-inline-image-p
-           link (t--pget info :html-inline-image-rules))
-          (t-standalone-image-p parent info)
-          (org-export-read-attribute :attr_html parent))
-     ;; A link is an object, not an element, and `:attr_html' is an
-     ;; affiliated keyword, so this is almost always nil; it only has a
-     ;; value when a backend sets it programmatically.
-     (org-export-read-attribute :attr_html link))))
+  (org-export-read-attribute :attr_html link))
 
 (defun t--link-radio (link desc info attributes)
   "Transcode a radio target LINK.
