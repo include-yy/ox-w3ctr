@@ -3481,7 +3481,9 @@ cookie-less column is remembered as the `none' marker."
            'example-block)
         "x")
     ;; Source blocks are handled the same way.
-    ($l (f "#+begin_src text\n  x (ref:sc)\n#+end_src" 'src-block) "x")))
+    ($l (f "#+begin_src text\n  x (ref:sc)\n#+end_src" 'src-block) "x"))
+  ;; A synthetic element with nil `:value' yields "".
+  ($l (t--code-text '(example-block nil)) ""))
 
 (ert-deftest t--coderef-labels ()
   "Tests for `org-w3ctr--coderef-labels'."

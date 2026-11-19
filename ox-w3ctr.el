@@ -3671,7 +3671,7 @@ otherwise."
 Search `example-block' and `src-block' elements in document order,
 skipping what the export ignores, and return the first block whose
 `(ref:LABEL)' matches, or nil when no block does.  INFO is the
-export plist."
+info plist."
   (declare (ftype (function (string list) t))
            (important-return-value t))
   (org-element-map (t--pget info :parse-tree) '(example-block src-block)
@@ -3694,17 +3694,15 @@ export plist."
 ;; would add a "Figure N" counter.
 (defun t-example-block (example-block _contents info)
   "Transcode an EXAMPLE-BLOCK element from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  Return the formatted
-<div><pre>...</pre></div> element as a string.  The code loses its
-common indentation (unless the block preserves it with `-i'), its
-code-reference labels, and is HTML-escaped.
-
-Without user attributes the <div> carries class=\"example\"; with
-user attributes, the user controls all attributes on the <div>.  A
-non-blank caption becomes an unstyled <span> before the <pre>, and a
-block that defines code references always gets an id (see
-`org-w3ctr--coderef-block')."
+Return a <div><pre>...</pre></div> string.  The code is extracted via
+`org-w3ctr--code-text' and escaped via `org-w3ctr--encode-plain-text',
+with a missing `:value' defaulting to \"\".  Without user attributes
+the <div> gets class=\"example\"; attributes use
+`org-w3ctr--make-attr__id*' (named-only unless the block defines code
+references).  A non-blank caption becomes an unstyled <span> before
+<pre>."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((has-user-attrs (or (org-element-property :attr__ example-block)
