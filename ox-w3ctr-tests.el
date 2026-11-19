@@ -1278,9 +1278,20 @@ stubs `random' to hand back a taken number first and counts the draws."
       ($l (t--reference h with-labels) "ID-my-uid")
       ;; ID with prefer-user-labels=nil -> falls through to random.
       ($s (string-match-p "org[0-9a-f]+" (t--reference h no-labels))))
-    ;; named-only + no name + not headline -> nil.
+    ;; named-only + no name + not headline -> nil (regardless of
+    ;; prefer-user-labels).
     (let ((para (t-get-element "hello" 'paragraph)))
-      ($n (t--reference para (list :html-prefer-user-labels nil) t)))
+      ($n (t--reference para (list :html-prefer-user-labels nil) t))
+      ($n (t--reference para (list :html-prefer-user-labels t) t)))
+    ;; named-only + NAME: returns the user label when prefer-user-labels
+    ;; is on, and falls through to the same generated reference as the
+    ;; link side (named-only = nil) when it is off.
+    (let ((para (t-get-element "#+name: my-name\nhello" 'paragraph))
+          (info (list :html-prefer-user-labels nil)))
+      ($l (t--reference para with-labels t) "my-name")
+      (let ((ref (t--reference para info t)))
+        ($s (string-match-p "\\`org[0-9a-f]+\\'" ref))
+        ($l (t--reference para info) ref)))
     ;; headlines, radio targets and targets are exempt from named-only
     ($s (string-match-p "org[0-9a-f]+"
                         (t--reference (t-get-element "* H" 'headline)
@@ -1612,11 +1623,25 @@ Every method in `org-w3ctr--jstools-methods' must have a matching
      ("#+attr__:\n#+begin_center\nhello\n#+end_center"
       "<div>\n<p>hello</p>\n</div>")
      ("#+attr_html:\n#+begin_center\nhello\n#+end_center"
-      "<div>\n<p>hello</p>\n</div>")
-     ;; #+name: without attr__: keeps centering (name does not add id by
-     ;; #default)
-     ("#+name: my-block\n#+begin_center\nhello\n#+end_center"
-      "<div style=\"text-align:center;\">\n<p>hello</p>\n</div>"))))
+      "<div>\n<p>hello</p>\n</div>")))
+  ;; #+name: without attr__: keeps centering, and emits the user label
+  ;; when `:html-prefer-user-labels' is on.
+  (t-check-element-values
+   #'t-center-block
+   '(("#+name: my-block\n#+begin_center\nhello\n#+end_center"
+      "<div id=\"my-block\" style=\"text-align:center;\">\n<p>hello</p>\n</div>"))
+   t '(:html-prefer-user-labels t))
+  ;; Under the default options (`prefer-user-labels' nil), a named
+  ;; center block still keeps centering and gets a generated id matching
+  ;; a link to it.
+  (let ((out (org-export-string-as
+              "[[my-block]]\n\n#+name: my-block\n#+begin_center\nhello\n#+end_center"
+              'w3ctr t)))
+    ($s (string-match "href=\"#\\(org[0-9a-f]+\\)\"" out))
+    ($s (string-match-p
+         (format "<div id=\"%s\" style=\"text-align:center;\">\n<p>hello</p>\n</div>"
+                 (match-string 1 out))
+         out))))
 
 ;;;; Drawer
 
@@ -2918,12 +2943,13 @@ cookie-less column is remembered as the `none' marker."
      ;; a blank value keeps its spaces, id attached
      ("#+name: t\n:  " "<pre id=\"t\"> </pre>"))
    t '(:html-prefer-user-labels t))
-  ;; Under the default options a NAME is not usable as an id, so the
-  ;; named-only call emits nothing (the fixture above opts in).
-  (t-check-element-values
-   #'t-fixed-width
-   '(("#+name: t\n: 1" "<pre>\n1\n</pre>"))
-   t)
+  ;; Under the default options (`prefer-user-labels' nil), a named
+  ;; block still gets a generated id matching a link to it.
+  (let ((out (org-export-string-as "[[t]]\n\n#+name: t\n: 1" 'w3ctr t)))
+    ($s (string-match "href=\"#\\(org[0-9a-f]+\\)\"" out))
+    ($s (string-match-p (format "<pre id=\"%s\">\n1\n</pre>"
+                                (match-string 1 out))
+                        out)))
   ;; A synthetic element with nil `:value' falls back to "".
   ($l (t-fixed-width '(fixed-width nil) nil nil) "<pre></pre>"))
 
@@ -2944,12 +2970,12 @@ cookie-less column is remembered as the `none' marker."
      ;; a caption is dropped: the rule has no caption home
      ("#+caption: Cap\n-----" "<hr>"))
    t '(:html-prefer-user-labels t))
-  ;; Under the default options a NAME is not usable as an id, so the
-  ;; named-only call emits nothing (the fixture above opts in).
-  (t-check-element-values
-   #'t-horizontal-rule
-   '(("#+name: nm\n-----" "<hr>"))
-   t)
+  ;; Under the default options (`prefer-user-labels' nil), a named
+  ;; rule still gets a generated id matching a link to it.
+  (let ((out (org-export-string-as "[[nm]]\n\n#+name: nm\n-----" 'w3ctr t)))
+    ($s (string-match "href=\"#\\(org[0-9a-f]+\\)\"" out))
+    ($s (string-match-p (format "<hr id=\"%s\">" (match-string 1 out))
+                        out)))
   ;; A synthetic element with no properties yields the bare void tag.
   ($l (t-horizontal-rule '(horizontal-rule nil) nil nil) "<hr>"))
 
@@ -3032,12 +3058,15 @@ cookie-less column is remembered as the `none' marker."
      ;; a raw <br> at line end is absorbed just like an Org line break
      ("#+begin_verse\na@@h:<br>@@\nb\n#+end_verse" "<p>\na<br>\nb<br>\n</p>"))
    t '(:html-prefer-user-labels t))
-  ;; Under the default options a NAME is not usable as an id, so the
-  ;; named-only call emits nothing (the fixture above opts in).
-  (t-check-element-values
-   #'t-verse-block
-   '(("#+name: this\n#+begin_verse\na\n#+end_verse" "<p>\na<br>\n</p>"))
-   t)
+  ;; Under the default options (`prefer-user-labels' nil), a named
+  ;; verse block still gets a generated id matching a link to it.
+  (let ((out (org-export-string-as
+              "[[this]]\n\n#+name: this\n#+begin_verse\na\n#+end_verse"
+              'w3ctr t)))
+    ($s (string-match "href=\"#\\(org[0-9a-f]+\\)\"" out))
+    ($s (string-match-p (format "<p id=\"%s\">\na<br>\n</p>"
+                                (match-string 1 out))
+                        out)))
   ;; A synthetic element with nil CONTENTS falls back to "".
   ($l (t-verse-block '(verse-block nil) nil nil) "<p>\n</p>"))
 

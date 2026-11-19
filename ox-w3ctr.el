@@ -2187,9 +2187,10 @@ links are resolved in the link transcoder (`org-w3ctr--link-path',
 `org-w3ctr--link-dispatch'), not here.
 
 When NAMED-ONLY is non-nil and DATUM has no explicit label (no
-CUSTOM_ID, no target value, no usable NAME or ID), return nil
-instead of a random id.  Headlines, radio targets and targets are
-exempt."
+CUSTOM_ID, no target value, no NAME or ID), return nil instead of a
+random id.  Headlines, radio targets and targets are exempt.  A named
+datum still falls through to a generated `orgXXXXXXX' reference when
+`:html-prefer-user-labels' is nil, matching the link side."
   (declare (ftype (function (t list &optional boolean) (or null string)))
            (important-return-value t))
   (let ((type (org-element-type datum)))
@@ -2208,8 +2209,13 @@ exempt."
            (when-let* ((id (org-element-property :ID datum)))
              (concat t--id-attr-prefix id))))
      ;; No explicit label and not a headline/target -> nil (named-only).
+     ;; A NAME or ID still qualifies when `:html-prefer-user-labels' is
+     ;; nil, falling through to `orgXXXXXXX' so the element and link
+     ;; sides stay in sync.
      ((and named-only
-           (not (memq type '(headline radio-target target))))
+           (not (memq type '(headline radio-target target)))
+           (not (org-element-property :name datum))
+           (not (org-element-property :ID datum)))
       nil)
      ;; Fallback: random orgXXXXXXX via the vendored reference generator.
      ;; Unconditionally decoupled from :crossrefs: `org-w3ctr--reference'
@@ -3268,8 +3274,8 @@ escaped via `org-w3ctr--encode-plain-text'.  Attributes use
 
 ;; See (info "(org) Horizontal Rules")
 ;; Unlike ox-html, the element honors `#+attr__'/`#+attr_html' and
-;; `#+name:' (the name becomes the id only under
-;; `org-w3ctr-prefer-user-labels').
+;; `#+name:' (emitted verbatim under `org-w3ctr-prefer-user-labels',
+;; or as a generated reference otherwise).
 
 (defun t-horizontal-rule (horizontal-rule _contents info)
   "Transcode a HORIZONTAL-RULE element from Org to HTML.
