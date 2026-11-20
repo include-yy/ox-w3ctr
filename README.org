@@ -95,10 +95,10 @@ and how the pipeline works.
   entries are grouped, most are not.  Order every entry, consider
   replacing cumbersome string options with =*-function= ones.  Chart
   compatibility with ox-html for each option.  Known divergences to
-  chart: =:html-link-use-abs-url= is unimplemented (FIXME in
-  =org-w3ctr--link-path=); the legacy home/up bar emits our own =<nav
-  id="navbar">= markup, deliberately not ox-html's =<div
-  id="org-div-home-and-up">=.  =:html-home/up-format= keeps its
+  chart: =:html-link-use-abs-url= (and =:html-link-home= on file links)
+  is deliberately omitted in =org-w3ctr--link-path=; the legacy home/up
+  bar emits our own =<nav id="navbar">= markup, deliberately not
+  ox-html's =<div id="org-div-home-and-up">=.  =:html-home/up-format= keeps its
   ox-html keyword compatibility (=HTML_HOME/UP_FORMAT=, =newline=).
   =org-w3ctr-metadata-timestamp-format= drops ox-html's =%a= weekday
   abbreviation (deliberate).  =org-w3ctr-home/up-format=, a bare
@@ -233,15 +233,13 @@ same session.  Larger or planned work is in the =TODO= list above.
   =info=; a differently named INFO plist would false-fail.  Loosen to
   =[^ \t\n()]+= if that ever changes.
 
-- *checkdoc leftovers outside the REFINE passes.*  Emacs 32's checkdoc
-  reports 10 warnings; 7 sit in the Link =REFINE:= section and its pass
-  clears them.  Three have no owner: =t-creator-string='s docstring
-  first line is not a complete sentence (it ends at the =%c=
-  placeholder); and the =t-export-as-html= / =t-export-to-html=
-  docstrings never mention ASYNC (the argument is used -- it goes to
-  =org-export-to-buffer= / =org-export-to-file= -- so the docstring
-  should say so, not the name mangled).  The =ox-w3ctr-lint= skill's
-  =scripts/checkdoc.el= lists them.
+- *checkdoc leftovers.*  Emacs 32's checkdoc reports 3 warnings:
+  =t-creator-string='s docstring first line is not a complete sentence
+  (it ends at the =%c= placeholder); and the =t-export-as-html= /
+  =t-export-to-html= docstrings never mention ASYNC (the argument is
+  used -- it goes to =org-export-to-buffer= / =org-export-to-file= --
+  so the docstring should say so, not the name mangled).  The
+  =ox-w3ctr-lint= skill's =scripts/checkdoc.el= lists them.
 
 - *=org-w3ctr--read-attr='s error message prints the property keyword as
   is.*  =Invalid attribute #+%s= interpolates the keyword, so the
@@ -290,11 +288,8 @@ same session.  Larger or planned work is in the =TODO= list above.
 
 - *Shorthand symbol names in docstrings and comments.*  They are string
   literals and get no =read-symbol-shorthands=; write the full
-  =org-w3ctr-*= name.  Fix per section in the passes.  grep =`t-= in
-  =ox-w3ctr.el= finds, outside the =REFINE:= sections, only =t-style= /
-  =t-style-file= (<head>).  The rest sit inside the Link section, which
-  its pass will fix: =t-inline-image-rules=, =t-inline-image-p=, =t-link=,
-  =t--link-path=, =t--link-target= (Link).
+  =org-w3ctr-*= name.  Remaining in =ox-w3ctr.el=: =t-style= /
+  =t-style-file= (<head>).
 
 - *Two test sections sit out of source order.*  =order-check.el= flags
   Headline and CC license badges.  Reorder them to the source function
@@ -315,17 +310,13 @@ same session.  Larger or planned work is in the =TODO= list above.
   section, and nothing flagged it.  Cross-section membership is checked by
   eye; done for the LaTeX pass.
 
-- *Link leftovers.*  The refactor is done, but a few spots are still weak
-  or suspect.  Each of these carries a =FIXME= in the source: the
-  cross-file ID fragment is built from =t--link-path='s output instead of
-  the raw path (=t--link-to-file=); and =:html-link-home= /
-  =:html-link-use-abs-url= are not implemented (=t--link-path=).
-  One more divergence has no marker: =.org.gpg= files are not rewritten to
-  =.html= (=t--link-org-files-as-html=), though ox-html does rewrite them.
-  =t--link-broken= looks unreachable (Org handles broken links before the
-  transcoder); it is =FIXME=-marked.  (=t--math-environment-p=, likewise
-  FIXME-marked, was removed -- its ordinal purpose is long gone.)
-  =t--link-to-file= and =t--link-broken= still have no tests.
+- *Descriptionless internal links.*  =org-w3ctr--link-to-headline=
+  synthesizes the section number (or exported title when unnumbered) for
+  a link without a description, while =org-w3ctr--link-target= emits the
+  placeholder ="No description for this link"=.  Revisit if explicit
+  descriptions are ever required across internal links; also note
+  =org-w3ctr--link-org-files-as-html= rewrites =.org= only (not
+  =.org.gpg= as ox-html does).
 
 - *De-engrave the naming: names describe function, provenance goes in a
   comment.*  The fontify engine borrowed its ideas (and ~5% of its lines)
@@ -374,6 +365,16 @@ same session.  Larger or planned work is in the =TODO= list above.
   verification skill).  Either the author gives every referenced element
   an explicit =CUSTOM_ID=, or the back-end derives a stable id -- see
   Non-goals.
+
+- *Headline =CUSTOM_ID= / =ID= values are neither validated nor
+  attribute-escaped.*  =org-w3ctr--build-normal-headline=,
+  =org-w3ctr--build-low-level-headline=, =org-w3ctr--headline-self-link=,
+  and =org-w3ctr-toc-headline-default-format-function= interpolate
+  =org-w3ctr--reference= straight into =id="%"= / =href="#%"=, so a
+  =CUSTOM_ID= containing quotes, =&='s, or spaces (invalid in HTML5
+  =id=s) produces malformed HTML.  Decide when touching Headline /
+  References whether to escape at each site or reject malformed ids in
+  =org-w3ctr--reference= / =org-w3ctr--element-id=.
 
 - *Docstring symbol quoting: the literal-apostrophe form where
   backquote-apostrophe is meant.*  The elisp-docstring rules quote a Lisp

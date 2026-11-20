@@ -4895,10 +4895,11 @@ Return \"<br>\\n\"."
 CONTENTS is nil.  INFO is the info plist.
 
 Return an empty <span> element carrying TARGET's reference
-\(`org-w3ctr--reference') as its id."
+\(`org-w3ctr--reference', attribute-escaped) as its id."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
-  (format "<span id=\"%s\"></span>" (t--reference target info)))
+  (format "<span id=\"%s\"></span>"
+          (t--encode-plain-text* (t--reference target info))))
 
 ;;;; Radio Target
 
@@ -4908,11 +4909,13 @@ Return an empty <span> element carrying TARGET's reference
 TEXT is the target text (nil becomes \"\").  INFO is the info plist.
 
 Return a <span> element carrying RADIO-TARGET's reference
-\(`org-w3ctr--reference') as its id and TEXT as its content."
+\(`org-w3ctr--reference', attribute-escaped) as its id and TEXT as
+its content."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format "<span id=\"%s\">%s</span>"
-          (t--reference radio-target info) (or text "")))
+          (t--encode-plain-text* (t--reference radio-target info))
+          (or text "")))
 
 ;;;; Statistics Cookie
 
@@ -5400,18 +5403,19 @@ or `fun'), signaling `org-w3ctr-error' on an unknown value."
 
 ;;;; Link
 
-;; REFINE: this section is pending the mainline fine pass (see AGENTS.md).
+;; See (info "(org)Hyperlinks") and (info "(org)Images")
 ;; Options:
-;; - :html-link-org-files-as-html (`org-w3ctr-link-org-files-as-html')
-;; - :html-inline-images (`org-w3ctr-inline-images')
-;; - :html-inline-image-rules (`org-w3ctr-inline-image-rules')
-;; - :html-extension (`org-w3ctr-extension')
+;; - :html-link-org-files-as-html  (`org-w3ctr-link-org-files-as-html')
+;; - :html-inline-images           (`org-w3ctr-inline-images')
+;; - :html-inline-image-rules      (`org-w3ctr-inline-image-rules')
+;; - :html-extension               (`org-w3ctr-extension')
+;; - :html-honor-ox-external-links (`org-w3ctr-honor-ox-external-links')
 
 ;; The "exactly one link" rule below fixes an upstream Org bug found
 ;; while refactoring `ox-html.el'; see
 ;; https://lists.gnu.org/archive/html/emacs-orgmode/2026-09/msg00073.html
 (defun t--sole-image-link-p (objects link-image-p)
-  "Non-nil when OBJECTS hold white space and exactly one image link.
+  "Return non-nil when OBJECTS hold white space and one image link.
 
 OBJECTS is a list of elements or objects (a link's description, or a
 paragraph's contents).  LINK-IMAGE-P is called with each link object
@@ -5427,7 +5431,7 @@ only the top-level links are counted."
         (cons 'plain-text org-element-all-objects)
       (lambda (obj)
         (when (pcase (org-element-type obj)
-                (`plain-text (org-string-nw-p obj))
+                (`plain-text (t--nw-p obj))
                 (`link (or (> (incf link-count) 1)
                            (not (funcall link-image-p obj))))
                 (_ t))
@@ -5436,10 +5440,10 @@ only the top-level links are counted."
     (and clean (= link-count 1))))
 
 (defun t--link-description-image-p (link rules)
-  "Non-nil when LINK's description is a single link to an image.
+  "Return non-nil when LINK's description is a single image link.
 
-The description may only hold white space and one link, and that
-link must target an image (see `t-inline-image-rules')."
+The description may hold only white space and one link, and that link
+must match RULES (see `org-w3ctr-inline-image-rules')."
   (declare (ftype (function (t list) boolean))
            (pure t) (important-return-value t))
   (t--sole-image-link-p
@@ -5447,11 +5451,13 @@ link must target an image (see `t-inline-image-rules')."
    (lambda (obj) (org-export-inline-image-p obj rules))))
 
 (defun t-inline-image-p (link info)
-  "Non-nil when LINK is meant to appear as an image.
-LINK is an inline image in either of two cases:
-  - it has no description and targets an image file (see
-    `org-w3ctr-inline-image-rules'); or
-  - its description is a single link to an image file.
+  "Return non-nil when LINK is meant to appear as an image.
+
+INFO is the info plist, supplying `:html-inline-image-rules'.  LINK
+is an inline image in either of two cases:
+- it has no description and targets an image file (see
+  `org-w3ctr-inline-image-rules'); or
+- its description is a single link to an image file.
 
 The second case is the \"clickable image\" construct.  Org does not
 parse nested links, so `[[URL][file:img.png]]' starts out as a link
@@ -5470,17 +5476,18 @@ bare file name such as `[[URL][img.png]]' is not enough."
       (t--link-description-image-p link rules))))
 
 (defun t-standalone-image-p (element info &optional predicate)
-  "Non-nil if ELEMENT is a standalone image.
-INFO is a plist holding contextual information.
+  "Return non-nil if ELEMENT is a standalone image.
 
-PREDICATE, when non-nil, is called with the containing paragraph and
-must return non-nil for ELEMENT to count as a standalone image.
+INFO is the info plist.  PREDICATE, when non-nil, is called with the
+containing paragraph and must return non-nil for ELEMENT to count as
+a standalone image.
 
-An element or object is a standalone image when
-  - its type is `paragraph' and its sole content, save for white
-    spaces, is a link that qualifies as an inline image;
-  - its type is `link' and its containing paragraph has no other
-    content save white spaces."
+An element or object is a standalone image when inline images are
+enabled (`:html-inline-images') and:
+- its type is `paragraph' and its sole content, save for white space,
+  is a link that qualifies as an inline image; or
+- its type is `link' and its containing paragraph has no other
+  content save white space."
   (declare (ftype (function (t list &optional t) t))
            (important-return-value t))
   (let ((paragraph (pcase (org-element-type element)
@@ -5494,35 +5501,35 @@ An element or object is a standalone image when
           (lambda (obj) (t-inline-image-p obj info))))))
 
 (defun t--link-image-p (link info)
-  "Non-nil when LINK should be exported as an inline image.
-Inline images must be enabled and LINK itself must target an image
-file (see `t-inline-image-p')."
+  "Return non-nil when LINK should be exported as an inline image.
+
+INFO is the info plist.  Inline images (`:html-inline-images') must
+be enabled and LINK itself must match `:html-inline-image-rules' (see
+`org-w3ctr-inline-image-p')."
   (declare (ftype (function (t list) t))
            (important-return-value t))
   (and (t--pget info :html-inline-images)
        (org-export-inline-image-p
         link (t--pget info :html-inline-image-rules))))
 
-(defun t--format-image (source attributes)
-  "Return an \"img\" tag with given SOURCE and ATTRIBUTES.
-SOURCE is a string specifying the location of the image.
-ATTRIBUTES is a plist, as returned by `org-export-read-attribute'."
-  (declare (ftype (function (string list) string))
+(defun t--format-image (source)
+  "Return an <img> element for image URL SOURCE.
+
+The `alt' attribute defaults to the non-directory part of SOURCE;
+both `src' and `alt' are attribute-escaped."
+  (declare (ftype (function (string) string))
            (important-return-value t))
   (t--void-element
    "img"
    (t--make-attribute-string
-    (org-combine-plists
-     (list :src source :alt (file-name-nondirectory source))
-     attributes))))
+    (list :src source :alt (file-name-nondirectory source)))))
 
 (defun t--link-org-files-as-html (raw-path info)
-  "Return RAW-PATH with a \".org\" extension turned into the
-configured `:html-extension' (usually \".html\").
+  "Rewrite a \".org\" extension in RAW-PATH to INFO's `:html-extension'.
 
-Only do so when `:html-link-org-files-as-html' is non-nil and
-RAW-PATH actually ends in \".org\"; otherwise return RAW-PATH
-unchanged."
+Only rewrite when `:html-link-org-files-as-html' in INFO is non-nil
+and RAW-PATH ends in \".org\" (ignoring case); otherwise return
+RAW-PATH unchanged."
   (declare (ftype (function (string list) string))
            (important-return-value t))
   (if-let* ((_ (t--pget info :html-link-org-files-as-html))
@@ -5534,25 +5541,24 @@ unchanged."
     raw-path))
 
 (defun t--link-path (link info)
-  "Return the URL to use for LINK.
+  "Return the URL string for LINK under INFO.
 
-A file link becomes a \"file:\" URI (relative during publishing),
-with its \".org\" extension rewritten to `:html-extension' (usually
-\".html\") when requested, and any search option appended.  Other
-link types get their \"TYPE:\" prefix and URL encoding."
+INFO is the info plist.  A file link becomes a \"file:\" URI (relative
+during publishing), with its \".org\" extension rewritten to
+`:html-extension' (usually \".html\") when requested, and any search
+option appended.  Other link types get their \"TYPE:\" prefix and URL
+encoding."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((type (org-element-property :type link))
         (raw-path (org-element-property :path link)))
     (if (not (string= "file" type))
         (url-encode-url (concat type ":" raw-path))
-      ;; FIXME: Replace `org-publish-file-relative-name' with a local
-      ;; implementation (see the ox-publish non-goal in AGENTS.md).
+      ;; Relative path resolution uses `org-publish-file-relative-name'
+      ;; (see the ox-publish non-goal in README.org); ox-html's
+      ;; `:html-link-home' / `:html-link-use-abs-url' rewriting is
+      ;; deliberately omitted.
       (let* ((raw-path (org-publish-file-relative-name raw-path info))
-             ;; FIXME: Do we really need `:html-link-home' and
-             ;; `:html-link-use-abs-url'?  ox-html prepends the home
-             ;; directory to relative file paths here; ox-w3ctr has
-             ;; never implemented this.
              (path (t--link-org-files-as-html
                     (org-export-file-uri raw-path) info))
              (option (org-element-property :search-option link)))
@@ -5571,7 +5577,7 @@ link types get their \"TYPE:\" prefix and URL encoding."
                         (substring option 1)
                       (t-error
                        (concat
-                        "Cross-file link %S uses search option %S, which"
+                        "Cross-file link %S uses search option %S, which "
                         "requires org-publish in compatibility mode.  "
                         "Add a CUSTOM_ID to the target and use the "
                         "#custom-id form, or set "
@@ -5579,67 +5585,45 @@ link types get their \"TYPE:\" prefix and URL encoding."
                        (org-element-property :path link)
                        option)))))))))
 
-;; FIXME: simplify or remove it.
-(defun t--link-attributes (link _info)
-  "Return the HTML attribute plist attached directly to LINK.
-INFO is unused.
+(defun t--link-radio (link desc info)
+  "Transcode a radio target LINK with description DESC.
 
-A link is an object, not an element, and `:attr_html' is an
-affiliated keyword, so this is almost always nil; it only has a
-value when set programmatically on LINK.  Paragraph attributes are
-never copied onto images: they stay on the <figure> or <p>."
-  (declare (ftype (function (t list) list))
-           (important-return-value t))
-  (org-export-read-attribute :attr_html link))
-
-(defun t--link-radio (link desc info attributes)
-  "Transcode a radio target LINK.
-DESC and ATTRIBUTES are as computed in `t-link'.  INFO is the
-export state."
-  (declare (ftype (function (t (or null string) list string) string))
-           (important-return-value t))
-  (let ((destination (org-export-resolve-radio-link link info)))
-    (if (not destination) desc
-      (format "<a href=\"#%s\"%s>%s</a>"
-              (t--reference destination info)
-              attributes
-              desc))))
-
-(defun t--link-to-file (destination id desc attributes info)
-  "Transcode an ID link pointing to an external file.
-DESTINATION is the target file path as returned by
-`org-export-resolve-id-link'.  ID is the raw :ID or :CUSTOM_ID value
-from the link (the :path property of the link element), used to build
-the fragment.  DESC and ATTRIBUTES are as computed in `org-w3ctr-link'.
-INFO is the export state."
-  (declare (ftype (function (t string (or null string) string list) string))
-           (important-return-value t))
-  (format "<a href=\"%s#%s\"%s>%s</a>"
-          (t--link-org-files-as-html destination info)
-          (concat t--id-attr-prefix id)
-          attributes
-          (or desc destination)))
-
-(defun t--link-broken (link desc info)
-  "Transcode LINK that points nowhere.
-DESC is the link's description.  INFO is the export state."
+DESC is the transcoded description, or nil.  INFO is the info plist.
+Return an <a> element pointing to the resolved target, or DESC (\"\"
+when nil) if the target was not exported."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (format "<i>%s</i>"
-          (or desc
-              (org-export-data
-               (org-element-property :raw-link link) info))))
+  (let ((destination (org-export-resolve-radio-link link info)))
+    (if (not destination) (or desc "")
+      (format "<a href=\"#%s\">%s</a>"
+              (t--encode-plain-text* (t--reference destination info))
+              (or desc "")))))
 
-(defun t--link-to-headline (destination desc attributes info)
-  "Transcode a link to headline DESTINATION.
-DESC and ATTRIBUTES are as computed in `t-link'.  INFO is the
-export state."
-  (declare (ftype (function (t (or null string) string list) string))
+(defun t--link-to-file (destination id desc info)
+  "Transcode an ID link pointing to external file DESTINATION.
+
+DESTINATION is the target file path from `org-export-resolve-id-link'.
+ID is the raw `:path' of the link, prefixed with
+`org-w3ctr--id-attr-prefix' to form the fragment.  DESC is the link
+description, or nil (falling back to HTML-escaped DESTINATION).  INFO
+is the info plist."
+  (declare (ftype (function (string string (or null string) list) string))
            (important-return-value t))
-  ;; FIXME: Rethink the auto-generated section number below: links
-  ;; should carry an explicit description rather than a
-  ;; system-generated one (see the same decision for `t--link-target').
-  (let* ((href (t--reference destination info))
+  (let ((href (concat (t--link-org-files-as-html destination info)
+                      "#" t--id-attr-prefix id)))
+    (format "<a href=\"%s\">%s</a>"
+            (t--encode-plain-text* href)
+            (or desc (t--encode-plain-text destination)))))
+
+(defun t--link-to-headline (destination desc info)
+  "Transcode a link to headline DESTINATION.
+
+DESC is the link description, or nil; when nil, use DESTINATION's
+dotted section number if numbered, else its exported title.  INFO is
+the info plist."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (let* ((href (t--encode-plain-text* (t--reference destination info)))
          (desc (if (and (org-export-numbered-headline-p destination info)
                         (not desc))
                    (mapconcat #'number-to-string
@@ -5648,33 +5632,30 @@ export state."
                  (or desc
                      (org-export-data
                       (org-element-property :title destination) info)))))
-    (format "<a href=\"#%s\"%s>%s</a>" href attributes desc)))
+    (format "<a href=\"#%s\">%s</a>" href desc)))
 
-(defun t--link-target (desc info destination attributes)
-  "Transcode a link whose fuzzy DESTINATION is a target or element.
-The description is the link's own DESC; no number is generated for
-it, so a link without a description falls back to a fixed string.
-DESC and ATTRIBUTES are as in `org-w3ctr-link'.  INFO is the info
-plist.  Signal `org-w3ctr-error' when DESTINATION emits no id."
-  (declare (ftype (function ((or null string) list t string) string))
+(defun t--link-target (desc info destination)
+  "Transcode a fuzzy link whose DESTINATION is a target or element.
+
+DESC is the link description, or nil (falling back to a fixed string).
+INFO is the info plist.  Signal `org-w3ctr-error' when DESTINATION
+emits no id."
+  (declare (ftype (function ((or null string) list t) string))
            (important-return-value t))
-  ;; FIXME: Rethink whether to use information from the destination
-  ;; (image alt/caption, target value, ...) to build the description
-  ;; instead of the fixed string below.
   (let ((id (t--element-id destination info)))
     (unless id
       (t-error "Link target %s at line %d has no id"
                (org-element-type destination)
                (line-number-at-pos (org-element-property :begin destination))))
-    (format "<a href=\"#%s\"%s>%s</a>"
+    (format "<a href=\"#%s\">%s</a>"
             (t--encode-plain-text* id)
-            attributes
             (or desc "No description for this link"))))
 
-(defun t--link-dispatch (link desc info attributes)
+(defun t--link-dispatch (link desc info)
   "Transcode LINK resolved through its ID, custom ID or fuzzy target.
-DESC and ATTRIBUTES are as computed in `org-w3ctr-link'."
-  (declare (ftype (function (t (or null string) list string) string))
+
+DESC is the link description, or nil.  INFO is the info plist."
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type link))
          (destination (if (string= type "fuzzy")
@@ -5688,32 +5669,30 @@ DESC and ATTRIBUTES are as computed in `org-w3ctr-link'."
        (if (t--pget info :html-honor-ox-external-links)
            (t--link-to-file destination
                             (org-element-property :path link)
-                            desc attributes info)
+                            desc info)
          (t-error
           (concat "Cross-file id: link %S requires org-publish in "
                   "compatibility mode.  Add a CUSTOM_ID to the target "
                   "headline and link to it with [[file:other.org::#custom-id]]"
                   ", or set `org-w3ctr-honor-ox-external-links' to non-nil.")
           (org-element-property :raw-link link))))
-      (`nil (t--link-broken link desc info))
-      (`headline (t--link-to-headline destination desc attributes info))
+      (`headline (t--link-to-headline destination desc info))
       ;; Equation links (`org-w3ctr--link-equation') were removed: a link
       ;; to a `latex-environment' falls through to `org-w3ctr--link-target'
       ;; and signals `org-w3ctr-error' (wrap the equation in a named block,
       ;; place a `<<target>>' beside it, or use native TeX \label/\eqref).
-      (_ (t--link-target desc info destination attributes)))))
+      (_ (t--link-target desc info destination)))))
 
-(defun t--link-coderef (label desc info attributes)
+(defun t--link-coderef (label desc info)
   "Transcode the code-reference link [[(LABEL)]].
 
-LABEL is the reference name, DESC the link's description or nil,
-INFO the export state, and ATTRIBUTES the space-prefixed attribute
-string.  The href is the id of the block that defines
+LABEL is the reference name, DESC the link description or nil, and
+INFO the info plist.  The href is the id of the block that defines
 `(ref:LABEL)', so every label in one block shares a target.  The
 link text is LABEL, or DESC with `(LABEL)' replaced by it (see
 `org-export-get-coderef-format').  Signal `org-w3ctr-error' when
 LABEL cannot be an id, or when no block defines it."
-  (declare (ftype (function (string (or null string) list string) string))
+  (declare (ftype (function (string (or null string) list) string))
            (important-return-value t))
   ;; An HTML id cannot hold white space, while Org's label regexp
   ;; allows it (as in `(ref:my label)').
@@ -5726,56 +5705,50 @@ LABEL cannot be an id, or when no block defines it."
                   (t-error "Code reference %s is in a block with no id"
                            label)))
           (text (format (org-export-get-coderef-format label desc) label)))
-      (format "<a href=\"#%s\" class=\"coderef\"%s>%s</a>"
-              (t--encode-plain-text* id)
-              attributes text))))
+      (format "<a href=\"#%s\" class=\"coderef\">%s</a>"
+              (t--encode-plain-text* id) text))))
 
-(defun t--link-external (path desc attributes)
-  "Transcode a plain external link with PATH, DESC and ATTRIBUTES.
-When DESC is nil, PATH doubles as the description."
-  (declare (ftype (function (string (or null string) string) string))
-           (important-return-value t))
-  (let ((path (t--encode-plain-text path)))
-    (format "<a href=\"%s\"%s>%s</a>" path attributes (or desc path))))
+(defun t--link-external (path desc)
+  "Transcode an external or file link with URL PATH and description DESC.
+
+When DESC is nil, HTML-escaped PATH doubles as the description; PATH
+itself is attribute-escaped for `href'."
+  (declare (ftype (function (string (or null string)) string))
+           (pure t) (important-return-value t))
+  (format "<a href=\"%s\">%s</a>"
+          (t--encode-plain-text* path)
+          (or desc (t--encode-plain-text path))))
 
 (defun t-link (link desc info)
   "Transcode a LINK object from Org to HTML.
-DESC is the description part of the link, or the empty string.
-INFO is a plist holding contextual information.  See
-`org-export-data'."
+DESC is the link description (or nil).  INFO is the info plist.
+
+Return an <img> element for an inline image link, or an <a> element
+\(or plain text for an unexported radio target) after dispatching on
+LINK's protocol and `:type'."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (let* ((type (org-element-property :type link))
-         (path (t--link-path link info))
-         ;; Ensure DESC really exists, or set it to nil.
-         (desc (org-string-nw-p desc))
-         (attributes-plist (t--link-attributes link info))
-         (attributes (let ((attr (t--make-attribute-string attributes-plist)))
-                       (if (org-string-nw-p attr) (concat " " attr) ""))))
+  (let ((type (org-element-property :type link))
+        (path (t--link-path link info))
+        (desc (t--nw-p desc)))
     (cond
      ;; Link type is handled by a special function.
      ((org-export-custom-protocol-maybe link desc 'w3ctr info))
      ;; Image file.
      ((t--link-image-p link info)
-      (t--format-image path attributes-plist))
-     ;; Radio target: Transcode target's contents and use them as
-     ;; link's description.
+      (t--format-image path))
+     ;; Radio target.
      ((string= type "radio")
-      (t--link-radio link desc info attributes))
+      (t--link-radio link desc info))
      ;; Links pointing to a headline, a target or an element.
      ((member type '("custom-id" "fuzzy" "id"))
-      (t--link-dispatch link desc info attributes))
-     ;; Coderef: point at the block that defines the label; the code
-     ;; text keeps the label as written.
+      (t--link-dispatch link desc info))
+     ;; Coderef: point at the block that defines the label.
      ((string= type "coderef")
-      (t--link-coderef (org-element-property :path link)
-                       desc info attributes))
-     ;; External link.
-     (path
-      (t--link-external path desc attributes))
-     ;; No path, only description.  Try to do something useful.
+      (t--link-coderef (org-element-property :path link) desc info))
+     ;; External or file link.
      (t
-      (format "<i>%s</i>" desc)))))
+      (t--link-external path desc)))))
 
 ;;; Smallest objects
 ;; See (info "(org) Emphasis and Monospace")

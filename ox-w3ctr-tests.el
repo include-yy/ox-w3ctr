@@ -5296,13 +5296,14 @@ COUNTER, a cons cell, has its car incremented on every call."
   (let ((out (org-export-string-as "<<1bad>> [[1bad]]" 'w3ctr t)))
     (should (string-match
              "<span id=\"\\(org[0-9a-f]+\\)\"></span> <a href=\"#\\1\">" out)))
-  ;; Direct call: forwards TARGET and INFO to `org-w3ctr--reference'.
+  ;; Direct call: forwards TARGET and INFO to `org-w3ctr--reference',
+  ;; and escapes the id for an HTML attribute.
   (let ((seen nil))
     (cl-letf (((symbol-function 't--reference)
                (lambda (d i &optional n)
                  (setq seen (list d i n))
-                 "ref")))
-      ($l (t-target 'tgt nil '(:k v)) "<span id=\"ref\"></span>")
+                 "a\"&b")))
+      ($l (t-target 'tgt nil '(:k v)) "<span id=\"a&quot;&amp;b\"></span>")
       ($l seen '(tgt (:k v) nil)))))
 
 ;;;; Radio Target
@@ -5322,14 +5323,17 @@ COUNTER, a cons cell, has its car incremented on every call."
              out)))
   (let ((out (org-export-string-as "<<<$x$>>>" 'w3ctr t '(:with-latex nil))))
     (should (string-match-p "<span id=\"org[0-9a-f]+\"></span>" out)))
-  ;; Direct call: forwards RADIO-TARGET and INFO to `org-w3ctr--reference'.
+  ;; Direct call: forwards RADIO-TARGET and INFO to `org-w3ctr--reference',
+  ;; and escapes the id for an HTML attribute.
   (let ((seen nil))
     (cl-letf (((symbol-function 't--reference)
                (lambda (d i &optional n)
                  (setq seen (list d i n))
-                 "ref")))
-      ($l (t-radio-target 'rt "hello" '(:k v)) "<span id=\"ref\">hello</span>")
-      ($l (t-radio-target 'rt nil '(:k v)) "<span id=\"ref\"></span>")
+                 "a\"&b")))
+      ($l (t-radio-target 'rt "hello" '(:k v))
+          "<span id=\"a&quot;&amp;b\">hello</span>")
+      ($l (t-radio-target 'rt nil '(:k v))
+          "<span id=\"a&quot;&amp;b\"></span>")
       ($l seen '(rt (:k v) nil)))))
 
 ;;;; Statistics Cookie
@@ -6270,6 +6274,34 @@ COUNTER, a cons cell, has its car incremented on every call."
     (dolist (p '("img.png.txt" "img.tiff" "img.heic" "img.jp2"))
       ($n (string-match-p t-inline-image-path-regexp p)))))
 
+(ert-deftest t--sole-image-link-p ()
+  "Tests for `org-w3ctr--sole-image-link-p'."
+  (let ((img-p (lambda (l)
+                 (string-suffix-p ".png" (org-element-property :path l)))))
+    (cl-flet ((objs (s) (org-element-contents (t-get-element s 'paragraph))))
+      ($s (t--sole-image-link-p (objs "[[file:a.png]]") img-p))
+      ($s (t--sole-image-link-p (objs "  [[file:a.png]] \t") img-p))
+      ;; Non-blank text, another object, zero links, two links, or a
+      ;; non-image link all fail.
+      ($n (t--sole-image-link-p (objs "x [[file:a.png]]") img-p))
+      ($n (t--sole-image-link-p (objs "*b* [[file:a.png]]") img-p))
+      ($n (t--sole-image-link-p nil img-p))
+      ($n (t--sole-image-link-p (objs "[[file:a.png]] [[file:b.png]]") img-p))
+      ($n (t--sole-image-link-p (objs "[[file:a.txt]]") img-p)))))
+
+(ert-deftest t--link-description-image-p ()
+  "Tests for `org-w3ctr--link-description-image-p'."
+  (let ((rules '(("file" . "\\.png\\'"))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "[[https://example.com][file:a.png]]\n"
+              "[[https://example.com][file:a.txt]]\n")
+      (let ((tree (org-element-parse-buffer)))
+        (org-export-insert-image-links tree nil rules)
+        (let ((links (org-element-map tree 'link #'identity nil nil 'link)))
+          ($s (t--link-description-image-p (nth 0 links) rules))
+          ($n (t--link-description-image-p (nth 1 links) rules)))))))
+
 (ert-deftest t-inline-image-p ()
   "Tests for `org-w3ctr-inline-image-p'."
   (let* ((info '(:html-inline-image-rules (("file" . "\\.png\\'"))))
@@ -6296,12 +6328,61 @@ COUNTER, a cons cell, has its car incremented on every call."
                link (cons " " (org-element-contents link)))
               (org-w3ctr-inline-image-p link info)))))))
 
+(ert-deftest t-standalone-image-p ()
+  "Tests for `org-w3ctr-standalone-image-p'."
+  (let ((info '( :html-inline-images t
+                 :html-inline-image-rules (("file" . "\\.png\\'")))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "[[file:a.png]]\n\ntext [[file:b.png]]\n")
+      (let* ((tree (org-element-parse-buffer))
+             (ps (org-element-map tree 'paragraph #'identity))
+             (ls (org-element-map tree 'link #'identity)))
+        ;; Both the paragraph and its sole link qualify.
+        ($s (t-standalone-image-p (nth 0 ps) info))
+        ($s (t-standalone-image-p (nth 0 ls) info))
+        ($n (t-standalone-image-p (nth 1 ps) info))
+        ($n (t-standalone-image-p (nth 1 ls) info))
+        ;; PREDICATE receives the containing paragraph and gates the result.
+        ($s (t-standalone-image-p (nth 0 ls) info
+                                  (lambda (p) (eq p (nth 0 ps)))))
+        ($n (t-standalone-image-p (nth 0 ls) info #'ignore))
+        ;; Disabled `:html-inline-images' turns standalone detection off.
+        ($n (t-standalone-image-p (nth 0 ps)
+                                  (cons :html-inline-images (cons nil info))))
+        ;; Non-paragraph/link elements return nil.
+        ($n (t-standalone-image-p tree info))))))
+
+(ert-deftest t--link-image-p ()
+  "Tests for `org-w3ctr--link-image-p'."
+  (let ((link (t-get-element "[[file:a.png]]" 'link))
+        (rules '(("file" . "\\.png\\'"))))
+    ($s (t--link-image-p link (list :html-inline-images t
+                                    :html-inline-image-rules rules)))
+    ($n (t--link-image-p link (list :html-inline-images nil
+                                    :html-inline-image-rules rules)))
+    ($n (t--link-image-p (t-get-element "[[file:a.png][desc]]" 'link)
+                         (list :html-inline-images t
+                               :html-inline-image-rules rules)))))
+
+(ert-deftest t--format-image ()
+  "Tests for `org-w3ctr--format-image'."
+  ($l (t--format-image "dir/img.png")
+      "<img src=\"dir/img.png\" alt=\"img.png\">")
+  ($l (t--format-image "dir/a\"&b.png")
+      "<img src=\"dir/a&quot;&amp;b.png\" alt=\"a&quot;&amp;b.png\">"))
+
 (ert-deftest t--link-org-files-as-html ()
   "Tests for `org-w3ctr--link-org-files-as-html'."
   (let ((info '(:html-link-org-files-as-html t :html-extension "html")))
     ($l (t--link-org-files-as-html "foo.org" info) "foo.html")
+    ($l (t--link-org-files-as-html "foo.ORG" info) "foo.html")
     ($l (t--link-org-files-as-html "dir/foo.org" info) "dir/foo.html")
+    ($l (t--link-org-files-as-html "foo.org.gpg" info) "foo.org.gpg")
     ($l (t--link-org-files-as-html "foo.txt" info) "foo.txt"))
+  ($l (t--link-org-files-as-html
+       "foo.org" '(:html-link-org-files-as-html t :html-extension ""))
+      "foo")
   ($l (t--link-org-files-as-html
        "foo.org" '(:html-link-org-files-as-html nil :html-extension "html"))
       "foo.org"))
@@ -6326,7 +6407,15 @@ COUNTER, a cons cell, has its car incremented on every call."
                    (t-parse1 'link)))
            (info (list :html-honor-ox-external-links nil
                        :html-link-org-files-as-html t :html-extension "html")))
-      ($q (car (should-error (t--link-path link info))) 'org-w3ctr-error)))
+      ($e!l (t--link-path link info)
+            (list 'org-w3ctr-error
+                  (format (concat "Cross-file link %S uses search option %S, "
+                                  "which requires org-publish in compatibility "
+                                  "mode.  Add a CUSTOM_ID to the target and "
+                                  "use the #custom-id form, or set "
+                                  "`org-w3ctr-honor-ox-external-links' to "
+                                  "non-nil.")
+                          "other.org" opt)))))
   ;; Compatibility mode resolves through org-publish.
   (let* ((link (with-temp-buffer
                  (org-mode) (insert "[[file:other.org::*heading]]") (t-parse1 'link)))
@@ -6339,13 +6428,50 @@ COUNTER, a cons cell, has its car incremented on every call."
                  "FRAG")))
       ($l (t--link-path link info) "other.html#FRAG"))))
 
+(ert-deftest t--link-radio ()
+  "Tests for `org-w3ctr--link-radio'."
+  (let* ((tree (with-temp-buffer
+                 (org-mode)
+                 (insert "<<<rad>>>\n\nSee rad.\n")
+                 (org-update-radio-target-regexp)
+                 (org-element-parse-buffer)))
+         (link (car (org-element-map tree 'link #'identity)))
+         (info (list :parse-tree tree)))
+    ($l (t--link-radio link "rad" info) "<a href=\"#rad\">rad</a>")
+    ;; An unexported radio target (such as one inside `:noexport:')
+    ;; degrades to plain text instead of emitting a dead anchor.
+    ($l (t--link-radio link "rad" '(:parse-tree nil)) "rad")
+    ($l (t--link-radio link nil '(:parse-tree nil)) ""))
+  ;; An unexported target in a real document.
+  (let ((out (org-export-string-as
+              "* Hidden :noexport:\n<<<r>>>\n* Shown\nSee r here."
+              'w3ctr t)))
+    (should (string-match-p "<p>See r here\\.</p>" out))))
+
 (ert-deftest t--link-to-file ()
   "Tests for `org-w3ctr--link-to-file'."
   (let ((info (list :html-link-org-files-as-html t :html-extension "html")))
-    ($l (t--link-to-file "other.org" "xyz" "desc" "" info)
+    ($l (t--link-to-file "other.org" "xyz" "desc" info)
         "<a href=\"other.html#ID-xyz\">desc</a>")
-    ($l (t--link-to-file "other.org" "xyz" nil "" info)
-        "<a href=\"other.html#ID-xyz\">other.org</a>")))
+    ($l (t--link-to-file "other.org" "xyz" nil info)
+        "<a href=\"other.html#ID-xyz\">other.org</a>")
+    ($l (t--link-to-file "a\"&b.org" "x\"y" nil info)
+        "<a href=\"a&quot;&amp;b.html#ID-x&quot;y\">a\"&amp;b.org</a>")))
+
+(ert-deftest t--link-to-headline ()
+  "Tests for `org-w3ctr--link-to-headline'."
+  ;; Numbered headline without DESC uses the dotted section number;
+  ;; unnumbered headline without DESC uses the exported title.
+  (let ((out (org-export-string-as
+              "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: h\n:END:\n\n[[#h]] and [[#h][go]]"
+              'w3ctr t '(:section-numbers t))))
+    (should (string-match-p "<a href=\"#h\">1</a> and <a href=\"#h\">go</a>"
+                            out)))
+  (let ((out (org-export-string-as
+              "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: a\"&b\n:END:\n\n[[#a\"&b]]"
+              'w3ctr t '(:section-numbers nil))))
+    (should (string-match-p "<a href=\"#a&quot;&amp;b\"><b>Head</b></a>"
+                            out))))
 
 (ert-deftest t--link-target ()
   "Tests for `org-w3ctr--link-target'."
@@ -6384,7 +6510,7 @@ COUNTER, a cons cell, has its car incremented on every call."
                  (org-mode) (insert "[[id:xyz]]") (t-parse1 'link)))
          (info (list :html-honor-ox-external-links nil
                      :id-alist '(("xyz" . "other.org")))))
-    ($q (car (should-error (t--link-dispatch link nil info "")))
+    ($q (car (should-error (t--link-dispatch link nil info)))
         'org-w3ctr-error))
   ;; Compatibility mode builds the ID- fragment via t--link-to-file.
   (let* ((link (with-temp-buffer
@@ -6392,7 +6518,7 @@ COUNTER, a cons cell, has its car incremented on every call."
          (info (list :html-honor-ox-external-links t
                      :html-link-org-files-as-html t :html-extension "html"
                      :id-alist '(("xyz" . "other.org")))))
-    ($l (t--link-dispatch link "desc" info "")
+    ($l (t--link-dispatch link "desc" info)
         "<a href=\"other.html#ID-xyz\">desc</a>")))
 
 (ert-deftest t--link-coderef ()
@@ -6404,22 +6530,26 @@ COUNTER, a cons cell, has its car incremented on every call."
                  (org-element-parse-buffer)))
          (info (list :parse-tree tree :html-prefer-user-labels t)))
     ;; The href is the defining block's id, the text is the label.
-    ($l (t--link-coderef "sc" nil info "")
+    ($l (t--link-coderef "sc" nil info)
         "<a href=\"#ex\" class=\"coderef\">sc</a>")
     ;; DESC replaces "(sc)" with the label ...
-    ($l (t--link-coderef "sc" "line (sc)" info "")
+    ($l (t--link-coderef "sc" "line (sc)" info)
         "<a href=\"#ex\" class=\"coderef\">line sc</a>")
     ;; ... and is used as is when it does not mention it.
-    ($l (t--link-coderef "sc" "line 3" info "")
-        "<a href=\"#ex\" class=\"coderef\">line 3</a>")
-    ;; User attributes follow the class.
-    ($l (t--link-coderef "sc" nil info " title=\"x\"")
-        "<a href=\"#ex\" class=\"coderef\" title=\"x\">sc</a>"))
+    ($l (t--link-coderef "sc" "line 3" info)
+        "<a href=\"#ex\" class=\"coderef\">line 3</a>"))
+  ;; Special characters in the defining block's id are attribute-escaped.
+  (let ((out (org-export-string-as
+              (concat "#+attr__: (id \"a&b\")\n#+begin_example\nx (ref:sc)\n"
+                      "#+end_example\n\nSee [[(sc)]].")
+              'w3ctr t)))
+    (should (string-match-p
+             "<a href=\"#a&amp;b\" class=\"coderef\">sc</a>" out)))
   ;; A dangling label signals with its name.
-  ($e!l (t--link-coderef "nope" nil '(:parse-tree nil) "")
+  ($e!l (t--link-coderef "nope" nil '(:parse-tree nil))
         '(org-w3ctr-error "No example or source block defines (ref:nope)"))
   ;; White space cannot be part of an id.
-  ($e!l (t--link-coderef "a b" nil nil "")
+  ($e!l (t--link-coderef "a b" nil nil)
         '(org-w3ctr-error "Invalid code reference label: a b"))
   ;; A block whose id is explicitly suppressed cannot be a target.
   ($e!l (org-export-string-as
@@ -6443,45 +6573,52 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--link-external ()
   "Tests for `org-w3ctr--link-external'."
-  ($l (t--link-external "https://example.com" "desc" "")
+  ($l (t--link-external "https://example.com" "desc")
       "<a href=\"https://example.com\">desc</a>")
-  ($l (t--link-external "https://example.com" nil "")
-      "<a href=\"https://example.com\">https://example.com</a>"))
+  ($l (t--link-external "https://example.com" nil)
+      "<a href=\"https://example.com\">https://example.com</a>")
+  ($l (t--link-external "a\"b&c.html" nil)
+      "<a href=\"a&quot;b&amp;c.html\">a\"b&amp;c.html</a>")
+  ($l (t--link-external "a\"b&c.html" "go")
+      "<a href=\"a&quot;b&amp;c.html\">go</a>"))
 
 (ert-deftest t-link ()
   "Tests for `org-w3ctr-link'."
-  (t-check-element-values
-   #'t-link
-   '(("[[https://example.com][desc]]"
-      "<a href=\"https://example.com\">desc</a>")
-     ("[[https://example.com]]"
-      "<a href=\"https://example.com\">https://example.com</a>")
-     ("[[file:other.org][other]]"
-      "<a href=\"other.html\">other</a>")
-     ("[[file:img.png]]"
-      "<img src=\"img.png\" alt=\"img.png\">")
-     ;; Custom ID link to a headline.
-     ("* Head\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n\nSee [[#custom]]."
-      "<a href=\"#custom\">1</a>")
-     ;; Fuzzy link to a target.
-     ("A <<foo>> target. See [[foo]]."
-      "<a href=\"#foo\">No description for this link</a>")
-     ;; Fuzzy link to a named element.
-     ("#+name: tab\n| a |\n\nSee [[tab]]."
-      "<a href=\"#tab\">No description for this link</a>")
-     ;; Radio target link.
-     ("<<<radio>>>\n\nSee radio here."
-      "<a href=\"#radio\">radio</a>")
-     ;; A code-reference link points at the block that defines the
-     ;; label, so the block is the addressable unit.
-     ("#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\nSee [[(sc)]]."
-      "<a href=\"#ex\" class=\"coderef\">sc</a>")
-     ("#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\nSee [[(sc)][line (sc)]]."
-      "<a href=\"#ex\" class=\"coderef\">line sc</a>")
-     ;; A source block is a target too.
-     ("#+name: ex\n#+begin_src text\nx (ref:sc)\n#+end_src\n\nSee [[(sc)]]."
-      "<a href=\"#ex\" class=\"coderef\">sc</a>"))
-   t '(:with-latex verbatim :html-prefer-user-labels t)))
+  (let ((t--fontify-last-state nil))
+    (t-check-element-values
+     #'t-link
+     '(("[[https://example.com][desc]]"
+        "<a href=\"https://example.com\">desc</a>")
+       ("[[https://example.com]]"
+        "<a href=\"https://example.com\">https://example.com</a>")
+       ("[[file:other.org][other]]"
+        "<a href=\"other.html\">other</a>")
+       ("[[file:a\"b.html][go]]"
+        "<a href=\"a&quot;b.html\">go</a>")
+       ("[[file:img.png]]"
+        "<img src=\"img.png\" alt=\"img.png\">")
+       ;; Custom ID link to a headline.
+       ("* Head\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n\nSee [[#custom]]."
+        "<a href=\"#custom\">1</a>")
+       ;; Fuzzy link to a target.
+       ("A <<foo>> target. See [[foo]]."
+        "<a href=\"#foo\">No description for this link</a>")
+       ;; Fuzzy link to a named element.
+       ("#+name: tab\n| a |\n\nSee [[tab]]."
+        "<a href=\"#tab\">No description for this link</a>")
+       ;; Radio target link.
+       ("<<<radio>>>\n\nSee radio here."
+        "<a href=\"#radio\">radio</a>")
+       ;; A code-reference link points at the block that defines the
+       ;; label, so the block is the addressable unit.
+       ("#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\nSee [[(sc)]]."
+        "<a href=\"#ex\" class=\"coderef\">sc</a>")
+       ("#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\nSee [[(sc)][line (sc)]]."
+        "<a href=\"#ex\" class=\"coderef\">line sc</a>")
+       ;; A source block is a target too.
+       ("#+name: ex\n#+begin_src text\nx (ref:sc)\n#+end_src\n\nSee [[(sc)]]."
+        "<a href=\"#ex\" class=\"coderef\">sc</a>"))
+     t '(:with-latex verbatim :html-prefer-user-labels t))))
 
 ;;; Smallest objects
 
