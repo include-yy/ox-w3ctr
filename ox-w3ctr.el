@@ -87,7 +87,7 @@
     ;; The pairs follow the order of their implementations below; the
     ;; annotations keep Org's taxonomy, so family members that the
     ;; source keeps with their element sit beside it here too.
-    ;;@ greater elements [11]
+    ;;@ greater elements
     ;; footnote-definition                      NO-EXIST
     ;; inlinetasks `inlinetask'                 NO-USE
     ;; property drawers `property-drawer'       NO-USE
@@ -102,7 +102,7 @@
     (table-cell . t-table-cell)                 ; | | (an object)
     (table-row . t-table-row)                   ; | | (a lesser element)
     (table . t-table)                           ; | | | \n | | |
-    ;;@ lesser elements [17]
+    ;;@ lesser elements
     ;; babel cell                               NO-EXIST
     ;; clock `clock'                            NO-USE
     ;; comments                                 NO-EXPORT
@@ -122,7 +122,7 @@
     (example-block . t-example-block)           ; #+begin_example
     (src-block . t-src-block)                   ; #+begin_src lang
     (inline-src-block . t-inline-src-block)     ; src_LANG{body} (an object)
-    ;;@ objects [25]
+    ;;@ objects
     ;; citation                                 NO-USE
     ;; citation reference                       NO-USE
     ;; inline babel calls                       NO-EXIST
@@ -144,7 +144,7 @@
     (code . t-code)                             ; ~a~
     (strike-through . t-strike-through)         ; +a+
     (plain-text . t-plain-text)
-    ;;@ headline section [2]
+    ;;@ headline section
     (section . t-section)
     (headline . t-headline)
     ;; top-level structure
@@ -164,12 +164,12 @@
   '(;; Reference
     (:html-prefer-user-labels nil nil t-prefer-user-labels)
     ;; Drawer
-    (:html-format-drawer-function nil nil t-drawer-format-function)
+    (:html-drawer-format-function nil nil t-drawer-format-function)
     ;; Footnote
-    (:html-footnotes-section nil nil t-footnotes-section)
     (:html-footnote-format nil nil t-footnote-format)
     (:html-footnote-separator nil nil t-footnote-separator)
-    (:html-footnote-section-function nil nil t-footnote-section-function)
+    (:html-footnote-section-format-function
+     nil nil t-footnote-section-format-function)
     ;; Item and Plain Lists
     (:html-checkbox-type nil nil t-checkbox-type)
     ;; Special Block
@@ -180,24 +180,27 @@
     ;; Table
     (:html-table-use-header-tags-for-first-column
      nil nil t-table-use-header-tags-for-first-column)
+    ;; LaTeX
+    (:with-latex nil "tex" t-with-latex)
+    (:html-math-custom-format-function nil nil t-math-custom-format-function)
     ;; Src Block
     (:html-fontify-method nil "fontify" t-fontify-method)
+    (:html-fontify-on-error nil nil t-fontify-on-error)
+    (:html-fontify-unknown-language nil nil t-fontify-unknown-language)
     (:html-fontify-faces nil nil t-fontify-faces)
     (:html-fontify-extra-faces nil nil t-fontify-extra-faces)
     (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
     (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
     (:html-fontify-lang-alist nil nil t-fontify-lang-alist)
-    (:html-fontify-on-error nil nil t-fontify-on-error)
-    (:html-fontify-unknown-language nil nil t-fontify-unknown-language)
     (:html-fontify-jstools-timeout nil nil t-fontify-jstools-timeout)
     ;; Timestamp
     (:html-timezone "HTML_TIMEZONE" nil t-timezone)
     (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
-    (:html-datetime-option nil "dt" t-datetime-format-choice)
+    (:html-datetime-option nil "dt" t-datetime-option)
     (:html-timestamp-option nil "ts" t-timestamp-option)
-    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper-type)
+    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper)
     (:html-timestamp-formats nil "tsf" t-timestamp-formats)
-    (:html-timestamp-format-function nil "tsfn" t-timestamp-format-function)
+    (:html-timestamp-format-function nil nil t-timestamp-format-function)
     ;; Link and Images
     (:html-link-org-files-as-html nil nil t-link-org-files-as-html)
     (:html-inline-images nil nil t-inline-images)
@@ -228,10 +231,8 @@
     (:description "DESCRIPTION" nil nil newline)
     (:keywords "KEYWORDS" nil nil space)
     ;; Math
-    (:with-latex nil "tex" t-with-latex)
     (:html-mathjax-config nil nil t-mathjax-config)
     (:html-math-head-function nil nil t-math-head-function)
-    (:html-math-custom-render-function nil nil t-math-custom-render-function)
     ;; <head>
     (:html-head "HTML_HEAD" nil t-head newline)
     (:html-head-extra "HTML_HEAD_EXTRA" nil t-head-extra newline)
@@ -301,7 +302,7 @@ It is called with five arguments:
 - ATTRS    the HTML attribute string (a string, possibly empty),
            including the leading space when non-empty.
 - CONTENTS the transcoded drawer contents (a string or nil).
-- INFO     the export options (a plist).
+- INFO     the info plist.
 
 It should return the complete HTML for the drawer.  The default is
 `org-w3ctr-drawer-default-format-function', which emits a
@@ -310,36 +311,25 @@ It should return the complete HTML for the drawer.  The default is
   :type 'function)
 
 ;;;; Footnote
-(defcustom t-footnotes-section "<div id=\"references\">
-<h2>%s</h2>
-<dl>%s</dl>\n</div>\n"
-  "Format string for the footnotes section.
-Contains two %s placeholders: the first for the section heading
-\(e.g. \"References\"), the second for the footnote definitions."
-  :group 'org-export-w3ctr
-  :type 'string
-  :safe #'stringp)
-
 (defcustom t-footnote-format "[%s]"
   "Format string for footnote references.
-%s is replaced by the reference label."
+`%s' is replaced by the reference label."
   :group 'org-export-w3ctr
-  :type 'string
-  :safe #'stringp)
+  :type 'string)
 
 (defcustom t-footnote-separator ", "
   "Text used to separate consecutive footnote references."
   :group 'org-export-w3ctr
-  :type 'string
-  :safe #'stringp)
+  :type 'string)
 
-(defcustom t-footnote-section-function #'t-footnote-section-default-function
-  "Function to build the footnotes section.
+(defcustom t-footnote-section-format-function
+  #'t-footnote-section-default-format-function
+  "Function to format the footnotes section.
 
 Called with the list of footnote definitions (as returned by
-`org-export-collect-footnote-definitions') and INFO.  Should return
-the complete HTML for the section.  See
-`org-w3ctr-footnote-section-default-function' for an example."
+`org-export-collect-footnote-definitions') and INFO, the info plist.
+Should return the complete HTML for the section.  The default is
+`org-w3ctr-footnote-section-default-format-function'."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -356,7 +346,8 @@ See `org-w3ctr-checkbox-types' for details."
   :group 'org-export-w3ctr
   :type '(choice (const :tag "Unicode symbols" unicode)
                  (const :tag "ASCII characters" ascii)
-                 (const :tag "HTML <input> elements" html)))
+                 (const :tag "HTML <input> elements" html))
+  :safe (lambda (v) (memq v '(unicode ascii html))))
 
 ;;;; Special Block
 (defcustom t-special-block-custom-elements nil
@@ -369,12 +360,12 @@ element.  Each NAME must be a valid custom element name: lowercase,
 starting with a letter, and containing a hyphen.
 
 An empty PLIST is equivalent to registering just the name.  Keys:
-- :template  inserted verbatim at the start of the element, e.g. a
-             <template shadowrootmode=\"open\"> for Declarative
-             Shadow DOM.
-- :src, :script  read by the default
-             `org-w3ctr-special-block-head-function' to build the
-             <head> scripts.
+- `:template'  inserted verbatim at the start of the element, for
+               example a <template shadowrootmode=\"open\"> for
+               Declarative Shadow DOM.
+- `:src', `:script'  read by the default
+               `org-w3ctr-special-block-head-function' to build the
+               <head> scripts.
 Other keys are left to a custom head function."
   :group 'org-export-w3ctr
   :type '(alist :key-type string :value-type plist))
@@ -388,11 +379,11 @@ It is called with two arguments:
          whose NAME is used by a special block in the document, as
          (NAME . PLIST), in registry order and without duplicates.
          It is never called with an empty SPECS.
-- INFO   the export options (a plist).
+- INFO   the info plist.
 
 It should return a string, or nil for nothing.  The default is
 `org-w3ctr-special-block-head-default-function', which reads the
-:src and :script keys."
+`:src' and `:script' keys."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -403,6 +394,60 @@ The cells use <th scope=\"row\"> instead of <td>."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
+
+;;;; Lisp Evaluation
+(defcustom t-allow-eval nil
+  "Non-nil means an export may evaluate Lisp found in the document.
+
+The `EMACS-LISP' and `ELISP' export blocks, the `#+E:' keyword, and
+the `@@e:' export snippet evaluate their value with `eval'.  That is
+arbitrary code execution: exporting an untrusted document would run
+its code with your privileges.  Keep this nil unless you trust every
+document you export.
+
+This is deliberately not a file option: a document that could turn
+evaluation on would protect itself.  Bind it around an export instead,
+as in (let ((org-w3ctr-allow-eval t)) ...).
+
+`LISP-DATA' blocks, `#+D:' and `@@d:' only render an S-expression as
+HTML and never evaluate anything, so they are unaffected."
+  :group 'org-export-w3ctr
+  :type 'boolean)
+
+;;;; LaTeX
+(defcustom t-with-latex 'mathjax
+  "Control how LaTeX math expressions are processed in HTML export.
+
+The value specifies the rendering method:
+- nil                : Drop the math (Org's `tex:nil')
+- `verbatim'         : Keep raw fragment
+- `mathjax', t       : Render math using MathJax (client-side); a bare
+                       t is the legacy alias
+- `mathml-by-mathjax': Convert to MathML markup using MathJax
+- `svg-by-mathjax'   : Convert to inline SVG using MathJax
+- `custom'           : Use custom option and function"
+  :group 'org-export-w3ctr
+  :type '(choice
+          (const :tag "Drop the math" nil)
+          (const :tag "Keep raw fragment" verbatim)
+          (const :tag "Use MathJax to display math" mathjax)
+          (const :tag "Use MathJax (legacy alias)" t)
+          (const :tag "Use MathJax to render MathML" mathml-by-mathjax)
+          (const :tag "Use MathJax to render SVG" svg-by-mathjax)
+          (const :tag "Use custom method" custom))
+  :safe (lambda (v)
+          (memq v '(nil verbatim mathjax t mathml-by-mathjax
+                        svg-by-mathjax custom))))
+
+(defcustom t-math-custom-format-function
+  #'t-math-custom-default-format-function
+  "Function formatting a LaTeX fragment for the `custom' math mode.
+
+It is called with FRAG, a LaTeX string, and INFO, the info plist,
+and must return the HTML/MathML/SVG string for the fragment, or nil
+to emit nothing."
+  :group 'org-export-w3ctr
+  :type 'function)
 
 ;;;; Src Block
 (defcustom t-fontify-method 'engrave
@@ -420,8 +465,8 @@ code, always ends the list.  The shipped engines are:
 
 An unknown name signals `org-w3ctr-error' during export.  Set it
 per file with `#+OPTIONS: fontify:nil' (or `fontify:(jstools
-engrave)'), and per block with the `:fontify' header argument,
-e.g. `#+begin_src python :fontify nil'."
+engrave)'), and per block with the `:fontify' header argument, for
+example `#+begin_src python :fontify nil'."
   :group 'org-export-w3ctr
   :type '(choice (const :tag "Emacs font-lock" engrave)
                  (const :tag "No highlighting" nil)
@@ -460,7 +505,8 @@ engine of the method (in the end to `plain'), unless the value is:
 - `silent': carry on; `org-w3ctr-show-fontify-report' still counts
   the failures."
   :group 'org-export-w3ctr
-  :type '(choice (const error) (const warn) (const silent)))
+  :type '(choice (const error) (const warn) (const silent))
+  :safe (lambda (v) (memq v '(error warn silent))))
 
 (defcustom t-fontify-unknown-language 'warn
   "What to do when every engine of the method declines a language.
@@ -471,7 +517,8 @@ is:
 - `plain': carry on; the report still lists the language.
 A block without a language never counts."
   :group 'org-export-w3ctr
-  :type '(choice (const error) (const warn) (const plain)))
+  :type '(choice (const error) (const warn) (const plain))
+  :safe (lambda (v) (memq v '(error warn plain))))
 
 (defcustom t-fontify-faces
   '(;; faces.el, excluding bold, italic, bold-italic, underline, ...
@@ -513,7 +560,7 @@ derived faces need none.  `default' is deliberately absent: plain
 text gets no span.  Add your own pairs to
 `org-w3ctr-fontify-extra-faces' rather than here."
   :group 'org-export-w3ctr
-  :type '(alist :key-type face :value-type string))
+  :type '(alist :key-type (symbol :tag "Face") :value-type string))
 
 (defcustom t-fontify-palette
   '(("h" :light "#57606a" :dark "#8b949e")
@@ -555,7 +602,7 @@ every code background of assets/style.css, in both themes."
 Use it to map a mode's own faces to existing slugs, or to new ones
 that your own stylesheet colours."
   :group 'org-export-w3ctr
-  :type '(alist :key-type face :value-type string))
+  :type '(alist :key-type (symbol :tag "Face") :value-type string))
 
 (defcustom t-fontify-face-fallback 'inherit
   "What to do with a face that has no slug of its own.
@@ -571,7 +618,8 @@ that your own stylesheet colours."
 Faces left without a slug are listed by
 `org-w3ctr-show-fontify-report'."
   :group 'org-export-w3ctr
-  :type '(choice (const inherit) (const inline) (const none)))
+  :type '(choice (const inherit) (const inline) (const none))
+  :safe (lambda (v) (memq v '(inherit inline none))))
 
 (defcustom t-fontify-run-mode-hooks nil
   "Non-nil means run the major mode's hooks when fontifying code.
@@ -580,7 +628,8 @@ By default the mode's hooks are delayed (see the function
 modes that add faces) can neither slow the export nor make its
 output depend on the machine."
   :group 'org-export-w3ctr
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defcustom t-fontify-lang-alist
   '(("json" :engrave js-json-mode))
@@ -641,9 +690,10 @@ RFC 3339 (URL `https://datatracker.ietf.org/doc/html/rfc3339')."
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
          (let ((case-fold-search t))
-           (if (not (string-match-p t-timezone-regex value))
-               (error "Invalid time zone designator: %s" value)
-             (set symbol value))))
+           (unless (and (stringp value)
+                        (string-match-p t-timezone-regex value))
+             (error "Invalid time zone designator: %s" value))
+           (set-default symbol value)))
   :type 'string)
 
 (defcustom t-export-timezone nil
@@ -662,12 +712,13 @@ follow the same format rules as the option `org-w3ctr-timezone'."
   :set (lambda (symbol value)
          (when value
            (let ((case-fold-search t))
-             (if (not (string-match-p t-timezone-regex value))
-                 (error "Invalid time zone designator: %s" value))))
-         (set symbol value))
+             (unless (and (stringp value)
+                          (string-match-p t-timezone-regex value))
+               (error "Invalid time zone designator: %s" value))))
+         (set-default symbol value))
   :type '(choice (const nil) string))
 
-(defcustom t-datetime-format-choice 'T-none-zulu
+(defcustom t-datetime-option 'T-none-zulu
   "Control the format of datetime attributes for <time> elements.
 
 This option controls how timestamps are formatted when exporting
@@ -680,36 +731,41 @@ UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
   :type '(radio (const s-none) (const s-none-zulu)
                 (const s-colon) (const s-colon-zulu)
                 (const T-none) (const T-none-zulu)
-                (const T-colon) (const T-colon-zulu)))
+                (const T-colon) (const T-colon-zulu))
+  :safe (lambda (v)
+          (memq v '(s-none s-none-zulu s-colon s-colon-zulu
+                           T-none T-none-zulu T-colon T-colon-zulu))))
 
 (defcustom t-timestamp-option 'org
   "Control how timestamps are exported.
 
 Possible values:
 
-- raw: Use the timestamp's `:raw-value' property directly.
-- int: Use `org-element-timestamp-interpreter' to format the timestamp.
-- fmt: Like `int', but dynamically bind `org-timestamp-formats' to
-       `org-w3ctr-timestamp-formats'.
-- org: Behave like `org-html-timestamp', respecting both
-       `org-display-custom-times' and `org-timestamp-custom-formats'.
-- cus: Like `org', but behave as if `org-display-custom-times' is always
-       non-nil and use `org-w3ctr-timestamp-formats' instead of
-       `org-timestamp-custom-formats' for custom string output.
-- fun: Use a user-supplied function to handle timestamp formatting."
+- `raw': Use the timestamp's `:raw-value' property directly.
+- `int': Use `org-element-timestamp-interpreter' to format the timestamp.
+- `fmt': Like `int', but dynamically bind `org-timestamp-formats' to
+         `org-w3ctr-timestamp-formats'.
+- `org': Behave like `org-html-timestamp', respecting both
+         `org-display-custom-times' and `org-timestamp-custom-formats'.
+- `cus': Like `org', but behave as if `org-display-custom-times' is
+         always non-nil and use `org-w3ctr-timestamp-formats' instead of
+         `org-timestamp-custom-formats' for custom string output.
+- `fun': Use a user-supplied function to handle timestamp formatting."
   :group 'org-export-w3ctr
   :type '(choice (const raw) (const int) (const fmt)
-                 (const org) (const cus) (const fun)))
+                 (const org) (const cus) (const fun))
+  :safe (lambda (v) (memq v '(raw int fmt org cus fun))))
 
-(defcustom t-timestamp-wrapper-type 'span
+(defcustom t-timestamp-wrapper 'span
   "The way to wrap timestamps with HTML tags during export.
 
 Possible values:
-- none: Export the plain timestamp string.
-- span: Wrap the timestamp like `org-html-timestamp'.
-- time: Wrap the timestamp inside a <time> element."
+- `none': Export the plain timestamp string.
+- `span': Wrap the timestamp like `org-html-timestamp'.
+- `time': Wrap the timestamp inside a <time> element."
   :group 'org-export-w3ctr
-  :type '(choice (const none) (const span) (const time)))
+  :type '(choice (const none) (const span) (const time))
+  :safe (lambda (v) (memq v '(none span time))))
 
 (defcustom t-timestamp-formats '("%F" . "%F %R")
   "Format specification used for exporting timestamps.
@@ -725,12 +781,12 @@ Note: This option only takes effect when
   :group 'org-export-w3ctr
   :type '(cons string string))
 
-(defcustom t-timestamp-format-function #'t-ts-default-format-function
+(defcustom t-timestamp-format-function #'t-timestamp-default-format-function
   "Custom function for formatting timestamps.
 
 The function must accept two arguments: a TIMESTAMP object and an
 INFO plist.  It must return a string.  The default is
-`org-w3ctr-ts-default-format-function', which returns the
+`org-w3ctr-timestamp-default-format-function', which returns the
 HTML-escaped raw value of TIMESTAMP.
 
 This option only takes effect when `org-w3ctr-timestamp-option'
@@ -745,13 +801,15 @@ When nil, the links still point to the plain \".org\" file.
 
 See `org-html-link-org-files-as-html' for more information."
   :group 'org-export-w3ctr
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defcustom t-inline-images t
   "Non-nil means inline images into exported HTML pages.
 When nil, an anchor with href is used to link to the image."
   :group 'org-export-w3ctr
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defconst t-inline-image-extensions
   '(".jpeg" ".jpg" ".jfif" ".png" ".apng" ".gif" ".svg"
@@ -767,8 +825,8 @@ These are the formats modern browsers render natively in an
   "Regexp matching a link path that points to an inlinable image.
 
 The extension must end the path, optionally followed by a query
-string or a fragment, so that e.g. \"img.png.txt\" is not mistaken
-for an image.")
+string or a fragment, so that for example \"img.png.txt\" is not
+mistaken for an image.")
 
 (defcustom t-inline-image-rules
   `(("file" . ,t-inline-image-path-regexp)
@@ -778,7 +836,7 @@ for an image.")
 
 See `org-html-inline-image-rules' for more information."
   :group 'org-export-w3ctr
-  :type 'sexp)
+  :type '(alist :key-type string :value-type regexp))
 
 (defcustom t-extension "html"
   "The extension for exported HTML files."
@@ -1034,26 +1092,6 @@ This can be either:
           function))
 
 ;;;; Math
-(defcustom t-with-latex 'mathjax
-  "Control how LaTeX math expressions are processed in HTML export.
-
-The value specifies the rendering method:
-- nil                : Drop the math (Org's `tex:nil')
-- `verbatim'         : Keep raw fragment
-- `mathjax', t       : Render math using MathJax (client-side); a bare
-                       t is the legacy alias
-- `mathml-by-mathjax': Convert to MathML markup using MathJax
-- `svg-by-mathjax'   : Convert to inline SVG using MathJax
-- `custom'           : Use custom option and function"
-  :group 'org-export-w3ctr
-  :type '(choice
-          (const :tag "Drop the math" nil)
-          (const :tag "Keep raw fragment" verbatim)
-          (const :tag "Use MathJax to display math" mathjax)
-          (const :tag "Use MathJax to render mathML" mathml-by-mathjax)
-          (const :tag "Use MathJax to render SVG" svg-by-mathjax)
-          (const :tag "Use custom method" custom)))
-
 (defcustom t-mathjax-config "\
 <script>
   window.MathJax = {
@@ -1088,7 +1126,7 @@ The value specifies the rendering method:
   src='https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js'>
 </script>"
   "Configuration for MathJax rendering in HTML export.
-Used for MathJax rendering (:with-latex is set to `mathjax', or
+Used for MathJax rendering (`:with-latex' is set to `mathjax', or
 its legacy alias t).
 
 For detailed configuration options, see:
@@ -1099,15 +1137,6 @@ https://docs.mathjax.org/en/latest/options/index.html"
 (defcustom t-math-head-function #'t-math-head-default-function
   "Function returning the math setup to insert into <head>.
 Called with the INFO plist; return a string (or nil)."
-  :group 'org-export-w3ctr
-  :type 'function)
-
-(defcustom t-math-custom-render-function
-  #'t-math-custom-default-render-function
-  "Function rendering a LaTeX fragment for the `custom' math mode.
-It is called with FRAG, a LaTeX string, and the INFO plist, and
-must return the HTML/MathML/SVG string for the fragment, or nil to
-emit nothing."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -1431,27 +1460,9 @@ Warning: non-nil may break indentation of source code blocks."
   :type 'boolean)
 
 (defcustom t-use-babel nil
-  "Use babel or not when exporting.
+  "Non-nil means evaluate Babel code blocks when exporting.
 
-This option will override `org-export-use-babel'"
-  :group 'org-export-w3ctr
-  :type '(boolean))
-
-(defcustom t-allow-eval nil
-  "Non-nil means an export may evaluate Lisp found in the document.
-
-The `EMACS-LISP' and `ELISP' export blocks, the `#+E:' keyword, and
-the `@@e:' export snippet evaluate their value with `eval'.  That is
-arbitrary code execution: exporting an untrusted document would run
-its code with your privileges.  Keep this nil unless you trust every
-document you export.
-
-This is deliberately not a file option: a document that could turn
-evaluation on would protect itself.  Bind it around an export instead,
-as in (let ((org-w3ctr-allow-eval t)) ...).
-
-`LISP-DATA' blocks, `#+D:' and `@@d:' only render an S-expression as
-HTML and never evaluate anything, so they are unaffected."
+This option overrides `org-export-use-babel'."
   :group 'org-export-w3ctr
   :type 'boolean)
 
@@ -1562,7 +1573,7 @@ oclosure through that symbol.  KEY is a property keyword."
        :with-author :author :title
        :time-stamp-file :html-file-timestamp-function :html-viewport
        :with-latex :html-mathjax-config
-       :html-math-head-function :html-math-custom-render-function
+       :html-math-head-function :html-math-custom-format-function
        :html-use-cc-badges :html-license
        :html-license-format-function
        ;; link
@@ -2444,7 +2455,7 @@ and let the user control attributes.  Attributes use
 ;; Supports `#+attr__:' / `#+attr_html:' for custom attributes.
 ;; Caption becomes the `<summary>' text; falls back to drawer name.
 ;; Options:
-;; - :html-format-drawer-function (`org-w3ctr-drawer-format-function')
+;; - :html-drawer-format-function (`org-w3ctr-drawer-format-function')
 (defun t-drawer-default-format-function (_name summary attrs contents _info)
   "Return the <details> element holding the drawer summary and contents.
 
@@ -2460,7 +2471,7 @@ NAME, SUMMARY, ATTRS, CONTENTS, and INFO."
   "Transcode a DRAWER element from Org to HTML.
 CONTENTS is the drawer text (or nil).  INFO is the info plist.
 
-Return the string built by `:html-format-drawer-function' (default
+Return the string built by `:html-drawer-format-function' (default
 `org-w3ctr-drawer-default-format-function').  The <summary> text is
 the non-blank caption if present, or the drawer name otherwise.
 Attributes use `org-w3ctr--make-attr__id*' (named-only)."
@@ -2471,7 +2482,7 @@ Attributes use `org-w3ctr--make-attr__id*' (named-only)."
          (summary (or (and caption (t--nw-p (org-export-data caption info)))
                       name))
          (attrs (t--make-attr__id* drawer info t)))
-    (funcall (or (t--pget info :html-format-drawer-function)
+    (funcall (or (t--pget info :html-drawer-format-function)
                  #'t-drawer-default-format-function)
              name summary attrs contents info)))
 
@@ -2491,11 +2502,10 @@ Return CONTENTS as is, or \"\" when nil."
 ;;;; Footnote
 
 ;; Options:
-;; - :html-footnotes-section (`org-w3ctr-footnotes-section')
 ;; - :html-footnote-format (`org-w3ctr-footnote-format')
 ;; - :html-footnote-separator (`org-w3ctr-footnote-separator')
-;; - :html-footnote-section-function
-;;   (`org-w3ctr-footnote-section-function')
+;; - :html-footnote-section-format-function
+;;   (`org-w3ctr-footnote-section-format-function')
 
 (defun t--footnote-key (label n)
   "Return the key of a footnote with LABEL and number N.
@@ -2551,34 +2561,32 @@ Return a string containing the <dt> and <dd> elements, using
                     (t--footnote-key label n))
             (t--trim (org-export-data def info)))))
 
-(defun t-footnote-section-default-function (definitions info)
+(defun t-footnote-section-default-format-function (definitions info)
   "Build the HTML footnotes section from DEFINITIONS and INFO.
 DEFINITIONS is the list from `org-export-collect-footnote-definitions'.
 INFO is the info plist.
 
-Return the complete section string formatted with
-`:html-footnotes-section', formatting each entry via
+Return a `<div id=\"references\">' section with an `<h2>References</h2>'
+heading and a `<dl>' formatting each entry via
 `org-w3ctr--footnote-definition'."
   (declare (ftype (function (list list) string))
            (important-return-value t))
-  (format (t--pget info :html-footnotes-section)
-          "References"
-          (format "\n%s\n"
-                  (mapconcat (lambda (d) (t--footnote-definition d info))
-                             definitions "\n"))))
+  (format "<div id=\"references\">\n<h2>References</h2>\n<dl>\n%s\n</dl>\n</div>\n"
+          (mapconcat (lambda (d) (t--footnote-definition d info))
+                     definitions "\n")))
 
 (defun t-footnote-section (info)
   "Format the footnotes section for INFO.  INFO is the info plist.
 
-Return the HTML string built by `:html-footnote-section-function',
-defaulting to `org-w3ctr-footnote-section-default-function', from
+Return the HTML string built by `:html-footnote-section-format-function',
+defaulting to `org-w3ctr-footnote-section-default-format-function', from
 `org-export-collect-footnote-definitions', or nil when there are no
 footnotes."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* ((definitions (org-export-collect-footnote-definitions info)))
-    (funcall (or (t--pget info :html-footnote-section-function)
-                 #'t-footnote-section-default-function)
+    (funcall (or (t--pget info :html-footnote-section-format-function)
+                 #'t-footnote-section-default-format-function)
              definitions info)))
 
 ;;;; Item and Plain Lists helper functions
@@ -3392,14 +3400,15 @@ becomes <br> (absorbing any trailing <br>).  Attributes use
 ;; client to render.
 ;;
 ;; Options:
-;; - :html-math-custom-render-function
-;;   (`org-w3ctr-math-custom-render-function')
+;; - :with-latex (`org-w3ctr-with-latex')
+;; - :html-math-custom-format-function
+;;   (`org-w3ctr-math-custom-format-function')
 
-(defun t-math-custom-default-render-function (frag _info)
+(defun t-math-custom-default-format-function (frag _info)
   "Return FRAG unchanged.
 
-This is the default value of `org-w3ctr-math-custom-render-function':
-the identity renderer, which ignores INFO."
+This is the default value of `org-w3ctr-math-custom-format-function':
+the identity formatter, which ignores INFO."
   (declare (ftype (function (string t) string))
            (pure t) (important-return-value t))
   frag)
@@ -3478,7 +3487,7 @@ both handled by ox.el before the transcoders run; `mathjax' (or t)
 normalizes delimiters and HTML-escapes `<', `>', and `&' via
 `org-w3ctr--encode-plain-text'; `mathml-by-mathjax' and
 `svg-by-mathjax' convert through the jstools RPC; `custom' calls
-`:html-math-custom-render-function' on FRAG and INFO (returning a
+`:html-math-custom-format-function' on FRAG and INFO (returning a
 string or nil).  An unknown MODE or a non-string/nil custom result
 signals `org-w3ctr-error'."
   (declare (ftype (function (string t list &optional boolean)
@@ -3495,8 +3504,8 @@ signals `org-w3ctr-error'."
     (`mathml-by-mathjax (t--latex-rpc 'tex2mml frag default-display))
     (`svg-by-mathjax (t--latex-rpc 'tex2svg frag default-display))
     (`custom
-     (let ((out (funcall (or (t--pget info :html-math-custom-render-function)
-                             #'t-math-custom-default-render-function)
+     (let ((out (funcall (or (t--pget info :html-math-custom-format-function)
+                             #'t-math-custom-default-format-function)
                          frag info)))
        (unless (string-or-null-p out)
          (t-error "Custom LaTeX renderer returned a non-string: %S" out))
@@ -4963,9 +4972,9 @@ Return CONTENTS wrapped in a <sup> element."
 ;; Options:
 ;; - :html-timezone                  (`org-w3ctr-timezone')
 ;; - :html-export-timezone           (`org-w3ctr-export-timezone')
-;; - :html-datetime-option           (`org-w3ctr-datetime-format-choice')
+;; - :html-datetime-option           (`org-w3ctr-datetime-option')
 ;; - :html-timestamp-option          (`org-w3ctr-timestamp-option')
-;; - :html-timestamp-wrapper         (`org-w3ctr-timestamp-wrapper-type')
+;; - :html-timestamp-wrapper         (`org-w3ctr-timestamp-wrapper')
 ;; - :html-timestamp-formats         (`org-w3ctr-timestamp-formats')
 ;; - :html-timestamp-format-function (`org-w3ctr-timestamp-format-function')
 
@@ -5084,7 +5093,7 @@ This value can be used to convert timestamps between timezones:
     (T-colon-zulu . ("T" ":" "Z")))
   "HTML <time>'s datetime format options.
 
-See `org-w3ctr-datetime-format-choice' for more details.")
+See `org-w3ctr-datetime-option' for more details.")
 
 (defun t--get-datetime-format (offset option &optional notime)
   "Return a datetime format string for HTML <time> tags.
@@ -5349,7 +5358,7 @@ timestamp string."
     (let ((fmt (if (/= (aref fmt 0) ?\{) fmt (substring fmt 1 -1))))
       (t--format-timestamp-fix timestamp fmt info))))
 
-(defun t-ts-default-format-function (timestamp _info)
+(defun t-timestamp-default-format-function (timestamp _info)
   "Return the HTML-escaped raw value of TIMESTAMP.
 
 TIMESTAMP is an Org timestamp object; a missing `:raw-value' defaults

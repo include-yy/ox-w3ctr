@@ -1788,7 +1788,7 @@ int a = 1;</code></p>\n</details>")
   (t-check-element-values
    #'t-drawer
    '((":hello:\n:end:" "<details><summary>hello</summary></details>"))
-   nil '(:html-format-drawer-function nil)))
+   nil '(:html-drawer-format-function nil)))
 
 ;;;; Dynamic Block
 
@@ -1870,8 +1870,8 @@ int a = 1;</code></p>\n</details>")
             ($c "<dt id=\"fn-1\">[1]</dt>\n"
                 "<dd>\ntext\n</dd>"))))))
 
-(ert-deftest t-footnote-section-default-function ()
-  "Tests for `org-w3ctr-footnote-section-default-function'."
+(ert-deftest t-footnote-section-default-format-function ()
+  "Tests for `org-w3ctr-footnote-section-default-format-function'."
   (cl-letf (((symbol-function 'org-export-data)
              (lambda (data _info)
                (if (stringp data)
@@ -1880,18 +1880,15 @@ int a = 1;</code></p>\n</details>")
                               (org-element-interpret-data data))))
                    (format "<p>%s</p>" text))))))
     (cl-flet ((p (s) (t-get-element s 'paragraph)))
-      (let ((info (list :html-footnotes-section
-                        ($c "<div id=\"references\">\n<h2>%s</h2>\n"
-                            "<dl>%s</dl>\n</div>\n")
-                        :html-footnote-format "[%s]")))
+      (let ((info (list :html-footnote-format "[%s]")))
         ;; Single footnote
-        ($l (t-footnote-section-default-function
+        ($l (t-footnote-section-default-format-function
              (list (list 1 nil (p "Text."))) info)
             ($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
                 "<dt id=\"fn-1\">[1]</dt>\n<dd>\n<p>Text.</p>\n</dd>\n"
                 "</dl>\n</div>\n"))
         ;; Multiple footnotes
-        ($l (t-footnote-section-default-function
+        ($l (t-footnote-section-default-format-function
              (list (list 1 nil (p "One."))
                    (list 2 "name" (p "Two."))) info)
             ($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
@@ -1899,26 +1896,16 @@ int a = 1;</code></p>\n</details>")
                 "<dt id=\"fn-name\">[name]</dt>\n<dd>\n<p>Two.</p>\n</dd>\n"
                 "</dl>\n</div>\n"))
         ;; Custom footnote format
-        (let ((info2 (plist-put (copy-sequence info)
-                                :html-footnote-format "<sup>%s</sup>")))
-          ($l (t-footnote-section-default-function
+        (let ((info2 (list :html-footnote-format "<sup>%s</sup>")))
+          ($l (t-footnote-section-default-format-function
                (list (list 1 nil "text")) info2)
               ($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
                   "<dt id=\"fn-1\"><sup>1</sup></dt>\n<dd>\ntext\n</dd>\n"
-                  "</dl>\n</div>\n")))
-        ;; Custom section wrapper
-        (let ((info3 (plist-put (copy-sequence info)
-                                :html-footnotes-section
-                                "<section><h3>%s</h3>%s</section>")))
-          ($l (t-footnote-section-default-function
-               (list (list 1 nil "text")) info3)
-              ($c "<section><h3>References</h3>\n"
-                  "<dt id=\"fn-1\">[1]</dt>\n<dd>\ntext\n</dd>\n"
-                  "</section>")))))))
+                  "</dl>\n</div>\n")))))))
 
-(ert-deftest t-footnote-section-function ()
-  "The footnotes section goes through `org-w3ctr-footnote-section-function'."
-  (let ((org-w3ctr-footnote-section-function
+(ert-deftest t-footnote-section-format-function ()
+  "The footnotes section goes through `org-w3ctr-footnote-section-format-function'."
+  (let ((org-w3ctr-footnote-section-format-function
          (lambda (definitions _info)
            (format "<FOOTNOTES n=%d/>" (length definitions)))))
     (t-check-element-values
@@ -1967,7 +1954,7 @@ int a = 1;</code></p>\n</details>")
            "<dt id=\"fn-1\">[1]</dt>\n"
            "<dd>\n<p>The definition.</p>\n</dd>\n"
            "</dl>\n</div>\n")))
-   nil '(:with-latex verbatim :html-footnote-section-function nil)))
+   nil '(:with-latex verbatim :html-footnote-section-format-function nil)))
 
 ;;;; Item and Plain Lists helper functions
 
@@ -3176,10 +3163,10 @@ cookie-less column is remembered as the `none' marker."
 
 ;;;; LaTeX
 
-(ert-deftest t-math-custom-default-render-function ()
-  "Tests for `org-w3ctr-math-custom-default-render-function'."
-  ;; the default renderer is the identity
-  ($l (t-math-custom-default-render-function "$x$" nil) "$x$"))
+(ert-deftest t-math-custom-default-format-function ()
+  "Tests for `org-w3ctr-math-custom-default-format-function'."
+  ;; the default formatter is the identity
+  ($l (t-math-custom-default-format-function "$x$" nil) "$x$"))
 
 (ert-deftest t--split-latex ()
   "Tests for `org-w3ctr--split-latex'."
@@ -3251,18 +3238,18 @@ cookie-less column is remembered as the `none' marker."
   ($l (t--format-latex "$x$" t nil) "\\(x\\)")
   ($l (t--format-latex "$a < b > c & d$" 'mathjax nil)
       "\\(a &lt; b &gt; c &amp; d\\)")
-  ;; custom calls the render function on the fragment and INFO
+  ;; custom calls the format function on the fragment and INFO
   (let* (got
          (renderer (lambda (f i) (setq got (list f i)) "<M>"))
-         (info (list :html-math-custom-render-function renderer)))
+         (info (list :html-math-custom-format-function renderer)))
     ($l (t--format-latex "$x$" 'custom info) "<M>")
     ($l got (list "$x$" info)))
   ;; a custom nil result is kept, an absent option falls back to the
   ;; default, and any other result type signals
-  (let ((info '(:html-math-custom-render-function (lambda (_f _i) nil))))
+  (let ((info '(:html-math-custom-format-function (lambda (_f _i) nil))))
     ($l (t--format-latex "$x$" 'custom info) nil))
   ($l (t--format-latex "$x$" 'custom nil) "$x$")
-  (let ((info '(:html-math-custom-render-function (lambda (_f _i) 42))))
+  (let ((info '(:html-math-custom-format-function (lambda (_f _i) 42))))
     ($e!l (t--format-latex "$x$" 'custom info)
           '(org-w3ctr-error "Custom LaTeX renderer returned a non-string: 42")))
   ;; the RPC modes call the jstools MathJax helpers with explicit :tex
@@ -3312,7 +3299,7 @@ cookie-less column is remembered as the `none' marker."
   (t-check-element-values
    #'t-latex-fragment
    '(("$x^2$" "<C>$x^2$</C>"))
-   t (list :with-latex 'custom :html-math-custom-render-function
+   t (list :with-latex 'custom :html-math-custom-format-function
            (lambda (f _i) (format "<C>%s</C>" f))))
   ;; a nil :value (not parser-reachable) degrades to the empty string
   ($l (t-latex-fragment (org-element-create 'latex-fragment)
@@ -3345,7 +3332,7 @@ cookie-less column is remembered as the `none' marker."
    #'t-latex-environment
    '(("\\begin{equation}\nx=1\n\\end{equation}"
       "<C>\\begin{equation}\nx=1\n\\end{equation}</C>"))
-   t (list :with-latex 'custom :html-math-custom-render-function
+   t (list :with-latex 'custom :html-math-custom-format-function
            (lambda (f _i) (format "<C>%s</C>" f))))
   ;; a nil :value (not parser-reachable) degrades to the empty string
   ($l (t-latex-environment (org-element-create 'latex-environment)
@@ -5396,6 +5383,30 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 ;;;; Timestamp
 
+(ert-deftest t-timezone-custom-set ()
+  "The `:set' functions of `org-w3ctr-timezone' and `org-w3ctr-export-timezone'."
+  (let ((orig-tz (default-value 't-timezone))
+        (orig-extz (default-value 't-export-timezone))
+        (set-tz (get 't-timezone 'custom-set))
+        (set-extz (get 't-export-timezone 'custom-set)))
+    (unwind-protect
+        (with-temp-buffer
+          ;; Even with a buffer-local binding active, `:set' updates the
+          ;; default value.
+          (setq-local t-timezone "local" t-export-timezone nil)
+          (funcall set-tz 't-timezone "UTC+8")
+          ($l (default-value 't-timezone) "UTC+8")
+          (funcall set-extz 't-export-timezone "-0500")
+          ($l (default-value 't-export-timezone) "-0500")
+          (funcall set-extz 't-export-timezone nil)
+          ($n (default-value 't-export-timezone))
+          (dolist (bad '(nil local 42 "WTF"))
+            (should-error (funcall set-tz 't-timezone bad)))
+          (dolist (bad '(local 42 "WTF"))
+            (should-error (funcall set-extz 't-export-timezone bad))))
+      (set-default 't-timezone orig-tz)
+      (set-default 't-export-timezone orig-extz))))
+
 (ert-deftest t--timezone-to-offset ()
   "Tests for `org-w3ctr--timezone-to-offset'."
   ($it t--timezone-to-offset
@@ -6161,14 +6172,14 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($l (g t3 (p 'none '(nil . "<%F%R>")))
           (g t4 (p 'none '(nil . "<%F%R>")))))))
 
-(ert-deftest t-ts-default-format-function ()
-  "Tests for `org-w3ctr-ts-default-format-function'."
+(ert-deftest t-timestamp-default-format-function ()
+  "Tests for `org-w3ctr-timestamp-default-format-function'."
   (cl-flet* ((f (s) (t-get-element s 'timestamp)))
     (let ((t1 "[2011-11-18]")
           (t2 "<2011-11-18 14:54>")
           (t3 "[2011-11-18 06:54-14:54]")
           (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
-      ($it t-ts-default-format-function
+      ($it t-timestamp-default-format-function
         ($l (it (f t1) nil) t1)
         ($l (it (f t2) nil) "&lt;2011-11-18 14:54&gt;")
         ($l (it (f t3) nil) t3)
@@ -6257,6 +6268,13 @@ COUNTER, a cons cell, has its car incremented on every call."
    #'t-timestamp
    '(("<2011-11-18>" "&lt;2011-11-18&gt;"))
    t '(:html-timestamp-option fun))
+  ;; `:html-timestamp-format-function' is not exposed via `#+OPTIONS:', so a
+  ;; document cannot supply an inline lambda to run arbitrary Lisp.
+  (t-check-element-values
+   #'t-timestamp
+   '(("#+OPTIONS: ts:fun tsfn:(lambda (&rest _) (error \"pwned\"))\n<2011-11-18>"
+      "&lt;2011-11-18&gt;"))
+   t)
   ($e!l (org-export-string-as "[2011-11-18]" 'w3ctr t
                               '(:html-timestamp-option bogus))
         '(org-w3ctr-error "Unknown timestamp option: bogus")))
@@ -8574,6 +8592,51 @@ Static check; see the comments for what it does not catch."
            ;; The same transcoders, in the order the source defines them.
            (expected (seq-filter (lambda (d) (member d short)) defs)))
       (should (equal expected short)))))
+
+(ert-deftest t-check-backend-option-order ()
+  "The backend's `:options-alist' variables follow their definition order."
+  (let* ((build (symbol-file 't--pget 'defun))
+         (source (and build (concat (file-name-sans-extension build) ".el"))))
+    (skip-unless (and source (file-readable-p source)))
+    (let* ((opts (org-export-backend-options
+                  (org-export-get-backend 'w3ctr)))
+           (vars (delq nil
+                       (mapcar (lambda (o)
+                                 (let ((v (nth 3 o)))
+                                   (and (symbolp v)
+                                        (string-prefix-p "org-w3ctr-"
+                                                         (symbol-name v))
+                                        (concat "t-"
+                                                (substring (symbol-name v)
+                                                           10)))))
+                               opts)))
+           (var-re (rx line-start (zero-or-more blank)
+                       "(" (or "defcustom" "defvar" "defconst")
+                       (one-or-more blank)
+                       (group (one-or-more (not (any " \t\n()"))))))
+           (defs (with-temp-buffer
+                   (insert-file-contents source)
+                   (goto-char (point-min))
+                   (let (acc)
+                     (while (re-search-forward var-re nil t)
+                       (push (match-string 1) acc))
+                     (nreverse acc))))
+           (expected (seq-filter (lambda (d) (member d vars)) defs)))
+      ($l expected vars))))
+
+(ert-deftest t-check-defcustom-types ()
+  "Every `org-w3ctr-*' user option default matches its `:type' widget."
+  (require 'cus-edit)
+  (let (bad)
+    (mapatoms (lambda (sym)
+                (when (and (string-prefix-p "org-w3ctr-" (symbol-name sym))
+                           (get sym 'custom-type))
+                  (let ((w (widget-convert (custom-variable-type sym))))
+                    (unless (widget-apply w :match (default-value sym))
+                      (push sym bad))))))
+    (let ((w (widget-convert (custom-variable-type 't-with-latex))))
+      (unless (widget-apply w :match t) (push 't-with-latex-alias bad)))
+    ($n bad)))
 
 ;; Local Variables:
 ;; read-symbol-shorthands: (("t-" . "org-w3ctr-") ("$" . "org-w3ctr:test-"))
