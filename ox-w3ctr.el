@@ -4867,20 +4867,22 @@ fontified bare by `org-w3ctr-fontify-code'."
 ;; See (info "(org)Special Symbols")
 (defun t-entity (entity _contents _info)
   "Transcode an ENTITY object from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS and INFO are unused.  Return the HTML entity string
-for ENTITY (for example, `&alpha;')."
+Return ENTITY's `:html' string (for example, \"&alpha;\"), with a
+missing `:html' defaulting to \"\"."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
-  (org-element-property :html entity))
+  (or (org-element-property :html entity) ""))
 
 ;;;; Line Break
 
 ;; See (info "(org)Paragraphs")
 (defun t-line-break (_line-break _contents _info)
   "Transcode a LINE-BREAK object from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS and INFO are unused.  Return the HTML line break string."
+Return \"<br>\\n\"."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
   "<br>\n")
@@ -4890,9 +4892,10 @@ CONTENTS and INFO are unused.  Return the HTML line break string."
 ;; See (info "(org)Internal Links")
 (defun t-target (target _contents info)
   "Transcode a TARGET object from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is nil.  INFO is the info plist.  Return a <span> element
-with the target's reference as its id."
+Return an empty <span> element carrying TARGET's reference
+\(`org-w3ctr--reference') as its id."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format "<span id=\"%s\"></span>" (t--reference target info)))
@@ -4902,10 +4905,10 @@ with the target's reference as its id."
 ;; See (info "(org)Radio Targets")
 (defun t-radio-target (radio-target text info)
   "Transcode a RADIO-TARGET object from Org to HTML.
+TEXT is the target text (nil becomes \"\").  INFO is the info plist.
 
-TEXT is the target text, nil or a string.  INFO is the info plist.
-Return a <span> element with the target's reference as its id and
-TEXT as its content."
+Return a <span> element carrying RADIO-TARGET's reference
+\(`org-w3ctr--reference') as its id and TEXT as its content."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format "<span id=\"%s\">%s</span>"
@@ -4916,34 +4919,40 @@ TEXT as its content."
 ;; See (info "(org)Checkboxes")
 (defun t-statistics-cookie (statistics-cookie _contents _info)
   "Transcode a STATISTICS-COOKIE object from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS and INFO are unused.  Return the cookie value wrapped in <code>."
+Return STATISTICS-COOKIE's `:value' wrapped in <code>, with a missing
+`:value' defaulting to \"\"."
   (declare (ftype (function (t t t) string))
            (pure t) (important-return-value t))
   (format "<code>%s</code>"
-          (org-element-property :value statistics-cookie)))
+          (or (org-element-property :value statistics-cookie) "")))
 
 ;;;; Subscript
 
 ;; See (info "(org)Subscripts and Superscripts")
 (defun t-subscript (_subscript contents _info)
   "Transcode a SUBSCRIPT object from Org to HTML.
+CONTENTS is the subscript text (nil becomes \"\").  INFO is the info
+plist.
 
-CONTENTS is the subscript content.  INFO is unused.  Return a <sub> element."
-  (declare (ftype (function (t string t) string))
+Return CONTENTS wrapped in a <sub> element."
+  (declare (ftype (function (t (or null string) t) string))
            (pure t) (important-return-value t))
-  (format "<sub>%s</sub>" contents))
+  (format "<sub>%s</sub>" (or contents "")))
 
 ;;;; Superscript
 
 ;; See (info "(org)Subscripts and Superscripts")
 (defun t-superscript (_superscript contents _info)
   "Transcode a SUPERSCRIPT object from Org to HTML.
+CONTENTS is the superscript text (nil becomes \"\").  INFO is the info
+plist.
 
-CONTENTS is the superscript content.  INFO is unused.  Return a <sup> element."
-  (declare (ftype (function (t string t) string))
+Return CONTENTS wrapped in a <sup> element."
+  (declare (ftype (function (t (or null string) t) string))
            (pure t) (important-return-value t))
-  (format "<sup>%s</sup>" contents))
+  (format "<sup>%s</sup>" (or contents "")))
 
 ;;;; Timestamp
 

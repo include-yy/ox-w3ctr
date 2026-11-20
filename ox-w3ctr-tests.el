@@ -5260,6 +5260,7 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t-entity ()
   "Tests for `org-w3ctr-entity'."
+  ($l (t-entity '(entity nil) nil nil) "")
   (t-check-element-values
    #'t-entity
    '(("\\alpha \\beta \\eta \\gamma \\epsilon"
@@ -5278,55 +5279,69 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t-line-break ()
   "Tests for `org-w3ctr-line-break'."
-  ($l (t-line-break nil nil nil) "<br>\n"))
+  ($l (t-line-break nil nil nil) "<br>\n")
+  (t-check-element-values
+   #'t-line-break
+   '(("a \\\\\nb" "<br>\n"))))
 
 ;;;; Target
 
 (ert-deftest t-target ()
   "Tests for `org-w3ctr-target'."
-  (cl-letf* ((counter 0)
-             ((symbol-function 't--reference)
-              (lambda (_d _i &optional _n)
-                (number-to-string (cl-incf counter)))))
-    ($l (t-target nil nil nil) "<span id=\"1\"></span>")
-    ($l (t-target nil nil nil) "<span id=\"2\"></span>")
-    (t-check-element-values
-     #'t-target
-     '(("<<th1>> <<th2>> <<th3>>"
-        "<span id=\"5\"></span>"
-        "<span id=\"4\"></span>"
-        "<span id=\"3\"></span>")))))
+  ;; Real export through `org-w3ctr--reference': identifier targets keep
+  ;; their name, others fall back to a generated reference in INFO.
+  (t-check-element-values
+   #'t-target
+   '(("<<th1>> <<th2>>" "<span id=\"th2\"></span>" "<span id=\"th1\"></span>")))
+  (let ((out (org-export-string-as "<<1bad>> [[1bad]]" 'w3ctr t)))
+    (should (string-match
+             "<span id=\"\\(org[0-9a-f]+\\)\"></span> <a href=\"#\\1\">" out)))
+  ;; Direct call: forwards TARGET and INFO to `org-w3ctr--reference'.
+  (let ((seen nil))
+    (cl-letf (((symbol-function 't--reference)
+               (lambda (d i &optional n)
+                 (setq seen (list d i n))
+                 "ref")))
+      ($l (t-target 'tgt nil '(:k v)) "<span id=\"ref\"></span>")
+      ($l seen '(tgt (:k v) nil)))))
 
 ;;;; Radio Target
 
 (ert-deftest t-radio-target ()
   "Tests for `org-w3ctr-radio-target'."
-  (cl-letf* ((counter 0)
-             ((symbol-function 't--reference)
-              (lambda (_d _i &optional _n)
-                (number-to-string (cl-incf counter)))))
-    ($l (t-radio-target nil "hello" nil)
-        "<span id=\"1\">hello</span>")
-    ($l (t-radio-target nil "world" nil)
-        "<span id=\"2\">world</span>")
-    ($l (t-radio-target nil nil nil)
-        "<span id=\"3\"></span>")
-    (t-check-element-values
-     #'t-radio-target
-     '(("<<<th1>>> <<<th2>>> <<<th3>>>"
-        "<span id=\"6\">th3</span>"
-        "<span id=\"5\">th2</span>"
-        "<span id=\"4\">th1</span>")))))
+  ;; Real export through `org-w3ctr--reference', including formatted
+  ;; and pruned target text.
+  (t-check-element-values
+   #'t-radio-target
+   '(("<<<th1>>> <<<th2>>>"
+      "<span id=\"th2\">th2</span>"
+      "<span id=\"th1\">th1</span>")))
+  (let ((out (org-export-string-as "<<<*th1*>>> *th1*" 'w3ctr t)))
+    (should (string-match
+             "<span id=\"\\(org[0-9a-f]+\\)\"><b>th1</b></span> <a href=\"#\\1\"><b>th1</b></a>"
+             out)))
+  (let ((out (org-export-string-as "<<<$x$>>>" 'w3ctr t '(:with-latex nil))))
+    (should (string-match-p "<span id=\"org[0-9a-f]+\"></span>" out)))
+  ;; Direct call: forwards RADIO-TARGET and INFO to `org-w3ctr--reference'.
+  (let ((seen nil))
+    (cl-letf (((symbol-function 't--reference)
+               (lambda (d i &optional n)
+                 (setq seen (list d i n))
+                 "ref")))
+      ($l (t-radio-target 'rt "hello" '(:k v)) "<span id=\"ref\">hello</span>")
+      ($l (t-radio-target 'rt nil '(:k v)) "<span id=\"ref\"></span>")
+      ($l seen '(rt (:k v) nil)))))
 
 ;;;; Statistics Cookie
 
 (ert-deftest t-statistics-cookie ()
   "Tests for `org-w3ctr-statistics-cookie'."
-  (cl-letf (((symbol-function 'org-element--property)
-             (lambda (_p n &optional _d _f) n)))
-    ($l (t-statistics-cookie "" nil nil) "<code></code>")
-    ($l (t-statistics-cookie "y" nil nil) "<code>y</code>")
-    ($l (t-statistics-cookie ()()()) "<code>nil</code>"))
+  ($l (t-statistics-cookie '(statistics-cookie (:value "")) nil nil)
+      "<code></code>")
+  ($l (t-statistics-cookie '(statistics-cookie (:value "[1/2]")) nil nil)
+      "<code>[1/2]</code>")
+  ($l (t-statistics-cookie '(statistics-cookie nil) nil nil)
+      "<code></code>")
   (t-check-element-values
    #'t-statistics-cookie
    '(("- hello [/]" "<code>[/]</code>")
@@ -5343,13 +5358,18 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr-subscript'."
   ($l (t-subscript nil "123" nil) "<sub>123</sub>")
   ($l (t-subscript nil "" nil) "<sub></sub>")
-  ($l (t-subscript nil t nil) "<sub>t</sub>")
-  ($l (t-subscript nil nil nil) "<sub>nil</sub>")
+  ($l (t-subscript nil nil nil) "<sub></sub>")
   (t-check-element-values
    #'t-subscript
    '(("1_2" "<sub>2</sub>")
      ("x86_64" "<sub>64</sub>")
-     ("f_{1}" "<sub>1</sub>"))))
+     ("f_{1}" "<sub>1</sub>")
+     ("a_{}" "<sub></sub>")))
+  ;; Pruned content arrives as nil, not "".
+  (t-check-element-values
+   #'t-subscript
+   '(("a_{$x$}" "<sub></sub>"))
+   t '(:with-latex nil)))
 
 ;;;; Superscript
 
@@ -5357,13 +5377,18 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr-superscript'."
   ($l (t-superscript nil "123" nil) "<sup>123</sup>")
   ($l (t-superscript nil "" nil) "<sup></sup>")
-  ($l (t-superscript nil t nil) "<sup>t</sup>")
-  ($l (t-superscript nil nil nil) "<sup>nil</sup>")
+  ($l (t-superscript nil nil nil) "<sup></sup>")
   (t-check-element-values
    #'t-superscript
    '(("1^2" "<sup>2</sup>")
      ("x86^64" "<sup>64</sup>")
-     ("f^{1}" "<sup>1</sup>"))))
+     ("f^{1}" "<sup>1</sup>")
+     ("a^{}" "<sup></sup>")))
+  ;; Pruned content arrives as nil, not "".
+  (t-check-element-values
+   #'t-superscript
+   '(("a^{$x$}" "<sup></sup>"))
+   t '(:with-latex nil)))
 
 ;;;; Timestamp
 
