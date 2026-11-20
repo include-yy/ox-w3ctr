@@ -4586,16 +4586,16 @@ Signal `org-w3ctr-error' otherwise."
       (t-error "Unknown value for %s: %S" key value))
     value))
 
-(defun t--fontify-check-options (info lang)
-  "Check the fontify options of INFO for code in LANG; return nil.
+(defun t--fontify-check-options (info)
+  "Check the fontify options of INFO, the info plist; return nil.
 
-INFO is the info plist.  The policies, the face fallback, the face
-tables (`org-w3ctr--fontify-face-table') and the language alist
+The policies, the face fallback, the face tables
+\(`org-w3ctr--fontify-face-table') and the language alist
 \(`org-w3ctr--fontify-lang-entry') must be well-formed; signal
 `org-w3ctr-error' otherwise.  The engines read these options too,
 but an error inside an engine counts as its failure, which the
 default policy only warns about."
-  (declare (ftype (function (list string) null)))
+  (declare (ftype (function (list) null)))
   (ignore (t--fontify-policy info :html-fontify-on-error
                              '(error warn silent))
           (t--fontify-policy info :html-fontify-unknown-language
@@ -4603,7 +4603,8 @@ default policy only warns about."
           (t--fontify-policy info :html-fontify-face-fallback
                              '(inherit inline none))
           (t--fontify-face-table info)
-          (t--fontify-lang-entry lang info)))
+          ;; The whole alist is checked whatever the language.
+          (t--fontify-lang-entry "" info)))
 
 (defun t--fontify-failure (engine err lang element info)
   "Handle the failure ERR of ENGINE on LANG code in ELEMENT.
@@ -4687,7 +4688,7 @@ When every engine other than `plain' that was tried declined,
 INFO's fontify state."
   (declare (ftype (function (string string list list t) cons))
            (important-return-value t))
-  (t--fontify-check-options info lang)
+  (t--fontify-check-options info)
   (let ((state (t--fontify-state info))
         (tried 0) (declined 0) result)
     (while (and chain (not result))
@@ -4738,7 +4739,7 @@ INFO's fontify state."
 (defun t--fontify-default-info ()
   "Return a plist of the current values of the fontify options.
 
-It stands in for the export INFO when `org-w3ctr-fontify-code' is
+It stands in for the info plist when `org-w3ctr-fontify-code' is
 called outside an export: each `:html-fontify-' key of the back-end's
 options gets the value of its variable."
   (declare (ftype (function () list))
@@ -4766,13 +4767,15 @@ The method gives a chain of engines (`org-w3ctr--fontify-chain-for')
 that `org-w3ctr--fontify-dispatch' runs until one returns tokens;
 those are merged by `org-w3ctr--fontify-merge' and rendered by
 `org-w3ctr--fontify-render'.  An empty CODE or a nil LANG is only
-escaped, but the method is still checked: an unknown one signals
+escaped, but the options (`org-w3ctr--fontify-check-options') and
+the method are still checked: a malformed one signals
 `org-w3ctr-error'."
   (declare (ftype (function (string (or null string) &optional list t)
                             string))
            (important-return-value t))
   (let* ((info (or info (t--fontify-default-info)))
          (chain (t--fontify-chain-for info element)))
+    (t--fontify-check-options info)
     (if (or (string-empty-p code) (null lang))
         (t--encode-plain-text code)
       (t--fontify-render
@@ -4823,8 +4826,8 @@ unless the author supplies attributes."
                    (org-element-property :attr_html src-block)))
               (id (t--element-id src-block info)))
           (format "<div%s%s>\n%s<span>%s</span>\n<pre>\n%s</pre></div>"
-                  ;; A captioned block always gets an id: the
-                  ;; self-link needs one.
+                  ;; A captioned block gets an id unless the author
+                  ;; suppresses it: the self-link needs one.
                   (t--make-attr__id* src-block info)
                   (if has-user-attrs "" " class=\"example\"")
                   (if id
@@ -4846,12 +4849,13 @@ unless the author supplies attributes."
 CONTENTS is nil.  INFO is the info plist.
 
 Return a single <code class=\"src-inline src-LANG\"> element (no
-nesting), with the code fontified bare by `org-w3ctr-fontify-code'."
+nesting), with the code, a missing `:value' defaulting to \"\",
+fontified bare by `org-w3ctr-fontify-code'."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((lang (org-element-property :language inline-src-block))
          (code (t-fontify-code
-                (org-element-property :value inline-src-block)
+                (or (org-element-property :value inline-src-block) "")
                 lang info inline-src-block)))
     (format "<code class=\"src-inline src-%s\">%s</code>"
             (t--encode-plain-text* lang) code)))
