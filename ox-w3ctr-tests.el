@@ -5438,7 +5438,11 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($l (it info6) 19800)
       ($l (t--pget info6 :html-timezone) 19800))
     (let ((info7 '(:html-timezone "Invalid")))
-      ($e! (it info7)))
+      ($e!l (it info7) '(org-w3ctr-error "Invalid timezone format: Invalid")))
+    (dolist (bad '(t :foo (1)))
+      ($e!l (it (list :html-timezone bad))
+            (list 'org-w3ctr-error (format "Invalid timezone format: %s" bad))))
+    ($e!l (it nil) '(org-w3ctr-error "Invalid timezone: nil"))
     (let ((info8 '(:html-timezone 3600 :other "value")))
       ($l (it info8) 3600)
       ($l info8 '(:html-timezone 3600 :other "value")))))
@@ -5489,10 +5493,15 @@ COUNTER, a cons cell, has its car incremented on every call."
     ;; Invalid
     (let ((info9 '( :html-timezone 3600
                     :html-export-timezone "Invalid")))
-      ($e! (it info9)))
+      ($e!l (it info9)
+            '(org-w3ctr-error "Invalid export timezone format: Invalid")))
+    (dolist (bad '(t :foo (1)))
+      ($e!l (it (list :html-timezone 0 :html-export-timezone bad))
+            (list 'org-w3ctr-error
+                  (format "Invalid export timezone format: %s" bad))))
     (let ((info9 '( :html-timezone "WTF"
                     :html-export-timezone "+0000")))
-      ($e! (it info9)))
+      ($e!l (it info9) '(org-w3ctr-error "Invalid timezone format: WTF")))
     ;; Test optional argument
     (let ((info10 '(:html-export-timezone "+0000")))
       ($q (it info10 'local) 'local))
@@ -5619,6 +5628,13 @@ COUNTER, a cons cell, has its car incremented on every call."
   (let ((test-time (encode-time 0 0 12 1 1 2023))
         (info7 '(:html-timezone "Invalid")))
     ($e! (t--format-datetime test-time info7)))
+  ;; Test invalid datetime option
+  (let ((test-time (encode-time 0 0 12 1 1 2023)))
+    ($e!l (t--format-datetime test-time '(:html-timezone 0))
+          '(org-w3ctr-error "Invalid datetime option: nil"))
+    ($e!l (t--format-datetime
+           test-time '(:html-timezone 0 :html-datetime-option bogus))
+          '(org-w3ctr-error "Invalid datetime option: bogus")))
   ;; time out of range
   (let ((info8 '(:html-timezone 0 :html-datetime-option s-none)))
     ($e!l (t--format-datetime -65536 info8)
@@ -5644,7 +5660,13 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($s (t--call-with-invalid-time-spec-handler
          #'org-timestamp-to-time (nth 0 ts)))
     ($s (t--call-with-invalid-time-spec-handler
-         #'org-element-interpret-data (nth 1 ts)))))
+         #'org-element-interpret-data (nth 1 ts))))
+  ;; Other errors propagate unchanged, preserving the error object.
+  (let ((boom (list 'arith-error)))
+    (condition-case caught
+        (t--call-with-invalid-time-spec-handler
+         (lambda (_ts) (signal boom)) nil)
+      (arith-error ($q caught boom)))))
 
 (ert-deftest t--format-ts-datetime ()
   "Tests for `org-w3ctr--format-ts-datetime'."
@@ -5778,23 +5800,45 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--format-ts-span-time ()
   "Tests for `org-w3ctr--format-ts-span-time'."
-  ;; <span> branch (time = nil)
+  ;; <span> branch (datetime = nil)
   ($l (t--format-ts-span-time "hello" nil)
       "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">hello</span></span>")
   ($l (t--format-ts-span-time "a < b" nil)
       "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a &lt; b</span></span>")
-  ;; <time> branch (time = non-nil) -- returns template with %s
-  ($l (t--format-ts-span-time "hello" nil t) "<time%s>hello</time>")
-  ($l (t--format-ts-span-time "2024-01-01" nil t) "<time%s>2024-01-01</time>")
+  ;; <time> branch (datetime string supplied)
+  ($l (t--format-ts-span-time "hello" nil "") "<time>hello</time>")
+  ($l (t--format-ts-span-time "2024" nil " datetime=\"2024\"")
+      "<time datetime=\"2024\">2024</time>")
+  ($l (t--format-ts-span-time "100% %s" nil " datetime=\"2024\"")
+      "<time datetime=\"2024\">100% %s</time>")
   ;; special strings via t-plain-text
   ($l (t--format-ts-span-time "a -- b" '(:with-special-strings t))
       "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a &#x2013; b</span></span>")
   ;; preserve breaks via t-plain-text
   ($l (t--format-ts-span-time "a\nb" '(:preserve-breaks t))
-      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a<br>\nb</span></span>")
-  ;; template filled via format
-  ($l (format (t--format-ts-span-time "2024" nil t) " datetime=\"2024\"")
-      "<time datetime=\"2024\">2024</time>"))
+      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a<br>\nb</span></span>"))
+
+(ert-deftest t--format-ts-time ()
+  "Tests for `org-w3ctr--format-ts-time'."
+  (let ((ts1 (t-get-element "[2024-05-01]" 'timestamp))
+        (ts2 (t-get-element "[2024-05-01]--[2024-05-02]" 'timestamp))
+        (info '(:html-timezone 0 :html-datetime-option T-none-zulu)))
+    ($l (t--format-ts-time ts1 '("[2024-05-01]") info)
+        "<time datetime=\"2024-05-01\">[2024-05-01]</time>")
+    ;; Percent signs in the display text are not format specifiers.
+    ($l (t--format-ts-time ts1 '("[2024-05-01 %s 100%]") info)
+        "<time datetime=\"2024-05-01\">[2024-05-01 %s 100%]</time>")
+    ($l (t--format-ts-time ts2 '("[2024-05-01]" "[2024-05-02]") info)
+        (concat "<time datetime=\"2024-05-01\">[2024-05-01]</time>--"
+                "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
+    ($l (t--format-ts-time ts2 '("[2024-05-01]" "[2024-05-02]")
+                           (cons :with-special-strings (cons t info)))
+        (concat "<time datetime=\"2024-05-01\">[2024-05-01]</time>&#x2013;"
+                "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
+    ($e!l (t--format-ts-time ts1 nil info)
+          '(org-w3ctr-error "Invalid timestamp range: nil"))
+    ($e!l (t--format-ts-time ts1 '("a" "b" "c") info)
+          '(org-w3ctr-error "Invalid timestamp range: (a b c)"))))
 
 (ert-deftest t--format-timestamp-raw-1 ()
   "Tests for `org-w3ctr--format-timestamp-raw-1'."
@@ -5969,7 +6013,7 @@ COUNTER, a cons cell, has its car incremented on every call."
               "[2000-01-02 Sun 11:00]</time>")))))
 
 (ert-deftest t--format-timestamp-fmt ()
-  "Tests for `org-w3ctr--format-timestamp-fmt'"
+  "Tests for `org-w3ctr--format-timestamp-fmt'."
   (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (p (m) `( :html-timestamp-wrapper none
                        :html-datetime-option T-none-zulu
@@ -5982,7 +6026,7 @@ COUNTER, a cons cell, has its car incremented on every call."
           (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
       ($l (g t1 '("%y" . "%y %m")) "[11]")
       ($l (g t1 '("%C" . "")) "[20]")
-      ($l (g t1 '("%F %m" ' "%F %R")) "[2011-11-18 11]")
+      ($l (g t1 '("%F %m" . "%F %R")) "[2011-11-18 11]")
       ($l (g t1 '("[%F]")) "[2011-11-18]")
       ($l (g t1 '("<%F>")) "[2011-11-18]")
       ($l (g t2 '(nil . "%F %R")) "&lt;2011-11-18 14:54&gt;")
@@ -5993,7 +6037,9 @@ COUNTER, a cons cell, has its car incremented on every call."
           "&lt;2011-11-18 06:54&gt;--&lt;2011-11-18 14:54&gt;")
       ($l (g t4 '(nil . "%M")) "&lt;54&gt;--&lt;54&gt;"))
     ($e!l (t--format-timestamp-fmt (f "[2000-01-01]") nil)
-          '(org-w3ctr-error "Invalid timestamp formats: nil"))))
+          '(org-w3ctr-error "Invalid timestamp formats: nil"))
+    ($e!l (g "[2000-01-01]" 'bad)
+          '(org-w3ctr-error "Invalid timestamp formats: bad"))))
 
 (ert-deftest t--format-timestamp-fix ()
   "Tests for `org-w3ctr--format-timestamp-fix'."
@@ -6032,7 +6078,9 @@ COUNTER, a cons cell, has its car incremented on every call."
               "&lt;2011-11-18 14:54&gt;</time>"))
       ($l (g t3 "%F %R" 'none) (g t4 "%F %R" 'none))
       ($l (g t3 "<%F %R" 'span) (g t4 "<%F %R" 'span))
-      ($l (g t3 "[%F%a%R]" 'time) (g t4 "[%F%a%R]" 'time)))))
+      ($l (g t3 "[%F%a%R]" 'time) (g t4 "[%F%a%R]" 'time)))
+    ($e!l (t--format-timestamp-fix '(timestamp (:type diary)) "%F" (p 'none))
+          '(org-w3ctr-error "Unknown timestamp type: diary"))))
 
 (ert-deftest t--format-timestamp-org ()
   "Tests for `org-w3ctr--format-timestamp-org'."
@@ -6095,7 +6143,10 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($l (g t1 (p 'none '("[%F%a]"))) "[2011-11-18Fri]")
       ($l (g t1 (p 'none '("<%F%a>"))) "&lt;2011-11-18Fri&gt;")
       ($l (g t1 (p 'none '("{%F%a}"))) "2011-11-18Fri")
-      ($e! (g t1 (p 'none '("%F%a"))))
+      ($e!l (g t1 (p 'none '("%F%a")))
+            '(org-w3ctr-error "Invalid custom timestamp format: (%F%a)"))
+      ($e!l (g t1 (p 'none 'bad))
+            '(org-w3ctr-error "Invalid custom timestamp format: bad"))
       ($l (g t2 (p 'time '(nil . "{[%F %R]}")))
           ($c "<time datetime=\"2011-11-18T14:54Z\">"
               "[2011-11-18 14:54]</time>"))
@@ -6115,9 +6166,10 @@ COUNTER, a cons cell, has its car incremented on every call."
           (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
       ($it t-ts-default-format-function
         ($l (it (f t1) nil) t1)
-        ($l (it (f t2) nil) t2)
+        ($l (it (f t2) nil) "&lt;2011-11-18 14:54&gt;")
         ($l (it (f t3) nil) t3)
-        ($l (it (f t4) nil) t4)))))
+        ($l (it (f t4) nil) "&lt;2011-11-18 06:54&gt;--[2011-11-18 14:54]")
+        ($l (it '(timestamp nil) nil) "")))))
 
 (ert-deftest t--format-timestamp-fun ()
   "Tests for `org-w3ctr--format-timestamp-fun'."
@@ -6132,9 +6184,15 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($l (it (f t2) info) "hello")
         ($l (it (f t3) info) "hello")
         ($l (it (f t4) info) "hello")
-        ($e! (it (f t1) nil))))))
+        ($e!l (it (f t1) nil)
+              '(org-w3ctr-error "Invalid timestamp format function: nil"))
+        ($e!l (it (f t1) '(:html-timestamp-format-function not-a-fn))
+              '(org-w3ctr-error "Invalid timestamp format function: not-a-fn"))
+        ($e!l (it (f t1)
+                  (list :html-timestamp-format-function (lambda (_a _b) 42)))
+              '(org-w3ctr-error
+                "Timestamp format function returned a non-string: 42"))))))
 
-;; FIXME: make it more useful.
 (ert-deftest t-timestamp ()
   "Tests for `org-w3ctr-timestamp'."
   (t-check-element-values
@@ -6166,7 +6224,38 @@ COUNTER, a cons cell, has its car incremented on every call."
      ("[2000-01-01]" "<time datetime=\"2000-01-01\">[2000-01-01]</time>"))
    nil '( :html-timestamp-option fmt :html-timestamp-wrapper time
           :html-timestamp-formats ("%F" . "%F %R")
-          :html-timezone "UTC+8" :html-datetime-option s-none)))
+          :html-timezone "UTC+8" :html-datetime-option s-none))
+  ;; Diary and every `:html-timestamp-option' branch, plus unknown option.
+  (t-check-element-values
+   #'t-timestamp
+   '(("<%%(diary-float t 4 2)>" "&lt;%%(diary-float t 4 2)&gt;"))
+   t '(:html-timestamp-option raw))
+  (t-check-element-values
+   #'t-timestamp
+   '(("[2011-11-18 %s]"
+      "<time datetime=\"2011-11-18\">[2011-11-18 %s]</time>"))
+   t '(:html-timestamp-option raw :html-timestamp-wrapper time))
+  (t-check-element-values
+   #'t-timestamp
+   '(("[2011-11-18]" "[2011-11-18 Fri]"))
+   t '(:html-timestamp-option int :html-timestamp-wrapper none))
+  (t-check-element-values
+   #'t-timestamp
+   '(("[2011-11-18]" "2011-11-18"))
+   t '( :html-timestamp-option cus :html-timestamp-wrapper none
+        :html-timestamp-formats ("{%F}" . "{%F %R}")))
+  (dlet ((org-display-custom-times nil))
+    (t-check-element-values
+     #'t-timestamp
+     '(("[2011-11-18]" "[2011-11-18 Fri]"))
+     t '(:html-timestamp-option org :html-timestamp-wrapper none)))
+  (t-check-element-values
+   #'t-timestamp
+   '(("<2011-11-18>" "&lt;2011-11-18&gt;"))
+   t '(:html-timestamp-option fun))
+  ($e!l (org-export-string-as "[2011-11-18]" 'w3ctr t
+                              '(:html-timestamp-option bogus))
+        '(org-w3ctr-error "Unknown timestamp option: bogus")))
 
 ;;;; Link
 
