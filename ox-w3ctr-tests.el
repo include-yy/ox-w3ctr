@@ -84,13 +84,6 @@ symbol (for example `headline' or `paragraph')."
     (save-excursion (insert str))
     (t-parse1 type)))
 
-(defun t-test-fontify-info (&rest plist)
-  "Return a fresh INFO for the fontify functions.
-PLIST comes first, so its keys win, then the current values of the
-fontify options (`org-w3ctr--fontify-default-info').  The list is
-fresh: the code under test may store its state in it."
-  (append plist (t--fontify-default-info)))
-
 ;;;; `org-w3ctr-check-element-values'
 
 (ert-deftest t-check-element-values ()
@@ -130,6 +123,8 @@ mismatch, and removes the advice in either case."
 (ert-deftest t-error ()
   "Tests for `org-w3ctr-error'."
   ($e!l (t-error "Hello world") '(org-w3ctr-error "Hello world"))
+  ($e!l (t-error "Bad value: %s (%d)" "foo" 42)
+        '(org-w3ctr-error "Bad value: foo (42)"))
   ($e!l (signal '(t-error 1)) '(t-error 1)))
 
 ;;; Basic utilities
@@ -3634,6 +3629,13 @@ cookie-less column is remembered as the `none' marker."
     ($n (string-match-p "<div id=" out))))
 
 ;;;; Fontify token IR
+
+(defun t-test-fontify-info (&rest plist)
+  "Return a fresh INFO for the fontify functions.
+PLIST comes first, so its keys win, then the current values of the
+fontify options (`org-w3ctr--fontify-default-info').  The list is
+fresh: the code under test may store its state in it."
+  (append plist (t--fontify-default-info)))
 
 (ert-deftest t--fontify-face-table ()
   "Tests for `org-w3ctr--fontify-face-table'."
