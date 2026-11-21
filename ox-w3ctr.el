@@ -1988,13 +1988,13 @@ syntax."
 (defun t--load-file (file)
   "Read the entire contents of FILE into a string, verbatim.
 
-Signal `org-w3ctr-error' if FILE does not exist or is a directory.
+Signal `org-w3ctr-error' if FILE is not readable or is a directory.
 FILE is decoded as UTF-8 regardless of the locale coding system, so
 the same file reads identically on every machine; nothing is added or
 removed."
   (declare (ftype (function (string) string))
            (important-return-value t))
-  (unless (and (file-exists-p file) (not (file-directory-p file)))
+  (unless (and (file-readable-p file) (not (file-directory-p file)))
     (t-error "Invalid file: %s" file))
   (with-temp-buffer
     (let ((coding-system-for-read 'utf-8))

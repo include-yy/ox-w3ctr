@@ -1049,12 +1049,15 @@ decoding returns the input."
         ($l ox (t--load-file file))))))
 
 (ert-deftest t--load-file-missing ()
-  "`org-w3ctr--load-file' rejects a missing file or a directory.
-Both cases signal `org-w3ctr-error'; the error value is pinned."
+  "`org-w3ctr--load-file' rejects a missing/unreadable file or a directory.
+All cases signal `org-w3ctr-error'; the error value is pinned."
   ($e!l (t--load-file "no-such-dir/no-such-file")
         '(org-w3ctr-error "Invalid file: no-such-dir/no-such-file"))
   ($e!l (t--load-file ".")
-        '(org-w3ctr-error "Invalid file: .")))
+        '(org-w3ctr-error "Invalid file: ."))
+  (cl-letf (((symbol-function 'file-readable-p) (lambda (_) nil)))
+    ($e!l (t--load-file "ox-w3ctr-tests.el")
+          '(org-w3ctr-error "Invalid file: ox-w3ctr-tests.el"))))
 
 (ert-deftest t--find-all ()
   "Tests for `org-w3ctr--find-all'."
