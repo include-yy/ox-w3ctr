@@ -281,20 +281,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   documented as deliberate (the docstrings say so now) or signal
   =org-w3ctr-error= and flip the tests.
 
-- *Docstring & layout leftovers (from the tidy pass).*
-  - Add =(declare (ftype …))= to the one function that still lacks it
-    (excluding =defsubst=, interactive, and end-user commands):
-    =t-preamble-default-function=.
-
-- *Shorthand symbol names in docstrings and comments.*  They are string
-  literals and get no =read-symbol-shorthands=; write the full
-  =org-w3ctr-*= name.  Remaining in =ox-w3ctr.el=: =t-style= /
-  =t-style-file= (<head>).
-
-- *One test section sits out of source order.*  =order-check.el= flags
-  CC license badges.  Reorder it to the source function order when that
-  section is next touched.
-
 - *Other transcoders take CONTENTS as =string= with no nil guard.*  ox.el
   prunes math under =tex:nil=, so a paragraph whose only content was
   pruned arrives with nil CONTENTS -- =org-w3ctr-paragraph= used to crash

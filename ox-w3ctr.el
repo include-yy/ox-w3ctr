@@ -1025,8 +1025,8 @@ The default is `org-w3ctr-heading-default-format-function'."
 This function should take INFO as the only argument and return a
 string representing the timestamp.
 
-The default value is `org-w3ctr-file-timestamp-default', which generates
-timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+The default value is `org-w3ctr-file-timestamp-default-function',
+which generates timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -1155,8 +1155,6 @@ You can set this on a per-file basis using #+HTML_HEAD:,
 or for publication projects using the :html-head property."
   :group 'org-export-w3ctr
   :type '(choice string function))
-;;;###autoload
-(put 't-head 'safe-local-variable 'stringp)
 
 (defcustom t-head-extra ""
   "More head information to add in the <head> section.
@@ -1168,16 +1166,15 @@ You can set this on a per-file basis using #+HTML_HEAD_EXTRA:,
 or for publication projects using the :html-head-extra property."
   :group 'org-export-w3ctr
   :type '(choice string function))
-;;;###autoload
-(put 't-head-extra 'safe-local-variable 'stringp)
 
 (defcustom t-head-include-style t
   "Control whether to include CSS styles in the exported HTML.
 
-When non-nil, the styles defined by `t-style' or loaded from
-`t-style-file' will be embedded within a <style> tag in the HTML <head>."
+When non-nil, the styles defined by `org-w3ctr-style' or loaded from
+`org-w3ctr-style-file' will be embedded within a <style> tag in the HTML <head>."
   :group 'org-export-w3ctr
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defvar t--style-cache nil
   "Cached CSS loaded from `org-w3ctr-style-file'.
@@ -1208,11 +1205,12 @@ The default value points to a `style.css' file inside the package's
   :group 'org-export-w3ctr
   :initialize #'custom-initialize-default
   :set (lambda (symbol value)
-         (unless (and (stringp value)
-                      (file-exists-p value)
-                      (file-name-absolute-p value))
+         (unless (or (null value)
+                     (and (stringp value)
+                          (file-exists-p value)
+                          (file-name-absolute-p value)))
            (error "Invalid style file: %s" value))
-         (set symbol value)
+         (set-default symbol value)
          ;; Refresh the cached CSS.
          (setq t--style-cache nil))
   :type '(choice (const nil) file))
@@ -1280,7 +1278,7 @@ return a string containing the complete HTML for the navigation bar
 
 See `org-w3ctr-navbar-default-format-function' for an example."
   :group 'org-export-w3ctr
-  :type 'function)
+  :type '(choice (const :tag "Disable" nil) function))
 
 ;;;; CC badges
 (defcustom t-use-cc-badges t
@@ -1289,7 +1287,8 @@ See `org-w3ctr-navbar-default-format-function' for an example."
 `org-w3ctr-license-default-format-function' reads this option;
 the icons for a license come from `org-w3ctr--cc-icon-names'."
   :group 'org-export-w3ctr
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defcustom t-public-license nil
   "Default license for exported content.
@@ -1297,7 +1296,7 @@ Value should be one of the supported Creative Commons licenses
 or variants."
   :group 'org-export-w3ctr
   :type '(choice
-          (const nil) (const cc0)
+          (const nil) (const cc0) (const public-domain-mark)
           (const all-rights-reserved)
           (const all-rights-reversed)
           (const cc-by-4.0) (const cc-by-nc-4.0)
@@ -1305,7 +1304,14 @@ or variants."
           (const cc-by-nd-4.0) (const cc-by-sa-4.0)
           (const cc-by-3.0) (const cc-by-nc-3.0)
           (const cc-by-nc-nd-3.0) (const cc-by-nc-sa-3.0)
-          (const cc-by-nd-3.0) (const cc-by-sa-3.0)))
+          (const cc-by-nd-3.0) (const cc-by-sa-3.0))
+  :safe (lambda (v)
+          (memq v '(nil cc0 public-domain-mark
+                        all-rights-reserved all-rights-reversed
+                        cc-by-4.0 cc-by-nc-4.0 cc-by-nc-nd-4.0
+                        cc-by-nc-sa-4.0 cc-by-nd-4.0 cc-by-sa-4.0
+                        cc-by-3.0 cc-by-nc-3.0 cc-by-nc-nd-3.0
+                        cc-by-nc-sa-3.0 cc-by-nd-3.0 cc-by-sa-3.0))))
 
 (defcustom t-license-format-function #'t-license-default-format-function
   "Default function to build license string."
@@ -1361,7 +1367,7 @@ The default is `org-w3ctr-preamble-default-function'.  The result
 is normalized to end in a newline; see
 `org-w3ctr--build-pre/postamble' for the exact contract."
   :group 'org-export-w3ctr
-  :type '(choice string function symbol))
+  :type '(choice (const :tag "None" nil) string function symbol))
 
 (defcustom t-postamble
   "<p role=\"navigation\" id=\"back-to-top\"><a href=\"#title\"><abbr title=\"Back to Top\">↑</abbr></a></p>
@@ -1371,7 +1377,7 @@ is normalized to end in a newline; see
 The value takes the same kinds as `org-w3ctr-preamble'.  The
 default is the back-to-top arrow; nil inserts nothing."
   :group 'org-export-w3ctr
-  :type '(choice string function symbol))
+  :type '(choice (const :tag "None" nil) string function symbol))
 
 (defcustom t-creator-string
   (format "<a href=\"https://www.gnu.org/software/emacs/\">\
@@ -1381,8 +1387,7 @@ Emacs</a> %s (<a href=\"https://orgmode.org\">Org</a> mode %s) \
           (if (fboundp 'org-version) (org-version)
             "unknown version")
           t-version)
-  "Information about the creator of the HTML document, for the %c
-format code.
+  "Information about the creator of the HTML document (for %c).
 
 This option can also be set with the CREATOR keyword.  See also
 `org-html-creator-string'."
@@ -1399,7 +1404,8 @@ numbers.  With the stylesheet applied both render alike (it drops
 the markers), so `ol' is the better choice for list semantics
 wherever a stylesheet is guaranteed."
   :group 'org-export-w3ctr
-  :type '(choice (const ul) (const ol)))
+  :type '(choice (const ul) (const ol))
+  :safe (lambda (v) (memq v '(ul ol))))
 
 (defcustom t-toc-title "Table of Contents"
   "Heading text of the table of contents.
@@ -1433,7 +1439,8 @@ tag: the document's own `:html-fixup-js' when set, otherwise the
 `assets/fixup.js' shipped with the package.  When nil, no script is
 emitted."
   :group 'org-export-w3ctr
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defvar t-fixup-js ""
   "JavaScript to inject before the closing </body> tag.
@@ -1451,14 +1458,16 @@ unless you have specific legacy system requirements."
   :group 'org-export-w3ctr
   :type '(radio (const utf-8-unix)
                 (const utf-8-dos)
-                (const utf-8-mac)))
+                (const utf-8-mac))
+  :safe (lambda (v) (memq v '(utf-8-unix utf-8-dos utf-8-mac))))
 
 ;;;; Misc
 (defcustom t-indent nil
   "Non-nil means to indent the generated HTML.
 Warning: non-nil may break indentation of source code blocks."
   :group 'org-export-w3ctr
-  :type 'boolean)
+  :type 'boolean
+  :safe #'booleanp)
 
 (defcustom t-use-babel nil
   "Non-nil means evaluate Babel code blocks when exporting.
@@ -6847,10 +6856,10 @@ entry is not a (URL . NAME) cons of strings (checked in
   '((nil "Not Specified")
     (all-rights-reserved "All Rights Reserved")
     (all-rights-reversed "All Rights Reversed")
-    (cc0 "CC0 1.0 Universal"
-     "https://creativecommons.org/publicdomain/zero/1.0/")
-    (public-domain-mark "Public Domain Mark 1.0"
-     "https://creativecommons.org/publicdomain/mark/1.0/")
+    ( cc0 "CC0 1.0 Universal"
+      "https://creativecommons.org/publicdomain/zero/1.0/")
+    ( public-domain-mark "Public Domain Mark 1.0"
+      "https://creativecommons.org/publicdomain/mark/1.0/")
     ;; 4.0 (the whole suite: six licenses).
     ( cc-by-4.0 "CC BY 4.0"
       "https://creativecommons.org/licenses/by/4.0/")
@@ -7189,6 +7198,8 @@ element listing the document metadata: the publication date from
 `org-w3ctr--get-info-mtime', the creator string, and the license
 line from `org-w3ctr-format-public-license'.  A row shows
 \"[Not Specified]\" when its value is missing or blank."
+  (declare (ftype (function (list) string))
+           (important-return-value t))
   (concat
    "<details open>\n"
    "<summary>More details about this document</summary>\n"
@@ -7648,7 +7659,9 @@ and INFO the export options plist."
   "Export the current buffer to an HTML buffer.
 
 Like `org-html-export-as-html', with `org-export-use-babel' bound
-to `org-w3ctr-use-babel'."
+to `org-w3ctr-use-babel'.  Optional arguments ASYNC, SUBTREEP,
+VISIBLE-ONLY, BODY-ONLY, and EXT-PLIST are passed through to
+`org-export-to-buffer'."
   (interactive)
   (let ((org-export-use-babel t-use-babel))
     (org-export-to-buffer 'w3ctr "*Org w3ctr HTML Export*"
@@ -7673,10 +7686,10 @@ publish project plist), not the export INFO; its `:html-extension'
 wins over `org-w3ctr-extension', and \"html\" is the last resort."
   (declare (ftype (function (t) string))
            (important-return-value t))
-  (concat (when (> (length t-extension) 0) ".")
-          (or (plist-get plist :html-extension)
-              t-extension
-              "html")))
+  (let ((ext (or (plist-get plist :html-extension)
+                 t-extension
+                 "html")))
+    (if (string-empty-p ext) "" (concat "." ext))))
 
 ;;;###autoload
 (defun t-export-to-html
@@ -7685,7 +7698,9 @@ wins over `org-w3ctr-extension', and \"html\" is the last resort."
 
 Like `org-html-export-to-html', with `org-export-use-babel' bound
 to `org-w3ctr-use-babel' and the file extension from
-`org-w3ctr--file-extension'."
+`org-w3ctr--file-extension'.  Optional arguments ASYNC, SUBTREEP,
+VISIBLE-ONLY, BODY-ONLY, and EXT-PLIST are passed through to
+`org-export-to-file'."
   (interactive)
   (let* ((extension (t--file-extension ext-plist))
          (file (org-export-output-file-name extension subtreep))

@@ -5422,6 +5422,26 @@ COUNTER, a cons cell, has its car incremented on every call."
       (set-default 't-timezone orig-tz)
       (set-default 't-export-timezone orig-extz))))
 
+
+(ert-deftest t-style-file-custom-set ()
+  "Tests for `org-w3ctr-style-file' custom setter."
+  (let ((setter (get 't-style-file 'custom-set))
+        (orig t-style-file)
+        (orig-cache t--style-cache))
+    (unwind-protect
+        (progn
+          (setq t--style-cache "cached")
+          (funcall setter 't-style-file nil)
+          ($n t-style-file)
+          ($n t--style-cache)
+          (setq t--style-cache "cached")
+          (funcall setter 't-style-file orig)
+          ($l t-style-file orig)
+          ($n t--style-cache)
+          (should-error
+           (funcall setter 't-style-file "relative/style.css")))
+      (setq t-style-file orig
+            t--style-cache orig-cache))))
 (ert-deftest t--timezone-to-offset ()
   "Tests for `org-w3ctr--timezone-to-offset'."
   ($it t--timezone-to-offset
@@ -8027,18 +8047,6 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($l (it 'public-domain-mark nil) "pdm")
       ($l (it 'all-rights-reserved nil) ""))))
 
-(ert-deftest t-format-public-license ()
-  "Tests for `org-w3ctr-format-public-license'."
-  (cl-letf (((symbol-function 't-license-default-format-function)
-             (lambda (_info) "DEFAULT")))
-    ;; The hook from INFO is called with INFO.
-    ($l (t-format-public-license
-         (list :x 1 :html-license-format-function
-               (lambda (info) (format "CUSTOM:%s" (plist-get info :x)))))
-        "CUSTOM:1")
-    ;; Without the option it falls back to the default renderer.
-    ($l (t-format-public-license (list :x 1)) "DEFAULT")))
-
 (ert-deftest t--get-info-author ()
   "Tests for `org-w3ctr--get-info-author'."
   (t-check-element-values
@@ -8130,6 +8138,18 @@ COUNTER, a cons cell, has its car incremented on every call."
         ;; An unknown license is an error.
         (setq info (plist-put info :html-license 'nope))
         ($q (car (should-error (test info))) 'org-w3ctr-error)))))
+
+(ert-deftest t-format-public-license ()
+  "Tests for `org-w3ctr-format-public-license'."
+  (cl-letf (((symbol-function 't-license-default-format-function)
+             (lambda (_info) "DEFAULT")))
+    ;; The hook from INFO is called with INFO.
+    ($l (t-format-public-license
+         (list :x 1 :html-license-format-function
+               (lambda (info) (format "CUSTOM:%s" (plist-get info :x)))))
+        "CUSTOM:1")
+    ;; Without the option it falls back to the default renderer.
+    ($l (t-format-public-license (list :x 1)) "DEFAULT")))
 
 ;;;; Preamble and Postamble
 
@@ -8732,15 +8752,18 @@ that changes them fails here instead of corrupting a TOC silently."
 (ert-deftest t--file-extension ()
   "Tests for `org-w3ctr--file-extension'."
   (dlet ((t-extension "html"))
-    ;; The default extension, and the per-call override.
+    ;; The default extension, per-call override, and empty override.
+    ($l (t--file-extension nil) ".html")
+    ($l (t--file-extension '(:html-extension "xhtml")) ".xhtml")
+    ($l (t--file-extension '(:html-extension "")) ""))
+  (dlet ((t-extension nil))
+    ;; Without a default, the fallback is ".html".
     ($l (t--file-extension nil) ".html")
     ($l (t--file-extension '(:html-extension "xhtml")) ".xhtml"))
-  (dlet ((t-extension nil))
-    ;; Without a default, the fallback is "html".
-    ($l (t--file-extension nil) "html"))
   (dlet ((t-extension ""))
-    ;; An empty default means no dot.
-    ($l (t--file-extension nil) "")))
+    ;; An empty effective extension means no dot; override still gets one.
+    ($l (t--file-extension nil) "")
+    ($l (t--file-extension '(:html-extension "xhtml")) ".xhtml")))
 
 ;;; Source structure
 
