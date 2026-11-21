@@ -7,7 +7,7 @@ Guidance for AI agents working in this repository.
 `ox-w3ctr` is an Emacs Lisp package: an Org export back-end that emits HTML
 styled for W3C Technical Reports.  It is a "parasitic implementation" of
 Org's `ox-html.el`, being progressively reimplemented (refactored) in its own
-style.  Version 0.2.20; requires Emacs 31.
+style.  Requires Emacs 31.
 
 - `ox-w3ctr.el`       — the back-end (main source)
 - `ox-w3ctr-tests.el` — ERT test suite
@@ -18,7 +18,6 @@ style.  Version 0.2.20; requires Emacs 31.
                         and `fontify.org` (fontify pipeline)
 - `scratch/`          — throwaway files and local build outputs, never
                         the system temp (gitignored)
-- `zhua.el`           — refactor proposals (gitignored)
 - `.agents/`          — skills (committed) + env.md, next.md (gitignored)
 
 Scratch and temporary files go in `scratch/` (gitignored), never
@@ -40,7 +39,9 @@ corpus harness on every run; do not file it under a `_` directory.
 
 `.agents/next.md` is the handoff note from the previous session.  In a
 new conversation, read it early, but treat it as possibly outdated:
-check it against the current state before relying on it.
+check it against the current state before relying on it.  File small
+follow-up findings under `README.org`'s Roadmap `Tasks` list and larger
+planned work under its `TODO` list.
 
 ## Environment
 
@@ -76,26 +77,23 @@ Invariants the detected values must satisfy:
 
 Paths and commands below are bash-style.
 
-pi's settings and sessions live in the Windows profile
-(`C:\Users\<user>`); reach it with `"$USERPROFILE"` or
-`cygpath -u "$USERPROFILE"`.
-
 **Never search inside `node_modules`.**  No recursive `grep`/`find`/`rg`
-over `node_modules` (including the pi install tree or any package's
-`node_modules/`): it is enormous and the search hangs the shell.  Read
-the specific documented file by path instead (e.g. under the pi
-`docs/` directory) — never discover it with a recursive scan.
+over any `node_modules/` directory: it is enormous and the search hangs
+the shell.  Read specific files by path instead.
 
 ## Git
 
 Remotes and how to reach them live in `.agents/env.md` (this checkout's
 configuration); a GitHub-only clone has one remote and no proxy.
 
+- Do not commit or push unless explicitly asked.
+- Commit messages: do **not** add AI attribution lines (such as
+  `Co-Authored-By` trailers).
 - Releases: bump `Package-Version` (header) and `t-version` together,
-  commit, then tag `vX.Y.Z` (lightweight, matching `v0.2.5`) and push
-  the branch and the tag to the remotes listed in `.agents/env.md`.
-  The OINFO cache ships on: do **not** turn `org-w3ctr-oinfo-enabled`
-  off for a release (`t-oinfo-enabled` says why).
+  commit, then tag `vX.Y.Z` (lightweight tag) and push the branch and
+  the tag to the remotes listed in `.agents/env.md`.  The OINFO cache
+  ships on: do **not** turn `org-w3ctr-oinfo-enabled` off for a release
+  (`t-oinfo-enabled` says why).
 
 ## Running the tests
 
@@ -107,7 +105,7 @@ From the repo root (Emacs path from `.agents/env.md`):
 
 Three gotchas:
 
-- `load-prefer-newer t` — a stale `ox-w3ctr.elc` exists; without this,
+- `load-prefer-newer t` — an `ox-w3ctr.elc` may exist; without this,
   `load` picks the compiled file over the source.
 - `system-time-locale` must be C/en; otherwise `%a` localizes day names and
   6 timestamp tests fail (e.g. `Fri` becomes a GBK-encoded Chinese string).
@@ -139,92 +137,93 @@ cd jstools && npm test
 
 ## Conventions
 
-- Symbols in `ox-w3ctr.el` use the shorthand `t-` for `org-w3ctr-`
-  (`read-symbol-shorthands`).  `zhua.el` must declare the same shorthand or
-  its symbols will not shadow the package ones.
-- **Docstrings and comments are string literals**, not read as Lisp, so
-  `read-symbol-shorthands` does not apply.  Write every `t-*` / `t--*`
-  symbol in them as its full `org-w3ctr-*` / `org-w3ctr--*` name.
-- A refactored function has: a full docstring, `(declare (ftype ...))`,
-  `(important-return-value t)` / `(pure t)` where applicable, uses the
-  `t--*` helpers, reads and writes INFO through `t--pget` / `t--pput`
-  (never `plist-get` / `plist-put`), and has ERT tests.
-- Workflow: write proposals to `zhua.el`, review in Emacs, then merge into
-  `ox-w3ctr.el`.  `zhua.el` is gitignored — do not commit it.
+### Elisp style & declarations
+
+- **Shorthand.**  Symbols in `ox-w3ctr.el` use `t-` for `org-w3ctr-`
+  (`read-symbol-shorthands`).  **Docstrings and comments are string
+  literals**, not read as Lisp, so write every `t-*` / `t--*` symbol in
+  them as its full `org-w3ctr-*` / `org-w3ctr--*` name.
+- **Docstrings.**  Every `defun`/`defsubst` gets a full docstring — a
+  one-line summary first, then parameter / return-value notes where they
+  are non-obvious.  Unused parameters carry a `_` prefix in the
+  signature (e.g., `_info`); docstrings reference them without the prefix
+  (write INFO, not _INFO).
+- **Declarations.**  Functions carry
+  `(declare (ftype (function (ARGS) RET)))`; add
+  `(important-return-value t)` where the caller must use the result; add
+  `(pure t)` where the function is side-effect free, its result depends
+  only on its arguments, it signals no errors (constant folding would
+  raise them at compile time), and it does **not** read or write INFO
+  through `t--pget` / `t--pput`; when it has no side effects but depends
+  on external state (e.g., global variables, time, or buffer state) or
+  may signal errors, use `(side-effect-free t)` instead.  Exemptions:
+  `defsubst`, end-user commands (`t-export-*`, `t-publish-*`,
+  `t-convert-*`), interactive commands whose return value is incidental.
+  `nil` is a subtype of both `list` and `symbol` (`(listp nil)` and
+  `(symbolp nil)` are t), so a return type of `list` or `symbol` already
+  admits `nil` — do not write `(or list null)` or `(or symbol null)`.
+- **INFO & helpers.**  Use `t--*` helpers, and read/write INFO through
+  `t--pget` / `t--pput` (never `plist-get` / `plist-put`).
+- **Naming.**  Internal helpers `t--*`, public API `t-*`.  No third
+  scheme (`org-w3ctr-faces-*` is gone; keep it that way).  Formatter
+  hooks are `<subject>-format-function`, their defaults
+  `<subject>-default-format-function`; `:html-format-headline-function`
+  is the one exception, kept verbatim from ox-html.
+- **No `cl-lib`.**  This package does not depend on `cl-lib`; use
+  traditional Emacs Lisp constructs (`mapcar`, `let`, `dolist`) instead
+  of `cl-loop`, `cl-destructuring-bind`, etc.
+- **Error signaling.**  Transcoders signal `org-w3ctr-error` (via
+  `t-error`), never the generic `error`; in a `condition-case` handler,
+  re-signal with `(signal err)` (the Emacs 31 one-argument form) rather
+  than `(signal (car err) (cdr err))` — it is more concise and preserves
+  `eq` equality of the error descriptor.
+
+### Structure & tests
+
+- **Headers.**  `;;;` for major parts, `;;;;` for sections.  No
+  `;;;;`-under-`;;;;` that pretends to be a third level.  An element is
+  either under a `;;;` part or a flat `;;;;` block — not a mix.  Keep
+  headers clean: correct spelling, no author names, no arithmetic
+  comments that drift out of date.
+- **Ordering.**  Within a section, bottom-up (helper before its user)
+  or top-down by call layer — pick one per section and keep it.
+- **Test order.**  `ox-w3ctr-tests.el` mirrors the source (`;;;` per
+  major part, `;;;;` per section), and inside a section tests follow the
+  source function order — a variant test (a name the function's name
+  prefixes) sits next to its target.  A variable or constant without its
+  own test is skipped.  Check with `elisp-test-quality`'s
+  `scripts/order-check.el` (`OUT-OF-ORDER` / `SECTION-ORDER`).
+- **Test docstrings.**  A test named after a function opens with
+  ``Tests for `org-w3ctr-…'.`` and one line only -- extra explanation
+  goes to body comments.  A test named otherwise (variant, property) is
+  free-form.  The suite's own harness (`org-w3ctr-check-element-values`
+  and its helpers) is exempt: its tests document the test infrastructure
+  and may explain in the docstring.
+- **Stability.**  All major parts of `ox-w3ctr.el` are stable and carry
+  unit, source-scanning and property tests — touch them only for a
+  concrete reason, with a test, never as a drive-by.  The one deliberate
+  test gap (`org-w3ctr--table.el-table`, whose markup comes from
+  `table-generate-source`) is annotated in the source.
+
+### Workflow & verification
+
+- **Wait for the user's decision.**  Before making a design decision,
+  applying unapproved edits, or committing/pushing, present the options
+  and wait for an actual reply from the user — never act on a
+  self-generated or hallucinated confirmation.
 - **LF line endings.**  Any script or tool that rewrites a source file
   must write LF (`\n`), never CRLF.  A Windows Python `write_text`
   silently converts to CRLF and breaks multi-line string literals
-  (navbar / footnote tests then fail).  After a rewrite, count CR
-  bytes:
+  (navbar / footnote tests then fail).  After a rewrite, count CR bytes:
 
   ```bash
   tr -cd '\r' < ox-w3ctr.el | wc -c   # expect 0
   ```
 
   A fresh clone under Git for Windows inherits the system
-  `core.autocrlf=true` and checks every file out as CRLF, which
-  fails 9 tests before any change.  Set `git config core.autocrlf
-  false` in the clone and convert the working tree back to LF.
-
-- Do not commit changes unless explicitly asked.
-- **Wait for the user's decision.**  Before making a design decision,
-  applying unapproved edits, or committing/pushing, present the options
-  and wait for an actual reply from the user — never act on a
-  self-generated or hallucinated confirmation.
-- **Docstring**: every `defun`/`defsubst` gets a full docstring — a
-  one-line summary first, then parameter / return-value notes where
-  they are non-obvious.
-- **Test docstrings**: a test named after a function opens with
-  ``Tests for `org-w3ctr-\u2026'.`` and one line only -- extra explanation
-  goes to body comments.  A test named otherwise (variant, property)
-  is free-form.  The suite's own harness
-  (`org-w3ctr-check-element-values` and its helpers) is exempt: its
-  tests are documentation for the test infrastructure and may explain
-  in the docstring.
-- **Declarations**: refactored functions carry
-  `(declare (ftype (function (ARGS) RET)))`; add
-  `(important-return-value t)` where the caller must use the result;
-  add `(pure t)` where the function is side-effect free and its result
-  depends only on its arguments, and it signals no errors (constant
-  folding would raise them at compile time).  Exemptions: `defsubst`, end-user
-  commands (`t-export-*`, `t-publish-*`, `t-convert-*`), interactive
-  commands whose return value is incidental.  `nil` is a subtype of
-  both `list` and `symbol` (`(listp nil)` and `(symbolp nil)` are t),
-  so a return type of `list` or `symbol` already admits `nil` — do not
-  write `(or list null)` or `(or symbol null)`.
-- **Naming**: internal helpers `t--*`, public API `t-*`.  No third
-  scheme (`org-w3ctr-faces-*` is gone; keep it that way).  Formatter
-  hooks are `<subject>-format-function`, their defaults
-  `<subject>-default-format-function`; `:html-format-headline-function`
-  is the one exception, kept verbatim from ox-html.
-- **Headers**: `;;;` for major parts, `;;;;` for sections.  No
-  `;;;;`-under-`;;;;` that pretends to be a third level.  A refactored
-  element is either under a `;;;` part or a flat `;;;;` block — not a
-  mix.
-- **Ordering**: within a section, bottom-up (helper before its user)
-  or top-down by call layer — pick one per section and keep it.
-- **Test order**: `ox-w3ctr-tests.el` mirrors the source section by
-  section, and inside a section the tests follow the source function
-  order — a variant test (a name the function's name prefixes) sits next
-  to its target.  A variable or constant without its own test is
-  skipped.  Check with `elisp-test-quality`'s `scripts/order-check.el`
-  (`OUT-OF-ORDER` / `SECTION-ORDER`).
-- **Header hygiene**: correct spelling, no author names, no arithmetic
-  comments that drift out of date.
-- **No `cl-lib`.**  This package does not depend on `cl-lib`; use
-  traditional Emacs Lisp constructs (`mapcar`, `let`, `dolist`) instead of
-  `cl-loop`, `cl-destructuring-bind`, etc.  The one historic dependency was
-  dropped.
-- **Error signaling.**  Transcoders signal `org-w3ctr-error` (via
-  `t-error`), never the generic `error`; in a `condition-case` handler,
-  re-signal with `(signal err)` (the Emacs 31 one-argument form) rather
-  than `(signal (car err) (cdr err))` — it is more concise and preserves
-  `eq` equality of the error descriptor.
-- **OINFO and purity.**  A function that reads or writes INFO through
-  `t--pget` / `t--pput` is never marked `(pure t)`.
-- **Docstring parameter references.**  Unused parameters carry a `_`
-  prefix in the signature (e.g., `_info`); docstrings reference them
-  without the prefix (write INFO, not _INFO).
+  `core.autocrlf=true` and checks every file out as CRLF, which fails 9
+  tests before any change.  Set `git config core.autocrlf false` in the
+  clone and convert the working tree back to LF.
 - **Verification cadence.**  The ERT suite is the routine gate; also run
   the `ox-w3ctr-lint` skill's static checks on any change.  The
   `ox-w3ctr-verify` skill's corpus runs are for genuinely global changes
@@ -269,33 +268,3 @@ well-formed.
   heading, a stale id).  A human cannot afford to keep them in sync;
   an AI can — prefer explicitness wherever drift is catchable by a
   test or lint.
-
-## Mainline: incremental refinement
-
-Refine one function at a time — docstring, `declare`,
-`important-return-value`/`pure`, helper use, tests — and file each finding
-under the `Tasks` list of `README.org`'s Roadmap (small, same-session) or
-its `TODO` list (larger).  Those two lists are the plan; there is no fixed
-task list and no "underway" moment.  The current session state and next
-task live in `.agents/next.md`.
-
-The mainline fine pass across `ox-w3ctr.el` and `ox-w3ctr-tests.el` is
-complete (zero `REFINE:` markers, zero `checkdoc` / `indent-check` /
-`order-check` / `strict-compile` warnings).  All major parts are now
-stable — they carry unit, source-scanning and property tests, verified
-end to end — touch them only for a concrete reason, with a test, never
-as a drive-by:
-
-- `;;; Basic utilities` — frozen
-- `;;; Greater elements` — frozen
-- `;;; Lesser elements` — finished
-- `;;; Objects` — finished
-- `;;; Smallest objects` — finished
-- `;;; Headline and Section` — finished
-- `;;; Template and Inner Template` — finished
-- `;;; End-user functions` — finished
-
-Their one deliberate test gap, `org-w3ctr--table.el-table` (its markup
-comes from `table-generate-source`), is annotated in the source.
-`ox-w3ctr-tests.el` mirrors the source (`;;;` per major part, `;;;;` per
-source section); keep that alignment intact.
