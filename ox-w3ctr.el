@@ -2183,23 +2183,20 @@ contains ASCII whitespace or any of the characters \", ', <, >, or &."
   id)
 
 (defun t--reference (datum info &optional named-only)
-  "Return an appropriate reference for DATUM.
-DATUM is an element or a target/radio-target object.  INFO is the
-info plist.
+  "Return an HTML reference string for in-document DATUM, or nil.
+DATUM is an element or target/radio-target from the current parse
+tree, and INFO is the info plist.
 
-This names in-document datums only: every caller passes a datum
-from the current parse tree, never an external target.  Cross-file
-links are resolved in the link transcoder (`org-w3ctr--link-path',
-`org-w3ctr--link-dispatch'), not here.
+Precedence: a headline's `CUSTOM_ID', a valid target/radio-target
+name, then `NAME' or `ID' (prefixed with `org-w3ctr--id-attr-prefix')
+when `:html-prefer-user-labels' is non-nil, and finally a generated
+`orgXXXXXXX' id via `org-w3ctr--get-reference'.
 
-When NAMED-ONLY is non-nil and DATUM has no explicit label (no
-CUSTOM_ID, no target value, no NAME or ID), return nil instead of a
-random id.  Headlines, radio targets and targets are exempt.  A named
-datum still falls through to a generated `orgXXXXXXX' reference when
-`:html-prefer-user-labels' is nil, matching the link side.
-
-Signal `org-w3ctr-error' when a headline's `:CUSTOM_ID' or `:ID'
-fails `org-w3ctr--check-id'."
+When NAMED-ONLY is non-nil, return nil for unlabeled elements other
+than headlines and targets (elements with `NAME' or `ID' still fall
+through to `orgXXXXXXX' when `:html-prefer-user-labels' is nil).
+Signal `org-w3ctr-error' if `CUSTOM_ID' or `ID' fails
+`org-w3ctr--check-id'."
   (declare (ftype (function (t list &optional boolean) (or null string)))
            (important-return-value t))
   (let ((type (org-element-type datum)))
@@ -2227,27 +2224,18 @@ fails `org-w3ctr--check-id'."
            (not (org-element-property :name datum))
            (not (org-element-property :ID datum)))
       nil)
-     ;; Fallback: random orgXXXXXXX via the vendored reference generator.
-     ;; Unconditionally decoupled from :crossrefs: `org-w3ctr--reference'
-     ;; only ever names in-document datums, so the crossrefs read that
-     ;; upstream does here -- stabilizing ids of elements *referenced by*
-     ;; other documents -- is out of scope.  `org-w3ctr-honor-ox-external-links'
-     ;; gates the link transcoder side instead; it does not switch this
-     ;; fallback back to upstream.
+     ;; Fallback: generate a random `orgXXXXXXX' reference.
      (t (t--get-reference datum info)))))
 
 (defun t--element-id (element info &optional named-only)
-  "Return the HTML id string ELEMENT's transcoder emits, or nil.
-ELEMENT is an element or target/radio-target object.  INFO is the
-info plist.  NAMED-ONLY is passed through to `org-w3ctr--reference'.
+  "Return the HTML id emitted for ELEMENT, or nil if it has none.
+ELEMENT is an element or target/radio-target object, INFO is the
+info plist, and NAMED-ONLY is passed to `org-w3ctr--reference'.
 
-Return nil for elements that never emit an id (`export-block',
-`latex-environment', `dynamic-block', `keyword', or a `table.el'
-`table').  For `headline', `target', and `radio-target', delegate
-directly to `org-w3ctr--reference'.  For all other elements, mirror
-`org-w3ctr--make-attr__id*': an explicit `(id ...)' in `:attr__' or
-`:id' in `:attr_html' wins over `org-w3ctr--reference', and an empty
-or nil explicit id suppresses it (returning nil)."
+Unlike `org-w3ctr--reference', this accounts for explicit id
+overrides in `:attr__' or `:attr_html' (mirroring
+`org-w3ctr--make-attr__id*') and returns nil for elements whose
+transcoders emit no id."
   (declare (ftype (function (t list &optional boolean) (or null string)))
            (important-return-value t))
   (let ((type (org-element-type element)))
