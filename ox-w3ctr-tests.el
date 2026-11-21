@@ -1407,13 +1407,14 @@ stubs `random' to hand back a taken number first and counts the draws."
 
 (ert-deftest t-image-link-filter ()
   "Tests for `org-w3ctr-image-link-filter'."
-  (let (seen)
+  (let ((info (list :html-inline-image-rules '(("file" . "\\.png\\'"))))
+        seen)
     (cl-letf (((symbol-function 'org-export-insert-image-links)
                (lambda (data info rules)
                  (setq seen (list data info rules))
                  'TREE)))
-      ($q (t-image-link-filter 'DATA 'backend 'INFO) 'TREE)
-      ($l seen (list 'DATA 'INFO t-inline-image-rules)))))
+      ($q (t-image-link-filter 'DATA 'backend info) 'TREE)
+      ($l seen (list 'DATA info '(("file" . "\\.png\\'")))))))
 
 (ert-deftest t-final-function ()
   "Tests for `org-w3ctr-final-function'."

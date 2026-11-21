@@ -2267,10 +2267,11 @@ BACKEND is unused.  INFO is the info plist.
 
 This is the backend's `:filter-parse-tree' filter.  Return DATA with
 any image link description turned into a nested link according to
-`org-w3ctr-inline-image-rules'.  See `org-export-insert-image-links'."
+`:html-inline-image-rules'.  See `org-export-insert-image-links'."
   (declare (ftype (function (t t list) t))
            (important-return-value t))
-  (org-export-insert-image-links data info t-inline-image-rules))
+  (org-export-insert-image-links
+   data info (t--pget info :html-inline-image-rules)))
 
 (defun t-final-function (contents _backend info)
   "Indent HTML CONTENTS when `:html-indent' is non-nil, and return it.
@@ -2281,12 +2282,13 @@ mode only when indenting, with delayed hooks as in
 `org-html-final-function'."
   (declare (ftype (function (string t list) string))
            (important-return-value t))
-  (with-temp-buffer
-    (insert contents)
-    (when (t--pget info :html-indent)
+  (if (not (t--pget info :html-indent))
+      (substring-no-properties contents)
+    (with-temp-buffer
+      (insert contents)
       (delay-mode-hooks (set-auto-mode t))
-      (indent-region (point-min) (point-max)))
-    (buffer-substring-no-properties (point-min) (point-max))))
+      (indent-region (point-min) (point-max))
+      (buffer-substring-no-properties (point-min) (point-max)))))
 
 ;;;; JSON-RPC
 
