@@ -155,10 +155,11 @@ Binds `org-w3ctr--oinfo-cache-props' and `org-w3ctr--oinfo-cache-alist'
 to closures named by `org-w3ctr-test-oinfo-oclosure', and removes those
 names again when BODY exits: `fset' is not undone by `dlet'.
 
-Inside BODY call `org-w3ctr--pget'/`org-w3ctr--pput' through `eval':
-both are `define-inline', expanded at call time against the current
-`org-w3ctr--oinfo-cache-alist', so only `eval' re-expands them under the
-throwaway cache this macro installs."
+Inside BODY, `eval' invokes the runtime definitions of
+`org-w3ctr--pget'/`org-w3ctr--pput' (which consult the bound
+`org-w3ctr--oinfo-cache-alist'); to exercise their `define-inline'
+compiler-macro expansions under this throwaway cache, use `byte-compile'
+or `macroexpand-all'."
   (declare (indent 1))
   `(dlet ((org-w3ctr--oinfo-cache-props ,keys)
           (org-w3ctr--oinfo-cache-alist nil))
@@ -354,6 +355,7 @@ otherwise its cached assertions fail in the nil build."
 
 (ert-deftest t--oinfo-oclosure-names ()
   "The closure symbol is the struct name followed by the keyword."
+  ($q (t--oinfo-oclosure :title) 'org-w3ctr--oinfo:title)
   (dolist (key t--oinfo-cache-props)
     ($l (t--oinfo-oclosure key)
         (intern (concat "org-w3ctr--oinfo" (symbol-name key))))))
@@ -601,6 +603,75 @@ too."
       ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
       ($l (t--oinfo--val (t--oinfo-oget :a)) nil))))
 
+(ert-deftest t-collect-oinfo-statistics ()
+  "Tests for `org-w3ctr-collect-oinfo-statistics'."
+  (skip-unless t--oinfo-cache-p)
+  (unwind-protect
+      (save-window-excursion
+        (t-test-oinfo-cache '(:a :b)
+          (dlet ((info '(:a 1 :b 2)))
+            ;; Give :a the higher count so descending sort must reorder it
+            ;; ahead of :b (`push' puts :b before :a in the raw alist).
+            ($l (eval '(t--pget info :a)) 1)
+            ($l (eval '(t--pget info :a)) 1)
+            ($l (eval '(t--pget info :b)) 2)
+            (t-collect-oinfo-statistics)
+            (with-current-buffer "*ox-w3ctr-oinfo*"
+              ;; Check that buffer uses tabulated-list-mode
+              ($l major-mode 'tabulated-list-mode)
+              ;; Check entries: should be sorted by count descending
+              (let ((entries tabulated-list-entries))
+                ($l (length entries) 2)
+                ;; First entry: :a with count 2
+                ($l (nth 0 (car entries)) :a)
+                ($l (aref (nth 1 (car entries)) 0) ":a")
+                (let ((count-str (aref (nth 1 (car entries)) 1)))
+                  ($l (get-text-property 0 'count count-str) 2))
+                ;; Second entry: :b with count 1
+                ($l (nth 0 (cadr entries)) :b)
+                ($l (aref (nth 1 (cadr entries)) 0) ":b")
+                (let ((count-str (aref (nth 1 (cadr entries)) 1)))
+                  ($l (get-text-property 0 'count count-str) 1)))))))
+    (when (get-buffer "*ox-w3ctr-oinfo*")
+      (kill-buffer "*ox-w3ctr-oinfo*"))))
+
+(ert-deftest t-collect-oinfo-statistics-revert ()
+  "Tests for the revert handler of `org-w3ctr-collect-oinfo-statistics'."
+  ;; The buffer-local `revert-buffer-function' rebuilds the listing
+  ;; from the live counters; a plain re-print would keep stale numbers.
+  (skip-unless t--oinfo-cache-p)
+  (unwind-protect
+      (save-window-excursion
+        (t-test-oinfo-cache '(:a :b)
+          (dlet ((info '(:a 1 :b 2)))
+            ($l (eval '(t--pget info :a)) 1)
+            (t-collect-oinfo-statistics)
+            ;; more traffic after the listing was built
+            ($l (eval '(t--pget info :a)) 1)
+            ($l (eval '(t--pget info :a)) 1)
+            (with-current-buffer "*ox-w3ctr-oinfo*"
+              (funcall revert-buffer-function)
+              ;; the counts are fresh: :a is 3 now and comes first
+              (let* ((entries tabulated-list-entries)
+                     (count-str (aref (nth 1 (car entries)) 1)))
+                ($l (length entries) 2)
+                ($l (nth 0 (car entries)) :a)
+                ($l (get-text-property 0 'count count-str) 3))))))
+    (when (get-buffer "*ox-w3ctr-oinfo*")
+      (kill-buffer "*ox-w3ctr-oinfo*"))))
+
+(ert-deftest t--oinfo-compare-count ()
+  "Tests for `org-w3ctr--oinfo-compare-count'."
+  (let ((entry (lambda (n)
+                 (list n (vector (format "%d" n)
+                                 (propertize (format "%d" n) 'count n))))))
+    ($s (t--oinfo-compare-count (funcall entry 1) (funcall entry 2)))
+    ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 1)))
+    ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 2)))
+    ;; numeric order, not lexicographic ("2" vs "10")
+    ($s (t--oinfo-compare-count (funcall entry 2) (funcall entry 10)))
+    ($n (t--oinfo-compare-count (funcall entry 10) (funcall entry 2)))))
+
 (ert-deftest t-clear-oinfo-statistics ()
   "Tests for `org-w3ctr-clear-oinfo-statistics'."
   (skip-unless t--oinfo-cache-p)
@@ -617,73 +688,6 @@ too."
       ($l (t--oinfo--val (t--oinfo-oget :a)) nil)
       ($l (eval '(t--pget info :a)) 1)
       ($l (t--oinfo--cnt (t--oinfo-oget :a)) 1))))
-
-(ert-deftest t-collect-oinfo-statistics ()
-  "Tests for `org-w3ctr-collect-oinfo-statistics'."
-  (skip-unless t--oinfo-cache-p)
-  (unwind-protect
-      (t-test-oinfo-cache '(:a :b)
-        (dlet ((info '(:a 1 :b 2)))
-          ;; Give :a the higher count so descending sort must reorder it
-          ;; ahead of :b (`push' puts :b before :a in the raw alist).
-          ($l (eval '(t--pget info :a)) 1)
-          ($l (eval '(t--pget info :a)) 1)
-          ($l (eval '(t--pget info :b)) 2)
-          (t-collect-oinfo-statistics)
-          (with-current-buffer "*ox-w3ctr-oinfo*"
-            ;; Check that buffer uses tabulated-list-mode
-            ($l major-mode 'tabulated-list-mode)
-            ;; Check entries: should be sorted by count descending
-            (let ((entries tabulated-list-entries))
-              ($l (length entries) 2)
-              ;; First entry: :a with count 2
-              ($l (nth 0 (car entries)) :a)
-              ($l (aref (nth 1 (car entries)) 0) ":a")
-              (let ((count-str (aref (nth 1 (car entries)) 1)))
-                ($l (get-text-property 0 'count count-str) 2))
-              ;; Second entry: :b with count 1
-              ($l (nth 0 (cadr entries)) :b)
-              ($l (aref (nth 1 (cadr entries)) 0) ":b")
-              (let ((count-str (aref (nth 1 (cadr entries)) 1)))
-                ($l (get-text-property 0 'count count-str) 1))))))
-    (when (get-buffer "*ox-w3ctr-oinfo*")
-      (kill-buffer "*ox-w3ctr-oinfo*"))))
-
-(ert-deftest t-collect-oinfo-statistics-revert ()
-  "Tests for the revert handler of `org-w3ctr-collect-oinfo-statistics'."
-  ;; The buffer-local `revert-buffer-function' rebuilds the listing
-  ;; from the live counters; a plain re-print would keep stale numbers.
-  (skip-unless t--oinfo-cache-p)
-  (unwind-protect
-      (t-test-oinfo-cache '(:a :b)
-        (dlet ((info '(:a 1 :b 2)))
-          ($l (eval '(t--pget info :a)) 1)
-          (t-collect-oinfo-statistics)
-          ;; more traffic after the listing was built
-          ($l (eval '(t--pget info :a)) 1)
-          ($l (eval '(t--pget info :a)) 1)
-          (with-current-buffer "*ox-w3ctr-oinfo*"
-            (funcall revert-buffer-function)
-            ;; the counts are fresh: :a is 3 now and comes first
-            (let* ((entries tabulated-list-entries)
-                   (count-str (aref (nth 1 (car entries)) 1)))
-              ($l (length entries) 2)
-              ($l (nth 0 (car entries)) :a)
-              ($l (get-text-property 0 'count count-str) 3)))))
-    (when (get-buffer "*ox-w3ctr-oinfo*")
-      (kill-buffer "*ox-w3ctr-oinfo*"))))
-
-(ert-deftest t--oinfo-compare-count ()
-  "Tests for `org-w3ctr--oinfo-compare-count'."
-  (let ((entry (lambda (n)
-                 (list n (vector (format "%d" n)
-                                 (propertize (format "%d" n) 'count n))))))
-    ($s (t--oinfo-compare-count (funcall entry 1) (funcall entry 2)))
-    ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 1)))
-    ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 2)))
-    ;; numeric order, not lexicographic ("2" vs "10")
-    ($s (t--oinfo-compare-count (funcall entry 2) (funcall entry 10)))
-    ($n (t--oinfo-compare-count (funcall entry 10) (funcall entry 2)))))
 
 ;;;; String helpers
 
@@ -1311,6 +1315,7 @@ malformed ones.  Anything else -- a leaked `wrong-type-argument', say
     ($nl n 8))
   (let ((n (t--new-reference nil)))
     ($s (integerp n))
+    ($s (<= 0 n))
     ($s (< n #x10000000))))
 
 (ert-deftest t--new-reference-collision ()
@@ -1597,11 +1602,11 @@ stubs `random' to hand back a taken number first and counts the draws."
          info t)
         "ex1"))
   ;; Without a name (and NAMED-ONLY nil) the reference is generated.
-  (should (string-match-p
-           "\\`org[0-9a-f]\\{7\\}\\'"
-           (t--element-id
-            (t-get-element "#+begin_example\nx\n#+end_example" 'example-block)
-            (list :html-prefer-user-labels nil)))))
+  ($s (string-match-p
+       "\\`org[0-9a-f]\\{7\\}\\'"
+       (t--element-id
+        (t-get-element "#+begin_example\nx\n#+end_example" 'example-block)
+        (list :html-prefer-user-labels nil)))))
 
 ;;;; Filter Functions
 
@@ -1614,7 +1619,20 @@ stubs `random' to hand back a taken number first and counts the draws."
                  (setq seen (list data info rules))
                  'TREE)))
       ($q (t-image-link-filter 'DATA 'backend info) 'TREE)
-      ($l seen (list 'DATA info '(("file" . "\\.png\\'")))))))
+      ($l seen (list 'DATA info '(("file" . "\\.png\\'"))))
+      ;; missing or nil rules forward nil unchanged
+      (let ((empty (list :html-inline-image-rules nil)))
+        ($q (t-image-link-filter 'DATA 'backend empty) 'TREE)
+        ($l seen (list 'DATA empty nil)))))
+  ;; real parse-tree smoke test: image description becomes a nested link
+  (let* ((tree (with-temp-buffer
+                 (insert "[[https://example.com][file:a.png]]")
+                 (org-element-parse-buffer)))
+         (info (list :html-inline-image-rules '(("file" . "\\.png\\'"))))
+         (out (t-image-link-filter tree 'w3ctr info))
+         (links (org-element-map out 'link #'identity)))
+    ($l (length links) 2)
+    ($l (org-element-property :path (cadr links)) "a.png")))
 
 (ert-deftest t-final-function ()
   "Tests for `org-w3ctr-final-function'."
@@ -1624,10 +1642,16 @@ stubs `random' to hand back a taken number first and counts the draws."
                                nil '(:html-indent nil))))
     ($l out "<ul>\n   <li>a</li>\n</ul>")
     ($n (text-properties-at 0 out)))
-  ;; indent on: `html-mode' indents even body-only fragments, stripping props.
-  (let ((out (t-final-function (propertize "<ul>\n   <li>a</li>\n</ul>"
-                                           'face 'bold)
-                               nil '(:html-indent t))))
+  ;; empty string and nil INFO (indent defaults to off)
+  ($l (t-final-function "" nil '(:html-indent t)) "")
+  ($l (t-final-function "<ul>\n   <li>a</li>\n</ul>" nil nil)
+      "<ul>\n   <li>a</li>\n</ul>")
+  ;; indent on: `html-mode' indents even body-only fragments, stripping props,
+  ;; and `delay-mode-hooks' prevents `html-mode-hook' from running.
+  (let* ((html-mode-hook (list (lambda () (error "html-mode-hook ran"))))
+         (out (t-final-function (propertize "<ul>\n   <li>a</li>\n</ul>"
+                                            'face 'bold)
+                                nil '(:html-indent t))))
     ($l out "<ul>\n  <li>a</li>\n</ul>")
     ($n (text-properties-at 0 out)))
   ;; a single line has nothing to reindent.
@@ -1695,9 +1719,11 @@ stubs `random' to hand back a taken number first and counts the draws."
                              (let ((b (plist-get a :stderr)))
                                (and (bufferp b) (buffer-name b))))
                        (let ((p (make-pipe-process :name name :noquery t)))
-                         ;; the pipe's own buffer, before jsonrpc swaps in
-                         ;; its output buffer -- it must not be left over
-                         (setq pipe-buffer (process-buffer p))
+                         ;; record proc immediately so unwind-protect cleans
+                         ;; it up even if `make-instance' signals before
+                         ;; returning
+                         (setq proc p
+                               pipe-buffer (process-buffer p))
                          p))))
             (setq conn (t--jrpc-connect name command)))
           (setq proc (jsonrpc--process conn))
@@ -1720,6 +1746,7 @@ stubs `random' to hand back a taken number first and counts the draws."
                        (and proc (process-buffer proc))
                        pipe-buffer
                        (get-buffer (format "*%s events*" name))
+                       (get-buffer (format "*%s stderr*" name))
                        (get-buffer (format " *%s stderr*" name))
                        (get-buffer (format " *%s output*" name))))
         (when (buffer-live-p b) (kill-buffer b)))))
@@ -1783,15 +1810,12 @@ stubs `random' to hand back a taken number first and counts the draws."
       ($s shut)
       ($l (t--jrpc--conn client) '("test" ("true")))))
   ;; an absent connection is built, without consulting its liveness
-  (let ((client (t--jrpc-make "test" '("true"))) shut)
+  (let ((client (t--jrpc-make "test" '("true"))))
     (cl-letf (((symbol-function 'jsonrpc-running-p)
                (lambda (&rest _) (error "should not run")))
-              ((symbol-function 't--jrpc-shutdown)
-               (lambda (_client) (setq shut t)))
               ((symbol-function 't--jrpc-connect)
                (lambda (name command) (list name command))))
       ($l (t--jrpc-ensure client) '("test" ("true")))
-      ($s shut)
       ($l (t--jrpc--conn client) '("test" ("true"))))))
 
 (ert-deftest t--jrpc-restart ()
@@ -1845,6 +1869,12 @@ stubs `random' to hand back a taken number first and counts the draws."
                (lambda (&rest args) (setq sent args) "RESULT")))
       ($l (t--jcall client 'anything '(:x 1)) "RESULT")
       ($l sent '(conn anything (:x 1) :timeout 10.0))))
+  ;; an unknown method is rejected before launching a server
+  (let ((client (t--jrpc-make "test" '("true") nil '(tex2mml))))
+    (cl-letf (((symbol-function 't--jrpc-connect)
+               (lambda (&rest _) (error "unexpected connect"))))
+      ($e!l (t--jcall client 'tex2svg '(:fragment "x"))
+            '(org-w3ctr-error "Unknown RPC method for test: tex2svg"))))
   ;; the connection is built before the call when it is not there
   (let ((client (t--jrpc-make "test" '("true") nil '(tex2mml))) sent)
     (cl-letf (((symbol-function 'jsonrpc-running-p) (lambda (_conn) nil))
@@ -1858,11 +1888,13 @@ stubs `random' to hand back a taken number first and counts the draws."
       ($l sent '(fresh tex2mml (:fragment "x") (:timeout 10.0))))))
 
 (ert-deftest t--jstools-methods-drift ()
-  "Static check: every exposed jstools method exists in jstools/index.js.
+  "Static check: exposed jstools methods match jstools/index.js.
 Every method in `org-w3ctr--jstools-methods' must have a matching
-`addMethod' call in jstools/index.js."
+uncommented `server.addMethod' call in jstools/index.js, and vice
+versa (excluding the test-only `echo' and `add' methods)."
   (let ((file (file-name-concat t--dir "jstools/index.js"))
-        (re "addMethod([ \t]*['\"]\\([^'\"]+\\)['\"]"))
+        (re "^[ \t]*server\\.addMethod([ \t]*['\"]\\([^'\"]+\\)['\"]")
+        (test-only '(echo add)))
     (skip-unless (file-readable-p file))
     (let* ((source (with-temp-buffer
                      (insert-file-contents file)
@@ -1872,10 +1904,13 @@ Every method in `org-w3ctr--jstools-methods' must have a matching
               (while (string-match re source i)
                 (push (intern (match-string 1 source)) names)
                 (setq i (match-end 0)))
-              (nreverse names))))
+              (nreverse names)))
+           (prod (seq-remove (lambda (m) (memq m test-only)) implemented)))
       ($s implemented)
       (dolist (method t--jstools-methods)
-        ($s (memq method implemented))))))
+        ($s (memq method implemented)))
+      (dolist (method prod)
+        ($s (memq method t--jstools-methods))))))
 
 (ert-deftest t--jstools ()
   "Tests for `org-w3ctr--jstools'."
@@ -1895,10 +1930,11 @@ Every method in `org-w3ctr--jstools-methods' must have a matching
   (let ((conn (make-instance 'jsonrpc-connection :name "ox-w3ctr-test-events"))
         (buf-name "*ox-w3ctr-test-events events*"))
     (unwind-protect
-        (cl-letf (((symbol-function 't--jrpc-ensure)
-                   (lambda (client) ($q client t--jstools) conn)))
-          (t-show-jstools-events)
-          ($l (buffer-name (current-buffer)) buf-name))
+        (save-window-excursion
+          (cl-letf (((symbol-function 't--jrpc-ensure)
+                     (lambda (client) ($q client t--jstools) conn)))
+            (t-show-jstools-events)
+            ($l (buffer-name (current-buffer)) buf-name)))
       (when (get-buffer buf-name) (kill-buffer buf-name)))))
 
 (ert-deftest t-launch-jstools ()
