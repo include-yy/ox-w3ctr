@@ -300,15 +300,15 @@
 
 ;;;; Reference
 (defcustom t-prefer-user-labels nil
-  "When non-nil, use user-defined NAME and ID over internal references.
+  "Non-nil means use user-defined NAME and ID over internal references.
 
 By default, `org-w3ctr--reference' generates internal ID values
-during export.  When this variable is non-nil, the NAME keyword,
-the ID property, or the real name of a target is used as the ID
-attribute instead.
+during export.  When this variable is non-nil, the NAME keyword
+or the ID property (prefixed with `org-w3ctr--id-attr-prefix') is
+used as the ID attribute instead.
 
-Regardless of this variable, CUSTOM_ID is always used as a
-reference."
+Regardless of this variable, CUSTOM_ID and valid target names are
+always used."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
@@ -338,8 +338,9 @@ It should return the complete HTML for the drawer.  The default is
 
 ;;;; Footnote
 (defcustom t-footnote-format "[%s]"
-  "Format string for footnote references.
-`%s' is replaced by the reference label."
+  "Format string for footnote references and definition labels.
+`%s' is replaced by the footnote link in references, or by the
+label in the footnotes section."
   :group 'org-export-w3ctr
   :type 'string)
 
@@ -423,20 +424,13 @@ The cells use <th scope=\"row\"> instead of <td>."
 
 ;;;; Lisp Evaluation
 (defcustom t-allow-eval nil
-  "Non-nil means an export may evaluate Lisp found in the document.
+  "Non-nil means allow evaluating Lisp in the document during export.
 
-The `EMACS-LISP' and `ELISP' export blocks, the `#+E:' keyword, and
-the `@@e:' export snippet evaluate their value with `eval'.  That is
-arbitrary code execution: exporting an untrusted document would run
-its code with your privileges.  Keep this nil unless you trust every
-document you export.
-
-This is deliberately not a file option: a document that could turn
-evaluation on would protect itself.  Bind it around an export instead,
-as in (let ((org-w3ctr-allow-eval t)) ...).
-
-`LISP-DATA' blocks, `#+D:' and `@@d:' only render an S-expression as
-HTML and never evaluate anything, so they are unaffected."
+This gates `EMACS-LISP'/`ELISP' export blocks, `#+E:' keywords, and
+`@@e:' snippets (`LISP-DATA', `#+D:', and `@@d:' never evaluate and
+are unaffected).  Because this runs arbitrary code, keep it nil for
+untrusted documents and bind it around trusted exports instead.  It
+is deliberately not a file option."
   :group 'org-export-w3ctr
   :type 'boolean)
 
@@ -1020,7 +1014,7 @@ Common values are \"section\" or \"div\".  If nil, \"div\" is used."
   :type '(choice string (const nil)))
 
 (defcustom t-self-link-headlines t
-  "When non-nil, the headlines contain a hyperlink to themselves."
+  "Non-nil means headlines include a self-link anchor."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
@@ -1038,15 +1032,15 @@ The function is called with six arguments:
 - INFO     the export options (plist).
 
 It returns the HTML for the heading block (for example, the `.header-wrapper'
-div).  The default builds the section number and self-link from
-`org-w3ctr--headline-secno' and `org-w3ctr--headline-self-link'.
-The default is `org-w3ctr-heading-default-format-function'."
+div).  The default is `org-w3ctr-heading-default-format-function', which
+builds the section number and self-link from `org-w3ctr--headline-secno'
+and `org-w3ctr--headline-self-link'."
   :group 'org-export-w3ctr
   :type 'function)
 
 ;;;; <meta>
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
-  "Function to generate timestamp for exported files at top place.
+  "Function to generate the file timestamp for <meta> tags.
 
 This function should take INFO as the only argument and return a
 string representing the timestamp.
@@ -1299,8 +1293,8 @@ entirely, set `org-w3ctr-navbar-format-function' to nil."
   "The function used to generate the HTML for the navbar.
 
 This function is called with one argument: INFO plist.  It should
-return a string containing the complete HTML for the navigation bar
-\(e.g., inside `<nav>' tags).
+return a string containing the complete HTML for the navigation bar,
+for example inside `<nav>' tags.
 
 See `org-w3ctr-navbar-default-format-function' for an example."
   :group 'org-export-w3ctr
@@ -1340,7 +1334,11 @@ or variants."
                         cc-by-nc-sa-3.0 cc-by-nd-3.0 cc-by-sa-3.0))))
 
 (defcustom t-license-format-function #'t-license-default-format-function
-  "Default function to build license string."
+  "Function used to format the license line.
+
+It is called with one argument, the INFO plist, and must return an
+HTML string.  The default is
+`org-w3ctr-license-default-format-function'."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -1468,12 +1466,14 @@ emitted."
   :type 'boolean
   :safe #'booleanp)
 
-(defvar t-fixup-js ""
+(defcustom t-fixup-js ""
   "JavaScript to inject before the closing </body> tag.
 
 When this is a non-blank string it overrides the `assets/fixup.js'
 shipped with the package; when it is empty, the exporter loads that
-file instead.  See `org-w3ctr--load-fixup-js'.")
+file instead.  See `org-w3ctr--load-fixup-js'."
+  :group 'org-export-w3ctr
+  :type 'string)
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export.
