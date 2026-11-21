@@ -2001,8 +2001,9 @@ removed."
 (defun t--find-all (regexp str &optional start)
   "Return a list of all non-overlapping matches for REGEXP in STR.
 
-The search begins at character position START, which defaults to
-the beginning of the string.
+The search begins at character position START, which defaults to 0
+\(negative values are clamped to 0).  Matching respects
+`case-fold-search' and preserves match data.
 
 For example:
   (org-w3ctr--find-all \"[a-z]+\" \"1a-b2-cde\")
@@ -2012,21 +2013,22 @@ If no matches are found, or if REGEXP is an empty string, this
 function returns nil.  A match of length zero is skipped."
   (declare (ftype (function (string string &optional (or null fixnum))
                             list))
-           (important-return-value t))
+           (side-effect-free t) (important-return-value t))
   (if (string= regexp "") nil
-    (let ((pos (max (or start 0) 0))
-          (matches))
-      (while (and (< pos (length str))
-                  (string-match regexp str pos))
-        (let ((beg (match-beginning 0))
-              (end (match-end 0)))
-          (if (= beg end)
-              ;; Zero-width match: skip it and move on, so a regexp
-              ;; that can match the empty string does not loop forever.
-              (setq pos (1+ pos))
-            (push (match-string 0 str) matches)
-            (setq pos end))))
-      (nreverse matches))))
+    (save-match-data
+      (let ((pos (max (or start 0) 0))
+            (matches))
+        (while (and (< pos (length str))
+                    (string-match regexp str pos))
+          (let ((beg (match-beginning 0))
+                (end (match-end 0)))
+            (if (= beg end)
+                ;; Zero-width match: jump past END so a regexp matching
+                ;; the empty string neither loops forever nor re-scans.
+                (setq pos (1+ end))
+              (push (match-string 0 str) matches)
+              (setq pos end))))
+        (nreverse matches)))))
 
 ;;;; S-exp rendering
 

@@ -1051,8 +1051,14 @@ Both cases signal `org-w3ctr-error'; the error value is pinned."
   ($l (t--find-all "a*" "a") '("a"))
   ;; START beyond the string length signals nothing and returns nil.
   ($l (t--find-all "z" "abc" 5) nil)
-  ;; START at the end of the string is still a valid search position.
-  ($l (t--find-all "[0-9]" "abc1" 3) '("1")))
+  ;; START at the last character is still searched; START at length is not.
+  ($l (t--find-all "[0-9]" "abc1" 3) '("1"))
+  ($l (t--find-all "[0-9]" "abc1" 4) nil)
+  ;; Caller's match-data must be preserved.
+  (let ((s "outer-42"))
+    (string-match "\\([0-9]+\\)" s)
+    ($l (t--find-all "[a-z]+" "ab cd") '("ab" "cd"))
+    ($l (match-string 1 s) "42")))
 
 ;;;; S-exp rendering
 
