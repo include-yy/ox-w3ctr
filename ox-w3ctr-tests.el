@@ -221,8 +221,8 @@ closures, and that both the read and the write go through them."
         (od (t--make-cache-oclosure :z)))
     ;; initial state
     ($l (t--oinfo--cnt oa) 0)
-    ($l (t--oinfo--pid oa) nil)
-    ($l (t--oinfo--val oa) nil)
+    ($n (t--oinfo--pid oa))
+    ($n (t--oinfo--val oa))
     ;; first lookup: correct value, pid/val set, cnt=1
     ($l (funcall oa info) 1)
     ($q (t--oinfo--pid oa) info)
@@ -239,16 +239,16 @@ closures, and that both the read and the write go through them."
     ($q (t--oinfo--pid oa) info2)
     ($l (t--oinfo--val oa) 3)
     ;; key absent: val is nil, pid still set, cnt increments
-    ($l (funcall od info3) nil)
+    ($n (funcall od info3))
     ($q (t--oinfo--pid od) info3)
-    ($l (t--oinfo--val od) nil)
+    ($n (t--oinfo--val od))
     ($l (t--oinfo--cnt od) 1)
     ;; same plist: a hit on the cached nil, not a re-read.  Mutating the
     ;; plist proves it -- a miss would return the new value.
-    ($l (funcall od info3) nil)
+    ($n (funcall od info3))
     ($l (t--oinfo--cnt od) 2)
     (plist-put info3 :z 'present)
-    ($l (funcall od info3) nil)
+    ($n (funcall od info3))
     ($l (t--oinfo--cnt od) 3)))
 
 ;;;; OINFO structural checks
@@ -278,10 +278,10 @@ second argument to `org-w3ctr--pget' in the source file."
       (insert-file-contents source)
       (dolist (key t--oinfo-cache-props)
         (goto-char (point-min))
-        (should (re-search-forward
-                 (format "[(]t--pget[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"
-                         (regexp-quote (symbol-name key)))
-                 nil t))))))
+        ($s (re-search-forward
+             (format "[(]t--pget[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"
+                     (regexp-quote (symbol-name key)))
+             nil t))))))
 
 (ert-deftest t--oinfo-props-go-through-pget ()
   "Static check: no cached OINFO key bypasses `org-w3ctr--pget'/`org-w3ctr--pput'.
@@ -312,12 +312,12 @@ seen here."
                    (format pat (regexp-quote (symbol-name key))) nil t)
               (push (format "%s at line %d" key (line-number-at-pos))
                     offenders))))
-        ($l offenders nil)))))
+        ($n offenders)))))
 
 (ert-deftest t--oinfo-test-namespace ()
   "The names the tests generate can never replace a production closure."
   (dolist (key t--oinfo-cache-props)
-    ($n (eq (t-test-oinfo-oclosure key) (t--oinfo-oclosure key)))))
+    ($nq (t-test-oinfo-oclosure key) (t--oinfo-oclosure key))))
 
 (ert-deftest t-test-oinfo-cache-guarded ()
   "Static check: every throwaway-cache test is guarded by `skip-unless'.
@@ -351,7 +351,7 @@ otherwise its cached assertions fail in the nil build."
                            (not (string-match-p guard body)))
                   (push name offenders)))
               (setq last beg)))
-          ($l (nreverse offenders) nil))))))
+          ($n (nreverse offenders)))))))
 
 (ert-deftest t--oinfo-oclosure-names ()
   "The closure symbol is the struct name followed by the keyword."
@@ -365,11 +365,11 @@ otherwise its cached assertions fail in the nil build."
 `org-w3ctr--oinfo-cache-alist' keys match `org-w3ctr--oinfo-cache-props',
 and each entry points to a live oclosure with the correct key."
   (unless t--oinfo-cache-p
-    ($l t--oinfo-cache-alist nil))
+    ($n t--oinfo-cache-alist))
   (when t--oinfo-cache-p
     (let ((keys (mapcar #'car t--oinfo-cache-alist)))
-      ($l (cl-set-difference keys t--oinfo-cache-props) nil)
-      ($l (cl-set-difference t--oinfo-cache-props keys) nil))
+      ($n (cl-set-difference keys t--oinfo-cache-props))
+      ($n (cl-set-difference t--oinfo-cache-props keys)))
     (pcase-dolist (`(,key . ,name) t--oinfo-cache-alist)
       ($l name (t--oinfo-oclosure key))
       ($l (functionp (symbol-function name)) t)
@@ -397,10 +397,10 @@ A non-keyword or a duplicate would break the naming in
       ($l (eval '(t--pget info :c)) 3)
       ($n (alist-get :c t--oinfo-cache-alist))
       ;; cached key absent from plist: nil, cnt increments
-      ($l (eval '(t--pget (list :x 1) :a)) nil)
+      ($n (eval '(t--pget (list :x 1) :a)))
       ($l (t--oinfo--cnt (t--oinfo-oget :a)) 2)
       ;; non-cached key absent from plist: nil
-      ($l (eval '(t--pget (list :x 1) :d)) nil))))
+      ($n (eval '(t--pget (list :x 1) :d))))))
 
 (ert-deftest t--oinfo-pget-nil-info ()
   "`org-w3ctr--pget'/`org-w3ctr--pput' tolerate a nil INFO plist.
@@ -409,13 +409,13 @@ nil is `eq' to itself, so the write is invisible to `plist-get'."
   (skip-unless t--oinfo-cache-p)
   (t-test-oinfo-cache '(:a)
     ;; a non-cached key behaves like `plist-get' on nil, and is not cached
-    ($l (eval '(t--pget nil :none)) nil)
+    ($n (eval '(t--pget nil :none)))
     ($n (alist-get :none t--oinfo-cache-alist))
     ;; a cached key is held by the oclosure, not the plist
     ($l (eval '(t--pput nil :a 5)) 5)
     ($l (eval '(t--pget nil :a)) 5)
     (t--oinfo-cleanup)
-    ($l (eval '(t--pget nil :a)) nil)))
+    ($n (eval '(t--pget nil :a)))))
 
 (ert-deftest t--oinfo-pput ()
   "Tests for `org-w3ctr--pput'."
@@ -478,7 +478,7 @@ leaves the cache unchanged."
       (t--oinfo-cleanup)
       ($l (funcall get-a info-a) "A")
       ;; VALUE signals: the cache must not be half-updated.
-      (should-error (funcall put-err info-b))
+      ($e! (funcall put-err info-b) 'error)
       ;; The oclosure should still hold info-a, unchanged: the signal
       ;; fires during VALUE evaluation, before the pid slot is written.
       ($q (t--oinfo--pid (t--oinfo-oget :a)) info-a)
@@ -585,10 +585,10 @@ too."
       ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)
       ($q (t--oinfo--cnt (t--oinfo-oget :b)) 1)
       (t--oinfo-cleanup)
-      ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
-      ($l (t--oinfo--pid (t--oinfo-oget :b)) nil)
-      ($l (t--oinfo--val (t--oinfo-oget :a)) nil)
-      ($l (t--oinfo--val (t--oinfo-oget :b)) nil)
+      ($n (t--oinfo--pid (t--oinfo-oget :a)))
+      ($n (t--oinfo--pid (t--oinfo-oget :b)))
+      ($n (t--oinfo--val (t--oinfo-oget :a)))
+      ($n (t--oinfo--val (t--oinfo-oget :b)))
       ($q (t--oinfo--cnt (t--oinfo-oget :a)) 1)
       ($q (t--oinfo--cnt (t--oinfo-oget :b)) 1))))
 
@@ -600,8 +600,8 @@ too."
       ($l (eval '(t--pget info :a)) 1)
       ($q (t--oinfo--pid (t--oinfo-oget :a)) info)
       (t-oinfo-cleanup-before-export 'w3ctr)
-      ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
-      ($l (t--oinfo--val (t--oinfo-oget :a)) nil))))
+      ($n (t--oinfo--pid (t--oinfo-oget :a)))
+      ($n (t--oinfo--val (t--oinfo-oget :a))))))
 
 (ert-deftest t-collect-oinfo-statistics ()
   "Tests for `org-w3ctr-collect-oinfo-statistics'."
@@ -684,8 +684,8 @@ too."
       (t-clear-oinfo-statistics)
       ($l (t--oinfo--cnt (t--oinfo-oget :a)) 0)
       ($l (t--oinfo--cnt (t--oinfo-oget :b)) 0)
-      ($l (t--oinfo--pid (t--oinfo-oget :a)) nil)
-      ($l (t--oinfo--val (t--oinfo-oget :a)) nil)
+      ($n (t--oinfo--pid (t--oinfo-oget :a)))
+      ($n (t--oinfo--val (t--oinfo-oget :a)))
       ($l (eval '(t--pget info :a)) 1)
       ($l (t--oinfo--cnt (t--oinfo-oget :a)) 1))))
 
@@ -706,7 +706,7 @@ too."
 
 (ert-deftest t--2str ()
   "Tests for `org-w3ctr--2str'."
-  ($q (t--2str nil) nil)
+  ($n (t--2str nil))
   ($l (t--2str 1) "1")
   ($l (t--2str 114.514) "114.514")
   ($l (t--2str ?a) "97")
@@ -756,14 +756,14 @@ too."
 (ert-deftest t--nw-trim ()
   "Tests for `org-w3ctr--nw-trim'."
   ($n (t--nw-trim ""))
-  ($l (t--nw-trim " ") nil)
+  ($n (t--nw-trim " "))
   ($l (t--nw-trim " 1 ") "1")
   ($l (t--nw-trim "234\n") "234")
   ;; composed whitespace classes: space, \t, \r, \n all go
   ($l (t--nw-trim "\t\r\n x \r\n\t") "x")
-  ($l (t--nw-trim 1) nil)
-  ($l (t--nw-trim 'hello) nil)
-  ($l (t--nw-trim nil) nil))
+  ($n (t--nw-trim 1))
+  ($n (t--nw-trim 'hello))
+  ($n (t--nw-trim nil)))
 
 (ert-deftest t--prepend-newline ()
   "Tests for `org-w3ctr--prepend-newline'."
@@ -1138,8 +1138,8 @@ All cases signal `org-w3ctr-error'; the error value is pinned."
   ($l (t--find-all "[0-9]\\{2\\}" "191981") '("19" "19" "81"))
   ;; the whole match is returned, not a capture group
   ($l (t--find-all "\\([a-z]+\\)[0-9]" "ab1 cd2") '("ab1" "cd2"))
-  ($l (t--find-all "" "123") nil)
-  ($l (t--find-all "1" "") nil)
+  ($n (t--find-all "" "123"))
+  ($n (t--find-all "1" ""))
   ($l (t--find-all org-ts-regexp-both "[2000-01-02]") '("[2000-01-02]"))
   ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-02]")
       '("[2000-01-02]" "[2000-01-02]"))
@@ -1148,10 +1148,10 @@ All cases signal `org-w3ctr-error'; the error value is pinned."
   ($l (t--find-all org-ts-regexp-both "[2000-01-02]--[2000-01-03]" -1)
       '("[2000-01-02]" "[2000-01-03]"))
   ;; Zero-width regexps terminate: empty matches are skipped, not pushed.
-  ($l (t--find-all "a*" "bc") nil)
+  ($n (t--find-all "a*" "bc"))
   ($l (t--find-all "b*" "ab") '("b"))
   ($l (t--find-all "a*" "a") '("a"))
-  ($l (t--find-all "a*" "") nil)
+  ($n (t--find-all "a*" ""))
   ($l (t--find-all "a*" "aba") '("a" "a"))
   ;; Respects `case-fold-search'.
   (let ((case-fold-search t))
@@ -1159,10 +1159,10 @@ All cases signal `org-w3ctr-error'; the error value is pinned."
   (let ((case-fold-search nil))
     ($l (t--find-all "a" "aAbA") '("a")))
   ;; START beyond the string length signals nothing and returns nil.
-  ($l (t--find-all "z" "abc" 5) nil)
+  ($n (t--find-all "z" "abc" 5))
   ;; START at the last character is still searched; START at length is not.
   ($l (t--find-all "[0-9]" "abc1" 3) '("1"))
-  ($l (t--find-all "[0-9]" "abc1" 4) nil)
+  ($n (t--find-all "[0-9]" "abc1" 4))
   ;; Caller's match-data must be preserved.
   (let ((s "outer-42"))
     (string-match "\\([0-9]+\\)" s)
@@ -1416,7 +1416,7 @@ stubs `random' to hand back a taken number first and counts the draws."
         '(org-w3ctr-error "Invalid CUSTOM_ID value: \"a b\""))
   (dolist (bad '("" "a b" "a\tb" "a\nb" "a\fb" "a\rb"
                  "a\"b" "a'b" "a<b" "a>b" "a&b" nil 123))
-    (should-error (t--check-id bad "CUSTOM_ID") :type 'org-w3ctr-error)))
+    ($e! (t--check-id bad "CUSTOM_ID") 'org-w3ctr-error)))
 
 (ert-deftest t--reference ()
   "Tests for `org-w3ctr--reference'."
@@ -1678,7 +1678,7 @@ stubs `random' to hand back a taken number first and counts the draws."
   (let ((client (t--jrpc-make "test" '("true") nil '(tex2mml))))
     ($s (functionp client))
     ($l (t--jrpc--name client) "test")
-    ($q (t--jrpc--conn client) nil)
+    ($n (t--jrpc--conn client))
     ($l (t--jrpc--timeout client) 10.0)
     ($l (t--jrpc--command client) '("true"))
     ($l (t--jrpc--methods client) '(tex2mml))
@@ -1773,20 +1773,20 @@ stubs `random' to hand back a taken number first and counts the draws."
                (lambda (&rest args) (setq shut args))))
       ($n (t--jrpc-shutdown client))
       ($l shut '(conn t))
-      ($q (t--jrpc--conn client) nil)))
+      ($n (t--jrpc--conn client))))
   ;; no connection: nothing is shut down
   (let ((client (t--jrpc-make "test" '("true"))))
     (cl-letf (((symbol-function 'jsonrpc-shutdown)
                (lambda (&rest _) (error "should not run"))))
       (t--jrpc-shutdown client)
-      ($q (t--jrpc--conn client) nil)))
+      ($n (t--jrpc--conn client))))
   ;; a failing shutdown is swallowed and the slot is still cleared
   (let ((client (t--jrpc-make "test" '("true"))))
     (setf (t--jrpc--conn client) 'conn)
     (cl-letf (((symbol-function 'jsonrpc-shutdown)
                (lambda (&rest _) (error "boom"))))
       (t--jrpc-shutdown client)
-      ($q (t--jrpc--conn client) nil))))
+      ($n (t--jrpc--conn client)))))
 
 (ert-deftest t--jrpc-ensure ()
   "Tests for `org-w3ctr--jrpc-ensure'."
