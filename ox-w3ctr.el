@@ -2313,15 +2313,16 @@ METHODS - the method names this side exposes; nil disables the check."
   (methods :type list))
 
 (defun t--jrpc-make (name command &optional timeout methods)
-  "Return a callable JSON-RPC client that starts COMMAND on demand.
+  "Return an `org-w3ctr--jrpc' client for COMMAND.
 
 NAME is the client and connection name.  COMMAND is the argv of the
 server process.  TIMEOUT is the default per-request timeout in seconds,
 10.0 when nil.  METHODS is the list of method names the client accepts,
-or nil to accept any.  The client is called as
-`(METHOD PARAMS &optional TIMEOUT)'; `org-w3ctr--jcall' wraps that with
-the connection check."
-  (declare (ftype (function (string list &optional number list) function))
+or nil to accept any.  Once connected, the client takes arguments
+METHOD, PARAMS, and optional TIMEOUT; use `org-w3ctr--jcall' to start
+or restart the connection on demand."
+  (declare (ftype (function (string list &optional (or null number) list)
+                            function))
            (important-return-value t))
   (oclosure-lambda (t--jrpc (name name)
                             (conn nil)
@@ -2392,11 +2393,12 @@ PARAMS the JSON-RPC params value.  TIMEOUT overrides CLIENT's default.
 Return the decoded `result' of the response.  Signal `org-w3ctr-error'
 when METHOD is outside CLIENT's METHODS; a remote error or a timeout
 surfaces as `jsonrpc-error'."
-  (declare (ftype (function (t symbol t &optional number) t))
+  (declare (ftype (function (t symbol t &optional (or null number)) t))
            (important-return-value t))
   (let ((allowed (t--jrpc--methods client)))
     (unless (or (null allowed) (memq method allowed))
-      (t-error "Unknown jstools method: %s" method)))
+      (t-error "Unknown RPC method for %s: %s"
+               (t--jrpc--name client) method)))
   (t--jrpc-ensure client)
   (funcall client method params timeout))
 

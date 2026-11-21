@@ -1616,7 +1616,7 @@ stubs `random' to hand back a taken number first and counts the draws."
       ;; a method outside the table signals and sends nothing
       (setq sent nil)
       ($e!l (t--jcall client 'tex2svg '(:fragment "x"))
-            '(org-w3ctr-error "Unknown jstools method: tex2svg"))
+            '(org-w3ctr-error "Unknown RPC method for test: tex2svg"))
       ($n sent)))
   ;; a nil METHODS accepts any method
   (let ((client (t--jrpc-make "test" '("true"))) sent)
