@@ -1052,19 +1052,21 @@ decoding returns the input."
 
 (ert-deftest t--load-file ()
   "Tests for `org-w3ctr--load-file'."
-  (let* ((build (symbol-file 't--load-file 'defun))
-         (file (and build (concat (file-name-sans-extension build) ".el"))))
-    (skip-unless (and file (file-readable-p file)))
-    (let ((ox (let ((coding-system-for-read 'utf-8))
-                (with-temp-buffer
-                  (insert-file-contents file)
-                  (buffer-substring-no-properties
-                   (point-min) (point-max))))))
-      ($l ox (t--load-file file))
-      ;; decoded as UTF-8 regardless of the ambient coding: drop the
-      ;; internal utf-8 binding and this line goes red
-      (let ((coding-system-for-read 'iso-latin-1))
-        ($l ox (t--load-file file))))))
+  (let ((file (make-temp-file "ox-w3ctr-load-"))
+        (empty (make-temp-file "ox-w3ctr-empty-"))
+        (content "a\u2191b\nline2"))
+    (unwind-protect
+        (progn
+          (let ((coding-system-for-write 'utf-8))
+            (write-region content nil file nil 'silent))
+          ($l (t--load-file file) content)
+          ;; decoded as UTF-8 regardless of the ambient coding: drop the
+          ;; internal utf-8 binding and this line goes red
+          (let ((coding-system-for-read 'iso-latin-1))
+            ($l (t--load-file file) content))
+          ($l (t--load-file empty) ""))
+      (delete-file file)
+      (delete-file empty))))
 
 (ert-deftest t--load-file-missing ()
   "`org-w3ctr--load-file' rejects a missing/unreadable file or a directory.
@@ -1329,7 +1331,7 @@ stubs `random' to hand back a taken number first and counts the draws."
     ;; dot in value -> nil
     ($n (t--target-reference (funcall get-target "foo.bar")))
     ;; empty value -> nil
-    ($n (t--target-reference (funcall get-target "")))
+    ($n (t--target-reference '(target (:value ""))))
     ;; non-string :value -> nil
     ($n (t--target-reference '(target (:value 123))))
     ;; newline in value must not pass via line-anchored ^/$
