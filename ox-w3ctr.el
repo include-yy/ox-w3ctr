@@ -1618,56 +1618,44 @@ never `plist-get' or `plist-put', and never write a key with
           (let ((fname (t--oinfo-oclosure a)))
             (fset fname (t--make-cache-oclosure a))
             (push (cons a fname) alist)))))
-    "Alist of cached property keys to the names of their oclosures.
+    "Alist mapping each cached property key to its oclosure symbol.
 
-The cdr is a symbol, not the oclosure: `org-w3ctr--pget' inlines that
-symbol into compiled code and reaches the oclosure through its function
-cell.  Built at load time from `org-w3ctr--oinfo-cache-props', with the
-names that `org-w3ctr--oinfo-oclosure' returns.
-
-Nil when the cache is off, which makes every OINFO helper a no-op.")
+Built from `org-w3ctr--oinfo-cache-props' using
+`org-w3ctr--oinfo-oclosure', with each symbol's function cell bound to
+a fresh oclosure.  Nil when `org-w3ctr--oinfo-cache-p' is nil.")
 
   (define-inline t--pget (info prop)
-    "Return the value of property PROP in the export INFO plist.
+    "Return the value of PROP in INFO, or nil if absent.
 
-Like `plist-get', except that the keys listed in
-`org-w3ctr--oinfo-cache-props' are read through a cache when this build
-has one (see `org-w3ctr--oinfo-cache-p').  Nil means PROP is absent.
-
-A key that `org-w3ctr--pput' wrote while the cache is on is read back from
-the cache, so it can differ from what `plist-get' returns for that key."
-    (static-if t--oinfo-cache-p
-        (if-let* ((f (alist-get (inline-const-val prop)
-                                t--oinfo-cache-alist)))
-            (inline-quote (funcall #',f ,info))
-          (inline-quote (plist-get ,info ,prop)))
+Like `plist-get', except keys in `org-w3ctr--oinfo-cache-props'
+are read through the OINFO cache when `org-w3ctr--oinfo-cache-p'
+is non-nil.  Values written via `org-w3ctr--pput' are read back
+from the cache and may differ from `plist-get'."
+    (if-let* ((f (static-when t--oinfo-cache-p
+                   (alist-get (inline-const-val prop)
+                              t--oinfo-cache-alist))))
+        (inline-quote (funcall #',f ,info))
       (inline-quote (plist-get ,info ,prop))))
 
   (define-inline t--pput (info prop value)
-    "Set property PROP to VALUE in the export INFO plist and return VALUE.
+    "Set PROP to VALUE in INFO and return VALUE.
 
-For a key in `org-w3ctr--oinfo-cache-props' with the cache on, the
-value goes into that key's oclosure, together with INFO, and the plist is
-left untouched: later `org-w3ctr--pget' calls with the same INFO plist
-return it, while Org and `plist-get' still see the old value.  Any other
-PROP is written with `plist-put'.
+When `org-w3ctr--oinfo-cache-p' is non-nil and PROP is in
+`org-w3ctr--oinfo-cache-props', store VALUE in that key's oclosure
+without modifying INFO (so Org and `plist-get' still see the old
+value).  Otherwise update INFO in place with `plist-put'.
 
-Unlike `plist-put', return VALUE rather than the plist.
-
-VALUE is evaluated before the oclosure or plist is modified, so it can
-safely read from INFO (including the same PROP) without seeing a stale
-cached value."
-    (static-if t--oinfo-cache-p
-        (if-let* ((f (alist-get (inline-const-val prop)
-                                t--oinfo-cache-alist)))
-            (inline-letevals (info value)
-              (inline-quote
-               (let ((o (symbol-function #',f)))
-                 (setf (t--oinfo--pid o) ,info)
-                 (setf (t--oinfo--val o) ,value)
-                 ,value)))
-          (inline-letevals (value)
-            (inline-quote (prog1 ,value (plist-put ,info ,prop ,value)))))
+Unlike `plist-put', return VALUE rather than INFO.  VALUE is
+evaluated before any update, so it may safely read PROP from INFO."
+    (if-let* ((f (static-when t--oinfo-cache-p
+                   (alist-get (inline-const-val prop)
+                              t--oinfo-cache-alist))))
+        (inline-letevals (info value)
+          (inline-quote
+           (let ((o (symbol-function #',f)))
+             (setf (t--oinfo--pid o) ,info)
+             (setf (t--oinfo--val o) ,value)
+             ,value)))
       (inline-letevals (value)
         (inline-quote (prog1 ,value (plist-put ,info ,prop ,value)))))))
 
