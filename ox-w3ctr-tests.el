@@ -191,10 +191,13 @@ closures, and that both the read and the write go through them."
       ($q (cdr (assq :test-x t--oinfo-cache-alist)) sym)
       ($s (fboundp sym))
       ($l (eval '(t--pget (list :test-x 42) :test-x)) 42)
+      ($l (t--oinfo--cnt (symbol-function sym)) 1)
       ;; A write goes through the closure too, not the plist.
       (dlet ((info (list :test-x 1)))
         ($l (eval '(t--pput info :test-x 'NEW)) 'NEW)
-        ($q (eval '(t--pget info :test-x)) 'NEW)))
+        ($q (eval '(t--pget info :test-x)) 'NEW)
+        ($l (plist-get info :test-x) 1)
+        ($q (t--oinfo--val (symbol-function sym)) 'NEW)))
     ;; After: the symbol is unbound and the real alist is restored.
     ($n (fboundp sym))
     ($q t--oinfo-cache-alist alist))
@@ -255,10 +258,13 @@ The switch is resolved at macro-expansion time: the flag never reaches
 the expanded call, and the oclosure is inlined when the cache is on.
 `macroexpand-all' runs the compiler macro of `org-w3ctr--pget', the
 same mechanism the byte compiler uses."
-  (let ((symbols (flatten-tree (macroexpand-all '(t--pget info :title)))))
-    ($n (memq 'org-w3ctr-oinfo-enabled symbols))
-    ($l (and (memq 'org-w3ctr--oinfo:title symbols) t)
-        t--oinfo-cache-p)))
+  (dolist (form '((t--pget info :title)
+                  (t--pput info :title v)))
+    (let ((symbols (flatten-tree (macroexpand-all form))))
+      ($n (memq 'org-w3ctr-oinfo-enabled symbols))
+      ($n (memq 'org-w3ctr--oinfo-cache-p symbols))
+      ($l (and (memq 'org-w3ctr--oinfo:title symbols) t)
+          t--oinfo-cache-p))))
 
 (ert-deftest t--oinfo-props-are-looked-up ()
   "Static check: every cached OINFO key is looked up via `org-w3ctr--pget'.
@@ -290,7 +296,7 @@ seen here."
       (let ((offenders nil)
             (patterns
              '("[(]plist-get[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"
-               "[(]plist-put[ \t\n]+info[ \t\n]+%s"
+               "[(]plist-put[ \t\n]+info[ \t\n]+%s\\_>"
                "[(]setf[ \t\n]+[(]plist-get[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"))
             (samples '("(plist-get info :k)"
                        "(plist-put info :k v)"
@@ -486,19 +492,28 @@ they run their function definitions and look KEY up in
 back while the plist keeps the old one; that divergence is what shows
 the cache, not `plist-get', answered."
   (skip-unless t--oinfo-cache-p)
-  (let* ((key (car t--oinfo-cache-props))
-         (info (list key 1)))
-    ;; a cached read matches `plist-get' before any write
-    ($l (t--pget info key) (plist-get info key))
-    ;; a cached write reads back, but leaves the plist untouched
-    (t--pput info key 'NEW)
-    ($q (t--pget info key) 'NEW)
-    ($l (plist-get info key) 1)
-    ;; a non-cached key goes through the plist
-    (t--pput info :plain 2)
-    ($l (t--pget info :plain) 2))
-  ;; do not leave the real oclosure holding this test's plist
-  (t--oinfo-cleanup))
+  (unwind-protect
+      (let* ((key (car t--oinfo-cache-props))
+             (info (list key 1))
+             (get-fn (byte-compile '(lambda (i k) (t--pget i k))))
+             (put-fn (byte-compile '(lambda (i k v) (t--pput i k v)))))
+        ;; a cached read matches `plist-get' before any write
+        ($l (t--pget info key) (plist-get info key))
+        ;; a cached write reads back, but leaves the plist untouched
+        (t--pput info key 'NEW)
+        ($q (t--pget info key) 'NEW)
+        ($l (plist-get info key) 1)
+        ;; a non-cached key goes through the plist
+        (t--pput info :plain 2)
+        ($l (t--pget info :plain) 2)
+        ($l (plist-get info :plain) 2)
+        ;; byte-compiled variable key also falls back to runtime lookup
+        ($q (funcall get-fn info key) 'NEW)
+        ($q (funcall put-fn info key 'COMPILED) 'COMPILED)
+        ($q (funcall get-fn info key) 'COMPILED)
+        ($l (plist-get info key) 1))
+    ;; do not leave the real oclosure holding this test's plist
+    (t--oinfo-cleanup)))
 
 (ert-deftest t--oinfo-cache-is-per-plist ()
   "A copy of the plist is a cache miss: oclosures compare with `eq'.
@@ -544,11 +559,13 @@ too."
 (ert-deftest t--oinfo-plain-flavor ()
   "Tests for `org-w3ctr--pget'/`org-w3ctr--pput' with the cache off."
   (skip-when t--oinfo-cache-p)
-  (dlet ((info (list :a 1)))
-    ($l (eval '(t--pget info :a)) 1)
-    ($l (eval '(t--pput info :a 2)) 2)
-    ($l (plist-get info :a) 2)
-    ($l (eval '(t--pget info :a)) 2)))
+  (let ((get-fn (byte-compile '(lambda (info) (t--pget info :title))))
+        (put-fn (byte-compile '(lambda (info v) (t--pput info :title v))))
+        (info (list :title 1)))
+    ($l (funcall get-fn info) 1)
+    ($l (funcall put-fn info 2) 2)
+    ($l (plist-get info :title) 2)
+    ($l (funcall get-fn info) 2)))
 
 ;;;; OINFO cleanup and statistics
 
@@ -663,7 +680,10 @@ too."
                                  (propertize (format "%d" n) 'count n))))))
     ($s (t--oinfo-compare-count (funcall entry 1) (funcall entry 2)))
     ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 1)))
-    ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 2)))))
+    ($n (t--oinfo-compare-count (funcall entry 2) (funcall entry 2)))
+    ;; numeric order, not lexicographic ("2" vs "10")
+    ($s (t--oinfo-compare-count (funcall entry 2) (funcall entry 10)))
+    ($n (t--oinfo-compare-count (funcall entry 10) (funcall entry 2)))))
 
 ;;;; String helpers
 
