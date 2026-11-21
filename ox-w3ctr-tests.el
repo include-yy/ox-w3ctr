@@ -409,23 +409,27 @@ nil is `eq' to itself, so the write is invisible to `plist-get'."
   "Tests for `org-w3ctr--pput'."
   (skip-unless t--oinfo-cache-p)
   (t-test-oinfo-cache '(:a)
-    (dlet ((info '(:a 1 :c 3))
-           (val 1))
+    (dlet ((info (list :a 1 :c 3)))
       ;; cached key: write to oclosure, plist untouched
       ($l (eval '(t--pput info :a 2)) 2)
       ($l (eval '(t--pget info :a)) 2)
       ($l (t--oinfo--val (t--oinfo-oget :a)) 2)
       ($l (plist-get info :a) 1)
-      ;; cached key with value expression
-      ($l (eval '(t--pput info :a (incf val))) 2)
-      ($l (eval '(t--pget info :a)) 2)
-      ($l (plist-get info :a) 1)
       ;; non-cached key: plist-put, returns VALUE
       ($l (eval '(t--pput info :c 4)) 4)
       ($l (eval '(t--pget info :c)) 4)
-      ($l (plist-get info :c) 4)
-      ;; non-cached key with value expression
-      ($l (eval '(t--pput info :c (incf val))) 3)
+      ($l (plist-get info :c) 4))
+    ;; single evaluation of VALUE when inlined (cached and non-cached)
+    (let ((put-a (byte-compile '(lambda (info f) (t--pput info :a (funcall f)))))
+          (put-c (byte-compile '(lambda (info f) (t--pput info :c (funcall f)))))
+          (info (list :a 1 :c 3))
+          (val 1))
+      ($l (funcall put-a info (lambda () (cl-incf val))) 2)
+      ($l val 2)
+      ($l (t--oinfo--val (t--oinfo-oget :a)) 2)
+      ($l (plist-get info :a) 1)
+      ($l (funcall put-c info (lambda () (cl-incf val))) 3)
+      ($l val 3)
       ($l (plist-get info :c) 3))
     ;; hygiene: caller variables named `o' must not be captured when inlined
     (let ((set-v (byte-compile '(lambda (info o) (t--pput info :a o))))
@@ -444,25 +448,30 @@ seeing a stale cached value, and a signal during VALUE evaluation
 leaves the cache unchanged."
   (skip-unless t--oinfo-cache-p)
   (t-test-oinfo-cache '(:a)
-    (dlet ((info-a (list :a "A"))
-           (info-b (list :a "B")))
+    (let ((get-a (byte-compile '(lambda (info) (t--pget info :a))))
+          (put-read (byte-compile
+                     '(lambda (info)
+                        (t--pput info :a
+                                 (format "seen=%s" (t--pget info :a))))))
+          (put-err (byte-compile
+                    '(lambda (info) (t--pput info :a (error "boom")))))
+          (info-a (list :a "A"))
+          (info-b (list :a "B")))
       ;; Prime the cache with info-a.
-      ($l (eval '(t--pget info-a :a)) "A")
+      ($l (funcall get-a info-a) "A")
       ;; VALUE reads the same key of a different INFO.
-      ($l (eval '(t--pput info-b :a
-                          (format "seen=%s" (t--pget info-b :a))))
-          "seen=B")
-      ($l (eval '(t--pget info-b :a)) "seen=B")
+      ($l (funcall put-read info-b) "seen=B")
+      ($l (funcall get-a info-b) "seen=B")
       ;; Cleanup before the error test.
       (t--oinfo-cleanup)
-      ($l (eval '(t--pget info-a :a)) "A")
+      ($l (funcall get-a info-a) "A")
       ;; VALUE signals: the cache must not be half-updated.
-      (should-error (eval '(t--pput info-b :a (error "boom"))))
+      (should-error (funcall put-err info-b))
       ;; The oclosure should still hold info-a, unchanged: the signal
       ;; fires during VALUE evaluation, before the pid slot is written.
       ($q (t--oinfo--pid (t--oinfo-oget :a)) info-a)
       ;; Reading info-b must return "B" from the plist, not a stale "A".
-      ($l (eval '(t--pget info-b :a)) "B"))))
+      ($l (funcall get-a info-b) "B"))))
 
 (ert-deftest t--oinfo-non-inlined-call ()
   "A variable KEY falls back to the non-inlined cache lookup.
@@ -1615,15 +1624,17 @@ stubs `random' to hand back a taken number first and counts the draws."
         (when (buffer-live-p b) (kill-buffer b)))))
   ;; If jsonrpc ever stops creating `*NAME stderr*' before invoking
   ;; `:process', fail loudly instead of merging stderr into stdout.
-  (cl-letf (((symbol-function 'get-buffer) (lambda (_) nil)))
-    (unwind-protect
+  (unwind-protect
+      (cl-letf (((symbol-function 'get-buffer) (lambda (_) nil))
+                ((symbol-function 'make-process)
+                 (lambda (&rest _) (error "unexpected make-process"))))
         ($e!l (t--jrpc-connect "ox-w3ctr-no-stderr" '("some-server"))
               '(org-w3ctr-error
-                "Missing jsonrpc stderr buffer for ox-w3ctr-no-stderr"))
-      (dolist (b '("*ox-w3ctr-no-stderr stderr*"
-                   " *ox-w3ctr-no-stderr stderr*"
-                   "*ox-w3ctr-no-stderr events*"))
-        (when (get-buffer b) (kill-buffer b))))))
+                "Missing jsonrpc stderr buffer for ox-w3ctr-no-stderr")))
+    (dolist (b '("*ox-w3ctr-no-stderr stderr*"
+                 " *ox-w3ctr-no-stderr stderr*"
+                 "*ox-w3ctr-no-stderr events*"))
+      (when (get-buffer b) (kill-buffer b)))))
 
 (ert-deftest t--jrpc-shutdown ()
   "Tests for `org-w3ctr--jrpc-shutdown'."
