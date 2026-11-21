@@ -1255,7 +1255,9 @@ stubs `random' to hand back a taken number first and counts the draws."
     ;; dot in value -> nil
     ($n (t--target-reference (funcall get-target "foo.bar")))
     ;; empty value -> nil
-    ($n (t--target-reference (funcall get-target "")))))
+    ($n (t--target-reference (funcall get-target "")))
+    ;; newline in value must not pass via line-anchored ^/$
+    ($n (t--target-reference '(target (:value "foo\n<s>"))))))
 
 (ert-deftest t--check-id ()
   "Tests for `org-w3ctr--check-id'."

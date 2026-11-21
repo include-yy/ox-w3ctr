@@ -1906,13 +1906,13 @@ Each entry is formatted by `org-w3ctr--make-attr' and concatenated."
   "Format plist ATTRIBUTES into an HTML attribute string.
 
 Local copy of `org-html--make-attribute-string'.  Keys are keywords
-or symbols and values are strings (for example
-\\='id=\"foo\" class=\"bar\"\\=').  Keys with nil values are omitted;
+or symbols and values are strings, producing strings such as
+\"id=\\\"foo\\\" class=\\\"bar\\\"\".  Keys with nil values are omitted;
 values are escaped via `org-w3ctr--encode-plain-text*'."
   (declare (ftype (function (list) string))
            (pure t) (important-return-value t))
   (let (output)
-    (dolist (item attributes (mapconcat 'identity (nreverse output) " "))
+    (dolist (item attributes (mapconcat #'identity (nreverse output) " "))
       (cond
        ((null item) (pop output))
        ((keywordp item) (push (substring (symbol-name item) 1) output))
@@ -2012,7 +2012,7 @@ If no matches are found, or if REGEXP is an empty string, this
 function returns nil.  A match of length zero is skipped."
   (declare (ftype (function (string string &optional (or null fixnum))
                             list))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (if (string= regexp "") nil
     (let ((pos (max (or start 0) 0))
           (matches))
@@ -2164,7 +2164,7 @@ letter followed by letters, digits, hyphens or underscores."
            (pure t) (important-return-value t))
   (when (memq (org-element-type datum) '(radio-target target))
     (when-let* ((val (org-element-property :value datum))
-                (_ (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val)))
+                (_ (string-match-p "\\`[a-zA-Z][a-zA-Z0-9_-]*\\'" val)))
       val)))
 
 (defun t--check-id (id kind)
