@@ -817,7 +817,13 @@ decoding returns the input."
           '(org-w3ctr-error "Invalid attribute #+nil: (invalid"))
     ;; the same error with the attribute name callers actually pass
     ($e!l (t--read-attr :attr__ '("(invalid"))
-          '(org-w3ctr-error "Invalid attribute #+:attr__: (invalid")))
+          '(org-w3ctr-error "Invalid attribute #+:attr__: (invalid"))
+    ;; extra closing paren must not silently drop trailing forms
+    ($e!l (t--read-attr :attr__ '("(a 1)) (b 2)"))
+          '(org-w3ctr-error "Invalid attribute #+:attr__: (a 1)) (b 2)"))
+    ;; top-level dotted syntax must not leak an improper list
+    ($e!l (t--read-attr :attr__ '("a . b"))
+          '(org-w3ctr-error "Invalid attribute #+:attr__: a . b")))
   (t-check-element-values
    #'t--read-attr
    '(("#+attr__: 1 2 3\n#+attr__: 4 5 6\nhello world"

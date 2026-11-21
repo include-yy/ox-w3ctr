@@ -1842,9 +1842,14 @@ Signal `org-w3ctr-error' if the value is not a valid Lisp s-expression."
            (important-return-value t))
   (when-let* ((value (org-element-property attribute element))
               (str (t--nw-p (mapconcat #'identity value " "))))
-    (let ((sstr (concat "(" str ")")))
-      (condition-case nil (read sstr)
-        (error (t-error "Invalid attribute #+%s: %s" attribute str))))))
+    (let* ((sstr (concat "(" str ")"))
+           (res (condition-case nil (read-from-string sstr)
+                  (error (t-error "Invalid attribute #+%s: %s"
+                                  attribute str)))))
+      (unless (and (= (cdr res) (length sstr))
+                   (proper-list-p (car res)))
+        (t-error "Invalid attribute #+%s: %s" attribute str))
+      (car res))))
 
 (defun t--read-attr__ (element)
   "Parse the `:attr__' (`#+attr__:') property from ELEMENT.
