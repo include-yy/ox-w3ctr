@@ -1692,25 +1692,29 @@ column.  Press \\[revert-buffer] to refresh the statistics.
 The counts begin when the file is loaded and keep growing across
 exports; `org-w3ctr-clear-oinfo-statistics' zeroes them."
   (interactive)
-  (let ((stats (mapcar (lambda (pair)
-                         (let* ((key (car pair))
-                                (sym (cdr pair))
-                                (oclosure (symbol-function sym))
-                                (cnt (t--oinfo--cnt oclosure)))
-                           (list key
-                                 (vector (symbol-name key)
-                                         (propertize (format "%6d" cnt)
-                                                     'count cnt)))))
-                       t--oinfo-cache-alist)))
+  (let ((make-entries
+         (lambda ()
+           (mapcar (lambda (pair)
+                     (let* ((key (car pair))
+                            (sym (cdr pair))
+                            (oclosure (symbol-function sym))
+                            (cnt (t--oinfo--cnt oclosure)))
+                       (list key
+                             (vector (symbol-name key)
+                                     (propertize (format "%6d" cnt)
+                                                 'count cnt)))))
+                   t--oinfo-cache-alist))))
     (with-current-buffer (get-buffer-create "*ox-w3ctr-oinfo*")
       (tabulated-list-mode)
       (setq tabulated-list-format
-            [("Property" 40 t) ("Count" 10 org-w3ctr--oinfo-compare-count
+            [("Property" 40 t) ("Count" 10 t--oinfo-compare-count
                                 :right-align t)]
-            tabulated-list-entries stats
+            tabulated-list-entries (funcall make-entries)
             tabulated-list-sort-key (cons "Count" t))
       (setq-local revert-buffer-function
-                  (lambda (&rest _) (t-collect-oinfo-statistics)))
+                  (lambda (&rest _)
+                    (setq tabulated-list-entries (funcall make-entries))
+                    (tabulated-list-print t)))
       (tabulated-list-init-header)
       (tabulated-list-print)
       (goto-char (point-min))
