@@ -53,7 +53,7 @@
 
 ;;;; Fundamental utilities
 (defconst t-version "0.2.20"
-  "The current version string of the ox-w3ctr package.")
+  "Version string of the ox-w3ctr package.")
 
 (defconst t--dir
   (if (not load-in-progress) default-directory
@@ -62,18 +62,16 @@
 
 (define-error 't-error "ox-w3ctr-error")
 
-;; FIXME: Replace all `error' calls with `org-w3ctr-error'.
 (defun t-error (string &rest args)
   "Signal an `org-w3ctr-error' error.  STRING is formatted with ARGS."
   (declare (ftype (function (string &rest t) t)))
   (signal 't-error (list (apply #'format-message string args))))
 
-;; A PRECONDITION OF THE WHOLE BACK-END
-;; INFO is shared by identity with every transcoder, while callers discard
-;; `plist-put''s return value (its docstring only promises that value), so
-;; `plist-put' has to modify a *non-empty* plist in place -- keeping the head
-;; cell (setcar for an existing key, splicing for a missing one).  An empty
-;; plist would need the return value; INFO is never empty here.
+;; Transcoders share the non-empty INFO plist by identity and call
+;; `plist-put' (via `org-w3ctr--pput') for side effect, discarding its
+;; return value.  Since `plist-put' does not document in-place mutation,
+;; verify at load time that it mutates a non-empty plist without
+;; changing its head cell.
 (unless (let ((p (list :probe nil)))
           (and (eq p (plist-put p :probe t))   ; existing key, in place
                (eq p (plist-put p :probe-2 t)) ; missing key, in place
@@ -82,14 +80,13 @@
 
 ;;;; Define Back-End
 (org-export-define-backend 'w3ctr
-  '(;; see https://orgmode.org/worg/org-syntax.html for details
-    ;; The pairs follow the order of their implementations below; the
-    ;; annotations keep Org's taxonomy, so family members that the
-    ;; source keeps with their element sit beside it here too.
+  '(;; See https://orgmode.org/worg/org-syntax.html for Org syntax.
+    ;; Entries follow the definition order in this file; items outside
+    ;; their Org syntax category are noted inline.
     ;;@ greater elements
-    ;; footnote-definition                      NO-EXIST
-    ;; inlinetasks `inlinetask'                 NO-USE
-    ;; property drawers `property-drawer'       NO-USE
+    ;; footnote-definition                      (collected by ox)
+    ;; inlinetasks `inlinetask'                 (not implemented)
+    ;; property drawers `property-drawer'       (not implemented)
     (center-block . t-center-block)             ; #+begin_center
     (drawer . t-drawer)                         ; :name: ... :end:
     (dynamic-block . t-dynamic-block)           ; #+begin: name para
@@ -102,18 +99,18 @@
     (table-row . t-table-row)                   ; | | (a lesser element)
     (table . t-table)                           ; | | | \n | | |
     ;;@ lesser elements
-    ;; babel cell                               NO-EXIST
-    ;; clock `clock'                            NO-USE
-    ;; comments                                 NO-EXPORT
-    ;; comment block                            NO-EXPORT
-    ;; diary sexp `diary-sexp'                  NO-USE
-    ;; node properties `node-property'          NO-USE
-    ;; planning `planning'                      NO-USE
+    ;; babel call                               (expanded by ox)
+    ;; clock `clock'                            (not implemented)
+    ;; comments                                 (not exported)
+    ;; comment block                            (not exported)
+    ;; diary sexp `diary-sexp'                  (not implemented)
+    ;; node properties `node-property'          (not implemented)
+    ;; planning `planning'                      (not implemented)
     (export-block . t-export-block)             ; #+begin_export
     (export-snippet . t-export-snippet)         ; @@html:something@@ (an object)
     (fixed-width . t-fixed-width)               ; ^: contents
     (horizontal-rule . t-horizontal-rule)       ; -----------
-    (keyword . t-keyword)                       ; #+name: ...
+    (keyword . t-keyword)                       ; #+KEY: value
     (verse-block . t-verse-block)               ; #+begin_verse
     (latex-fragment . t-latex-fragment)         ; \(, \[ (an object)
     (latex-environment . t-latex-environment)   ; \begin
@@ -122,23 +119,23 @@
     (src-block . t-src-block)                   ; #+begin_src lang
     (inline-src-block . t-inline-src-block)     ; src_LANG{body} (an object)
     ;;@ objects
-    ;; citation                                 NO-USE
-    ;; citation reference                       NO-USE
-    ;; inline babel calls                       NO-EXIST
-    ;; macros                                   NO-EXIST
+    ;; citation                                 (handled by oc)
+    ;; citation reference                       (handled by oc)
+    ;; inline babel calls                       (expanded by ox)
+    ;; macros                                   (expanded by ox)
     (entity . t-entity)                         ; \alpha, \cent
-    (line-break . t-line-break)                 ; \
+    (line-break . t-line-break)                 ; \\
     (target . t-target)                         ; <<target>>
     (radio-target . t-radio-target)             ; <<<contents>>>
     (statistics-cookie . t-statistics-cookie)   ; [%] [/]
     (subscript . t-subscript)                   ; a_{b}
     (superscript . t-superscript)               ; a^{b}
-    (timestamp . t-timestamp)                   ; [<time-spec>]
+    (timestamp . t-timestamp)                   ; <...>, [...]
     (link . t-link)                             ; [[...][...]]
     ;; smallest objects
     (bold . t-bold)                             ; *a*
     (italic . t-italic)                         ; /a/
-    (underline . t-underline)                   ; _a/
+    (underline . t-underline)                   ; _a_
     (verbatim . t-verbatim)                     ; =a=
     (code . t-code)                             ; ~a~
     (strike-through . t-strike-through)         ; +a+
@@ -152,7 +149,7 @@
   :filters-alist '((:filter-parse-tree . t-image-link-filter)
                    (:filter-final-output . t-final-function))
   :menu-entry
-  '(?w "Export to W3C technical reports style html"
+  '(?w "Export to HTML"
        ((?H "As HTML buffer" t-export-as-html)
         (?h "As HTML file" t-export-to-html)
         (?o "As HTML file and open"
