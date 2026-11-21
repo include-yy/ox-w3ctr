@@ -1,6 +1,6 @@
 ;;; ox-w3ctr.el --- An Org export Back-End -*- lexical-binding:t;-*-
 
-;; Copyright (C) 2024-2025 include-yy <yy@egh0bww1.com>
+;; Copyright (C) 2024-2026 include-yy <yy@egh0bww1.com>
 
 ;; Author: include-yy <yy@egh0bww1.com>
 ;; Maintainer: include-yy <yy@egh0bww1.com>
@@ -28,14 +28,44 @@
 
 ;;; Commentary:
 
-;; FIXME: [Comments need improvements]
-;; This library implements a HTML back-end for Org generic exporter.
-;; A parasitic implementation of ox-html.el
-
-;; See:
+;; This library implements an HTML5 export back-end for Org mode styled
+;; after W3C Technical Reports, originally based on `ox-html.el'.
+;;
+;; Quick start:
+;;
+;; Load `ox-w3ctr' and invoke `org-export-dispatch' (C-c C-e):
+;;   - w H : export to an HTML buffer (`org-w3ctr-export-as-html')
+;;   - w h : export to an HTML file (`org-w3ctr-export-to-html')
+;;   - w o : export to an HTML file and open it
+;;
+;; For batch publishing, use `org-w3ctr-publish-to-html'.  Configuration
+;; options live under the `org-export-w3ctr' customization group.
+;;
+;; The bundled `assets/' directory provides the W3C TR stylesheet and
+;; navigation script.  An optional Node.js helper in `jstools/' adds
+;; Shiki syntax highlighting and server-side MathJax rendering.
+;;
+;; For readers interested in the W3C Technical Report markup and styling
+;; conventions this back-end draws from, see:
 ;; - https://respec.org/docs/
 ;; - https://www.w3.org/StyleSheets/TR/2021/
 ;; - https://github.com/w3c/tr-design
+;;
+;; Acknowledgments:
+;;
+;; Thanks to the AI assistants that helped with refactoring, testing,
+;; and reviewing this package:
+;; - Claude 5.5 Opus, Claude Fable 5 (https://www.anthropic.com/)
+;; - DeepSeek 4.0 Pro, DeepSeek 4.0 Flash, DeepSeek 4.1 Flash
+;;   (https://www.deepseek.com/)
+;; - MiMo 2.5 Pro, MiMo 2.6 Pro, MiMo 2.6 Pro UltraSpeed
+;;   (https://mimo.mi.com/)
+;; - Gemini 4 Hydrogen, Gemini 4 Neon, Gemini 4 Carbon
+;;   (https://gemini.google.com/)
+;;
+;; Special thanks to Shikasar7 <cicalashi@gmail.com>, who pushed me down
+;; the coding-agent rabbit hole and is therefore indirectly responsible
+;; for all the refactored lines below.
 
 ;;; Code:
 
