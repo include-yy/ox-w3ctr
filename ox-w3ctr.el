@@ -1933,14 +1933,14 @@ leading space, or \"\" when empty.  Signal `org-w3ctr-error' on
 invalid `:attr__' syntax."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
-  (let* ((reference (t--reference element info named-only))
-         (attributes (t--read-attr__ element))
+  (let* ((attributes (t--read-attr__ element))
+         (has-id (seq-find (lambda (x)
+                             (when-let* ((k (t--2str (car-safe x))))
+                               (string-equal-ignore-case k "id")))
+                           attributes))
+         (reference (unless has-id (t--reference element info named-only)))
          (a (t--make-attr__
-             (if (or (not reference)
-                     (seq-find (lambda (x) (eq 'id (car-safe x)))
-                               attributes))
-                 attributes
-               (cons `("id" ,reference) attributes)))))
+             (if reference (cons `("id" ,reference) attributes) attributes))))
     (if (t--nw-p a) a "")))
 
 (defun t--make-attr_html (element info &optional named-only)
@@ -1955,10 +1955,10 @@ space, or \"\" when empty."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (let* ((attrs (org-export-read-attribute :attr_html element))
-         (reference (t--reference element info named-only))
+         (reference (unless (plist-member attrs :id)
+                      (t--reference element info named-only)))
          (a (t--make-attribute-string
-             (if (or (not reference) (plist-member attrs :id))
-                 attrs (plist-put attrs :id reference)))))
+             (if reference (plist-put attrs :id reference) attrs))))
     (if (t--nw-p a) (concat " " a) "")))
 
 (defun t--make-attr__id* (element info &optional named-only)
@@ -2257,7 +2257,11 @@ transcoders emit no id."
       (t--reference element info named-only))
      ;; Mirror `org-w3ctr--make-attr__id*': `:attr__' shadows `:attr_html'.
      ((org-element-property :attr__ element)
-      (if-let* ((explicit (assoc 'id (t--read-attr__ element))))
+      (if-let* ((explicit (seq-find
+                           (lambda (x)
+                             (when-let* ((k (t--2str (car-safe x))))
+                               (string-equal-ignore-case k "id")))
+                           (t--read-attr__ element))))
           (t--nw-p (mapconcat #'t--2str (cdr explicit) ""))
         (t--reference element info named-only)))
      (t

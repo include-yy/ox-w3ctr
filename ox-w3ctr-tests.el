@@ -961,10 +961,25 @@ decoding returns the input."
       " id=\"1\" something=\"&lt;=&gt;\"")
      ;; explicit id in attr__ overrides auto-generated reference
      ("#+name:auto\n#+attr__:(id \"custom\")\ntest" " id=\"custom\"")
+     ("#+name:auto\n#+attr__:(\"id\" \"custom\")\ntest" " id=\"custom\"")
+     ("#+name:auto\n#+attr__:(ID \"custom\")\ntest" " id=\"custom\"")
      ;; an id as a bare atom is NOT recognized as explicit: the
      ;; reference id is prepended and the atom emitted too -- double id
      ("#+name:1\n#+attr__: id\ntest" " id=\"1\" id"))
-   nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t))
+  ;; named-only = nil mints an id on an unnamed element; an explicit id
+  ;; skips `t--reference' and leaves `:internal-references' untouched.
+  (let* ((el (t-get-element "test" 'paragraph))
+         (info (list :html-prefer-user-labels nil)))
+    ($s (string-match-p "\\` id=\"org[0-9a-f]\\{7\\}\"\\'"
+                        (t--make-attr__id el info))))
+  (let* ((el (t-get-element "#+attr__: (id \"x\")\ntest" 'paragraph))
+         (info (list :html-prefer-user-labels nil)))
+    ($l (t--make-attr__id el info) " id=\"x\"")
+    ($n (plist-get info :internal-references)))
+  ;; Invalid `:attr__' syntax signals `org-w3ctr-error'.
+  (let ((el (t-get-element "#+attr__: (unclosed\ntest" 'paragraph)))
+    ($e! (t--make-attr__id el (list :html-prefer-user-labels nil)))))
 
 (ert-deftest t--make-attr_html ()
   "Tests for `org-w3ctr--make-attr_html'."
@@ -987,7 +1002,16 @@ decoding returns the input."
      ;; duplicate keys are both emitted
      ("#+attr_html: :class a :class b\ntest"
       " class=\"a\" class=\"b\""))
-   nil '(:html-prefer-user-labels t)))
+   nil '(:html-prefer-user-labels t))
+  ;; named-only = nil mints an id; explicit :id skips `t--reference'.
+  (let* ((el (t-get-element "test" 'paragraph))
+         (info (list :html-prefer-user-labels nil)))
+    ($s (string-match-p "\\` id=\"org[0-9a-f]\\{7\\}\"\\'"
+                        (t--make-attr_html el info))))
+  (let* ((el (t-get-element "#+attr_html: :id x\ntest" 'paragraph))
+         (info (list :html-prefer-user-labels nil)))
+    ($l (t--make-attr_html el info) " id=\"x\"")
+    ($n (plist-get info :internal-references))))
 
 (ert-deftest t--make-attr__id* ()
   "Tests for `org-w3ctr--make-attr__id*'."
