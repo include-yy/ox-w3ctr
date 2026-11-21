@@ -91,10 +91,11 @@ and how the pipeline works.
   =yynt--do-export= already does this); per-document the saving is
   ~0.1s, so it only matters at batch scale.  Not the backend's job --
   an Org invocation concern.
-- *Options tidy-up.*  The =:options-alist= is a grab-bag: a few
-  entries are grouped, most are not.  Order every entry, consider
-  replacing cumbersome string options with =*-function= ones.  Chart
-  compatibility with ox-html for each option.  Known divergences to
+- *Options compatibility chart.*  =:options-alist= ordering, =:type=,
+  and =:safe= predicates are now tidied and pinned by tests.  What
+  remains is charting compatibility with ox-html for each option and
+  deciding whether to replace remaining string options with
+  =*-function= ones.  Known divergences to
   chart: =:html-link-use-abs-url= (and =:html-link-home= on file links)
   is deliberately omitted in =org-w3ctr--link-path=; the legacy home/up
   bar emits our own =<nav id="navbar">= markup, deliberately not
@@ -232,14 +233,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   =org-w3ctr--oinfo-props-go-through-pget= match the literal variable
   =info=; a differently named INFO plist would false-fail.  Loosen to
   =[^ \t\n()]+= if that ever changes.
-
-- *checkdoc leftovers.*  Emacs 32's checkdoc reports 3 warnings:
-  =t-creator-string='s docstring first line is not a complete sentence
-  (it ends at the =%c= placeholder); and the =t-export-as-html= /
-  =t-export-to-html= docstrings never mention ASYNC (the argument is
-  used -- it goes to =org-export-to-buffer= / =org-export-to-file= --
-  so the docstring should say so, not the name mangled).  The
-  =ox-w3ctr-lint= skill's =scripts/checkdoc.el= lists them.
 
 - *=org-w3ctr--read-attr='s error message prints the property keyword as
   is.*  =Invalid attribute #+%s= interpolates the keyword, so the

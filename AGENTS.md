@@ -279,20 +279,23 @@ its `TODO` list (larger).  Those two lists are the plan; there is no fixed
 task list and no "underway" moment.  The current session state and next
 task live in `.agents/next.md`.
 
-These parts are stable — they carry unit, source-scanning and property
-tests, verified end to end — touch them only for a concrete reason, with
-a test, never as a drive-by while refining another section:
+The mainline fine pass across `ox-w3ctr.el` and `ox-w3ctr-tests.el` is
+complete (zero `REFINE:` markers, zero `checkdoc` / `indent-check` /
+`order-check` / `strict-compile` warnings).  All major parts are now
+stable — they carry unit, source-scanning and property tests, verified
+end to end — touch them only for a concrete reason, with a test, never
+as a drive-by:
 
-- `;;; Template and Inner Template` — finished
 - `;;; Basic utilities` — frozen
 - `;;; Greater elements` — frozen
+- `;;; Lesser elements` — finished
+- `;;; Objects` — finished
+- `;;; Smallest objects` — finished
+- `;;; Headline and Section` — finished
+- `;;; Template and Inner Template` — finished
+- `;;; End-user functions` — finished
 
 Their one deliberate test gap, `org-w3ctr--table.el-table` (its markup
 comes from `table-generate-source`), is annotated in the source.
-
-Sections still to refine carry
-`;; REFINE: this section is pending the mainline fine pass.` in the source
-— `grep -n 'REFINE:' ox-w3ctr.el` lists them.  Take them in source order,
-one section per pass, and remove the marker when the section is done.
 `ox-w3ctr-tests.el` mirrors the source (`;;;` per major part, `;;;;` per
-source section) and is worked through the same way, section by section.
+source section); keep that alignment intact.
