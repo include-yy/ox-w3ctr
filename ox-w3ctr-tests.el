@@ -16,7 +16,11 @@
 (defun $l (a b) "should-equal" (should (equal a b)))
 (defun $nq (a b) "should-not-eq" (should-not (eq a b)))
 (defun $nl (a b) "should-not-equal" (should-not (equal a b)))
-(defmacro $e! (exp) "should-error" `(should-error ,exp))
+(defmacro $e! (exp &optional type)
+  "should-error, optionally checking error TYPE."
+  (if type
+      `(should-error ,exp :type ,type)
+    `(should-error ,exp)))
 (defmacro $e!l (exp val)
   "should-error-equal"
   `(should (equal (should-error ,exp) ,val)))
@@ -848,13 +852,13 @@ decoding returns the input."
     ;; top-level dotted syntax must not leak an improper list
     ($e!l (t--read-attr :attr__ '("a . b"))
           '(org-w3ctr-error "Invalid attribute #+:attr__: a . b")))
+  ($n (t--read-attr :attr__ (t-get-element "nothing but text" 'paragraph)))
   (t-check-element-values
    #'t--read-attr
    '(("#+attr__: 1 2 3\n#+attr__: 4 5 6\nhello world"
       (1 2 3 4 5 6))
      ("#+attr__: [hello world] (id no1)\nhello"
       ([hello world] (id no1)))
-     ("nothing but text" . nil)
      ("#+attr__: \"str\"\nstring" ("str"))
      ("#+attr__:\nempty" nil))))
 
@@ -876,12 +880,12 @@ decoding returns the input."
     ($l (t--read-attr__ '("[a nil b]")) '(("class" "a  b")))
     ($l (t--read-attr__ '("[]")) '(nil))
     ($l (t--read-attr__ '("[][][]")) '(nil nil nil)))
+  ($n (t--read-attr__ (t-get-element "test" 'paragraph)))
   (t-check-element-values
    #'t--read-attr__
    '(("#+attr__: 1 2 3\n#+attr__: 4\ntest" (1 2 3 4))
      ("#+attr__: [hello world] (id no1)\ntest"
       (("class" "hello world") (id no1)))
-     ("test" . nil)
      ("#+attr__:\n#+attr__:\ntest" nil)
      ("#+attr__: []\ntest" (nil))
      ("#+attr__: [][][]\ntest" (nil nil nil)))))
@@ -930,7 +934,7 @@ decoding returns the input."
   ;; a dotted element signals a primitive error, not
   ;; `org-w3ctr-error' -- reachable as #+attr__: (a . b), which then
   ;; aborts the export
-  ($e! (t--make-attr__ '((a . b)))))
+  ($e! (t--make-attr__ '((a . b))) 'wrong-type-argument))
 
 (ert-deftest t--make-attribute-string ()
   "Tests for `org-w3ctr--make-attribute-string'."
@@ -994,7 +998,8 @@ decoding returns the input."
     ($n (plist-get info :internal-references)))
   ;; Invalid `:attr__' syntax signals `org-w3ctr-error'.
   (let ((el (t-get-element "#+attr__: (unclosed\ntest" 'paragraph)))
-    ($e! (t--make-attr__id el (list :html-prefer-user-labels nil)))))
+    ($e! (t--make-attr__id el (list :html-prefer-user-labels nil))
+         'org-w3ctr-error)))
 
 (ert-deftest t--make-attr_html ()
   "Tests for `org-w3ctr--make-attr_html'."
