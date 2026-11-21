@@ -291,9 +291,9 @@ same session.  Larger or planned work is in the =TODO= list above.
   =org-w3ctr-*= name.  Remaining in =ox-w3ctr.el=: =t-style= /
   =t-style-file= (<head>).
 
-- *Two test sections sit out of source order.*  =order-check.el= flags
-  Headline and CC license badges.  Reorder them to the source function
-  order when those sections are next touched.
+- *One test section sits out of source order.*  =order-check.el= flags
+  CC license badges.  Reorder it to the source function order when that
+  section is next touched.
 
 - *Other transcoders take CONTENTS as =string= with no nil guard.*  ox.el
   prunes math under =tex:nil=, so a paragraph whose only content was
@@ -365,16 +365,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   verification skill).  Either the author gives every referenced element
   an explicit =CUSTOM_ID=, or the back-end derives a stable id -- see
   Non-goals.
-
-- *Headline =CUSTOM_ID= / =ID= values are neither validated nor
-  attribute-escaped.*  =org-w3ctr--build-normal-headline=,
-  =org-w3ctr--build-low-level-headline=, =org-w3ctr--headline-self-link=,
-  and =org-w3ctr-toc-headline-default-format-function= interpolate
-  =org-w3ctr--reference= straight into =id="%"= / =href="#%"=, so a
-  =CUSTOM_ID= containing quotes, =&='s, or spaces (invalid in HTML5
-  =id=s) produces malformed HTML.  Decide when touching Headline /
-  References whether to escape at each site or reject malformed ids in
-  =org-w3ctr--reference= / =org-w3ctr--element-id=.
 
 - *An export snippet without a backend leaks a primitive error.*  A
   synthetic =(export-snippet (:value \u2026))= with no =:back-end= dies inside

@@ -1256,6 +1256,14 @@ stubs `random' to hand back a taken number first and counts the draws."
     ;; empty value -> nil
     ($n (t--target-reference (funcall get-target "")))))
 
+(ert-deftest t--check-id ()
+  "Tests for `org-w3ctr--check-id'."
+  ($l (t--check-id "my-id" "CUSTOM_ID") "my-id")
+  ($l (t--check-id "1" "CUSTOM_ID") "1")
+  ($l (t--check-id "sec:1.2" "CUSTOM_ID") "sec:1.2")
+  (dolist (bad '("" "a b" "a\tb" "a\nb" "a\"b" "a'b" "a<b" "a>b" "a&b" nil))
+    (should-error (t--check-id bad "CUSTOM_ID") :type 'org-w3ctr-error)))
+
 (ert-deftest t--reference ()
   "Tests for `org-w3ctr--reference'."
   (let ((no-labels nil)
@@ -1265,6 +1273,13 @@ stubs `random' to hand back a taken number first and counts the draws."
                             'headline)))
       ($l (t--reference h no-labels) "my-id")
       ($l (t--reference h with-labels) "my-id"))
+    ;; Malformed CUSTOM_ID / ID signal org-w3ctr-error.
+    (let ((h (t-get-element "* H\n:PROPERTIES:\n:CUSTOM_ID: a b\n:END:"
+                            'headline)))
+      (should-error (t--reference h no-labels) :type 'org-w3ctr-error))
+    (let ((h (t-get-element "* H\n:PROPERTIES:\n:ID: a\"b\n:END:"
+                            'headline)))
+      (should-error (t--reference h with-labels) :type 'org-w3ctr-error))
     ;; a target's value is the reference (the cond routes targets there)
     ($l (t--reference (t-get-element "<<foo>>" 'target) no-labels) "foo")
     ;; NAME with prefer-user-labels=t (paragraph, since #+name: does not
@@ -6486,10 +6501,16 @@ COUNTER, a cons cell, has its car incremented on every call."
     (should (string-match-p "<a href=\"#h\">1</a> and <a href=\"#h\">go</a>"
                             out)))
   (let ((out (org-export-string-as
-              "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: a\"&b\n:END:\n\n[[#a\"&b]]"
+              "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: h-unnum\n:END:\n\n[[#h-unnum]]"
               'w3ctr t '(:section-numbers nil))))
-    (should (string-match-p "<a href=\"#a&quot;&amp;b\"><b>Head</b></a>"
-                            out))))
+    (should (string-match-p "<a href=\"#h-unnum\"><b>Head</b></a>"
+                            out)))
+  ;; Invalid CUSTOM_ID is rejected by `org-w3ctr--check-id'.
+  (should-error
+   (org-export-string-as
+    "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: a\"&b\n:END:\n\n[[#a\"&b]]"
+    'w3ctr t '(:section-numbers nil))
+   :type 'org-w3ctr-error))
 
 (ert-deftest t--link-target ()
   "Tests for `org-w3ctr--link-target'."
@@ -6932,6 +6953,15 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 ;;;; Todo
 
+(ert-deftest t-todo-default-format-function ()
+  "Tests for `org-w3ctr-todo-default-format-function'."
+  ($l (t-todo-default-format-function "TODO" nil)
+      "<span class=\"todo TODO\">TODO</span>")
+  (let ((org-done-keywords '("DONE")))
+    ($l (t-todo-default-format-function
+         "DONE" '(:html-todo-kwd-class-prefix "p-"))
+        "<span class=\"done p-DONE\">DONE</span>")))
+
 (ert-deftest t--todo ()
   "Tests for `org-w3ctr--todo'."
   ($l (t--todo nil nil) nil)
@@ -6959,6 +6989,12 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 ;;;; Priority
 
+(ert-deftest t-priority-default-format-function ()
+  "Tests for `org-w3ctr-priority-default-format-function'."
+  ($n (t-priority-default-format-function nil nil))
+  ($l (t-priority-default-format-function 65 nil)
+      "<span class=\"priority\">[A]</span>"))
+
 (ert-deftest t--priority ()
   "Tests for `org-w3ctr--priority'."
   ($l (t--priority nil nil) nil)
@@ -6975,6 +7011,12 @@ COUNTER, a cons cell, has its car incremented on every call."
       "<i>B</i>"))
 
 ;;;; Tags
+
+(ert-deftest t-tags-default-format-function ()
+  "Tests for `org-w3ctr-tags-default-format-function'."
+  ($n (t-tags-default-format-function nil nil))
+  ($l (t-tags-default-format-function '("x") '(:html-tag-class-prefix "t-"))
+      "<span class=\"tag\"><span class=\"t-x\">x</span></span>"))
 
 (ert-deftest t--tags ()
   "Tests for `org-w3ctr--tags'."
@@ -7035,6 +7077,16 @@ COUNTER, a cons cell, has its car incremented on every call."
    #'t--headline-tags
    '(("* a :x:" nil))
    t '(:with-tags nil :with-toc nil)))
+
+(ert-deftest t-format-headline-default-function ()
+  "Tests for `org-w3ctr-format-headline-default-function'."
+  ($l (t-format-headline-default-function nil nil nil "Title" nil nil)
+      "Title")
+  ($l (t-format-headline-default-function "TODO" 'todo 65 "Title" '("a") nil)
+      ($c "<span class=\"todo TODO\">TODO</span> "
+          "<span class=\"priority\">[A]</span> "
+          "Title&#xa0;&#xa0;&#xa0;"
+          "<span class=\"tag\"><span class=\"a\">a</span></span>")))
 
 (ert-deftest t--build-bare-headline ()
   "Tests for `org-w3ctr--build-bare-headline'."
@@ -7141,6 +7193,18 @@ COUNTER, a cons cell, has its car incremented on every call."
         :headline-levels 3
         :with-toc nil)))
 
+(ert-deftest t--headline-class ()
+  "Tests for `org-w3ctr--headline-class'."
+  ($n (t--headline-class nil))
+  ($n (t--headline-class ""))
+  ($n (t--headline-class "   \t  "))
+  ($l (t--headline-class "note") "note")
+  ($l (t--headline-class "  foo   bar-1  _baz  --custom  ")
+      "foo bar-1 _baz --custom")
+  ($l (t--headline-class "-neg") "-neg")
+  (dolist (bad '("123" "-1a" "-" "a\"b" "a<b" "a&b" "ok 1bad" "foo.bar"))
+    (should-error (t--headline-class bad) :type 'org-w3ctr-error)))
+
 (ert-deftest t--build-low-level-headline ()
   "Tests for `org-w3ctr--build-low-level-headline'."
   ($it t--build-low-level-headline
@@ -7194,30 +7258,6 @@ COUNTER, a cons cell, has its car incremented on every call."
             :html-format-headline-function
             t-format-headline-default-function)))))
 
-(ert-deftest t-heading-default-format-function ()
-  "Tests for `org-w3ctr-heading-default-format-function'."
-  ;; Full: secno + title in <hN>, self-link beside, class on <hN>.
-  (cl-letf* (((symbol-function 't--headline-secno)
-              (lambda (_h _i) "<span class=\"secno\">1. </span>"))
-             ((symbol-function 't--headline-self-link)
-              (lambda (_id _i) "<a class=\"self-link\"></a>\n")))
-    ($l (t-heading-default-format-function
-         'hl "title" "h2" "id" "cls" nil)
-        ($c "<div class=\"header-wrapper\">\n"
-            "<h2 class=\"cls\">"
-            "<span class=\"secno\">1. </span>title</h2>\n"
-            "<a class=\"self-link\"></a>\n"
-            "</div>\n")))
-  ;; Minimal: no secno, no self-link, no class.
-  (cl-letf* (((symbol-function 't--headline-secno) (lambda (_h _i) nil))
-             ((symbol-function 't--headline-self-link)
-              (lambda (_id _i) nil)))
-    ($l (t-heading-default-format-function
-         'hl "title" "h3" "id" nil nil)
-        ($c "<div class=\"header-wrapper\">\n"
-            "<h3>title</h3>\n"
-            "</div>\n"))))
-
 (ert-deftest t--headline-container ()
   "Tests for `org-w3ctr--headline-container'."
   (t-check-element-values
@@ -7249,7 +7289,11 @@ COUNTER, a cons cell, has its car incremented on every call."
                           "aria-label=\"Link to this section\"></a>\n"))
       ($l (it "0" i2) nil)
       ;; An absent :html-self-link-headlines is falsy too.
-      ($l (it "0" i3) nil))))
+      ($l (it "0" i3) nil)
+      ;; Special characters in ID are attribute-escaped.
+      ($l (it "a\"&b" i1)
+          ($c "<a class=\"self-link\" href=\"#a&quot;&amp;b\" "
+              "aria-label=\"Link to this section\"></a>\n")))))
 
 (ert-deftest t--headline-secno ()
   "Tests for `org-w3ctr--headline-secno'."
@@ -7291,6 +7335,34 @@ COUNTER, a cons cell, has its car incremented on every call."
    t '( :html-honor-ox-headline-levels nil
         :html-toplevel-hlevel 2)))
 
+(ert-deftest t-heading-default-format-function ()
+  "Tests for `org-w3ctr-heading-default-format-function'."
+  ;; Full: secno + title in <hN>, self-link beside, class on <hN>.
+  (cl-letf* (((symbol-function 't--headline-secno)
+              (lambda (_h _i) "<span class=\"secno\">1. </span>"))
+             ((symbol-function 't--headline-self-link)
+              (lambda (_id _i) "<a class=\"self-link\"></a>\n")))
+    ($l (t-heading-default-format-function
+         'hl "title" "h2" "id" "  cls1  cls2 " nil)
+        ($c "<div class=\"header-wrapper\">\n"
+            "<h2 class=\"cls1 cls2\">"
+            "<span class=\"secno\">1. </span>title</h2>\n"
+            "<a class=\"self-link\"></a>\n"
+            "</div>\n"))
+    (should-error
+     (t-heading-default-format-function
+      'hl "title" "h2" "id" "bad\"cls" nil)
+     :type 'org-w3ctr-error))
+  ;; Minimal: no secno, no self-link, no class.
+  (cl-letf* (((symbol-function 't--headline-secno) (lambda (_h _i) nil))
+             ((symbol-function 't--headline-self-link)
+              (lambda (_id _i) nil)))
+    ($l (t-heading-default-format-function
+         'hl "title" "h3" "id" nil nil)
+        ($c "<div class=\"header-wrapper\">\n"
+            "<h3>title</h3>\n"
+            "</div>\n"))))
+
 (ert-deftest t--build-normal-headline ()
   "Tests for `org-w3ctr--build-normal-headline'."
   (cl-letf (((symbol-function 't--headline-secno)
@@ -7303,12 +7375,6 @@ COUNTER, a cons cell, has its car incremented on every call."
              (lambda (_h _i &optional n) "pid"))
             ((symbol-function 't--headline-container)
              (lambda (_h _i) "section"))
-            ((symbol-function 'org-element-property)
-             (lambda (p _h)
-               (pcase p
-                 (`:HTML_CONTAINER_CLASS "c1")
-                 (`:HTML_HEADLINE_CLASS "c2")
-                 (_ "xx"))))
             ((symbol-function 't--headline-self-link)
              (lambda (_id _info) "<a href=\"#x\"></a>\n")))
     ($l (t--build-normal-headline nil nil nil)
@@ -7330,7 +7396,24 @@ COUNTER, a cons cell, has its car incremented on every call."
       ,($c "<section id=\"1\">\n<div class=\"header-wrapper\">\n"
            "<h2>a</h2>\n<a class=\"self-link\" href=\"#1\" "
            "aria-label=\"Link to this section\"></a>\n</div>\n"
-           "<p>123456</p>\n</section>\n")))))
+           "<p>123456</p>\n</section>\n"))
+     ("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:CUSTOM_ID: 1\n:HTML_CONTAINER_CLASS: c1  c2\n:HTML_HEADLINE_CLASS: h1\n:END:\n"
+      ,($c "<section id=\"1\" class=\"c1 c2\">\n"
+           "<div class=\"header-wrapper\">\n"
+           "<h2 class=\"h1\">a</h2>\n"
+           "<a class=\"self-link\" href=\"#1\" "
+           "aria-label=\"Link to this section\"></a>\n</div>\n</section>\n"))))
+  ;; Invalid CSS class signals org-w3ctr-error.
+  (should-error
+   (org-export-string-as
+    "* a\n:PROPERTIES:\n:HTML_CONTAINER_CLASS: a\"b\n:END:\n"
+    'w3ctr t '(:with-toc nil))
+   :type 'org-w3ctr-error)
+  (should-error
+   (org-export-string-as
+    "* a\n:PROPERTIES:\n:HTML_HEADLINE_CLASS: 123\n:END:\n"
+    'w3ctr t '(:with-toc nil))
+   :type 'org-w3ctr-error))
 
 (ert-deftest t-headline ()
   "Tests for `org-w3ctr-headline'."

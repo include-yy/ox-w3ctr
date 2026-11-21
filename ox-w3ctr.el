@@ -972,7 +972,8 @@ The default is `org-w3ctr-format-headline-default-function'."
 Must be an integer between 2 and 6, inclusive; other values signal
 `org-w3ctr-error' during export."
   :group 'org-export-w3ctr
-  :type '(integer 2 6))
+  :type '(choice (const 2) (const 3) (const 4) (const 5) (const 6))
+  :safe (lambda (v) (and (integerp v) (<= 2 v 6))))
 
 (defcustom t-honor-ox-headline-levels nil
   "Non-nil means honor `org-export-headline-levels' when exporting.
@@ -2172,6 +2173,21 @@ letter followed by letters, digits, hyphens or underscores."
                 (_ (string-match-p "^[a-zA-Z][a-zA-Z0-9-_]*$" val)))
       val)))
 
+(defun t--check-id (id kind)
+  "Validate ID as an HTML id string and return it.
+ID is the candidate string and KIND is a label (such as \"CUSTOM_ID\"
+or \"ID\") for error messages.
+
+Signal `org-w3ctr-error' when ID is not a non-empty string, or when it
+contains ASCII whitespace or any of the characters \", ', <, >, or &."
+  (declare (ftype (function (t string) string))
+           (important-return-value t))
+  (unless (and (stringp id)
+               (not (string-empty-p id))
+               (not (string-match-p "[ \t\n\f\r\"'<>&]" id)))
+    (t-error "Invalid %s value: %S" kind id))
+  id)
+
 (defun t--reference (datum info &optional named-only)
   "Return an appropriate reference for DATUM.
 DATUM is an element or a target/radio-target object.  INFO is the
@@ -2186,14 +2202,18 @@ When NAMED-ONLY is non-nil and DATUM has no explicit label (no
 CUSTOM_ID, no target value, no NAME or ID), return nil instead of a
 random id.  Headlines, radio targets and targets are exempt.  A named
 datum still falls through to a generated `orgXXXXXXX' reference when
-`:html-prefer-user-labels' is nil, matching the link side."
+`:html-prefer-user-labels' is nil, matching the link side.
+
+Signal `org-w3ctr-error' when a headline's `:CUSTOM_ID' or `:ID'
+fails `org-w3ctr--check-id'."
   (declare (ftype (function (t list &optional boolean) (or null string)))
            (important-return-value t))
   (let ((type (org-element-type datum)))
     (cond
      ;; CUSTOM_ID always wins.
      ((and (eq type 'headline)
-           (org-element-property :CUSTOM_ID datum)))
+           (when-let* ((cid (org-element-property :CUSTOM_ID datum)))
+             (t--check-id cid "CUSTOM_ID"))))
      ;; Radio/target value (if it looks like a valid identifier).
      ((t--target-reference datum))
      ;; NAME keyword -- only when prefer-user-labels is on.
@@ -2203,7 +2223,7 @@ datum still falls through to a generated `orgXXXXXXX' reference when
      ;; In practice `:ID' comes from `org-id' on headlines.
      ((and (t--pget info :html-prefer-user-labels)
            (when-let* ((id (org-element-property :ID datum)))
-             (concat t--id-attr-prefix id))))
+             (concat t--id-attr-prefix (t--check-id id "ID")))))
      ;; No explicit label and not a headline/target -> nil (named-only).
      ;; A NAME or ID still qualifies when `:html-prefer-user-labels' is
      ;; nil, falling through to `orgXXXXXXX' so the element and link
@@ -5936,11 +5956,9 @@ template can place it before the table of contents."
            (important-return-value t))
   ;; normal section
   (if (org-element-lineage section 'headline) contents
-    ;; FIXME: Make use of the zeroth section's property drawer, for
-    ;; example `:HTML_CONTAINER:' when wrapping this output.
-    ;; Facts so far: the drawer is the file-level one (`org-entry-get'
-    ;; at the buffer start sees its properties; the parse tree keeps
-    ;; it under the zeroth section), and it is dropped from the output.
+    ;; The zeroth section holds the file-level property drawer (for
+    ;; example, file `:ID:' for org-id); it is not wrapped in an HTML
+    ;; container and the drawer is dropped from the output.
     (prog1 nil (t--pput info :zeroth-section-output contents))))
 
 ;;;; Todo
@@ -5984,8 +6002,7 @@ Return the formatted HTML string, or nil when TODO is nil."
 ;; - `org-priority-default'(66)
 ;; - `org-priority-lowest' (67)
 ;; - :with-priority (`org-export-with-priority')
-;; - :html-priority-format-function
-;;   (`org-w3ctr-priority-default-format-function')
+;; - :html-priority-format-function (`org-w3ctr-priority-format-function')
 
 (defun t-priority-default-format-function (priority _info)
   "Format PRIORITY as a <span> matching `org-html--priority' output.
@@ -6094,7 +6111,7 @@ Return a list of tags associated with the HEADLINE element, but only if
 the export option `:with-tags' is enabled in the INFO plist.  The tags
 are processed for export.  Return nil if tags are disabled or not
 present."
-  (declare (ftype (function (t list) (or null list)))
+  (declare (ftype (function (t list) list))
            (important-return-value t))
   (and (t--pget info :with-tags)
        (org-export-get-tags headline info)))
@@ -6105,7 +6122,7 @@ present."
 See `org-w3ctr-format-headline-function' for details and the
 description of TODO, TODO-TYPE, PRIORITY, TEXT, TAGS, and INFO
 arguments."
-  (declare (ftype (function ((or null string) (or null symbol)
+  (declare (ftype (function ((or null string) symbol
                              (or null fixnum) (or null string) list list)
                             string))
            (important-return-value t))
@@ -6184,6 +6201,24 @@ low-level."
                  (org-export-low-level-p headline info)))
         t)))
 
+(defun t--headline-class (value)
+  "Validate and normalize a headline CSS class attribute VALUE.
+VALUE is a string of whitespace-separated CSS class names, or nil.
+
+Return the class names joined by single spaces, or nil when VALUE is
+nil or whitespace-only.  Signal `org-w3ctr-error' when any token is
+not a valid unescaped CSS identifier."
+  (declare (ftype (function ((or null string)) (or null string)))
+           (important-return-value t))
+  (when value
+    (when-let* ((tokens (split-string value "[ \t\n\f\r]+" t)))
+      (dolist (tok tokens)
+        (unless (string-match-p
+                 "\\`\\(?:--\\|-?[[:alpha:]_]\\)[[:alnum:]_-]*\\'"
+                 tok)
+          (t-error "Invalid CSS class name %S in %S" tok value)))
+      (mapconcat #'identity tokens " "))))
+
 (defun t--build-low-level-headline (headline contents info)
   "Transcode a low-level headline into an HTML list item (`<li>').
 
@@ -6201,9 +6236,11 @@ the headline text is wrapped in a `<span>' with that class."
   (let* ((numberedp (org-export-numbered-headline-p headline info))
          (tag (if numberedp "ol" "ul"))
          (text (t--build-base-headline headline info))
-         (id (t--reference headline info))
-         (c-cls (org-element-property :HTML_CONTAINER_CLASS headline))
-         (h-cls (org-element-property :HTML_HEADLINE_CLASS headline)))
+         (id (t--encode-plain-text* (t--reference headline info)))
+         (c-cls (t--headline-class
+                 (org-element-property :HTML_CONTAINER_CLASS headline)))
+         (h-cls (t--headline-class
+                 (org-element-property :HTML_HEADLINE_CLASS headline))))
     (concat
      (and (org-export-first-sibling-p headline info)
           (format "<%s>\n" tag))
@@ -6242,7 +6279,7 @@ non-nil, else nil."
     ;; name for screen readers (WCAG 2.4.4/4.1.2).
     (format (concat "<a class=\"self-link\" href=\"#%s\""
                     " aria-label=\"Link to this section\"></a>\n")
-            id)))
+            (t--encode-plain-text* id))))
 
 (defun t--headline-secno (headline info)
   "Return the section number for HEADLINE as an HTML span.
@@ -6276,7 +6313,8 @@ HEADLINE, TITLE, H, ID, CLASS, and INFO."
                             string))
            (important-return-value t))
   (let ((secno (t--headline-secno headline info))
-        (self-link (t--headline-self-link id info)))
+        (self-link (t--headline-self-link id info))
+        (class (t--headline-class class)))
     (format (concat "<div class=\"header-wrapper\">\n"
                     "<%s%s>%s</%s>\n"
                     "%s</div>\n")
@@ -6296,20 +6334,25 @@ block is built by the function in `:html-heading-format-function'."
          (text (t--build-base-headline headline info))
          (id (t--reference headline info))
          (c (t--headline-container headline info))
-         (c-cls (org-element-property :HTML_CONTAINER_CLASS headline))
-         (h-cls (org-element-property :HTML_HEADLINE_CLASS headline))
+         (c-cls (t--headline-class
+                 (org-element-property :HTML_CONTAINER_CLASS headline)))
+         (h-cls (t--headline-class
+                 (org-element-property :HTML_HEADLINE_CLASS headline)))
          (heading (funcall (or (t--pget info :html-heading-format-function)
                                #'t-heading-default-format-function)
                            headline text h id h-cls info)))
     (format "<%s id=\"%s\"%s>\n%s%s</%s>\n"
-            c id (or (and c-cls (format " class=\"%s\"" c-cls)) "")
+            c (t--encode-plain-text* id)
+            (or (and c-cls (format " class=\"%s\"" c-cls)) "")
             heading
             (or contents "") c)))
 
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
-CONTENTS holds the contents of the headline.  INFO is a plist
-holding contextual information."
+CONTENTS holds the contents of the headline.  INFO is the info plist.
+
+Return nil for footnote sections; otherwise return the headline as a
+low-level list item or a normal section."
   (declare (ftype (function (t (or null string) list) (or null string)))
            (important-return-value t))
   (unless (org-element-property :footnote-section-p headline)
@@ -7227,7 +7270,8 @@ headline text from `org-w3ctr--build-toc-headline'.  Low-level
 headlines get no section number."
   (declare (ftype (function (t list) string))
            (important-return-value t))
-  (format "<a href=\"#%s\">%s</a>" (t--reference headline info)
+  (format "<a href=\"#%s\">%s</a>"
+          (t--encode-plain-text* (t--reference headline info))
           (concat (and (not (t--low-level-headline-p headline info))
                        (t--toc-headline-secno headline info))
                   (t--build-toc-headline headline info))))
