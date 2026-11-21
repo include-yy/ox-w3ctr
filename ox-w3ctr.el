@@ -5765,85 +5765,99 @@ LINK's protocol and `:type'."
 ;; - :html-text-markup-alist (`org-w3ctr-text-markup-alist')
 
 (defun t--get-markup-format (name info)
-  "Return the markup format string for NAME from the INFO plist.
+  "Return the markup format string for NAME from INFO.
+NAME is a symbol (like `bold') and INFO is the info plist.
 
-NAME is a symbol (like \\='bold) and INFO is the Org export info
-plist.  Return \"%s\" if NAME is not found."
+Return \"%s\" if `:html-text-markup-alist' has no entry for NAME or
+its value is nil.  Signal `org-w3ctr-error' when
+`:html-text-markup-alist' is not a proper list or the entry for
+NAME is not a string."
   (declare (ftype (function (symbol list) string))
            (important-return-value t))
-  (if-let* ((alist (t--pget info :html-text-markup-alist))
-            (str (cdr (assq name alist))))
-      str "%s"))
+  (let ((alist (t--pget info :html-text-markup-alist)))
+    (unless (proper-list-p alist)
+      (t-error "Invalid :html-text-markup-alist (expected a list): %S"
+               alist))
+    (let ((val (cdr (assq name alist))))
+      (cond ((null val) "%s")
+            ((stringp val) val)
+            (t (t-error "Invalid markup format for %s (expected a string): %S"
+                        name val))))))
 
 ;;;; Bold
 
 (defun t-bold (_bold contents info)
   "Transcode BOLD from Org to HTML.
+CONTENTS is the bold text (nil becomes \"\").  INFO is the info plist.
 
-CONTENTS is the bold text.  INFO is the info plist.  Return the
-formatted text."
-  (declare (ftype (function (t string list) string))
+Return the formatted text."
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (format (t--get-markup-format 'bold info) contents))
+  (format (t--get-markup-format 'bold info) (or contents "")))
 
 ;;;; Italic
 
 (defun t-italic (_italic contents info)
   "Transcode ITALIC from Org to HTML.
+CONTENTS is the italic text (nil becomes \"\").  INFO is the info
+plist.
 
-CONTENTS is the italic text.  INFO is the info plist.  Return the
-formatted text."
-  (declare (ftype (function (t string list) string))
+Return the formatted text."
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (format (t--get-markup-format 'italic info) contents))
+  (format (t--get-markup-format 'italic info) (or contents "")))
 
 ;;;; Underline
 
 (defun t-underline (_underline contents info)
   "Transcode UNDERLINE from Org to HTML.
+CONTENTS is the underlined text (nil becomes \"\").  INFO is the info
+plist.
 
-CONTENTS is the underlined text.  INFO is the info plist.  Return
-the formatted text."
-  (declare (ftype (function (t string list) string))
+Return the formatted text."
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (format (t--get-markup-format 'underline info) contents))
+  (format (t--get-markup-format 'underline info) (or contents "")))
 
 ;;;; Verbatim
 
 (defun t-verbatim (verbatim _contents info)
   "Transcode VERBATIM from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is unused; the value comes from the element's `:value'
-property.  INFO is the info plist.  Return the formatted text."
-  (declare (ftype (function (t string list) string))
+Return VERBATIM's HTML-encoded `:value' (defaulting to \"\") wrapped
+in its markup format."
+  (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format (t--get-markup-format 'verbatim info)
           (t--encode-plain-text
-           (org-element-property :value verbatim))))
+           (or (org-element-property :value verbatim) ""))))
 
 ;;;; Code
 
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
 
-CONTENTS is unused; the value comes from the element's `:value'
-property.  INFO is the info plist.  Return the formatted text."
-  (declare (ftype (function (t string list) string))
+Return CODE's HTML-encoded `:value' (defaulting to \"\") wrapped in
+its markup format."
+  (declare (ftype (function (t t list) string))
            (important-return-value t))
   (format (t--get-markup-format 'code info)
           (t--encode-plain-text
-           (org-element-property :value code))))
+           (or (org-element-property :value code) ""))))
 
 ;;;; Strike-Through
 
 (defun t-strike-through (_strike-through contents info)
   "Transcode STRIKE-THROUGH from Org to HTML.
+CONTENTS is the struck-through text (nil becomes \"\").  INFO is the
+info plist.
 
-CONTENTS is the struck-through text.  INFO is the info plist.
 Return the formatted text."
-  (declare (ftype (function (t string list) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (format (t--get-markup-format 'strike-through info) contents))
+  (format (t--get-markup-format 'strike-through info) (or contents "")))
 
 ;;;; Plain Text
 
@@ -5873,10 +5887,10 @@ Return the formatted text."
 
 (defun t-plain-text (text info)
   "Transcode a TEXT string from Org to HTML.
+TEXT is the plain text content.  INFO is the info plist.
 
-TEXT is the plain text content.  INFO is the info plist.  Encode
-HTML entities, activate smart quotes when enabled, convert special
-strings when enabled, and preserve line breaks when enabled.
+Encode HTML entities, activate smart quotes when enabled, convert
+special strings when enabled, and preserve line breaks when enabled.
 Return the transcoded string."
   (declare (ftype (function (string list) string))
            (important-return-value t))

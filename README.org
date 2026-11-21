@@ -376,14 +376,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   References whether to escape at each site or reject malformed ids in
   =org-w3ctr--reference= / =org-w3ctr--element-id=.
 
-- *Docstring symbol quoting: the literal-apostrophe form where
-  backquote-apostrophe is meant.*  The elisp-docstring rules quote a Lisp
-  symbol as =`sym'=; a few docstrings write =\\='sym= instead, and the
-  help buffer shows ='sym.  Remaining offender:
-  =org-w3ctr--get-markup-format= (bold).  The literal-apostrophe use
-  around the attribute example in =org-w3ctr--make-attribute-string= is
-  correct and stays.
-
 - *An export snippet without a backend leaks a primitive error.*  A
   synthetic =(export-snippet (:value \u2026))= with no =:back-end= dies inside
   =org-export-snippet-backend='s =(intern nil)= with

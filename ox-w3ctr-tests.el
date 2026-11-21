@@ -6642,11 +6642,27 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--get-markup-format ()
   "Tests for `org-w3ctr--get-markup-format'."
-  (let ((info '(:html-text-markup-alist ((a . 2) (b . 3) (c . 4)))))
-    ($l (t--get-markup-format 'a info) 2)
-    ($l (t--get-markup-format 'b info) 3)
-    ($l (t--get-markup-format 'c info) 4))
-  ($l (t--get-markup-format 'anything nil) "%s"))
+  (let ((info '(:html-text-markup-alist
+                ((bold . "<strong>%s</strong>")
+                 (italic . "<em>%s</em>")
+                 (code . nil)))))
+    ($l (t--get-markup-format 'bold info) "<strong>%s</strong>")
+    ($l (t--get-markup-format 'italic info) "<em>%s</em>")
+    ;; Nil entry or missing key falls back to "%s".
+    ($l (t--get-markup-format 'code info) "%s")
+    ($l (t--get-markup-format 'underline info) "%s"))
+  ($l (t--get-markup-format 'anything nil) "%s")
+  ;; Malformed alist or non-string value signals `org-w3ctr-error'.
+  (should-error
+   (t--get-markup-format 'bold '(:html-text-markup-alist "bad"))
+   :type 'org-w3ctr-error)
+  (should-error
+   (t--get-markup-format 'bold '(:html-text-markup-alist
+                                 ((bold . "<b>%s</b>") . bad)))
+   :type 'org-w3ctr-error)
+  (should-error
+   (t--get-markup-format 'bold '(:html-text-markup-alist ((bold . 42))))
+   :type 'org-w3ctr-error))
 
 ;;;; Bold
 
@@ -6667,7 +6683,18 @@ COUNTER, a cons cell, has its car incremented on every call."
      ("*\\star\\star\\star*" "<b>***</b>")
      ("*hello world this world*"
       "<b>hello world this world</b>")
-     ("*hello\nworld*" "<b>hello\nworld</b>"))))
+     ("*hello\nworld*" "<b>hello\nworld</b>")))
+  ;; Empty contents when child transcodes to nil (e.g. tex:nil).
+  (t-check-element-values
+   #'t-bold
+   '(("*$x$*" "<b></b>"))
+   nil '(:with-latex nil))
+  ;; Direct nil contents and custom markup format.
+  ($l (t-bold nil nil '(:html-text-markup-alist ((bold . "<b>%s</b>"))))
+      "<b></b>")
+  ($l (t-bold nil "x" '(:html-text-markup-alist ((bold . "<strong>%s</strong>"))))
+      "<strong>x</strong>")
+  ($l (t-bold nil "x" '(:html-text-markup-alist nil)) "x"))
 
 ;;;; Italic
 
@@ -6686,7 +6713,16 @@ COUNTER, a cons cell, has its car incremented on every call."
      ("/\\slash\\slash\\slash/" "<i>///</i>")
      ("/hello world this world/"
       "<i>hello world this world</i>")
-     ("/hello\nworld/" "<i>hello\nworld</i>"))))
+     ("/hello\nworld/" "<i>hello\nworld</i>")))
+  (t-check-element-values
+   #'t-italic
+   '(("/$x$/" "<i></i>"))
+   nil '(:with-latex nil))
+  ($l (t-italic nil nil '(:html-text-markup-alist ((italic . "<i>%s</i>"))))
+      "<i></i>")
+  ($l (t-italic nil "x" '(:html-text-markup-alist ((italic . "<em>%s</em>"))))
+      "<em>x</em>")
+  ($l (t-italic nil "x" '(:html-text-markup-alist nil)) "x"))
 
 ;;;; Underline
 
@@ -6709,7 +6745,17 @@ COUNTER, a cons cell, has its car incremented on every call."
      ("_hello world this world_"
       "<u>hello world this world</u>")
      ("_hello\nworld_"
-      "<u>hello\nworld</u>"))))
+      "<u>hello\nworld</u>")))
+  (t-check-element-values
+   #'t-underline
+   '(("_$x$_" "<u></u>"))
+   nil '(:with-latex nil))
+  ($l (t-underline nil nil '(:html-text-markup-alist ((underline . "<u>%s</u>"))))
+      "<u></u>")
+  ($l (t-underline nil "x" '(:html-text-markup-alist
+                             ((underline . "<span class=\"u\">%s</span>"))))
+      "<span class=\"u\">x</span>")
+  ($l (t-underline nil "x" '(:html-text-markup-alist nil)) "x"))
 
 ;;;; Verbatim
 
@@ -6727,7 +6773,18 @@ COUNTER, a cons cell, has its car incremented on every call."
       "<code>\\slash\\slash\\slash</code>")
      ("=hello world this world="
       "<code>hello world this world</code>")
-     ("=hello\nworld=" "<code>hello\nworld</code>"))))
+     ("=hello\nworld=" "<code>hello\nworld</code>")
+     ("=a < b & c > d="
+      "<code>a &lt; b &amp; c &gt; d</code>")))
+  ;; Missing :value defaults to "".
+  ($l (t-verbatim '(verbatim nil) nil
+                  '(:html-text-markup-alist ((verbatim . "<code>%s</code>"))))
+      "<code></code>")
+  ($l (t-verbatim '(verbatim (:value "a<b")) nil
+                  '(:html-text-markup-alist ((verbatim . "<kbd>%s</kbd>"))))
+      "<kbd>a&lt;b</kbd>")
+  ($l (t-verbatim '(verbatim (:value "x")) nil '(:html-text-markup-alist nil))
+      "x"))
 
 ;;;; Code
 
@@ -6745,7 +6802,18 @@ COUNTER, a cons cell, has its car incremented on every call."
       "<code>\\slash\\slash\\slash</code>")
      ("~hello world this world~"
       "<code>hello world this world</code>")
-     ("~hello\nworld~" "<code>hello\nworld</code>"))))
+     ("~hello\nworld~" "<code>hello\nworld</code>")
+     ("~a < b & c > d~"
+      "<code>a &lt; b &amp; c &gt; d</code>")))
+  ;; Missing :value defaults to "".
+  ($l (t-code '(code nil) nil
+              '(:html-text-markup-alist ((code . "<code>%s</code>"))))
+      "<code></code>")
+  ($l (t-code '(code (:value "a<b")) nil
+              '(:html-text-markup-alist ((code . "<samp>%s</samp>"))))
+      "<samp>a&lt;b</samp>")
+  ($l (t-code '(code (:value "x")) nil '(:html-text-markup-alist nil))
+      "x"))
 
 ;;;; Strike-Through
 
@@ -6766,7 +6834,19 @@ COUNTER, a cons cell, has its car incremented on every call."
      ("+\\plus\\plus\\plus+" "<s>+++</s>")
      ("+hello world this world+"
       "<s>hello world this world</s>")
-     ("+hello\nworld+" "<s>hello\nworld</s>"))))
+     ("+hello\nworld+" "<s>hello\nworld</s>")))
+  (t-check-element-values
+   #'t-strike-through
+   '(("+$x$+" "<s></s>"))
+   nil '(:with-latex nil))
+  ($l (t-strike-through nil nil
+                        '(:html-text-markup-alist ((strike-through . "<s>%s</s>"))))
+      "<s></s>")
+  ($l (t-strike-through nil "x"
+                        '(:html-text-markup-alist
+                          ((strike-through . "<del>%s</del>"))))
+      "<del>x</del>")
+  ($l (t-strike-through nil "x" '(:html-text-markup-alist nil)) "x"))
 
 ;;;; Plain Text
 
@@ -6774,27 +6854,54 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr--convert-special-strings'."
   (dolist (a '(("hello..." . "hello&#x2026;")
                ("......" . "&#x2026;&#x2026;")
+               ("\\-" . "&#x00ad;")
                ("\\\\-" . "\\&#x00ad;")
                ("---abc" . "&#x2014;abc")
-               ("--abc" . "&#x2013;abc")))
+               ("--abc" . "&#x2013;abc")
+               ("a--b--c" . "a&#x2013;b&#x2013;c")
+               ("a---b" . "a&#x2014;b")
+               ("----a" . "-&#x2014;a")
+               ("----" . "----")
+               ("foo --" . "foo --")
+               ("foo ---" . "foo ---")))
     ($l (t--convert-special-strings (car a)) (cdr a))))
 
 (ert-deftest t-plain-text ()
   "Tests for `org-w3ctr-plain-text'."
   ($l (t-plain-text "a < b & c > d" '())
       "a &lt; b &amp; c &gt; d")
-  ($l (t-plain-text "\"hello\"" '(:with-smart-quotes t))
-      "\"hello\"")
+  ($l (t-plain-text "a -- b" '(:with-special-strings nil))
+      "a -- b")
   ($l (t-plain-text "a -- b" '(:with-special-strings t))
       "a &#x2013; b")
+  ($l (t-plain-text "line1\nline2" '(:preserve-breaks nil))
+      "line1\nline2")
   ($l (t-plain-text "line1\nline2" '(:preserve-breaks t))
       "line1<br>\nline2")
-  ($l (t-plain-text
-       "\"a < b\" -- c\nd"
-       '( :with-smart-quotes t
-          :with-special-strings t
-          :preserve-breaks t))
-      "\"a &lt; b\" &#x2013; c<br>\nd"))
+  ($l (t-plain-text "line1  \t\nline2" '(:preserve-breaks t))
+      "line1<br>\nline2")
+  ($l (t-plain-text "line1\\\\\nline2" '(:preserve-breaks t))
+      "line1<br>\nline2")
+  ;; Smart quotes require the full export environment for language and
+  ;; parse-tree context; test via `org-w3ctr-check-element-values'.
+  (t-check-element-values
+   #'t-plain-text
+   '(("\"hello\" 'world'" "&ldquo;hello&rdquo; &rsquo;world&rsquo;")
+     ("\"a < b & c > d\"" "&ldquo;a &lt; b &amp; c &gt; d&rdquo;"))
+   nil '(:with-smart-quotes t :language "en"))
+  (t-check-element-values
+   #'t-plain-text
+   '(("\"hello\"" "\"hello\""))
+   nil '(:with-smart-quotes nil :language "en"))
+  ;; Combined options in a real export.
+  (t-check-element-values
+   #'t-plain-text
+   '(("\"a < b\" -- c\nd" "&ldquo;a &lt; b&rdquo; &#x2013; c<br>\nd"))
+   nil
+   '( :with-smart-quotes t
+      :with-special-strings t
+      :preserve-breaks t
+      :language "en")))
 
 ;;; Headline and Section
 
