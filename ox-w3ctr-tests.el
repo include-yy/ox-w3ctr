@@ -1469,17 +1469,23 @@ stubs `random' to hand back a taken number first and counts the draws."
 
 (ert-deftest t-final-function ()
   "Tests for `org-w3ctr-final-function'."
-  ;; indent off: CONTENTS comes back unchanged.
-  ($l (t-final-function "<ul>\n   <li>a</li>\n</ul>" nil '(:html-indent nil))
-      "<ul>\n   <li>a</li>\n</ul>")
-  ;; indent on: the major mode is set and the region indented.
-  ($l (t-final-function "<ul>\n   <li>a</li>\n</ul>" nil '(:html-indent t))
-      "<ul>\n<li>a</li>\n</ul>")
+  ;; indent off: CONTENTS comes back unchanged, with text properties stripped.
+  (let ((out (t-final-function (propertize "<ul>\n   <li>a</li>\n</ul>"
+                                           'face 'bold)
+                               nil '(:html-indent nil))))
+    ($l out "<ul>\n   <li>a</li>\n</ul>")
+    ($n (text-properties-at 0 out)))
+  ;; indent on: `html-mode' indents even body-only fragments, stripping props.
+  (let ((out (t-final-function (propertize "<ul>\n   <li>a</li>\n</ul>"
+                                           'face 'bold)
+                               nil '(:html-indent t))))
+    ($l out "<ul>\n  <li>a</li>\n</ul>")
+    ($n (text-properties-at 0 out)))
   ;; a single line has nothing to reindent.
   ($l (t-final-function "<p>x</p>" nil '(:html-indent t)) "<p>x</p>")
   ;; the major mode is set only when indenting
   (let (mode-sets)
-    (cl-letf (((symbol-function 'set-auto-mode)
+    (cl-letf (((symbol-function 'html-mode)
                (lambda (&rest args) (setq mode-sets (cons args mode-sets)))))
       (t-final-function "<p>x</p>" nil '(:html-indent nil))
       ($n mode-sets)

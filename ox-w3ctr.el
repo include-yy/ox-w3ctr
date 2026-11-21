@@ -2297,7 +2297,7 @@ mode only when indenting, with delayed hooks as in
       (substring-no-properties contents)
     (with-temp-buffer
       (insert contents)
-      (delay-mode-hooks (set-auto-mode t))
+      (delay-mode-hooks (html-mode))
       (indent-region (point-min) (point-max))
       (buffer-substring-no-properties (point-min) (point-max)))))
 
