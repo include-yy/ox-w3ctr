@@ -2162,19 +2162,19 @@ Unlike `org-export-get-reference', this function does not consult
           (t--pput info :internal-references cache)
           reference-string))))
 
-;; The identifier-shaped restriction is deliberate, kept for ox-html
-;; compatibility: a value that does not match is not used verbatim as a
-;; reference -- `org-w3ctr--reference' falls through to
-;; `org-w3ctr--get-reference' for it.  Do not relax the regexp without
-;; revisiting that fallback.
+;; The identifier-shaped restriction is deliberate: a value that does
+;; not match is not used verbatim as a reference -- `org-w3ctr--reference'
+;; falls through to `org-w3ctr--get-reference' for it.  Do not relax the
+;; regexp without revisiting that fallback.
 (defun t--target-reference (datum)
   "Return the value of a target or radio-target as a reference string.
 Return nil if DATUM is not a target type, or if the value is not a
 letter followed by letters, digits, hyphens or underscores."
   (declare (ftype (function (t) (or null string)))
-           (pure t) (important-return-value t))
+           (side-effect-free t) (important-return-value t))
   (when (memq (org-element-type datum) '(radio-target target))
     (when-let* ((val (org-element-property :value datum))
+                ((stringp val))
                 (_ (string-match-p "\\`[a-zA-Z][a-zA-Z0-9_-]*\\'" val)))
       val)))
 
@@ -2365,7 +2365,9 @@ child's stderr merged into stdout and corrupt the protocol."
               (make-process
                :name name
                :command command
-               :stderr (get-buffer (format "*%s stderr*" name))
+               :stderr (or (get-buffer (format "*%s stderr*" name))
+                           (t-error "Missing jsonrpc stderr buffer for %s"
+                                    name))
                :noquery t :coding 'binary))))
 
 (defun t--jrpc-shutdown (client)

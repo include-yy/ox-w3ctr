@@ -1312,6 +1312,8 @@ stubs `random' to hand back a taken number first and counts the draws."
     ($n (t--target-reference (funcall get-target "foo.bar")))
     ;; empty value -> nil
     ($n (t--target-reference (funcall get-target "")))
+    ;; non-string :value -> nil
+    ($n (t--target-reference '(target (:value 123))))
     ;; newline in value must not pass via line-anchored ^/$
     ($n (t--target-reference '(target (:value "foo\n<s>"))))))
 
@@ -1578,7 +1580,18 @@ stubs `random' to hand back a taken number first and counts the draws."
                        (get-buffer (format "*%s events*" name))
                        (get-buffer (format " *%s stderr*" name))
                        (get-buffer (format " *%s output*" name))))
-        (when (buffer-live-p b) (kill-buffer b))))))
+        (when (buffer-live-p b) (kill-buffer b)))))
+  ;; If jsonrpc ever stops creating `*NAME stderr*' before invoking
+  ;; `:process', fail loudly instead of merging stderr into stdout.
+  (cl-letf (((symbol-function 'get-buffer) (lambda (_) nil)))
+    (unwind-protect
+        ($e!l (t--jrpc-connect "ox-w3ctr-no-stderr" '("some-server"))
+              '(org-w3ctr-error
+                "Missing jsonrpc stderr buffer for ox-w3ctr-no-stderr"))
+      (dolist (b '("*ox-w3ctr-no-stderr stderr*"
+                   " *ox-w3ctr-no-stderr stderr*"
+                   "*ox-w3ctr-no-stderr events*"))
+        (when (get-buffer b) (kill-buffer b))))))
 
 (ert-deftest t--jrpc-shutdown ()
   "Tests for `org-w3ctr--jrpc-shutdown'."
