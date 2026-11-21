@@ -1660,16 +1660,12 @@ evaluated before any update, so it may safely read PROP from INFO."
         (inline-quote (prog1 ,value (plist-put ,info ,prop ,value)))))))
 
 (defun t--oinfo-cleanup ()
-  "Clear every OINFO oclosure's cached value, freeing its INFO plist.
+  "Clear every OINFO oclosure's cached INFO reference and value.
 
-A finished export should not stay reachable through the oclosures that
-cached it.  This is a memory measure, not an invalidation: an oclosure
-compares the plist it is handed with the one it cached, so correctness
-does not depend on being called.
-
-Called at the end of a full export from `org-w3ctr-template'; the lookup
-counters are left alone (see `org-w3ctr-clear-oinfo-statistics'), and with
-the cache off this does nothing."
+Called at the end of `org-w3ctr-template' so finished export plists
+can be garbage-collected.  Lookup counters are left unchanged (see
+`org-w3ctr-clear-oinfo-statistics').  Does nothing when the cache is
+disabled."
   (declare (ftype (function () null)))
   (dolist (pair t--oinfo-cache-alist)
     (let ((o (symbol-function (cdr pair))))
@@ -1677,13 +1673,11 @@ the cache off this does nothing."
       (setf (t--oinfo--val o) nil))))
 
 (defun t-oinfo-cleanup-before-export (&rest _)
-  "Clear the OINFO caches at the start of an export.
+  "Clear the OINFO caches before an export.
 
-Add this to `org-export-before-processing-functions' to start every
-export clean (not installed by default).  `org-w3ctr--oinfo-cleanup'
-runs only at the end of a full export, so an aborted or body-only
-export would otherwise leave dead INFO plists and parse trees in the
-oclosures.  Any hook arguments (the backend symbol) are ignored."
+Add this hook to `org-export-before-processing-functions' to release
+cached INFO plists left behind by aborted or body-only exports (where
+`org-w3ctr-template' does not run).  All arguments are ignored."
   (declare (ftype (function (&rest t) null)))
   (t--oinfo-cleanup))
 
@@ -1696,9 +1690,7 @@ click column headers to re-sort, or press \\[tabulated-list-sort] on a
 column.  Press \\[revert-buffer] to refresh the statistics.
 
 The counts begin when the file is loaded and keep growing across
-exports; `org-w3ctr-clear-oinfo-statistics' zeroes them.
-
-Interactive; useful for judging which keys are worth caching at all."
+exports; `org-w3ctr-clear-oinfo-statistics' zeroes them."
   (interactive)
   (let ((stats (mapcar (lambda (pair)
                          (let* ((key (car pair))
@@ -1738,9 +1730,7 @@ Each entry stores its count as the `count' text property on column 1."
 
 Like `org-w3ctr--oinfo-cleanup', and additionally zero the
 `cnt' slot of every oclosure, so that the figures from
-`org-w3ctr-collect-oinfo-statistics' start again from zero.
-
-Interactive; useful before a benchmark or a test run."
+`org-w3ctr-collect-oinfo-statistics' start again from zero."
   (interactive)
   (dolist (pair t--oinfo-cache-alist)
     (let ((o (symbol-function (cdr pair))))
