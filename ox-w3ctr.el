@@ -1505,46 +1505,26 @@ This option overrides `org-export-use-babel'."
 ;;; Basic utilities
 
 ;;;; OINFO oclosure
-;; A lightweight caching system for property lookups within the INFO
-;; plist used during Org export.
-
-;; Each property marked for caching associates a dedicated oclosure,
-;; which remembers the last INFO object and the corresponding property
-;; value.  If a subsequent lookup uses the same INFO object, the cached
-;; value is returned immediately, avoiding redundant `plist-get' calls.
-
-;; An oclosure's `pid' and `val' are cleared at the end of a full export
-;; (`org-w3ctr--oinfo-cleanup'); `org-w3ctr-oinfo-cleanup-before-export'
-;; does the same at the start of an export, for those who add it as a hook.
-
-;; OINFO ships on: `org-w3ctr-oinfo-enabled' (see there) is a build-time
-;; switch for measuring and for checking the cache against the plain path,
-;; not a release knob.  It is not part of the export semantics: both
-;; builds must produce the same output.
+;; Lightweight per-property cache for the export INFO plist.  Each cached
+;; property has a dedicated oclosure that remembers the last INFO object
+;; (by `eq') and its value, avoiding repeated `plist-get' scans.
 ;;
-;; Reading order: `org-w3ctr--oinfo-cache-props' first -- it lists the keys
-;; the cache knows and the read/write discipline they require -- then
-;; `org-w3ctr--pget' / `org-w3ctr--pput', and finally
-;; `org-w3ctr--oinfo-cache-alist', `org-w3ctr--oinfo-oclosure' and
-;; `org-w3ctr--make-cache-oclosure'.
-;; Statistics helpers (`org-w3ctr-collect-oinfo-statistics',
-;; `org-w3ctr-clear-oinfo-statistics') at the end.
+;; Cached references are cleared at the end of a full export
+;; (`org-w3ctr--oinfo-cleanup'), or at the start via the optional hook
+;; `org-w3ctr-oinfo-cleanup-before-export'.  See `org-w3ctr-oinfo-enabled'
+;; for the build-time switch used to benchmark against the plain path.
 
 (eval-and-compile
-  ;; The switch is read at definition time -- when the file is compiled,
-  ;; or on every evaluation of the buffer if it is interpreted -- so change
-  ;; it and recompile, or re-evaluate the whole buffer.
   (defvar t-oinfo-enabled t
-    "Non-nil means use the OINFO cache for property lookups.
+    "Non-nil means enable the OINFO cache at compile/load time.
 
-Nil makes `org-w3ctr--pget' and `org-w3ctr--pput' plain `plist-get'
-and `plist-put' calls, with no cache and no oclosures; either way a
-read returns the same value, only a write to a cached key differs.
+When nil, `org-w3ctr--pget' and `org-w3ctr--pput' expand to plain
+`plist-get' and `plist-put' calls with no oclosures.  Changes take
+effect only after recompiling or reloading the file; check
+`org-w3ctr--oinfo-cache-p' for the value active in this build.
 
-It is t by default; the value this build actually uses is
-`org-w3ctr--oinfo-cache-p'.  It stays on in releases too: the switch is
-for measuring, and for comparing the cache against the plain path, not a
-release knob.")
+This is a build-time switch for benchmarking and verifying the
+cache against the plain path; releases ship with it enabled.")
 
   ;; Decided once, when the file is compiled or evaluated; it cannot
   ;; change at run time.
@@ -1569,8 +1549,8 @@ CNT - How many times the oclosure has been called, hits and misses alike."
 Call the oclosure with an INFO plist to get the value of KEYWORD in it;
 it remembers the plist it last saw, so further calls with the same plist
 skip the lookup.  It is only used while `org-w3ctr--oinfo-cache-p' is
-non-nil: `org-w3ctr--pput' fills it in and `org-w3ctr--oinfo-cleanup'
-empties it."
+non-nil: `org-w3ctr--pput' keeps it in sync and `org-w3ctr--oinfo-cleanup'
+clears it."
     (declare (ftype (function (symbol) function))
              (important-return-value t))
     (oclosure-lambda (t--oinfo (pid nil) (key keyword)
@@ -1581,55 +1561,55 @@ empties it."
         (setq pid info val (plist-get info key)))))
 
   (defun t--oinfo-oclosure (key)
-    "Return the symbol whose function cell holds KEY's caching oclosure.
+    "Return the symbol whose function cell holds the oclosure for KEY.
 
-The name is `org-w3ctr--oinfo' followed by the keyword, as in
-`org-w3ctr--oinfo:title'.  `org-w3ctr--oinfo-cache-alist' pairs each
-cached property with the name this function returns for it, so that
-`org-w3ctr--pget' -- which is inlined, and may run compiled -- reaches the
-oclosure through that symbol.  KEY is a property keyword."
+KEY is a property keyword; the returned symbol is named
+`org-w3ctr--oinfo' followed by KEY (for example,
+`org-w3ctr--oinfo:title').  Storing each oclosure in a named symbol's
+function cell lets inlined `org-w3ctr--pget' calls reach it from
+byte-compiled code."
     (declare (ftype (function (symbol) symbol))
              (important-return-value t))
     (intern (concat "org-w3ctr--oinfo" (symbol-name key))))
 
+  ;; FIXME: Revisit which keys belong in this list (add hot keys like
+  ;; `:html-prefer-user-labels', `:html-container', and
+  ;; `:html-self-link-headlines', and consider dropping once-per-export
+  ;; template keys based on `org-w3ctr-collect-oinfo-statistics').
   (defconst t--oinfo-cache-props
-    '( :html-checkbox-type :html-text-markup-alist
-       :with-smart-quotes :with-special-strings :preserve-breaks
-       :html-timezone :html-export-timezone :html-datetime-option
-       :html-timestamp-option :html-timestamp-wrapper
-       :html-timestamp-formats :html-timestamp-format-function
-       ;; headline and section
-       :html-todo-kwd-class-prefix :html-todo-format-function
-       :with-todo-keywords
-       :html-priority-format-function :with-priority
-       :with-tags :html-tag-class-prefix :html-tags-format-function
-       :html-format-headline-function :html-heading-format-function
-       :html-toplevel-hlevel :html-honor-ox-headline-levels
-       ;; inner-template and template
-       :with-author :author :title
-       :time-stamp-file :html-file-timestamp-function :html-viewport
-       :with-latex :html-mathjax-config
-       :html-math-head-function :html-math-custom-format-function
-       :html-use-cc-badges :html-license
-       :html-license-format-function
-       ;; link
-       :html-extension :html-link-org-files-as-html
-       :html-inline-images :html-inline-image-rules
-       :html-honor-ox-external-links
-       )
-    "List of property keys the OINFO cache keeps an oclosure for.
+    '(;; Item and Plain Lists
+      :html-checkbox-type
+      ;; LaTeX
+      :with-latex :html-math-custom-format-function
+      ;; Timestamp
+      :html-timezone :html-export-timezone :html-datetime-option
+      :html-timestamp-option :html-timestamp-wrapper
+      :html-timestamp-formats :html-timestamp-format-function
+      ;; Link and Images
+      :html-link-org-files-as-html
+      :html-inline-images :html-inline-image-rules
+      :html-extension :html-honor-ox-external-links
+      ;; Markup and plain text
+      :html-text-markup-alist
+      :with-smart-quotes :with-special-strings :preserve-breaks
+      ;; Headline and section
+      :html-todo-kwd-class-prefix :html-todo-format-function
+      :with-todo-keywords
+      :html-priority-format-function :with-priority
+      :html-tags-format-function :html-tag-class-prefix :with-tags
+      :html-format-headline-function
+      :html-toplevel-hlevel :html-honor-ox-headline-levels
+      :html-heading-format-function
+      ;; <meta>, Math, and CC badges
+      :html-file-timestamp-function :html-viewport
+      :time-stamp-file :with-author :author :title
+      :html-mathjax-config :html-math-head-function
+      :html-use-cc-badges :html-license :html-license-format-function)
+    "List of property keys cached by the OINFO oclosures.
 
-Read and write every one of them through `org-w3ctr--pget' and
-`org-w3ctr--pput', never `plist-get' or `plist-put': `plist-put' keeps
-the plist object identical, so a write that bypasses the cache is
-invisible to it.  A key that Org reads with `plist-get'
-\(`:with-latex', `:time-stamp-file', `:with-tags') must in particular
-never be written with `org-w3ctr--pput'.  The test suite checks that every
-key here is read through `org-w3ctr--pget', and that neither `plist-get'
-nor `plist-put' reaches one of them by a literal key.
-
-The cache notices a different plist object, not a change inside one: a
-`plist-put' that keeps the plist's identity cannot invalidate it.")
+Access these keys only through `org-w3ctr--pget' and `org-w3ctr--pput',
+never `plist-get' or `plist-put', and never write a key with
+`org-w3ctr--pput' if Org itself reads it via `plist-get'.")
 
   (defconst t--oinfo-cache-alist
     (static-when t--oinfo-cache-p
