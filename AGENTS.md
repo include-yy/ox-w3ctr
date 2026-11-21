@@ -155,9 +155,11 @@ cd jstools && npm test
   `(pure t)` where the function is side-effect free, its result depends
   only on its arguments, it signals no errors (constant folding would
   raise them at compile time), and it does **not** read or write INFO
-  through `t--pget` / `t--pput`; when it has no side effects but depends
-  on external state (e.g., global variables, time, or buffer state) or
-  may signal errors, use `(side-effect-free t)` instead.  Exemptions:
+  through `t--pget` / `t--pput`; when it has no side effects and signals
+  no errors, but depends on external state (e.g., global variables,
+  time, or buffer state), use `(side-effect-free t)` instead (never on
+  functions that may signal errors, since the byte-compiler may discard
+  unused calls).  Exemptions:
   `defsubst`, end-user commands (`t-export-*`, `t-publish-*`,
   `t-convert-*`), interactive commands whose return value is incidental.
   `nil` is a subtype of both `list` and `symbol` (`(listp nil)` and

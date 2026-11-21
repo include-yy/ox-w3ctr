@@ -2013,7 +2013,7 @@ If no matches are found, or if REGEXP is an empty string, this
 function returns nil.  A match of length zero is skipped."
   (declare (ftype (function (string string &optional (or null fixnum))
                             list))
-           (side-effect-free t) (important-return-value t))
+           (important-return-value t))
   (if (string= regexp "") nil
     (save-match-data
       (let ((pos (max (or start 0) 0))
@@ -2068,13 +2068,16 @@ TAG must be a non-nil symbol; anything else signals
 
 (defun t--sexp2html-attrs (attr-ls)
   "Return the HTML attribute string for ATTR-LS.
-ATTR-LS is nil or t for no attributes, or a list of attribute
-specifications for `org-w3ctr--make-attr__'; anything else signals
-`org-w3ctr-error'."
+ATTR-LS is nil or t for no attributes, or a proper list of attribute
+specifications (atoms or proper lists) for `org-w3ctr--make-attr__';
+anything else signals `org-w3ctr-error'."
   (declare (ftype (function (t) string))
            (important-return-value t))
   (cond ((booleanp attr-ls) "")
-        ((proper-list-p attr-ls) (t--make-attr__ attr-ls))
+        ((and (proper-list-p attr-ls)
+              (seq-every-p (lambda (x) (or (atom x) (proper-list-p x)))
+                           attr-ls))
+         (t--make-attr__ attr-ls))
         (t (t-error "Invalid S-expression attribute list: %S" attr-ls))))
 
 (defun t--sexp2html (data)
@@ -2084,15 +2087,15 @@ DATA may be:
 - nil: return \"\".
 - A symbol, string, or number: convert via `org-w3ctr--2str' and
   escape via `org-w3ctr--encode-plain-text'.
-- A list (TAG ATTRS . CHILDREN): TAG is a non-nil symbol (lowercased;
-  void tags omit the closing tag), ATTRS is nil, t, or an attribute
-  list for `org-w3ctr--make-attr__', and CHILDREN are converted
-  recursively.  For example, (p ((class \"foo\")) \"Hi\") becomes
-  \"<p class=\\\"foo\\\">Hi</p>\".
+- A proper list (TAG ATTRS . CHILDREN): TAG is a non-nil symbol
+  (lowercased; void tags omit the closing tag and ignore children),
+  ATTRS is nil, t, or an attribute list for `org-w3ctr--make-attr__',
+  and CHILDREN are converted recursively.  For example,
+  (p ((class \"foo\")) \"Hi\") becomes \"<p class=\\\"foo\\\">Hi</p>\".
 - Anything else (for example a vector): dropped as \"\".
 
-Signal `org-w3ctr-error' when a list's TAG is not a non-nil symbol or
-its ATTRS is neither nil, t, nor a proper list."
+Signal `org-w3ctr-error' when a list is improper, its TAG is not a
+non-nil symbol, or its ATTRS is invalid."
   (declare (ftype (function (t) string))
            (important-return-value t))
   (pcase data
@@ -2100,6 +2103,8 @@ its ATTRS is neither nil, t, nor a proper list."
     ((or (pred symbolp) (pred stringp) (pred numberp))
      (t--encode-plain-text (t--2str data)))
     ((pred listp)
+     (unless (proper-list-p data)
+       (t-error "Invalid S-expression form: %S" data))
      (let ((tag (t--sexp2html-tag (nth 0 data)))
            (attrs (t--sexp2html-attrs (nth 1 data))))
        (if (string-match-p t--void-element-regexp tag)

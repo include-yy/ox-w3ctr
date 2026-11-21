@@ -1155,7 +1155,15 @@ Both cases signal `org-w3ctr-error'; the error value is pinned."
         '(org-w3ctr-error "Invalid S-expression attribute list: \"text\""))
   ($e! (t--sexp2html '(p 5 "x")))
   ($e! (t--sexp2html '(p [1 2] "x")))
-  ($e! (t--sexp2html '(p (a . b) "x"))))
+  ($e! (t--sexp2html '(p (a . b) "x")))
+  ($e! (t--sexp2html '(p ((a . b)) "x")))
+  ;; Improper outer forms must signal `org-w3ctr-error', not crash or
+  ;; iterate over string characters.
+  ($e!l (t--sexp2html '(p . "hi"))
+        '(org-w3ctr-error "Invalid S-expression form: (p . \"hi\")"))
+  ($e!l (t--sexp2html '(p () . "hi"))
+        '(org-w3ctr-error "Invalid S-expression form: (p nil . \"hi\")"))
+  ($e! (t--sexp2html '(p () "a" . "b"))))
 
 (ert-deftest t--sexp2html-contract ()
   "A form renders to a string or signals only `org-w3ctr-error'.
@@ -1165,7 +1173,7 @@ malformed ones.  Anything else -- a leaked `wrong-type-argument', say
 -- fails the test."
   (let ((tags '(t0 |My Tag| nil 1.5 "s"))
         (attrs '(nil t () ((id a)) ((id "a b") (class c))
-                     (open) [1] (a . b) "s"))
+                     (open) [1] (a . b) ((a . b)) "s"))
         (children '("" "a&b<c" 42 foo
                     (nil ()) (t0 () (t0 ())) [1])))
     (dolist (tag tags)
@@ -1173,7 +1181,11 @@ malformed ones.  Anything else -- a leaked `wrong-type-argument', say
         (dolist (c children)
           ($s (condition-case nil
                   (stringp (t--sexp2html (list tag a c)))
-                (org-w3ctr-error t))))))))
+                (org-w3ctr-error t))))))
+    (dolist (bad '((p . "x") (p () . "hi") (p () "a" . "b")))
+      ($s (condition-case nil
+              (stringp (t--sexp2html bad))
+            (org-w3ctr-error t))))))
 
 ;;;; References
 
