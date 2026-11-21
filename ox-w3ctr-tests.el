@@ -1334,10 +1334,17 @@ stubs `random' to hand back a taken number first and counts the draws."
                             'headline)))
       ($l (t--reference h no-labels) "my-id")
       ($l (t--reference h with-labels) "my-id"))
-    ;; Malformed CUSTOM_ID / ID signal org-w3ctr-error.
+    ;; Malformed CUSTOM_ID / NAME / ID signal org-w3ctr-error.
     (let ((h (t-get-element "* H\n:PROPERTIES:\n:CUSTOM_ID: a b\n:END:"
                             'headline)))
       (should-error (t--reference h no-labels) :type 'org-w3ctr-error))
+    (let ((para (t-get-element "#+name: a b\nhello" 'paragraph)))
+      ($e!l (t--reference para with-labels)
+            '(org-w3ctr-error "Invalid NAME value: \"a b\""))
+      ;; With prefer-user-labels=nil, NAME is not used as the HTML id
+      ;; and falls through to a generated reference.
+      ($s (string-match-p "\\`org[0-9a-f]\\{7\\}\\'"
+                          (t--reference para no-labels))))
     (let ((h (t-get-element "* H\n:PROPERTIES:\n:ID: a\"b\n:END:"
                             'headline)))
       (should-error (t--reference h with-labels) :type 'org-w3ctr-error))

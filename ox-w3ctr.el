@@ -2180,8 +2180,8 @@ letter followed by letters, digits, hyphens or underscores."
 
 (defun t--check-id (id kind)
   "Validate ID as an HTML id string and return it.
-ID is the candidate string and KIND is a label (such as \"CUSTOM_ID\"
-or \"ID\") for error messages.
+ID is the candidate string and KIND is a label (such as \"CUSTOM_ID\",
+\"NAME\", or \"ID\") for error messages.
 
 Signal `org-w3ctr-error' when ID is not a non-empty string, or when it
 contains ASCII whitespace or any of the characters \", ', <, >, or &."
@@ -2206,7 +2206,7 @@ when `:html-prefer-user-labels' is non-nil, and finally a generated
 When NAMED-ONLY is non-nil, return nil for unlabeled elements other
 than headlines and targets (elements with `NAME' or `ID' still fall
 through to `orgXXXXXXX' when `:html-prefer-user-labels' is nil).
-Signal `org-w3ctr-error' if `CUSTOM_ID' or `ID' fails
+Signal `org-w3ctr-error' if `CUSTOM_ID', `NAME', or `ID' fails
 `org-w3ctr--check-id'."
   (declare (ftype (function (t list &optional boolean) (or null string)))
            (important-return-value t))
@@ -2220,7 +2220,8 @@ Signal `org-w3ctr-error' if `CUSTOM_ID' or `ID' fails
      ((t--target-reference datum))
      ;; NAME keyword -- only when prefer-user-labels is on.
      ((and (t--pget info :html-prefer-user-labels)
-           (org-element-property :name datum)))
+           (when-let* ((name (org-element-property :name datum)))
+             (t--check-id name "NAME"))))
      ;; ID property -- only when prefer-user-labels is on.
      ;; In practice `:ID' comes from `org-id' on headlines.
      ((and (t--pget info :html-prefer-user-labels)
