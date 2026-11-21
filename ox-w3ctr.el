@@ -44,7 +44,6 @@
 (require 'inline)
 (require 'pcase)
 (require 'seq)
-(require 'map)
 (require 'format-spec)
 (require 'jsonrpc)
 (require 'url-util)
@@ -1677,12 +1676,10 @@ Called at the end of a full export from `org-w3ctr-template'; the lookup
 counters are left alone (see `org-w3ctr-clear-oinfo-statistics'), and with
 the cache off this does nothing."
   (declare (ftype (function () null)))
-  (map-do
-   (lambda (_k v)
-     (let ((o (symbol-function v)))
-       (setf (t--oinfo--pid o) nil)
-       (setf (t--oinfo--val o) nil)))
-   t--oinfo-cache-alist))
+  (dolist (pair t--oinfo-cache-alist)
+    (let ((o (symbol-function (cdr pair))))
+      (setf (t--oinfo--pid o) nil)
+      (setf (t--oinfo--val o) nil))))
 
 (defun t-oinfo-cleanup-before-export (&rest _)
   "Clear the OINFO caches at the start of an export.
@@ -1750,13 +1747,11 @@ Like `org-w3ctr--oinfo-cleanup', and additionally zero the
 
 Interactive; useful before a benchmark or a test run."
   (interactive)
-  (map-do
-   (lambda (_k v)
-     (let ((o (symbol-function v)))
-       (setf (t--oinfo--pid o) nil)
-       (setf (t--oinfo--val o) nil)
-       (setf (t--oinfo--cnt o) 0)))
-   t--oinfo-cache-alist))
+  (dolist (pair t--oinfo-cache-alist)
+    (let ((o (symbol-function (cdr pair))))
+      (setf (t--oinfo--pid o) nil)
+      (setf (t--oinfo--val o) nil)
+      (setf (t--oinfo--cnt o) 0))))
 
 ;;;; String helpers
 
@@ -4156,7 +4151,6 @@ cache is cleared (`org-w3ctr-clear-css').  Return FILE."
 
 ;; Bound around the mode setup, so declared special here.
 (defvar treesit-auto-install-grammar)
-(defvar warning-minimum-level)
 (declare-function treesit-parser-list "treesit.c")
 (declare-function tty-color-standard-values "term/tty-colors")
 
