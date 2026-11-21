@@ -16,6 +16,7 @@ style.  Requires Emacs 31.
                         (code highlighting)
 - `doc/`              — `design-notes.md` (rationale and measured facts)
                         and `fontify.org` (fontify pipeline)
+- `TODO.org`          — roadmap backlog (`TODO`, `Tasks`, `Non-goals`)
 - `scratch/`          — throwaway files and local build outputs, never
                         the system temp (gitignored)
 - `.agents/`          — skills (committed) + env.md, next.md (gitignored)
@@ -40,8 +41,8 @@ corpus harness on every run; do not file it under a `_` directory.
 `.agents/next.md` is the handoff note from the previous session.  In a
 new conversation, read it early, but treat it as possibly outdated:
 check it against the current state before relying on it.  File small
-follow-up findings under `README.org`'s Roadmap `Tasks` list and larger
-planned work under its `TODO` list.
+follow-up findings under `TODO.org`'s `Tasks` list and larger planned
+work under its `TODO` list.
 
 ## Environment
 

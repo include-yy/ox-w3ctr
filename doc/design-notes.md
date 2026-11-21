@@ -3,7 +3,7 @@
 Rationale and measured facts behind ox-w3ctr's design.  Read the relevant
 section when working on that subsystem; not required reading at session
 start.  The rules every session must follow live in `AGENTS.md`; the
-backlog lives in the `Roadmap` section of `README.org`.
+backlog lives in `TODO.org`.
 
 ## Compile-time switches and conditionals
 
