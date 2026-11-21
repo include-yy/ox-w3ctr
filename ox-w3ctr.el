@@ -1650,13 +1650,13 @@ evaluated before any update, so it may safely read PROP from INFO."
     (if-let* ((f (static-when t--oinfo-cache-p
                    (alist-get (inline-const-val prop)
                               t--oinfo-cache-alist))))
-        (inline-letevals (info value)
-          (inline-quote
-           (let ((o (symbol-function #',f)))
-             (setf (t--oinfo--pid o) ,info)
-             (setf (t--oinfo--val o) ,value)
-             ,value)))
-      (inline-letevals (value)
+        (inline-quote
+         (funcall (lambda (o i v)
+                    (setf (t--oinfo--pid o) i)
+                    (setf (t--oinfo--val o) v)
+                    v)
+                  (symbol-function #',f) ,info ,value))
+      (inline-letevals (info prop value)
         (inline-quote (prog1 ,value (plist-put ,info ,prop ,value)))))))
 
 (defun t--oinfo-cleanup ()

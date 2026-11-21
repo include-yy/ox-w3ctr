@@ -426,7 +426,16 @@ nil is `eq' to itself, so the write is invisible to `plist-get'."
       ($l (plist-get info :c) 4)
       ;; non-cached key with value expression
       ($l (eval '(t--pput info :c (incf val))) 3)
-      ($l (plist-get info :c) 3))))
+      ($l (plist-get info :c) 3))
+    ;; hygiene: caller variables named `o' must not be captured when inlined
+    (let ((set-v (byte-compile '(lambda (info o) (t--pput info :a o))))
+          (set-i (byte-compile '(lambda (o v) (t--pput o :a v))))
+          (p (list :a 0)))
+      ($l (funcall set-v p 'val-o) 'val-o)
+      ($l (t--oinfo--val (t--oinfo-oget :a)) 'val-o)
+      ($l (funcall set-i p 'val-i) 'val-i)
+      ($q (t--oinfo--pid (t--oinfo-oget :a)) p)
+      ($l (t--oinfo--val (t--oinfo-oget :a)) 'val-i))))
 
 (ert-deftest t--oinfo-pput-value-evaluation-order ()
   "`org-w3ctr--pput' evaluates VALUE before updating the oclosure.
