@@ -686,6 +686,10 @@ too."
 
 (ert-deftest t--trim ()
   "Tests for `org-w3ctr--trim'."
+  ($l (t--trim "") "")
+  ($l (t--trim "" t) "")
+  ($l (t--trim "   ") "")
+  ($l (t--trim "   " t) "")
   ($l (t--trim "123") "123")
   ($l (t--trim " 123") "123")
   ($l (t--trim " 123 ") "123")
@@ -1268,7 +1272,7 @@ stubs `random' to hand back a taken number first and counts the draws."
     (cl-letf (((symbol-function 'random)
                (lambda (&optional _limit) (setq draw (1+ draw)))))
       (let ((ref (t--get-reference para info)))
-        ($s (string-match-p "org[0-9a-f]+" ref))
+        ($s (string-match-p "\\`org[0-9a-f]\\{7\\}\\'" ref))
         ;; Same DATUM + same INFO -> same reference (cached).
         ($l (t--get-reference para info) ref)
         ;; The cache records the reference string for DATUM.
@@ -1322,16 +1326,20 @@ stubs `random' to hand back a taken number first and counts the draws."
   ($l (t--check-id "my-id" "CUSTOM_ID") "my-id")
   ($l (t--check-id "1" "CUSTOM_ID") "1")
   ($l (t--check-id "sec:1.2" "CUSTOM_ID") "sec:1.2")
-  (dolist (bad '("" "a b" "a\tb" "a\nb" "a\"b" "a'b" "a<b" "a>b" "a&b" nil))
+  ($e!l (t--check-id "a b" "CUSTOM_ID")
+        '(org-w3ctr-error "Invalid CUSTOM_ID value: \"a b\""))
+  (dolist (bad '("" "a b" "a\tb" "a\nb" "a\fb" "a\rb"
+                 "a\"b" "a'b" "a<b" "a>b" "a&b" nil 123))
     (should-error (t--check-id bad "CUSTOM_ID") :type 'org-w3ctr-error)))
 
 (ert-deftest t--reference ()
   "Tests for `org-w3ctr--reference'."
   (let ((no-labels nil)
         (with-labels '(:html-prefer-user-labels t)))
-    ;; CUSTOM_ID always wins.
-    (let ((h (t-get-element "* H\n:PROPERTIES:\n:CUSTOM_ID: my-id\n:END:"
-                            'headline)))
+    ;; CUSTOM_ID always wins (including over ID).
+    (let ((h (t-get-element
+              "* H\n:PROPERTIES:\n:CUSTOM_ID: my-id\n:ID: other-id\n:END:"
+              'headline)))
       ($l (t--reference h no-labels) "my-id")
       ($l (t--reference h with-labels) "my-id"))
     ;; Malformed CUSTOM_ID / NAME / ID signal org-w3ctr-error.
@@ -1348,19 +1356,25 @@ stubs `random' to hand back a taken number first and counts the draws."
     (let ((h (t-get-element "* H\n:PROPERTIES:\n:ID: a\"b\n:END:"
                             'headline)))
       (should-error (t--reference h with-labels) :type 'org-w3ctr-error))
-    ;; a target's value is the reference (the cond routes targets there)
+    ;; a target's value is the reference when identifier-shaped, and
+    ;; falls back to a generated reference otherwise
     ($l (t--reference (t-get-element "<<foo>>" 'target) no-labels) "foo")
+    ($s (string-match-p "\\`org[0-9a-f]\\{7\\}\\'"
+                        (t--reference (t-get-element "<<123>>" 'target)
+                                      no-labels)))
     ;; NAME with prefer-user-labels=t (paragraph, since #+name: does not
     ;; set :name on headlines).
     (let ((para (t-get-element "#+name: my-name\nhello" 'paragraph)))
       ($l (t--reference para with-labels) "my-name")
       ;; NAME with prefer-user-labels=nil -> falls through to random.
-      ($s (string-match-p "org[0-9a-f]+" (t--reference para no-labels))))
+      ($s (string-match-p "\\`org[0-9a-f]\\{7\\}\\'"
+                          (t--reference para no-labels))))
     ;; ID property with prefer-user-labels=t -> the "ID-" prefix.
     (let ((h (t-get-element "* H\n:PROPERTIES:\n:ID: my-uid\n:END:" 'headline)))
       ($l (t--reference h with-labels) "ID-my-uid")
       ;; ID with prefer-user-labels=nil -> falls through to random.
-      ($s (string-match-p "org[0-9a-f]+" (t--reference h no-labels))))
+      ($s (string-match-p "\\`org[0-9a-f]\\{7\\}\\'"
+                          (t--reference h no-labels))))
     ;; named-only + no name + not headline -> nil (regardless of
     ;; prefer-user-labels).
     (let ((para (t-get-element "hello" 'paragraph)))
@@ -1373,10 +1387,16 @@ stubs `random' to hand back a taken number first and counts the draws."
           (info (list :html-prefer-user-labels nil)))
       ($l (t--reference para with-labels t) "my-name")
       (let ((ref (t--reference para info t)))
-        ($s (string-match-p "\\`org[0-9a-f]+\\'" ref))
+        ($s (string-match-p "\\`org[0-9a-f]\\{7\\}\\'" ref))
         ($l (t--reference para info) ref)))
+    ;; named-only + :ID on a non-headline element also qualifies.
+    (let ((para '(paragraph (:ID "p-uid")))
+          (info (list :html-prefer-user-labels nil)))
+      ($l (t--reference para with-labels t) "ID-p-uid")
+      ($s (string-match-p "\\`org[0-9a-f]\\{7\\}\\'"
+                          (t--reference para info t))))
     ;; headlines, radio targets and targets are exempt from named-only
-    ($s (string-match-p "org[0-9a-f]+"
+    ($s (string-match-p "\\`org[0-9a-f]\\{7\\}\\'"
                         (t--reference (t-get-element "* H" 'headline)
                                       no-labels t)))
     ($l (t--reference (t-get-element "<<foo>>" 'target) no-labels t) "foo")
@@ -1444,6 +1464,9 @@ stubs `random' to hand back a taken number first and counts the draws."
     ($n (t--element-id
          (t-get-element "#+name: d\n#+begin: foo\nx\n#+end:" 'dynamic-block)
          info))
+    ($n (t--element-id
+         (t-get-element "#+name: k\n#+html: <hr>" 'keyword)
+         info))
     ($n (t--element-id '(table (:type table.el :name "tbl")) info))
     ;; Headlines and targets delegate directly to `org-w3ctr--reference'.
     ($l (t--element-id
@@ -1451,6 +1474,8 @@ stubs `random' to hand back a taken number first and counts the draws."
          info)
         "cid")
     ($l (t--element-id (t-get-element "<<tgt>>" 'target) info) "tgt")
+    ($l (t--element-id (t-get-element "<<<rtgt>>>" 'radio-target) info)
+        "rtgt")
     ;; NAMED-ONLY: anonymous element without explicit id returns nil,
     ;; while an explicit id attribute still wins.
     ($n (t--element-id

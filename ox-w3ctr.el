@@ -1860,7 +1860,7 @@ Signal `org-w3ctr-error' if the value is not a valid Lisp s-expression."
 
 A vector such as [class1 class2] becomes the attribute form
 \(\"class\" \"class1 class2\"); an empty vector [] becomes a nil
-element.  Return nil if the property is absent.  Signal
+element.  Return nil if the property is absent or blank.  Signal
 `org-w3ctr-error' on invalid Lisp syntax (via `org-w3ctr--read-attr')."
   (declare (ftype (function (t) list))
            (important-return-value t))
@@ -1885,8 +1885,7 @@ with a leading space.  Return nil when LIST is nil or its car cannot
 be converted by `org-w3ctr--2str'."
   (declare (ftype (function (list) (or null string)))
            (pure t) (important-return-value t))
-  ;; (car nil) => nil
-  (when-let* (((not (null list)))
+  (when-let* ((_ (not (null list)))
               (name (t--2str (car list))))
     (if-let* ((rest (cdr list)))
         ;; use lowercase prop name; leading space for HTML tag separator.
