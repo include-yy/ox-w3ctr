@@ -2021,7 +2021,7 @@ versa (excluding the test-only `echo' and `add' methods)."
 
 (ert-deftest t-drawer-format-function ()
   "The drawer goes through `org-w3ctr-drawer-format-function'."
-  (let ((org-w3ctr-drawer-format-function
+  (let ((t-drawer-format-function
          (lambda (name summary attrs contents info)
            (format "<DRAWER name=%s summary=%s attrs=%s contents=%S labels=%s/>"
                    name summary attrs
@@ -2114,7 +2114,13 @@ int a = 1;</code></p>\n</details>")
      ;; Two footnotes in a row are separated (values are in reverse
      ;; call order, as in the other `org-w3ctr-check-element-values' tests).
      ("A[fn:1][fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
-      ", [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
+      ", [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]")
+     ;; Repeated reference reuses the same number and anchor.
+     ("A[fn:1] B[fn:1].\n\n[fn:1] one."
+      "[<a href=\"#fn-1\">1</a>]" "[<a href=\"#fn-1\">1</a>]")
+     ;; Anonymous footnote before [fn:1] renumbers [fn:1] to 2.
+     ("A[fn::anon] B[fn:1].\n\n[fn:1] named-num."
+      "[<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
    t '(:with-latex verbatim))
   ;; a custom reference format is read from INFO
   (t-check-element-values
@@ -2138,7 +2144,7 @@ int a = 1;</code></p>\n</details>")
                               (org-element-interpret-data data))))
                    (format "<p>%s</p>" text))))))
     (cl-flet ((p (s) (t-get-element s 'paragraph)))
-      (let ((info '(:html-footnote-format "[%s]")))
+      (let ((info (list :html-footnote-format "[%s]")))
         ;; Numbered footnote with paragraph
         ($l (t--footnote-definition (list 1 nil (p "The definition.")) info)
             ($c "<dt id=\"fn-1\">[1]</dt>\n"
@@ -2158,6 +2164,12 @@ int a = 1;</code></p>\n</details>")
         ;; Whitespace trimming on string
         ($l (t--footnote-definition (list 1 nil "\n  text  \n") info)
             ($c "<dt id=\"fn-1\">[1]</dt>\n"
+                "<dd>\ntext\n</dd>"))
+        ;; Custom footnote format
+        ($l (t--footnote-definition
+             (list 1 nil "text")
+             (list :html-footnote-format "<sup>%s</sup>"))
+            ($c "<dt id=\"fn-1\"><sup>1</sup></dt>\n"
                 "<dd>\ntext\n</dd>"))))))
 
 (ert-deftest t-footnote-section-default-format-function ()
@@ -2195,7 +2207,7 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-footnote-section-format-function ()
   "The footnotes section goes through `org-w3ctr-footnote-section-format-function'."
-  (let ((org-w3ctr-footnote-section-format-function
+  (let ((t-footnote-section-format-function
          (lambda (definitions info)
            (format "<FOOTNOTES n=%d fmt=%s/>"
                    (length definitions)
@@ -2265,11 +2277,15 @@ int a = 1;</code></p>\n</details>")
   ;; The registry has exactly the three documented types, each with
   ;; exactly the three states and non-empty string markup.
   ($l (mapcar #'car org-w3ctr-checkbox-types) '(unicode ascii html))
-  (dolist (entry org-w3ctr-checkbox-types)
-    ($l (mapcar #'car (cdr entry)) '(on off trans))
-    (dolist (state (cdr entry))
-      ($s (stringp (cdr state)))
-      ($s (> (length (cdr state)) 0)))))
+  (let ((safe-fn (get 'org-w3ctr-checkbox-type 'safe-local-variable)))
+    ($s (functionp safe-fn))
+    ($n (funcall safe-fn 'bogus))
+    (dolist (entry org-w3ctr-checkbox-types)
+      ($s (funcall safe-fn (car entry)))
+      ($l (mapcar #'car (cdr entry)) '(on off trans))
+      (dolist (state (cdr entry))
+        ($s (stringp (cdr state)))
+        ($s (> (length (cdr state)) 0))))))
 
 (ert-deftest t--checkbox ()
   "Tests for `org-w3ctr--checkbox'."
@@ -2277,12 +2293,12 @@ int a = 1;</code></p>\n</details>")
     ($l (t--checkbox 'on info) "&#x2611;")
     ($l (t--checkbox 'off info) "&#x2610;")
     ($l (t--checkbox 'trans info) "&#x2612;")
-    ($l (t--checkbox nil info) nil)
-    ($l (t--checkbox [1] info) nil)
-    ($l (t--checkbox "hello" info) nil)
-    ($l (t--checkbox "on" info) nil)
-    ($l (t--checkbox "off" info) nil)
-    ($l (t--checkbox "trans" info) nil))
+    ($n (t--checkbox nil info))
+    ($n (t--checkbox [1] info))
+    ($n (t--checkbox "hello" info))
+    ($n (t--checkbox "on" info))
+    ($n (t--checkbox "off" info))
+    ($n (t--checkbox "trans" info)))
   (let ((info '(:html-checkbox-type ascii)))
     ($l (t--checkbox 'off info) "<code>[&#xa0;]</code>")
     ($l (t--checkbox 'on info) "<code>[X]</code>")
@@ -2291,12 +2307,14 @@ int a = 1;</code></p>\n</details>")
     ($l (t--checkbox 'off info) "<input type=\"checkbox\">")
     ($l (t--checkbox 'on info) "<input type=\"checkbox\" checked>")
     ($l (t--checkbox 'trans info) "<input type=\"checkbox\">"))
-  ;; An unknown checkbox type is an error, not a dropped checkbox;
-  ;; with no checkbox there is nothing to format, so no error.
+  ;; An unknown or missing checkbox type is an error, not a dropped
+  ;; checkbox; with no checkbox there is nothing to format, so no error.
   (let ((info '(:html-checkbox-type unicod)))
     ($e!l (t--checkbox 'on info)
           '(org-w3ctr-error "Unknown checkbox type: unicod"))
-    ($l (t--checkbox nil info) nil)))
+    ($n (t--checkbox nil info)))
+  ($e!l (t--checkbox 'on nil)
+        '(org-w3ctr-error "Unknown checkbox type: nil")))
 
 (ert-deftest t--format-checkbox ()
   "Tests for `org-w3ctr--format-checkbox'."
@@ -2320,6 +2338,7 @@ int a = 1;</code></p>\n</details>")
   ($l (t--splice-checkbox "" nil) "")
   ($l (t--splice-checkbox "" "<p>a</p>") "<p>a</p>")
   ($l (t--splice-checkbox "&#x2610; " nil) "&#x2610; ")
+  ($l (t--splice-checkbox "&#x2610; " "") "&#x2610; ")
   ($l (t--splice-checkbox "&#x2610; " "123") "&#x2610; 123")
   ;; leading <p> (bare or with attributes) gets the checkbox inside
   ($l (t--splice-checkbox "&#x2610; " "<p>a</p>\n\n<p>b</p>")
@@ -2329,6 +2348,9 @@ int a = 1;</code></p>\n</details>")
   ;; tags that merely start with `<p' (like `<pre>') are not matched
   ($l (t--splice-checkbox "&#x2610; " "<pre>a</pre>")
       "&#x2610; <pre>a</pre>")
+  ;; a <p> after leading text is not spliced (must anchor at string start)
+  ($l (t--splice-checkbox "&#x2610; " "foo <p>a</p>")
+      "&#x2610; foo <p>a</p>")
   ;; case-sensitive: uppercase <P> is not spliced even when case-fold-search is t
   (let ((case-fold-search t))
     ($l (t--splice-checkbox "&#x2610; " "<P>a</P>")
@@ -2349,6 +2371,7 @@ int a = 1;</code></p>\n</details>")
   ($l (t--format-ordered-item nil nil nil nil) "<li></li>")
   ($l (t--format-ordered-item "123" nil nil nil) "<li>123</li>")
   ($l (t--format-ordered-item " 123 " nil nil nil) "<li>123</li>")
+  ($l (t--format-ordered-item "123" nil nil 0) "<li value=\"0\">123</li>")
   ($l (t--format-ordered-item "123" nil nil 10) "<li value=\"10\">123</li>")
   ($l (t--format-ordered-item "123" nil nil 114514)
       "<li value=\"114514\">123</li>")
@@ -2363,6 +2386,8 @@ int a = 1;</code></p>\n</details>")
         "<li>&#x2612; 123</li>")
     ($l (t--format-ordered-item "123" 'on info 114)
         "<li value=\"114\">&#x2611; 123</li>")
+    ($l (t--format-ordered-item nil 'off info nil)
+        "<li>&#x2610; </li>")
     ($l (t--format-ordered-item "<p>a</p>\n\n<p>b</p>" 'off info nil)
         "<li><p>&#x2610; a</p>\n\n<p>b</p></li>")))
 
@@ -2442,7 +2467,7 @@ int a = 1;</code></p>\n</details>")
      ("- [@a] [ ] 123" "<li>&#x2610; 123</li>")
      ("- [@pp] [ ] 123" "<li>[@pp] [ ] 123</li>")
      ;; zero width space
-     ("- [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>")
+     ("- [\u200b@1] [ ] 123" "<li>[\u200b@1] [ ] 123</li>")
      ("- a\n- b :: c" "<li>c</li>" "<li>a</li>"))
    nil '(:html-checkbox-type unicode)))
 
@@ -2471,7 +2496,7 @@ int a = 1;</code></p>\n</details>")
      ("1. [@z] [ ] 123" "<li value=\"26\">&#x2610; 123</li>")
      ("1. [@pp] [ ] 123" "<li>[@pp] [ ] 123</li>")
      ;; zero width space
-     ("1. [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>"))
+     ("1. [\u200b@1] [ ] 123" "<li>[\u200b@1] [ ] 123</li>"))
    nil '(:html-checkbox-type unicode)))
 
 (ert-deftest t-item-descriptive ()
@@ -2508,7 +2533,7 @@ int a = 1;</code></p>\n</details>")
      ("- [@a] [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
      ("- [@pp] [ ] :: 123" "<dt>[@pp] [ ]</dt><dd>123</dd>")
      ;; zero width space
-     ("- [​@1] [ ] 123 :: " "<dt>[​@1] [ ] 123</dt><dd></dd>")
+     ("- [\u200b@1] [ ] 123 :: " "<dt>[\u200b@1] [ ] 123</dt><dd></dd>")
      ("- a ::" "<dt>a</dt><dd></dd>")
      ("- :: 3" "<li>:: 3</li>")
      ("- a :: b\n- c" "<dt></dt><dd>c</dd>"
@@ -2598,6 +2623,9 @@ int a = 1;</code></p>\n</details>")
      ;; any other type becomes a <div class="TYPE">
      ("#+begin_foo\nhello\n#+end_foo"
       "<div class=\"foo\">\n<p>hello</p>\n</div>")
+     ;; special characters in the type are escaped in class="..."
+     ("#+begin_a&b\nhello\n#+end_a&b"
+      "<div class=\"a&amp;b\">\n<p>hello</p>\n</div>")
      ;; user attributes replace the type class
      ("#+attr__: [bar]\n#+begin_foo\nhello\n#+end_foo"
       "<div class=\"bar\">\n<p>hello</p>\n</div>")
@@ -2609,7 +2637,7 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t--custom-element-name-p ()
   "Tests for `org-w3ctr--custom-element-name-p'."
   (dolist (s '("my-card" "x-" "a-b-c" "a1-b.c_d"))
-    ($s (t--custom-element-name-p s)))
+    ($q (t--custom-element-name-p s) t))
   (let ((case-fold-search t))
     (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""
                  "a-b\n" "é-card"
@@ -2653,20 +2681,29 @@ int a = 1;</code></p>\n</details>")
   ($e!l (t--special-block-validate-registry
          '(("a-b" :src "1.js") ("a-b" :src "2.js")))
         '(org-w3ctr-error "Duplicate custom element name: a-b"))
-  ;; With INFO, a validated registry is cached and not re-checked.
+  ;; With INFO, a validated registry is cached (eq): mutating it in
+  ;; place does not re-validate, while passing a different registry
+  ;; invalidates the cache and validates the new one.
   (let* ((reg (list (list "a-b" :src "x.js")))
-         (info (list :html-special-block-custom-elements reg))
-         (calls 0))
-    (cl-letf (((symbol-function 'org-w3ctr--custom-element-name-p)
-               (lambda (name) (cl-incf calls) (and (stringp name) t))))
-      ($n (t--special-block-validate-registry reg info))
-      ($l calls 1)
-      ($s (eq (t--pget info :html-special-block-registry-checked) reg))
-      ($n (t--special-block-validate-registry reg info))
-      ($l calls 1))))
+         (info (list :html-special-block-custom-elements reg)))
+    ($n (t--special-block-validate-registry reg info))
+    ($q (t--pget info :html-special-block-registry-checked) reg)
+    ;; Divergence check: corrupt entry in place; cache skips re-check.
+    (setcar (car reg) "bad")
+    ($n (t--special-block-validate-registry reg info))
+    ;; A different registry object on the same INFO is validated fresh.
+    ($e!l (t--special-block-validate-registry '(("bad")) info)
+          '(org-w3ctr-error "Invalid custom element name: bad"))))
 
 (ert-deftest t--special-block-spec ()
   "Tests for `org-w3ctr--special-block-spec'."
+  ;; Direct lookups: hit with plist, hit with empty plist, miss, nil registry.
+  (let* ((reg '(("x-a" :src "a.js") ("x-empty")))
+         (info (list :html-special-block-custom-elements reg)))
+    ($l (t--special-block-spec "x-a" info) '("x-a" :src "a.js"))
+    ($l (t--special-block-spec "x-empty" info) '("x-empty"))
+    ($n (t--special-block-spec "x-other" info)))
+  ($n (t--special-block-spec "x-a" (list :html-special-block-custom-elements nil)))
   ($e!l (org-export-string-as
          "#+begin_x-old\nhi\n#+end_x-old" 'w3ctr t
          '(:html-special-block-custom-elements ("x-old")))
@@ -2730,7 +2767,12 @@ int a = 1;</code></p>\n</details>")
     ($l (t--special-block-custom
          (funcall mk "my-card") "<p>hi</p>\n" info
          `("my-card" :template ,tpl))
-        ($c "<my-card>\n" tpl "\n<p>hi</p>\n</my-card>"))))
+        ($c "<my-card>\n" tpl "\n<p>hi</p>\n</my-card>"))
+    ;; a blank :template is ignored
+    ($l (t--special-block-custom
+         (funcall mk "my-card") "<p>hi</p>\n" info
+         '("my-card" :template "  \n"))
+        "<my-card>\n<p>hi</p>\n</my-card>")))
 
 (ert-deftest t-special-block-custom-elements ()
   "Tests for `:html-special-block-custom-elements'."
@@ -2748,13 +2790,6 @@ int a = 1;</code></p>\n</details>")
       "<div class=\"foo-bar\">\n<p>hello</p>\n</div>"))
    nil (list :html-prefer-user-labels t
              :html-special-block-custom-elements '(("my-card"))))
-  ;; empty plist is equivalent to just registering the name
-  (t-check-element-values
-   #'t-special-block
-   '(("#+begin_my-card\nhello\n#+end_my-card"
-      "<my-card>\n<p>hello</p>\n</my-card>"))
-   nil (list :html-prefer-user-labels t
-             :html-special-block-custom-elements '(("my-card" . nil))))
   ;; a listed type that is not a valid custom element name
   ($e!l (org-export-string-as
          "#+begin_card\nx\n#+end_card" 'w3ctr t
@@ -2907,8 +2942,16 @@ int a = 1;</code></p>\n</details>")
       ($n (string-search
            "one.js"
            (head "* a :noexport:\n#+begin_x-one\na\n#+end_x-one\n")))
-      ;; no registered element used: nothing added
+      ;; no registered element used: nothing added and hook is not called
       ($n (string-search "<script type=\"module\"" (head "hello")))
+      (let ((called nil))
+        (head "hello" (list :html-special-block-head-function
+                            (lambda (_specs _info) (setq called t) "<!-- x -->")))
+        ($n called))
+      ;; a custom hook returning nil adds nothing
+      ($n (string-search "<script type=\"module\""
+                         (head doc (list :html-special-block-head-function
+                                         (lambda (_specs _info) nil)))))
       ;; the hook receives the used entries and its result is inserted
       (let ((h (head doc
                      (list :html-special-block-head-function
@@ -3004,7 +3047,11 @@ cookie-less column is remembered as the `none' marker."
       ;; a later row's cell shares its column's cached value
       ($q (t--table-cell-align (nth 4 cells) info) 'left)
       ($q (t--table-cell-align (nth 5 cells) info) 'right)
-      ($l calls 2)))
+      ($l calls 2))
+    ;; divergence check: mutating the AST cookie after caching does not
+    ;; change the cached result
+    (org-element-set-contents (car cells) "<r>")
+    ($q (t--table-cell-align (nth 2 cells) info) 'left))
   ;; a cookie-less column is remembered as `none' and still returns nil
   (let* ((cells (t-get-parsed-elements "| a | b |\n| c | d |" 'table-cell))
          (info (list :html-table-align-cache nil))
@@ -3021,14 +3068,21 @@ cookie-less column is remembered as the `none' marker."
              (vec (gethash table (t--pget info :html-table-align-cache))))
         ($q (aref vec 0) 'none))))
   ;; a ragged row reaches a column past the first row's width; the
-  ;; cache vector is extended for it
-  (let* ((cells (t-get-parsed-elements "| a | b |\n| c | d | e |" 'table-cell))
+  ;; cache vector is extended and earlier entries survive the resize
+  (let* ((cells (t-get-parsed-elements
+                 "| <l> |   |\n| a | b |\n| <l> |   | <r> |\n| c | d | e |"
+                 'table-cell))
          (info (list :html-table-align-cache nil))
          (table (org-export-get-parent-table (car cells))))
-    ($n (t--table-cell-align (car cells) info))
+    ;; col 0 cached from the 2-column row
+    ($q (t--table-cell-align (nth 2 cells) info) 'left)
     ($l (length (gethash table (t--pget info :html-table-align-cache))) 2)
-    ($n (t--table-cell-align (nth 4 cells) info))
-    ($l (length (gethash table (t--pget info :html-table-align-cache))) 3)))
+    ;; col 2 on the 3-column row extends the vector and preserves col 0
+    ($q (t--table-cell-align (nth 9 cells) info) 'right)
+    (let ((vec (gethash table (t--pget info :html-table-align-cache))))
+      ($l (length vec) 3)
+      ($q (aref vec 0) 'left)
+      ($q (aref vec 2) 'right))))
 
 (ert-deftest t--table-cell-attrs ()
   "Tests for `org-w3ctr--table-cell-attrs'."
@@ -3054,7 +3108,9 @@ cookie-less column is remembered as the `none' marker."
     ;; a leading rule row is skipped
     ($l (cells "|---+---|\n| a | b |") '(("a") ("b")))
     ;; a special column is dropped
-    ($l (cells "| ! | a | b |\n|   | 1 | 2 |") '(("a") ("b")))))
+    ($l (cells "| ! | a | b |\n|   | 1 | 2 |") '(("a") ("b")))
+    ;; a rule-only table has no data cells
+    ($n (cells "|---|"))))
 
 (ert-deftest t--table-column-specs ()
   "Tests for `org-w3ctr--table-column-specs'."
@@ -3064,7 +3120,12 @@ cookie-less column is remembered as the `none' marker."
     ($l (specs "| a | b |") "\n<colgroup span=\"2\">")
     ;; a `/' row marks the group boundaries
     ($l (specs "| / | < | > | < | > |\n|   | a | b | c | d |")
-        "\n<colgroup span=\"2\">\n<colgroup span=\"2\">")))
+        "\n<colgroup span=\"2\">\n<colgroup span=\"2\">")
+    ;; `<>' marks a single-column group
+    ($l (specs "| / | <> | < | > |\n|   | a | b | c |")
+        "\n<colgroup span=\"1\">\n<colgroup span=\"2\">")
+    ;; a rule-only table emits no <colgroup>
+    ($l (specs "|---|") "")))
 
 (ert-deftest t--table-caption ()
   "Tests for `org-w3ctr--table-caption'."
@@ -3080,7 +3141,8 @@ cookie-less column is remembered as the `none' marker."
   "Tests for `org-w3ctr-table-cell'."
   (cl-flet ((cell (doc n contents &optional info)
               (t-table-cell (nth n (t-get-parsed-elements doc 'table-cell))
-                            contents info)))
+                            contents
+                            (or info (list :html-table-align-cache nil)))))
     ;; a header cell carries scope="col"
     ($l (cell "| Name |\n|------|\n| foo |" 0 "Name")
         "\n<th scope=\"col\">Name</th>")
@@ -3089,17 +3151,27 @@ cookie-less column is remembered as the `none' marker."
     ;; an alignment cookie adds the inline style, header or data
     ($l (cell "| <l> |\n| a |" 1 "a")
         "\n<td style=\"text-align:left\">a</td>")
-    ($l (cell "| <l> | <r> |\n|------+-------|\n| foo | bar |" 0 "Name")
+    ($l (cell "| <l> | <r> |\n| Name | Val |\n|------+-----|\n| foo | bar |"
+              2 "Name")
         "\n<th scope=\"col\" style=\"text-align:left\">Name</th>")
-    ;; an empty cell becomes &nbsp;; nil is the bare-cell case
+    ;; an empty or whitespace-only cell becomes &nbsp;; nil is the bare-cell case
     ($l (cell "| |" 0 "") "\n<td>&#xa0;</td>")
+    ($l (cell "| |" 0 "  \t ") "\n<td>&#xa0;</td>")
     ($l (cell "| |" 0 nil) "\n<td>&#xa0;</td>")
-    ;; the first column can carry row headers
+    ;; the first column can carry row headers; header row still uses scope="col",
+    ;; and non-first body columns stay <td>
+    ($l (cell "| Name | Value |\n|------+-------|\n| foo | bar |" 0 "Name"
+              (list :html-table-use-header-tags-for-first-column t))
+        "\n<th scope=\"col\">Name</th>")
     ($l (cell "| Name | Value |\n| foo | bar |" 2 "foo"
-              '(:html-table-use-header-tags-for-first-column t))
+              (list :html-table-use-header-tags-for-first-column t))
         "\n<th scope=\"row\">foo</th>")
-    ($l (cell "| <l> | <r> |\n|------+-------|\n| foo | bar |" 2 "foo"
-              '(:html-table-use-header-tags-for-first-column t))
+    ($l (cell "| Name | Value |\n| foo | bar |" 3 "bar"
+              (list :html-table-use-header-tags-for-first-column t))
+        "\n<td>bar</td>")
+    ($l (cell "| <l> | <r> |\n| Name | Val |\n|------+-----|\n| foo | bar |"
+              4 "foo"
+              (list :html-table-use-header-tags-for-first-column t))
         "\n<th scope=\"row\" style=\"text-align:left\">foo</th>")))
 
 (ert-deftest t-table-row ()
@@ -3119,11 +3191,16 @@ cookie-less column is remembered as the `none' marker."
     ($l (row "| a | b |\n|---+---|\n| 1 | 2 |" 2 "<td>1</td><td>2</td>")
         "<tbody>\n<tr><td>1</td><td>2</td>\n</tr>\n</tbody>")
     ;; multi-row body: only the first row opens its group, only the last
-    ;; one closes it
-    ($l (row "| a |\n|---|\n| 1 |\n| 2 |" 2 "<td>1</td>")
+    ;; one closes it; middle rows get neither
+    ($l (row "| a |\n|---|\n| 1 |\n| 2 |\n| 3 |" 2 "<td>1</td>")
         "<tbody>\n<tr><td>1</td>\n</tr>")
-    ($l (row "| a |\n|---|\n| 1 |\n| 2 |" 3 "<td>2</td>")
-        "\n<tr><td>2</td>\n</tr>\n</tbody>")
+    ($l (row "| a |\n|---|\n| 1 |\n| 2 |\n| 3 |" 3 "<td>2</td>")
+        "\n<tr><td>2</td>\n</tr>")
+    ($l (row "| a |\n|---|\n| 1 |\n| 2 |\n| 3 |" 4 "<td>3</td>")
+        "\n<tr><td>3</td>\n</tr>\n</tbody>")
+    ;; multiple tbody groups: a second rule starts a new <tbody>
+    ($l (row "| a |\n|---|\n| 1 |\n|---|\n| 2 |" 4 "<td>2</td>")
+        "<tbody>\n<tr><td>2</td>\n</tr>\n</tbody>")
     ;; without a header the body still opens and closes
     ($l (row "| a | b |" 0 "<td>a</td><td>b</td>")
         "<tbody>\n<tr><td>a</td><td>b</td>\n</tr>\n</tbody>")))
@@ -3158,8 +3235,12 @@ cookie-less column is remembered as the `none' marker."
            "\n<td style=\"text-align:left\">a</td>"
            "\n<td style=\"text-align:right\">b</td>"
            "\n</tr>\n</tbody>\n</table>"))
-     ;; attr_html is honoured
+     ;; attr_html and attr__ are honoured
      ("#+attr_html: :class data\n| a |"
+      ,($c "<table class=\"data\">\n<colgroup span=\"1\">"
+           "\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>"
+           "\n</table>"))
+     ("#+attr__: [data]\n| a |"
       ,($c "<table class=\"data\">\n<colgroup span=\"1\">"
            "\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>"
            "\n</table>"))
