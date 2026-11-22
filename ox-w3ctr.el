@@ -451,7 +451,7 @@ The value specifies the rendering method:
                        t is the legacy alias
 - `mathml-by-mathjax': Convert to MathML markup using MathJax
 - `svg-by-mathjax'   : Convert to inline SVG using MathJax
-- `custom'           : Use custom option and function"
+- `custom'           : Use `org-w3ctr-math-custom-format-function'"
   :group 'org-export-w3ctr
   :type '(choice
           (const :tag "Drop the math" nil)
@@ -467,11 +467,10 @@ The value specifies the rendering method:
 
 (defcustom t-math-custom-format-function
   #'t-math-custom-default-format-function
-  "Function formatting a LaTeX fragment for the `custom' math mode.
+  "Function formatting a LaTeX fragment or environment for `custom' mode.
 
 It is called with FRAG, a LaTeX string, and INFO, the info plist,
-and must return the HTML/MathML/SVG string for the fragment, or nil
-to emit nothing."
+and must return the HTML/MathML/SVG string, or nil to emit nothing."
   :group 'org-export-w3ctr
   :type 'function)
 
