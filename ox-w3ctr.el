@@ -5068,7 +5068,7 @@ unless the author supplies attributes."
                (or (org-element-property :attr__ src-block)
                    (org-element-property :attr_html src-block)))
               (id (t--element-id src-block info)))
-          (format "<div%s%s>\n%s<span>%s</span>\n<pre>\n%s</pre></div>"
+          (format "<div%s%s>\n%s<span>%s</span>\n<pre>%s</pre></div>"
                   ;; A captioned block gets an id unless the author
                   ;; suppresses it: the self-link needs one.
                   (t--make-attr__id* src-block info)
@@ -5079,7 +5079,7 @@ unless the author supplies attributes."
                               (t--encode-plain-text* id)))
                   caption
                   code))
-      (format "<div%s>\n<pre>\n%s</pre></div>"
+      (format "<div%s>\n<pre>%s</pre></div>"
               ;; A block that defines a code reference is a
               ;; `[[(LABEL)]]' target, so it always gets an id.
               (t--make-attr__id* src-block info

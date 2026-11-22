@@ -5708,11 +5708,11 @@ COUNTER, a cons cell, has its car incremented on every call."
                 "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
                 'w3ctr t)))
       (should (string-match-p
-               "<div>\n<pre>\n<code class=\"src src-emacs-lisp\">" out))
+               "<div>\n<pre><code class=\"src src-emacs-lisp\">" out))
       (should (string-match-p "tok-k" out)))
     ;; A block without a language gets a bare <code>.
     ($l (org-export-string-as "#+begin_src\n<x>\n#+end_src" 'w3ctr t)
-        "<div>\n<pre>\n<code>&lt;x&gt;</code></pre></div>\n<main>\n</main>\n")
+        "<div>\n<pre><code>&lt;x&gt;</code></pre></div>\n<main>\n</main>\n")
     ;; INFO reaches `org-w3ctr-fontify-code'.
     (should (string-match-p
              "<code class=\"src src-emacs-lisp\">(defun foo () 1)</code>"
@@ -5837,7 +5837,7 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($l (org-export-string-as
              "#+begin_src nosuchlang\n<x>\n#+end_src" 'w3ctr t
              '(:html-fontify-unknown-language warn))
-            (concat "<div>\n<pre>\n<code class=\"src src-nosuchlang\">&lt;x&gt;</code>"
+            (concat "<div>\n<pre><code class=\"src src-nosuchlang\">&lt;x&gt;</code>"
                     "</pre></div>\n<main>\n</main>\n")))
       ($l warnings '("No fontify engine handles the nosuchlang code at line 1")))))
 
