@@ -2526,6 +2526,14 @@ Return CONTENTS as is, or \"\" when nil."
 ;; - :html-footnote-section-format-function
 ;;   (`org-w3ctr-footnote-section-format-function')
 
+;; FIXME: Upstream Org bug -- self-referencing or mutually recursive
+;; standard footnote definitions (e.g., "[fn:1] test [fn:1]") overflow
+;; `max-lisp-eval-depth' inside `org-cite-process-citations' when
+;; `:with-cite-processors' is non-nil (default), before any backend
+;; transcoder runs.  With `:with-cite-processors nil' (or inline
+;; footnotes), export succeeds because `org-export--footnote-reference-map'
+;; tracks seen labels.  Report upstream to Org mode.
+
 (defun t--footnote-key (label n)
   "Return the key of a footnote with LABEL and number N.
 A nil or purely numeric LABEL is ignored, so that `[fn:1]' and an
