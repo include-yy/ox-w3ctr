@@ -1620,7 +1620,8 @@ byte-compiled code."
       :html-use-cc-badges :html-license :html-license-format-function
       ;; Internal export state
       :html-math-count
-      :html-special-block-registry-checked :html-table-align-cache)
+      :html-special-block-registry-checked :html-table-align-cache
+      :html-coderef-cache)
     "List of property keys cached by the OINFO oclosures.
 
 Access these keys only through `org-w3ctr--pget' and `org-w3ctr--pput',
@@ -3782,18 +3783,37 @@ on several lines is returned once.  The label format is ELEMENT's own
         (push (match-string 3 line) labels)))
     (delete-dups (nreverse labels))))
 
+(defun t--coderef-table (info)
+  "Return the hash table mapping code-reference labels in INFO to blocks.
+
+Build the table on first use by scanning `example-block' and
+`src-block' elements in `:parse-tree' (skipping elements ignored by
+the export), and cache it in INFO under `:html-coderef-cache'.
+Signal `org-w3ctr-error' when two blocks define the same label."
+  (declare (ftype (function (list) hash-table))
+           (important-return-value t))
+  (or (and info (t--pget info :html-coderef-cache))
+      (let ((table (make-hash-table :test #'equal)))
+        (org-element-map (t--pget info :parse-tree) '(example-block src-block)
+          (lambda (block)
+            (dolist (label (t--coderef-labels block))
+              (when (gethash label table)
+                (t-error "Duplicate code reference label: %s" label))
+              (puthash label block table)))
+          info)
+        (when info (t--pput info :html-coderef-cache table))
+        table)))
+
 (defun t--coderef-block (label info)
   "Return the block in INFO that defines code-reference LABEL.
 
-Search `example-block' and `src-block' elements in document order,
-skipping what the export ignores, and return the first block defining
-LABEL, or nil when no block does.  INFO is the info plist."
+Search `example-block' and `src-block' elements in `:parse-tree',
+skipping what the export ignores, and return the block defining LABEL,
+or nil when no block does.  Signal `org-w3ctr-error' when more than one
+block defines LABEL.  INFO is the info plist."
   (declare (ftype (function (string list) t))
            (important-return-value t))
-  (org-element-map (t--pget info :parse-tree) '(example-block src-block)
-    (lambda (block)
-      (and (member label (t--coderef-labels block)) block))
-    info 'first-match))
+  (gethash label (t--coderef-table info)))
 
 ;;;; Example Block
 

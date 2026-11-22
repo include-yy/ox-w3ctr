@@ -3967,6 +3967,31 @@ cookie-less column is remembered as the `none' marker."
       (should (string-match-p "<a href=\"#a\" class=\"coderef\">a</a>" out))
       (should (string-match-p "<a href=\"#b\" class=\"coderef\">b</a>" out)))))
 
+(ert-deftest t--coderef-table ()
+  "Tests for `org-w3ctr--coderef-table'."
+  (let* ((tree (with-temp-buffer
+                 (insert ($c "#+begin_example\na (ref:a)\na2 (ref:a)\n#+end_example\n"
+                             "#+begin_src text\nb (ref:b)\n#+end_src\n"))
+                 (org-mode)
+                 (org-element-parse-buffer)))
+         (info (list :parse-tree tree))
+         (table (t--coderef-table info)))
+    ($s (hash-table-p table))
+    ($q (t--coderef-table info) table)
+    ($q (t--pget info :html-coderef-cache) table)
+    ($q (org-element-type (gethash "a" table)) 'example-block)
+    ($q (org-element-type (gethash "b" table)) 'src-block))
+  ;; Duplicate label across two non-ignored blocks signals `org-w3ctr-error'.
+  (let* ((tree (with-temp-buffer
+                 (insert ($c "#+begin_example\nx (ref:d)\n#+end_example\n"
+                             "#+begin_example\ny (ref:d)\n#+end_example\n"))
+                 (org-mode)
+                 (org-element-parse-buffer)))
+         (info (list :parse-tree tree)))
+    ($e!l (t--coderef-table info)
+          '(org-w3ctr-error "Duplicate code reference label: d"))
+    ($n (t--pget info :html-coderef-cache))))
+
 (ert-deftest t--coderef-block ()
   "Tests for `org-w3ctr--coderef-block'."
   (let* ((tree (with-temp-buffer
@@ -3979,17 +4004,16 @@ cookie-less column is remembered as the `none' marker."
     ($q (org-element-type (t--coderef-block "b" info)) 'src-block)
     ;; A label no block defines has no block.
     ($n (t--coderef-block "nope" info)))
-  ;; The first block wins when two define the same label, and blocks
-  ;; in `:ignore-list' are skipped.
+  ;; Duplicate labels across blocks signal `org-w3ctr-error', unless one
+  ;; of the blocks is in `:ignore-list'.
   (let* ((tree (with-temp-buffer
                  (insert ($c "#+begin_example\nx (ref:d)\n#+end_example\n"
                              "#+begin_example\ny (ref:d)\n#+end_example\n"))
                  (org-mode)
                  (org-element-parse-buffer)))
          (first (car (org-element-map tree 'example-block #'identity))))
-    ($l (org-element-property :value
-                              (t--coderef-block "d" (list :parse-tree tree)))
-        "x (ref:d)\n")
+    ($e!l (t--coderef-block "d" (list :parse-tree tree))
+          '(org-w3ctr-error "Duplicate code reference label: d"))
     ($l (org-element-property
          :value (t--coderef-block
                  "d" (list :parse-tree tree :ignore-list (list first))))

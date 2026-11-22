@@ -159,6 +159,14 @@ same session.  Larger or planned work is in the =TODO= list above.
   =info=; a differently named INFO plist would false-fail.  Loosen to
   =[^ \t\n()]+= if that ever changes.
 
+- *Coderef label validation is asymmetric between definition and link.*
+  =org-w3ctr--link-coderef= rejects labels outside =[-a-zA-Z0-9_]+=
+  with =org-w3ctr-error=, whereas =org-w3ctr--coderef-labels= accepts
+  any label matched by =org-w3ctr--coderef-regexp= (e.g. =(ref:my
+  label)=) and gives its block an id even though no =[[(...)]]= link
+  can reference it.  Decide whether to validate at definition time too
+  when revisiting =link=.
+
 - *=org-w3ctr--read-attr='s error message prints the property keyword as
   is.*  =Invalid attribute #+%s= interpolates the keyword, so the
   production message reads =Invalid attribute #+:attr__: ...= while the
