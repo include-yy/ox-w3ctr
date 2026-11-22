@@ -3326,6 +3326,7 @@ in the current buffer, its line number."
 ;; The parser upcases `:type' and keeps `:value' as written, list
 ;; indentation included (stripping common indentation would alter a JS
 ;; template literal or a multi-line Lisp string).
+
 (defun t-export-block (export-block _contents _info)
   "Transcode an EXPORT-BLOCK element from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
@@ -3726,10 +3727,7 @@ for custom attributes; only named paragraphs get an automatic id."
 ;; and `-k' switches, so labels are always removed and links always show
 ;; the label.  The link points at the id of the block that defines the
 ;; label, not at a per-label anchor, so the block is the addressable
-;; unit.  The label format (`-l') is resolved from the element alone:
-;; `org-src-coderef-format' falls back to the element at point when a
-;; block has no `-l', which lets one block's format leak into another
-;; during export.
+;; unit.
 
 (defun t--coderef-regexp (element)
   "Return the regexp matching ELEMENT's code-reference labels.
@@ -3749,7 +3747,7 @@ into another when the point happens to sit in a block with `-l'."
 
 ELEMENT is a `src-block' or an `example-block'.  The text loses its
 common indentation unless the block preserves it (`-i'), its final
-newline, and every `(ref:NAME)' label at a line end.  The label
+newline, and every code-reference label at a line end.  The label
 format is ELEMENT's own (see `org-w3ctr--coderef-regexp')."
   (declare (ftype (function (t) string))
            (important-return-value t))
@@ -3771,10 +3769,9 @@ format is ELEMENT's own (see `org-w3ctr--coderef-regexp')."
 (defun t--coderef-labels (element)
   "Return the code-reference labels defined in ELEMENT, in order.
 
-ELEMENT is a `src-block' or an `example-block'.  A label that
-occurs on several lines is returned once.  The label format is the
-block's own `-l' switch when it has one, `org-coderef-label-format'
-otherwise."
+ELEMENT is a `src-block' or an `example-block'.  A label that occurs
+on several lines is returned once.  The label format is ELEMENT's own
+\(see `org-w3ctr--coderef-regexp')."
   (declare (ftype (function (t) list))
            (important-return-value t))
   (let ((regexp (t--coderef-regexp element))
@@ -3789,9 +3786,8 @@ otherwise."
   "Return the block in INFO that defines code-reference LABEL.
 
 Search `example-block' and `src-block' elements in document order,
-skipping what the export ignores, and return the first block whose
-`(ref:LABEL)' matches, or nil when no block does.  INFO is the
-info plist."
+skipping what the export ignores, and return the first block defining
+LABEL, or nil when no block does.  INFO is the info plist."
   (declare (ftype (function (string list) t))
            (important-return-value t))
   (org-element-map (t--pget info :parse-tree) '(example-block src-block)
