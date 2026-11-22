@@ -3160,17 +3160,17 @@ rendering to the autoloaded `table-generate-source'."
   (declare (ftype (function (t list) (or null string)))
            (important-return-value t))
   (when (eq (org-element-property :type table) 'table.el)
-    (let ((outbuf (with-current-buffer
-                      (get-buffer-create "*org-export-table*")
-                    (erase-buffer) (current-buffer))))
-      (with-temp-buffer
-        (insert (org-element-property :value table))
-        (goto-char (point-min))
-        (re-search-forward "^[ \t]*|[^|]" nil t)
-        (table-generate-source 'html outbuf))
-      (with-current-buffer outbuf
-        (prog1 (org-trim (buffer-string))
-          (kill-buffer))))))
+    (let ((outbuf (generate-new-buffer " *org-export-table*")))
+      (unwind-protect
+          (progn
+            (with-temp-buffer
+              (insert (org-element-property :value table))
+              (goto-char (point-min))
+              (re-search-forward "^[ \t]*|[^|]" nil t)
+              (table-generate-source 'html outbuf))
+            (with-current-buffer outbuf
+              (org-trim (buffer-string))))
+        (kill-buffer outbuf)))))
 
 (defun t-table-cell (table-cell contents info)
   "Transcode a TABLE-CELL element from Org to HTML.
@@ -3180,8 +3180,7 @@ Return a <th> or <td> element as a string.  Empty or whitespace-only
 cells become &#xa0;.  Header-row cells use <th scope=\"col\">;
 first-column cells use <th scope=\"row\"> when
 `:html-table-use-header-tags-for-first-column' is non-nil; other
-cells use <td>.  Inline alignment comes from
-`org-w3ctr--table-cell-attrs'."
+cells use <td>.  An explicit alignment cookie adds an inline style."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((row (org-element-parent table-cell))
@@ -3227,22 +3226,25 @@ boundaries."
 
 (defun t-table (table contents info)
   "Transcode a TABLE element from Org to HTML.
-CONTENTS is the transcoded rows.  INFO is the info plist.
+CONTENTS is the transcoded rows (or nil).  INFO is the info plist.
 
 Return the formatted HTML table as a string.  A `table.el' table is
-delegated to `org-w3ctr--table.el-table'; a standard table emits
-<table> with `org-w3ctr--make-attr__id*' (named-only),
-`org-w3ctr--table-caption', and `org-w3ctr--table-column-specs'."
+rendered via `table-generate-source'; a standard table emits a
+<table> with optional <caption> and <colgroup> elements.  Accept
+`#+attr__:' and `#+attr_html:' for custom attributes; only named
+tables get an automatic id."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (if (eq (org-element-property :type table) 'table.el)
       (t--table.el-table table info)
     ;; Standard table.
-    (format "<table%s>\n%s\n%s\n%s</table>"
-            (t--make-attr__id* table info t)
-            (t--table-caption table info)
-            (t--table-column-specs table info)
-            contents)))
+    (let ((caption (t--table-caption table info))
+          (specs (t--table-column-specs table info)))
+      (format "<table%s>%s%s%s</table>"
+              (t--make-attr__id* table info t)
+              (if (string-empty-p caption) "" (concat "\n" caption))
+              specs
+              (t--prepend-newline contents)))))
 
 ;;; Lesser elements
 

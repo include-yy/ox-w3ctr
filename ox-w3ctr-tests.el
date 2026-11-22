@@ -3097,6 +3097,8 @@ cookie-less column is remembered as the `none' marker."
         ($c "<thead>\n<tr>"
             "<th scope=\"col\">a</th><th scope=\"col\">b</th>"
             "\n</tr>\n</thead>"))
+    ;; a rule row returns nil
+    ($n (row "| a | b |\n|---+---|\n| 1 | 2 |" 1 ""))
     ;; a body row carries <tbody>
     ($l (row "| a | b |\n|---+---|\n| 1 | 2 |" 2 "<td>1</td><td>2</td>")
         "<tbody>\n<tr><td>1</td><td>2</td>\n</tr>\n</tbody>")
@@ -3116,12 +3118,12 @@ cookie-less column is remembered as the `none' marker."
    #'t-table
    `(;; no caption, one column group
      ("| a | b |"
-      ,($c "<table>\n\n\n<colgroup span=\"2\">"
+      ,($c "<table>\n<colgroup span=\"2\">"
            "\n<tbody>\n<tr>\n<td>a</td>\n<td>b</td>\n</tr>\n</tbody>"
            "\n</table>"))
      ;; a rule makes the first row a header
      ("| a | b |\n|---+---|\n| 1 | 2 |"
-      ,($c "<table>\n\n\n<colgroup span=\"2\">"
+      ,($c "<table>\n<colgroup span=\"2\">"
            "\n<thead>\n<tr>"
            "\n<th scope=\"col\">a</th>\n<th scope=\"col\">b</th>"
            "\n</tr>\n</thead>"
@@ -3130,24 +3132,24 @@ cookie-less column is remembered as the `none' marker."
      ;; a name becomes the id; the caption comes first
      ("#+name: t\n#+caption: Cap\n| a |"
       ,($c "<table id=\"t\">\n<caption>Cap</caption>"
-           "\n\n<colgroup span=\"1\">"
+           "\n<colgroup span=\"1\">"
            "\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>"
            "\n</table>"))
      ;; alignment cookies style the data cells
      ("| <l> | <r> |\n| a | b |"
-      ,($c "<table>\n\n\n<colgroup span=\"2\">"
+      ,($c "<table>\n<colgroup span=\"2\">"
            "\n<tbody>\n<tr>"
            "\n<td style=\"text-align:left\">a</td>"
            "\n<td style=\"text-align:right\">b</td>"
            "\n</tr>\n</tbody>\n</table>"))
      ;; attr_html is honoured
      ("#+attr_html: :class data\n| a |"
-      ,($c "<table class=\"data\">\n\n\n<colgroup span=\"1\">"
+      ,($c "<table class=\"data\">\n<colgroup span=\"1\">"
            "\n<tbody>\n<tr>\n<td>a</td>\n</tr>\n</tbody>"
            "\n</table>"))
      ;; a `/' row makes two column groups
      ("| / | < | > | < | > |\n|   | a | b | c | d |"
-      ,($c "<table>\n\n\n<colgroup span=\"2\">\n<colgroup span=\"2\">"
+      ,($c "<table>\n<colgroup span=\"2\">\n<colgroup span=\"2\">"
            "\n<tbody>\n<tr>"
            "\n<td>a</td>\n<td>b</td>\n<td>c</td>\n<td>d</td>"
            "\n</tr>\n</tbody>\n</table>")))
