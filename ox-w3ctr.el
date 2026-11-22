@@ -4127,12 +4127,9 @@ table knows."
 
 ;;;; Fontify stylesheet
 
-;; `org-w3ctr-fontify-palette' is the single source of the highlighting
-;; colours.  `org-w3ctr--fontify-stylesheet' turns it into CSS, which
-;; `org-w3ctr-fontify-update-stylesheet' writes between two marker
-;; lines of assets/style.css; a test checks that the shipped block is
-;; exactly what the palette generates.  Rules carry `var(--ef-SLUG)',
-;; so a block can recolour a slug locally with
+;; `org-w3ctr-fontify-palette' is the single source of highlighting
+;; colours, enforced against assets/style.css by a test.  Rules use
+;; `var(--ef-SLUG)' so a block can recolour a slug locally with
 ;; `#+attr__: (style "--ef-k: red")'.
 
 (defconst t--fontify-css-begin
@@ -4151,8 +4148,8 @@ defines --ef-SLUG for the light theme on :root, redefines it under
 `prefers-color-scheme: dark', and gives each slug an .ef-SLUG rule
 using it.
 
-Signal `org-w3ctr-error' unless PALETTE is a non-empty list of
-entries (SLUG . PLIST) with distinct SLUGs, each SLUG a lowercase
+Signal `org-w3ctr-error' unless PALETTE is a non-empty proper list of
+entries (SLUG . PLIST) with distinct slugs, each SLUG a lowercase
 letter followed by lowercase letters, digits or hyphens, and PLIST
 a property list with the keys `:light' and `:dark', each a lowercase
 #rrggbb colour, and optionally `:style', a list of `bold' and
@@ -4226,11 +4223,11 @@ opening one first."
 (defun t-fontify-update-stylesheet (&optional file)
   "Write `org-w3ctr-fontify-palette' into the stylesheet FILE.
 
-FILE defaults to assets/style.css of this package.  The text
-between the marker lines (see `org-w3ctr--fontify-stylesheet-bounds')
-is replaced by `org-w3ctr--fontify-stylesheet'; the rest of FILE is
-kept.  The file is written as UTF-8 with LF line ends, and the CSS
-cache is cleared (`org-w3ctr-clear-css').  Return FILE."
+FILE defaults to assets/style.css of this package.  The generated
+CSS block between its BEGIN and END marker lines is replaced in
+place, keeping the rest of FILE intact.  The file is written as
+UTF-8 with LF line ends, and the CSS cache is cleared via
+`org-w3ctr-clear-css'.  Return FILE."
   (interactive)
   (let ((file (or file (file-name-concat t--dir "assets" "style.css"))))
     (with-temp-buffer
