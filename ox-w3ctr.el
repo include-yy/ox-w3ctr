@@ -4030,15 +4030,10 @@ unwrapped.  The result has no wrapper element."
 
 ;;;; Fontify report
 
-;; One export keeps one fontify state, a hash table of counts keyed by
-;; (KIND . KEY): which engine fontified or declined how many blocks,
-;; which faces found no slug, and so on.  Internal entries share the
-;; table under kinds the report does not show: `broken' engines,
-;; `warned' messages and `cache'd values.  It lives in INFO under
-;; `:html-fontify-state', and the latest one also in
-;; `org-w3ctr--fontify-last-state' for `org-w3ctr-show-fontify-report'
-;; (a body-only export never reaches the template, so there is no end
-;; of export to hook into).
+;; Per-export fontify state (`:html-fontify-state' in INFO), shared
+;; between report counters and internal entries (`broken', `warned',
+;; `cache').  Saved to `org-w3ctr--fontify-last-state' on creation, as
+;; body-only exports and `org-w3ctr-fontify-code' bypass `template'.
 
 (defvar t--fontify-last-state nil
   "The fontify state of the most recent fontifying run, or nil.
@@ -4077,7 +4072,8 @@ KIND is one of the symbols of `org-w3ctr--fontify-report-sections'
 or an internal marker; KEY is what the event is about: an engine, a
 language, a face or a slug."
   (declare (ftype (function (hash-table symbol t) integer)))
-  (puthash (cons kind key) (1+ (gethash (cons kind key) state 0)) state))
+  (let ((k (cons kind key)))
+    (puthash k (1+ (gethash k state 0)) state)))
 
 (defun t--fontify-report-text (state)
   "Return the text of the fontify report for STATE.
@@ -4091,8 +4087,9 @@ nothing to report."
   (let ((by-kind (make-hash-table :test #'eq))
         parts)
     (maphash (lambda (k n)
-               (push (cons (format "%s" (cdr k)) n)
-                     (gethash (car k) by-kind)))
+               (when (assq (car k) t--fontify-report-sections)
+                 (push (cons (format "%s" (cdr k)) n)
+                       (gethash (car k) by-kind))))
              state)
     (pcase-dolist (`(,kind . ,heading) t--fontify-report-sections)
       (when-let* ((rows (gethash kind by-kind)))
@@ -4111,12 +4108,12 @@ nothing to report."
 (defun t-show-fontify-report ()
   "Show what code highlighting did in the most recent fontifying run.
 
-The run is the one `org-w3ctr--fontify-last-state' records.  List,
-most frequent first, the blocks each engine fontified or declined,
-the engines that failed or were unavailable, the languages no engine
-took, the faces that found no slug in the face tables, and the slugs
-an engine sent that no face table knows.  See
-`org-w3ctr--fontify-report-text'."
+A run is an export, or a call to `org-w3ctr-fontify-code', that
+fontified some code.  List, most frequent first, the blocks each
+engine fontified or declined, the engines that failed or were
+unavailable, the languages no engine took, the faces that found no
+slug in the face tables, and the slugs an engine sent that no face
+table knows."
   (interactive)
   (unless t--fontify-last-state
     (user-error "No export has fontified code yet"))
