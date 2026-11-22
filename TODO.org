@@ -58,11 +58,17 @@
 - *CSS cleanup in =assets/style.css=.*  Not urgent.
   - Dead rules: =.org-center= (never emitted).
 - *Client-side highlighting.*  The server-side engines (=font-lock=,
-  =shiki=) are done (2026-10).  A =client= engine is designed but not
-  built: it would emit =<code class="language-LANG">= unchanged and add
-  highlight.js or Prism to =<head>= only when a document needs it.  It
-  makes the page depend on browser JavaScript, so it waits for a
-  concrete need.
+  =shiki=) are done (2026-10).  Rather than building a full third
+  engine, this can reuse the =plain= (or =nil=) fontify path plus a
+  =<head>= injection hook (such as highlight.js or Prism) gated on a
+  body-usage flag like =org-w3ctr--has-math-p=, since
+  =org-w3ctr-template-1= already renders =body= before
+  =org-w3ctr--build-head=.  Two details to coordinate with the class
+  naming task below: emitting =language-LANG= (for blocks and, if
+  desired, =src-inline=), and keeping client language aliases / theme
+  backgrounds from clashing with =assets/style.css= (=pre > code.src=
+  and dark mode).  Still waits for a concrete need since it introduces
+  a browser JavaScript dependency.
 - *Special-block custom elements: a component cookbook.*  The
   =:html-special-block-custom-elements= registry (=:template= for
   Declarative Shadow DOM, =:src= and =:script= for the =<head>=
