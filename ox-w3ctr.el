@@ -3652,10 +3652,10 @@ an invalid custom or RPC result."
 
 ;;;; Paragraph
 
-;; See (info "(org) Paragraphs")
+;; See (info "(org)Paragraphs")
 ;; A paragraph holding one image becomes <figure><figcaption>.  The
 ;; "Figure N" label is the W3C stylesheet's counter on figcaption; do not
-;; compute it in Elisp (see the caption item in README.org).  `#+attr__'
+;; compute it in Elisp (see the caption item in TODO.org).  `#+attr__'
 ;; and `#+attr_html' apply to the <figure> through
 ;; `org-w3ctr--make-attr__id*', just like every other block.
 
@@ -3667,10 +3667,12 @@ empty).  ATTRS is a pre-formatted attribute string for the <figure>
 tag.  Return the formatted <figure> element as a string."
   (declare (ftype (function (string string string) string))
            (pure t) (important-return-value t))
-  (format "<figure%s>\n%s%s</figure>"
-          attrs contents
-          (if-let* ((c (t--nw-trim caption)))
-              (format "<figcaption>%s</figcaption>\n" c) "")))
+  (let ((body (t--trim contents))
+        (cap (t--nw-trim caption)))
+    (format "<figure%s>\n%s%s</figure>"
+            attrs
+            (if (string-empty-p body) "" (concat body "\n"))
+            (if cap (format "<figcaption>%s</figcaption>\n" cap) ""))))
 
 (defun t-paragraph (paragraph contents info)
   "Transcode a PARAGRAPH element from Org to HTML.
@@ -3678,10 +3680,12 @@ CONTENTS is the paragraph text (nil when pruned, as under `tex:nil').
 INFO is the info plist.
 
 Return the formatted HTML string, or \"\" for an empty paragraph.  A
-standalone image becomes <figure>.  The first paragraph in a list item
-omits <p> (wrapping in <span> if it has attributes) when it is alone
-or followed at most by a sub-list.  Other paragraphs become <p>.
-Attributes use `org-w3ctr--make-attr__id*' (named-only)."
+standalone image becomes <figure> (carrying any caption in
+<figcaption>); captions on other paragraphs are dropped.  The first
+paragraph in a list item omits <p> (wrapping in <span> if it has
+attributes) when it is alone or followed at most by a sub-list.
+Other paragraphs become <p>.  Accept `#+attr__:' and `#+attr_html:'
+for custom attributes; only named paragraphs get an automatic id."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   ;; Org hands us nil, not an empty string, when everything inside the

@@ -3794,17 +3794,17 @@ cookie-less column is remembered as the `none' marker."
   "Tests for `org-w3ctr--wrap-image'."
   ($l (t--wrap-image "" "" "") "<figure>\n</figure>")
   ($l (t--wrap-image "hello" "" "")
-      "<figure>\nhello</figure>")
-  ($l (t--wrap-image "hello" "  \n " "")
-      "<figure>\nhello</figure>")
+      "<figure>\nhello\n</figure>")
+  ($l (t--wrap-image "  hello \n " "  \n " "")
+      "<figure>\nhello\n</figure>")
   ($l (t--wrap-image "hello" " abc" "")
-      "<figure>\nhello<figcaption>abc</figcaption>\n</figure>")
+      "<figure>\nhello\n<figcaption>abc</figcaption>\n</figure>")
   ;; ATTRS is inserted verbatim inside the tag; CAPTION is trimmed
   ($l (t--wrap-image "" "\ntest\n" " class=\"x\"")
       "<figure class=\"x\">\n<figcaption>test</figcaption>\n</figure>")
   ;; contents, caption and attrs together
   ($l (t--wrap-image "<img>" "cap" " id=\"i\"")
-      "<figure id=\"i\">\n<img><figcaption>cap</figcaption>\n</figure>"))
+      "<figure id=\"i\">\n<img>\n<figcaption>cap</figcaption>\n</figure>"))
 
 (ert-deftest t-paragraph ()
   "Tests for `org-w3ctr-paragraph'."
@@ -3832,7 +3832,7 @@ cookie-less column is remembered as the `none' marker."
       "<p>after</p>"
       "<figure>\n<img src=\"./1.png\" alt=\"1.png\">\n</figure>")
      ("-\n  #+attr_html: :class foo\n  [[./1.png]]"
-      "<figure class=\"foo\">\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
+      "<figure class=\"foo\">\n<img src=\"./1.png\" alt=\"1.png\">\n</figure>")
      ;; single-paragraph list item with attributes gets <span>; in a
      ;; multi-paragraph item the first paragraph gets <p>
      ("-\n  #+attr__: [example]\n  123"
@@ -3841,32 +3841,34 @@ cookie-less column is remembered as the `none' marker."
       "<p id=\"id2\">456</p>" "<p id=\"id\">123</p>")
      ;; standalone image
      ("[[./1.png]]"
-      "<figure>\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
+      "<figure>\n<img src=\"./1.png\" alt=\"1.png\">\n</figure>")
+     ("  [[./1.png]]  "
+      "<figure>\n<img src=\"./1.png\" alt=\"1.png\">\n</figure>")
      ("#+name: id\n#+caption:cap\n[[./1.png]]"
-      ,($c "<figure id=\"id\">\n<img src=\"./1.png\" alt=\"1.png\">"
+      ,($c "<figure id=\"id\">\n<img src=\"./1.png\" alt=\"1.png\">\n"
            "<figcaption>cap</figcaption>\n</figure>"))
      ;; empty caption
      ("#+caption: \n[[./1.png]]"
-      "<figure>\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
+      "<figure>\n<img src=\"./1.png\" alt=\"1.png\">\n</figure>")
      ("#+attr__:[sidefigure]\n[[./2.gif]]"
       ,($c "<figure class=\"sidefigure\">"
-           "\n<img src=\"./2.gif\" alt=\"2.gif\"></figure>"))
+           "\n<img src=\"./2.gif\" alt=\"2.gif\">\n</figure>"))
      ("[[./1.png][name]]" "<p><a href=\"./1.png\">name</a></p>")
      ("[[https://example.com/1.jpg][file:1.jpg]]"
       ,($c "<figure>\n<a href=\"https://example.com/1.jpg\">"
-           "<img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
+           "<img src=\"1.jpg\" alt=\"1.jpg\"></a>\n</figure>"))
      ;; `#+attr_html' applies to the <figure>, just like every other block
      ("#+attr_html: :class foo\n[[./1.png]]"
-      "<figure class=\"foo\">\n<img src=\"./1.png\" alt=\"1.png\"></figure>")
+      "<figure class=\"foo\">\n<img src=\"./1.png\" alt=\"1.png\">\n</figure>")
      ("#+attr_html: :class foo\n[[https://example.com/1.jpg][file:1.jpg]]"
       ,($c "<figure class=\"foo\">\n<a href=\"https://example.com/1.jpg\">"
-           "<img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>"))
+           "<img src=\"1.jpg\" alt=\"1.jpg\"></a>\n</figure>"))
      ;; in a non-standalone paragraph `:attr_html' stays on the <p>
      ("#+attr_html: :class foo\n[[./1.png]] [[./2.png]]"
       "<p class=\"foo\"><img src=\"./1.png\" alt=\"1.png\"> <img src=\"./2.png\" alt=\"2.png\"></p>")
      ;; `#+attr__' takes priority over `#+attr_html' on <figure>
      ("#+attr__: [bar]\n#+attr_html: :class foo\n[[https://example.com/1.jpg][file:1.jpg]]"
-      "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a></figure>")
+      "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a>\n</figure>")
      ;; a caption on a regular paragraph is dropped
      ("#+caption: Cap\nregular text" "<p>regular text</p>"))
    t '(:html-prefer-user-labels t))
