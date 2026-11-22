@@ -244,12 +244,6 @@ same session.  Larger or planned work is in the =TODO= list above.
   - Efficiency, only if profiling flags the font-lock engine: memoize
     =org-w3ctr--font-lock-face-slug= per export (the state already has the
     =(cache . jstools-languages)= pattern).
-  - Efficiency, same caveat: consider reusing one scratch buffer per major
-    mode across blocks (stashed in the fontify state) instead of a fresh
-    =with-temp-buffer= + =(funcall mode)= per block; =delay-mode-hooks=
-    already removes the dominant cost, so only if profiling shows the mode
-    body itself as hot -- and it must erase + insert + =font-lock-ensure=
-    + collect, minding buffer-local state leaking between blocks.
 
 - *Unnamed elements get a fresh random id on every export.*  With no
   explicit label, =t--reference= falls back to =t--get-reference= (vendored

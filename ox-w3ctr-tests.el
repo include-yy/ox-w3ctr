@@ -4776,47 +4776,184 @@ fresh: the code under test may store its state in it."
     ;; An entry without :font-lock leaves the choice to Org.
     ($q (with-alist '(("c" :other x)) "c") 'c-mode)))
 
+(ert-deftest t--font-lock-mode-init ()
+  "Tests for `org-w3ctr--font-lock-mode-init'."
+  (let* ((runs 0)
+         (emacs-lisp-mode-hook (list (lambda () (setq runs (1+ runs))))))
+    (with-temp-buffer
+      ($s (t--font-lock-mode-init 'emacs-lisp-mode nil))
+      ($l runs 0)
+      ($q buffer-undo-list t))
+    (with-temp-buffer
+      ($s (t--font-lock-mode-init 'emacs-lisp-mode t))
+      ($l runs 1)))
+  (let ((parsers nil))
+    (cl-letf (((symbol-function 't-test-fake-ts-mode) #'ignore)
+              ((symbol-function 'treesit-parser-list)
+               (lambda (&rest _) parsers)))
+      (with-temp-buffer
+        ($n (t--font-lock-mode-init 't-test-fake-ts-mode nil)))
+      (setq parsers '(parser))
+      (with-temp-buffer
+        ($s (t--font-lock-mode-init 't-test-fake-ts-mode nil))))))
+
+(ert-deftest t--font-lock-buffer ()
+  "Tests for `org-w3ctr--font-lock-buffer'."
+  (let ((t--font-lock-buffers nil))
+    (unwind-protect
+        (let ((inits 0)
+              (parsers nil))
+          (cl-letf (((symbol-function 't-test-fake-mode)
+                     (lambda () (setq inits (1+ inits))))
+                    ((symbol-function 't-test-fake-ts-mode) #'ignore)
+                    ((symbol-function 'treesit-parser-list)
+                     (lambda (&rest _) parsers)))
+            (let ((b1 (t--font-lock-buffer 't-test-fake-mode nil))
+                  (b2 (t--font-lock-buffer 't-test-fake-mode nil))
+                  ;; Distinct run-hooks settings keep separate buffers.
+                  (b3 (t--font-lock-buffer 't-test-fake-mode t)))
+              ($s (buffer-live-p b1))
+              ($q b1 b2)
+              ($nq b1 b3)
+              ($l inits 2)
+              ;; A killed buffer is recreated on the next request.
+              (kill-buffer b1)
+              (let ((b4 (t--font-lock-buffer 't-test-fake-mode nil)))
+                ($s (buffer-live-p b4))
+                ($nq b4 b1)
+                ($l inits 3)
+                ($l (length t--font-lock-buffers) 2)))
+            ;; A declined tree-sitter mode kills its buffer and is not cached.
+            (let ((before (length (buffer-list))))
+              ($n (t--font-lock-buffer 't-test-fake-ts-mode nil))
+              ($l (length (buffer-list)) before)
+              ($n (assoc '(t-test-fake-ts-mode . nil) t--font-lock-buffers)))
+            ;; A failing mode kills its temp buffer and leaves cache intact.
+            (cl-letf (((symbol-function 't-test-bad-mode)
+                       (lambda () (error "Boom"))))
+              (let ((before (length (buffer-list))))
+                ($e! (t--font-lock-buffer 't-test-bad-mode nil) 'error)
+                ($l (length (buffer-list)) before)
+                ($n (assoc '(t-test-bad-mode . nil) t--font-lock-buffers))))))
+      (t-clear-fontify-buffers))))
+
+(ert-deftest t--font-lock-in-buffer ()
+  "Tests for `org-w3ctr--font-lock-in-buffer'."
+  (let ((t--font-lock-buffers nil))
+    (unwind-protect
+        (let ((parsers nil))
+          (cl-letf (((symbol-function 't-test-fake-ts-mode) #'ignore)
+                    ((symbol-function 'treesit-parser-list)
+                     (lambda (&rest _) parsers)))
+            ;; Fresh buffer path creates nothing in the cache and declines
+            ;; a parser-less tree-sitter mode.
+            ($l (t--font-lock-in-buffer
+                 'emacs-lisp-mode nil nil
+                 (lambda () (insert "hi") (buffer-string)))
+                "hi")
+            ($n t--font-lock-buffers)
+            ($q (t--font-lock-in-buffer 't-test-fake-ts-mode nil nil #'ignore)
+                :decline)
+            ($q (t--font-lock-in-buffer 't-test-fake-ts-mode nil t #'ignore)
+                :decline)
+            ;; Reuse path wipes text, overlays and narrowing even on error.
+            ($e! (t--font-lock-in-buffer
+                  'emacs-lisp-mode nil t
+                  (lambda ()
+                    (insert "leftover")
+                    (make-overlay 1 4)
+                    (narrow-to-region 2 5)
+                    (error "Boom")))
+                 'error)
+            (let ((buf (cdr (assoc '(emacs-lisp-mode . nil)
+                                   t--font-lock-buffers))))
+              ($s (buffer-live-p buf))
+              (with-current-buffer buf
+                ($l (buffer-size) 0)
+                ($n (buffer-narrowed-p))
+                ($n (overlays-in (point-min) (point-max)))
+                ($n (buffer-modified-p))))))
+      (t-clear-fontify-buffers))))
+
+(ert-deftest t-clear-fontify-buffers ()
+  "Tests for `org-w3ctr-clear-fontify-buffers'."
+  (let ((t--font-lock-buffers nil))
+    (unwind-protect
+        (let ((buf (t--font-lock-buffer 'emacs-lisp-mode nil)))
+          ($s (buffer-live-p buf))
+          ($s t--font-lock-buffers)
+          (t-clear-fontify-buffers)
+          ($n t--font-lock-buffers)
+          ($n (buffer-live-p buf)))
+      (t-clear-fontify-buffers))))
+
 (ert-deftest t--font-lock-tokens ()
   "Tests for `org-w3ctr--font-lock-tokens'."
-  (let ((t--fontify-last-state nil))
-    (let* ((code "(defun foo () (message \"<s>\"))")
-           (info (t-test-fontify-info))
-           (tokens (t--font-lock-tokens code "emacs-lisp" info)))
-      ($s (member '("k" . "defun") tokens))
-      ($s (member '("s" . "\"<s>\"") tokens))
-      ;; Raw text, not HTML: the tokens give the code back.
-      ($l (mapconcat #'cdr tokens) code)
-      ($q (t--fontify-check-tokens tokens code 'font-lock info) tokens))
-    (let ((info (t-test-fontify-info)))
-      ($q (t--font-lock-tokens "x" "no-such-lang" info) :decline))
-    ;; Mode hooks run only when asked to.
-    (let* ((runs 0)
-           (emacs-lisp-mode-hook (list (lambda () (setq runs (1+ runs))))))
-      (ignore (t--font-lock-tokens "(a)" "emacs-lisp" (t-test-fontify-info)))
-      ($l runs 0)
-      (ignore (t--font-lock-tokens "(a)" "emacs-lisp"
-                                   (t-test-fontify-info
-                                    :html-fontify-run-mode-hooks t)))
-      ($l runs 1))
-    ($e!l (t--font-lock-tokens "x" "emacs-lisp"
-                               (t-test-fontify-info
-                                :html-fontify-face-fallback 'bogus))
-          '(org-w3ctr-error "Unknown fontify face fallback: bogus"))
-    ;; A tree-sitter mode declines without a parser, and may not offer
-    ;; to install its grammar; with a parser, it fontifies.  A stand-in
-    ;; mode keeps this independent of the grammars installed.
-    (let ((info (t-test-fontify-info
-                 :html-fontify-lang-alist '(("fake" :font-lock t-test-fake-ts-mode))))
-          (install 'unset)
-          (parsers nil))
-      (cl-letf (((symbol-function 't-test-fake-ts-mode)
-                 (lambda () (setq install treesit-auto-install-grammar)))
-                ((symbol-function 'treesit-parser-list)
-                 (lambda (&rest _) parsers)))
-        ($q (t--font-lock-tokens "x = 1" "fake" info) :decline)
-        ($q install 'never)
-        (setq parsers '(parser))
-        ($l (t--font-lock-tokens "x = 1" "fake" info) '((nil . "x = 1")))))))
+  (let ((t--fontify-last-state nil)
+        (t--font-lock-buffers nil))
+    (unwind-protect
+        (progn
+          (let* ((code "(defun foo () (message \"<s>\"))")
+                 (info (t-test-fontify-info))
+                 (tokens (t--font-lock-tokens code "emacs-lisp" info)))
+            ($s (member '("k" . "defun") tokens))
+            ($s (member '("s" . "\"<s>\"") tokens))
+            ;; Raw text, not HTML: the tokens give the code back.
+            ($l (mapconcat #'cdr tokens) code)
+            ($q (t--fontify-check-tokens tokens code 'font-lock info) tokens)
+            ;; Reusing a mode buffer skips re-init and gives identical tokens.
+            (let* ((reinfo (t-test-fontify-info :html-fontify-reuse-buffer t))
+                   (other "(let ((x 1)) \"hi\")")
+                   (expected-other (t--font-lock-tokens other "emacs-lisp" info))
+                   (inits 0)
+                   (orig (symbol-function 'emacs-lisp-mode)))
+              (cl-letf (((symbol-function 'emacs-lisp-mode)
+                         (lambda () (setq inits (1+ inits)) (funcall orig))))
+                ($l (t--font-lock-tokens code "emacs-lisp" reinfo) tokens)
+                ($l (t--font-lock-tokens other "emacs-lisp" reinfo)
+                    expected-other)
+                ($l inits 1))
+              (let ((buf (cdr (assoc '(emacs-lisp-mode . nil)
+                                     t--font-lock-buffers))))
+                ($s (buffer-live-p buf))
+                (with-current-buffer buf
+                  ($l (buffer-size) 0)
+                  ($n (buffer-narrowed-p))
+                  ($n (overlays-in (point-min) (point-max)))))))
+          (let ((info (t-test-fontify-info)))
+            ($q (t--font-lock-tokens "x" "no-such-lang" info) :decline))
+          ;; Mode hooks run only when asked to.
+          (let* ((runs 0)
+                 (emacs-lisp-mode-hook
+                  (list (lambda () (setq runs (1+ runs))))))
+            (ignore (t--font-lock-tokens "(a)" "emacs-lisp"
+                                         (t-test-fontify-info)))
+            ($l runs 0)
+            (ignore (t--font-lock-tokens "(a)" "emacs-lisp"
+                                         (t-test-fontify-info
+                                          :html-fontify-run-mode-hooks t)))
+            ($l runs 1))
+          ($e!l (t--font-lock-tokens "x" "emacs-lisp"
+                                     (t-test-fontify-info
+                                      :html-fontify-face-fallback 'bogus))
+                '(org-w3ctr-error "Unknown fontify face fallback: bogus"))
+          ;; A tree-sitter mode declines without a parser, and may not offer
+          ;; to install its grammar; with a parser, it fontifies.  A stand-in
+          ;; mode keeps this independent of the grammars installed.
+          (let ((info (t-test-fontify-info
+                       :html-fontify-lang-alist
+                       '(("fake" :font-lock t-test-fake-ts-mode))))
+                (install 'unset)
+                (parsers nil))
+            (cl-letf (((symbol-function 't-test-fake-ts-mode)
+                       (lambda () (setq install treesit-auto-install-grammar)))
+                      ((symbol-function 'treesit-parser-list)
+                       (lambda (&rest _) parsers)))
+              ($q (t--font-lock-tokens "x = 1" "fake" info) :decline)
+              ($q install 'never)
+              (setq parsers '(parser))
+              ($l (t--font-lock-tokens "x = 1" "fake" info) '((nil . "x = 1"))))))
+      (t-clear-fontify-buffers))))
 
 ;;;; Fontify jstools engine
 

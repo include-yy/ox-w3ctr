@@ -216,6 +216,7 @@
     ;; Fontify: font-lock engine
     (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
     (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
+    (:html-fontify-reuse-buffer nil nil t-fontify-reuse-buffer)
     ;; Fontify jstools engine
     (:html-fontify-jstools-timeout nil nil t-fontify-jstools-timeout)
     ;; Fontify dispatcher
@@ -600,6 +601,21 @@ By default the mode's hooks are delayed (see the function
 `delay-mode-hooks'), so personal hooks (LSP clients, linters, minor
 modes that add faces) can neither slow the export nor make its
 output depend on the machine."
+  :group 'org-export-w3ctr
+  :type 'boolean
+  :safe #'booleanp)
+
+(defcustom t-fontify-reuse-buffer nil
+  "Non-nil means reuse one buffer per major mode when fontifying code.
+By default each source block gets a fresh temporary buffer, so
+buffer-local state and overlays cannot leak across blocks.  When
+non-nil, `org-w3ctr--font-lock-tokens' keeps one buffer per major mode
+and `org-w3ctr-fontify-run-mode-hooks' setting in
+`org-w3ctr--font-lock-buffers' across blocks and exports, skipping
+repeated mode initialization.
+
+Run `org-w3ctr-clear-fontify-buffers' after changing a major mode's
+highlighting setup."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
@@ -4257,9 +4273,18 @@ UTF-8 with LF line ends, and the CSS cache is cleared via
 ;; Options:
 ;; - :html-fontify-face-fallback (`org-w3ctr-fontify-face-fallback')
 ;; - :html-fontify-run-mode-hooks (`org-w3ctr-fontify-run-mode-hooks')
+;; - :html-fontify-reuse-buffer (`org-w3ctr-fontify-reuse-buffer')
 
 ;; Bound around the mode setup, so declared special here.
 (defvar treesit-auto-install-grammar)
+
+(defvar t--font-lock-buffers nil
+  "Alist of reusable font-lock buffers, keyed by (MODE . RUN-HOOKS).
+
+Each value is a buffer initialized in MODE (with hooks run when
+RUN-HOOKS is non-nil).  `org-w3ctr--font-lock-tokens' fills and reuses
+it when `:html-fontify-reuse-buffer' is non-nil; call
+`org-w3ctr-clear-fontify-buffers' to kill the buffers and reset.")
 
 (defconst t--font-lock-css-weights
   '((thin . 100) (ultralight . 200) (extra-light . 200) (ultra-light . 200)
@@ -4449,14 +4474,96 @@ special form is not one) gives nil."
                  (org-src-get-lang-mode lang))))
     (and mode (symbolp mode) (functionp mode) mode)))
 
+(defun t--font-lock-mode-init (mode run-hooks)
+  "Enable MODE in the current buffer and return non-nil if usable.
+
+When RUN-HOOKS is non-nil, run MODE's hooks; otherwise delay them.
+Disable undo in the buffer.  Return nil when MODE is a tree-sitter
+mode that attached no parser."
+  (declare (ftype (function (symbol t) boolean))
+           (important-return-value t))
+  (if run-hooks
+      (funcall mode)
+    (delay-mode-hooks (funcall mode)))
+  (buffer-disable-undo)
+  (not (and (string-suffix-p "-ts-mode" (symbol-name mode))
+            (not (and (fboundp 'treesit-parser-list)
+                      (treesit-parser-list))))))
+
+(defun t--font-lock-buffer (mode run-hooks)
+  "Return a reusable buffer initialized in MODE, or nil to decline.
+
+RUN-HOOKS selects whether MODE's hooks run.  The buffer is cached in
+`org-w3ctr--font-lock-buffers'; a killed buffer is recreated, and a
+buffer whose initialization fails or declines is killed immediately
+without being cached."
+  (declare (ftype (function (symbol t) (or null buffer)))
+           (important-return-value t))
+  (let* ((key (cons mode (and run-hooks t)))
+         (entry (assoc key t--font-lock-buffers))
+         (cached (cdr entry)))
+    (if (buffer-live-p cached)
+        cached
+      (let ((new (generate-new-buffer
+                  (format " *org-w3ctr-font-lock-%s*" mode) t))
+            ok)
+        (unwind-protect
+            (with-current-buffer new
+              (setq ok (t--font-lock-mode-init mode run-hooks)))
+          (unless ok (kill-buffer new)))
+        (when ok
+          (if entry
+              (setcdr entry new)
+            (push (cons key new) t--font-lock-buffers))
+          new)))))
+
+(defun t--font-lock-in-buffer (mode run-hooks reuse fn)
+  "Call FN in a clean buffer initialized with MODE, or return `:decline'.
+
+RUN-HOOKS selects whether MODE's hooks run.  When REUSE is non-nil,
+use the cached buffer from `org-w3ctr--font-lock-buffer' and wipe its
+contents before and after calling FN; otherwise run FN in a fresh
+temporary buffer."
+  (declare (ftype (function (symbol t t function) t))
+           (important-return-value t))
+  (if (not reuse)
+      (with-temp-buffer
+        (if (t--font-lock-mode-init mode run-hooks)
+            (funcall fn)
+          :decline))
+    (if-let* ((buf (t--font-lock-buffer mode run-hooks)))
+        (with-current-buffer buf
+          (let ((reset (lambda ()
+                         (widen)
+                         (delete-all-overlays)
+                         (erase-buffer)
+                         (set-buffer-modified-p nil))))
+            (unwind-protect
+                (progn (funcall reset) (funcall fn))
+              (funcall reset))))
+      :decline)))
+
+(defun t-clear-fontify-buffers ()
+  "Kill and clear cached font-lock buffers.
+
+When `org-w3ctr-fontify-reuse-buffer' is non-nil,
+`org-w3ctr--font-lock-tokens' keeps one buffer per major mode in
+`org-w3ctr--font-lock-buffers'.  Run this command to free those
+buffers or pick up changes to a major mode's highlighting setup."
+  (interactive)
+  (dolist (entry t--font-lock-buffers)
+    (when (buffer-live-p (cdr entry))
+      (kill-buffer (cdr entry))))
+  (setq t--font-lock-buffers nil))
+
 (defun t--font-lock-tokens (code lang info)
   "Fontify CODE (a string) in LANG's major mode and return its tokens.
 
 LANG is a language name as a string, and INFO the info plist; INFO
 supplies the mode (`org-w3ctr--font-lock-lang-mode'), face table,
-`:html-fontify-face-fallback', `:html-fontify-run-mode-hooks', and
-fontify state.  Mode messages and warnings are silenced, and grammar
-auto-install is disabled.
+`:html-fontify-face-fallback', `:html-fontify-run-mode-hooks',
+`:html-fontify-reuse-buffer', and fontify state.  Mode messages and
+warnings are silenced, and grammar auto-install is disabled.
 
 Return the tokens of `org-w3ctr--font-lock-collect', or `:decline'
 when LANG has no mode or its mode is a tree-sitter mode without a
@@ -4472,22 +4579,19 @@ grammar.  Signal `org-w3ctr-error' for an unknown
         :decline
       (let ((table (t--fontify-face-table info))
             (state (t--fontify-state info))
+            (hooks (t--pget info :html-fontify-run-mode-hooks))
+            (reuse (t--pget info :html-fontify-reuse-buffer))
             (inhibit-read-only t)
             (inhibit-message t)
             (warning-minimum-level :emergency)
             (treesit-auto-install-grammar 'never))
-        (with-temp-buffer
-          (if (t--pget info :html-fontify-run-mode-hooks)
-              (funcall mode)
-            (delay-mode-hooks (funcall mode)))
-          (if (and (string-suffix-p "-ts-mode" (symbol-name mode))
-                   (not (and (fboundp 'treesit-parser-list)
-                             (treesit-parser-list))))
-              :decline
-            (insert code)
-            (font-lock-ensure)
-            (set-buffer-modified-p nil)
-            (t--font-lock-collect table fallback state)))))))
+        (t--font-lock-in-buffer
+         mode hooks reuse
+         (lambda ()
+           (insert code)
+           (font-lock-ensure)
+           (set-buffer-modified-p nil)
+           (t--font-lock-collect table fallback state)))))))
 
 ;;;; Fontify jstools engine
 
