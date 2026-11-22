@@ -449,8 +449,8 @@ The value specifies the rendering method:
 - `verbatim'         : Keep raw fragment
 - `mathjax', t       : Render math using MathJax (client-side); a bare
                        t is the legacy alias
-- `mathml-by-mathjax': Convert to MathML markup using MathJax
-- `svg-by-mathjax'   : Convert to inline SVG using MathJax
+- `mathml-by-mathjax': Convert to MathML via jstools (MathJax)
+- `svg-by-mathjax'   : Convert to inline SVG via jstools (MathJax)
 - `custom'           : Use `org-w3ctr-math-custom-format-function'"
   :group 'org-export-w3ctr
   :type '(choice
