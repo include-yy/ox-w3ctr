@@ -3002,7 +3002,8 @@ string (possibly empty) and SEEN is the updated seen-list."
             parts))
     (when-let* ((js (plist-get plist :script))
                 ((t--nw-p js)))
-      (push (format "<script type=\"module\">\n%s\n</script>\n" js)
+      (push (format "<script type=\"module\">\n%s</script>\n"
+                    (org-element-normalize-string js))
             parts))
     (cons (apply #'concat (nreverse parts)) seen)))
 
@@ -3082,9 +3083,9 @@ cookie)."
          (table (org-export-get-parent-table cell))
          (cells (org-element-contents row))
          (column (- (length cells) (length (memq cell cells))))
-         (cache (or (t--pget info :html-table-align-cache)
+         (cache (or (and info (t--pget info :html-table-align-cache))
                     (let ((h (make-hash-table :test #'eq)))
-                      (t--pput info :html-table-align-cache h)
+                      (when info (t--pput info :html-table-align-cache h))
                       h)))
          (vector (or (gethash table cache)
                      (puthash table (make-vector (length cells) nil) cache))))
@@ -3191,14 +3192,13 @@ cells use <td>.  An explicit alignment cookie adds an inline style."
   (let* ((row (org-element-parent table-cell))
          (table (org-export-get-parent-table table-cell))
          (attrs (t--table-cell-attrs table-cell info))
-         (contents (if (or (not contents) (string= "" (org-trim contents)))
-                       "&#xa0;" contents)))
+         (contents (if (t--nw-p contents) contents "&#xa0;")))
     (cond
      ((and (org-export-table-has-header-p table info)
-           (= 1 (org-export-table-row-group row info)))
+           (eql 1 (org-export-table-row-group row info)))
       (format "\n<th scope=\"col\"%s>%s</th>" attrs contents))
      ((and (t--pget info :html-table-use-header-tags-for-first-column)
-           (zerop (cdr (org-export-table-cell-address table-cell info))))
+           (eql 0 (cdr (org-export-table-cell-address table-cell info))))
       (format "\n<th scope=\"row\"%s>%s</th>" attrs contents))
      (t
       (format "\n<td%s>%s</td>" attrs contents)))))
@@ -3220,7 +3220,7 @@ boundaries."
            (end (org-export-table-row-ends-rowgroup-p table-row info))
            (group-tags
             (cond
-             ((not (= 1 group)) '("<tbody>" . "\n</tbody>"))
+             ((not (eql 1 group)) '("<tbody>" . "\n</tbody>"))
              ((org-export-table-has-header-p
                (org-export-get-parent-table table-row) info)
               '("<thead>" . "\n</thead>"))

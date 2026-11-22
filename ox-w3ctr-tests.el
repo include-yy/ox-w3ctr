@@ -2846,6 +2846,10 @@ int a = 1;</code></p>\n</details>")
   ;; blank :src and :script values are ignored
   (let ((r (t--special-block-head-entry '("a-b" :src "  " :script "\n") nil)))
     ($l (car r) "")
+    ($n (cdr r)))
+  ;; trailing newline in :script does not add a blank line before </script>
+  (let ((r (t--special-block-head-entry '("a-b" :script "x()\n") nil)))
+    ($l (car r) "<script type=\"module\">\nx()\n</script>\n")
     ($n (cdr r))))
 
 (ert-deftest t-special-block-head-default-function ()
