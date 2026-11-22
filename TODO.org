@@ -273,6 +273,21 @@ same session.  Larger or planned work is in the =TODO= list above.
   Call =(org-w3ctr--jstools-available-p "mathjax")= first and signal
   =org-w3ctr-error= with setup context.
 
+- *Source block =<code>= class naming (=src= vs =language-=).*
+  =org-w3ctr-src-block= emits =<code class="src src-LANG">= when
+  =LANG= is present and bare =<code>= when =LANG= is nil, while
+  =assets/style.css= styles =pre > code.src= (plus =code.src-inline=
+  and the dark-mode override) and has no =.language-*= rules.  Two
+  decisions remain:
+  1. Whether language-less =#+begin_src= blocks should keep bare
+     =<code>= (pinned by the =org-w3ctr-src-block= test) or emit
+     =<code class="src">= so they share the =pre > code.src= block
+     styling.
+  2. Whether to keep =src src-LANG=, add HTML5/Prism/highlight.js-style
+     =language-LANG= alongside =src=, or switch to =language-LANG=
+     and update =assets/style.css= and tests (see =Client-side
+     highlighting= above).
+
 ** Non-goals
 
 Explicitly out of scope for now.

@@ -4998,39 +4998,40 @@ Return (ENGINE . TOKENS), falling back to `plain' if none succeeds."
 ;;;; Source block
 
 (defun t--fontify-default-info ()
-  "Return a plist of the current values of the fontify options.
+  "Return a fresh plist of the current values of the fontify options.
 
 It stands in for the info plist when `org-w3ctr-fontify-code' is
 called outside an export: each `:html-fontify-' key of the back-end's
-options gets the value of its variable."
+options gets the value of its variable.  The list is built fresh each
+time so callers may store `:html-fontify-state' in it."
   (declare (ftype (function () list))
            (important-return-value t))
   (let (plist)
     (dolist (option (org-export-backend-options
                      (org-export-get-backend 'w3ctr)))
       (when (string-prefix-p ":html-fontify-" (symbol-name (car option)))
-        (setq plist (nconc plist (list (car option)
-                                       (symbol-value (nth 3 option)))))))
-    plist))
+        (push (car option) plist)
+        (push (symbol-value (nth 3 option)) plist)))
+    (nreverse plist)))
 
+;; Pipeline: chain-for -> check-options -> dispatch -> merge -> render.
 (defun t-fontify-code (code lang &optional info element)
-  "Colorize CODE (a string) for LANG, returning bare fontified HTML.
+  "Return CODE fontified for LANG as bare HTML without a <code> tag.
 
-The result contains <span> runs only, with no wrapper element:
-callers wrap it in <code> as appropriate (block vs inline).  LANG
-is a language name as a string, or nil.  INFO is the info plist;
-without it, the current option values are used
-\(`org-w3ctr--fontify-default-info').  ELEMENT is the source block
-or inline source block, if any: its `:fontify' header argument
-overrides the method, and its line appears in messages.
+CODE is a string and LANG a language name as a string, or nil.  The
+result mixes HTML-escaped plain text with <span class=\"tok-SLUG\">
+or inline <span style=\"...\"> runs; callers wrap it in <code> as
+appropriate.
 
-The method gives a chain of engines (`org-w3ctr--fontify-chain-for')
-that `org-w3ctr--fontify-dispatch' runs until one returns tokens;
-those are merged by `org-w3ctr--fontify-merge' and rendered by
-`org-w3ctr--fontify-render'.  An empty CODE or a nil LANG is only
-escaped, but the options (`org-w3ctr--fontify-check-options') and
-the method are still checked: a malformed one signals
-`org-w3ctr-error'."
+INFO is the info plist; when nil, the current values of the
+`org-w3ctr-fontify-*' options are used.  ELEMENT, when non-nil, is
+the source block or inline source block: its `:fontify' header
+argument overrides the method and its line appears in messages.
+
+An empty CODE or a nil LANG is only HTML-escaped, while options and
+the method are still checked.  Signal `org-w3ctr-error' on invalid
+options or methods, or when an engine fails or declines a language
+under policy `error'."
   (declare (ftype (function (string (or null string) &optional list t)
                             string))
            (important-return-value t))
@@ -5042,29 +5043,6 @@ the method are still checked: a malformed one signals
       (t--fontify-render
        (t--fontify-merge
         (cdr (t--fontify-dispatch code lang chain info element)))))))
-
-(defun t--src-code (src-block lang info)
-  "Return bare fontified HTML for SRC-BLOCK's code in LANG.
-
-INFO is the info plist; it and SRC-BLOCK (for its `:fontify'
-header argument) are handed to `org-w3ctr-fontify-code'.  The code
-text comes from `org-w3ctr--code-text', which also removes the
-code-reference labels."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (t-fontify-code (t--code-text src-block)
-                  lang info src-block))
-
-(defun t--src-code-tag (lang code)
-  "Wrap bare CODE in a <code> tag carrying LANG's class.
-
-A nil LANG yields a plain <code> without a language class."
-  (declare (ftype (function ((or null string) string) string))
-           (pure t) (important-return-value t))
-  (if lang
-      (format "<code class=\"src src-%s\">%s</code>"
-              (t--encode-plain-text* lang) code)
-    (format "<code>%s</code>" code)))
 
 (defun t-src-block (src-block _contents info)
   "Transcode a SRC-BLOCK element from Org to HTML.
@@ -5078,7 +5056,11 @@ unless the author supplies attributes."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((lang (org-element-property :language src-block))
-         (code (t--src-code-tag lang (t--src-code src-block lang info)))
+         (body (t-fontify-code (t--code-text src-block) lang info src-block))
+         (class (if (not lang) ""
+                    (format " class=\"src src-%s\""
+                            (t--encode-plain-text* lang))))
+         (code (format "<code%s>%s</code>" class body))
          (caption (when-let* ((cap (org-export-get-caption src-block)))
                     (t--nw-trim (org-export-data cap info)))))
     (if caption
@@ -5091,11 +5073,10 @@ unless the author supplies attributes."
                   ;; suppresses it: the self-link needs one.
                   (t--make-attr__id* src-block info)
                   (if has-user-attrs "" " class=\"example\"")
-                  (if id
+                  (if (not id) ""
                       (format (concat "<a class=\"self-link\" href=\"#%s\""
                                       " aria-label=\"source block\"></a>\n")
-                              (t--encode-plain-text* id))
-                    "")
+                              (t--encode-plain-text* id)))
                   caption
                   code))
       (format "<div%s>\n<pre>\n%s</pre></div>"

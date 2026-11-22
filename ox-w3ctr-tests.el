@@ -5701,42 +5701,36 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($e!l (t-fontify-code "x" "emacs-lisp")
             '(org-w3ctr-error "Unknown fontify method: bogus")))))
 
-(ert-deftest t--src-code ()
-  "Tests for `org-w3ctr--src-code'."
-  (let ((t--fontify-last-state nil))
-    (cl-flet ((f (str) (t-get-element str 'src-block)))
-      (let* ((el (f "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"))
-             (out (t--src-code el "emacs-lisp" (t-test-fontify-info))))
-        (should (string-match-p "tok-k" out))
-        ($n (string-match-p "<code" out))
-        ;; INFO reaches `org-w3ctr-fontify-code'.
-        ($l (t--src-code el "emacs-lisp"
-                         (t-test-fontify-info :html-fontify-method nil))
-            "(defun foo () 1)"))
-      ;; The code-reference labels are removed.
-      ($l (t--src-code (f "#+begin_src text\nx (ref:a)\n#+end_src") "text"
-                       (t-test-fontify-info :html-fontify-method nil))
-          "x"))))
-
-(ert-deftest t--src-code-tag ()
-  "Tests for `org-w3ctr--src-code-tag'."
-  ($l (t--src-code-tag "emacs-lisp" "body")
-      "<code class=\"src src-emacs-lisp\">body</code>")
-  ($l (t--src-code-tag nil "body") "<code>body</code>")
-  ;; LANG comes from the block header and is escaped in the class.
-  ($l (t--src-code-tag "a\"b<c" "body")
-      "<code class=\"src src-a&quot;b&lt;c\">body</code>"))
-
 (ert-deftest t-src-block ()
   "Tests for `org-w3ctr-src-block'."
   (let ((t--fontify-last-state nil))
     (let ((out (org-export-string-as
                 "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
                 'w3ctr t)))
-      (should (string-match-p "<div>\n<pre>\n<code class=\"src src-emacs-lisp\">" out)))
+      (should (string-match-p
+               "<div>\n<pre>\n<code class=\"src src-emacs-lisp\">" out))
+      (should (string-match-p "tok-k" out)))
     ;; A block without a language gets a bare <code>.
     ($l (org-export-string-as "#+begin_src\n<x>\n#+end_src" 'w3ctr t)
         "<div>\n<pre>\n<code>&lt;x&gt;</code></pre></div>\n<main>\n</main>\n")
+    ;; INFO reaches `org-w3ctr-fontify-code'.
+    (should (string-match-p
+             "<code class=\"src src-emacs-lisp\">(defun foo () 1)</code>"
+             (org-export-string-as
+              "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
+              'w3ctr t '(:html-fontify-method nil))))
+    ;; The code-reference labels are removed.
+    (should (string-match-p
+             "<code class=\"src src-text\">x</code>"
+             (org-export-string-as
+              "#+begin_src text\nx (ref:a)\n#+end_src"
+              'w3ctr t '(:html-fontify-method nil))))
+    ;; LANG comes from the block header and is escaped in the class.
+    (should (string-match-p
+             "<code class=\"src src-a&quot;b&lt;c\">x</code>"
+             (org-export-string-as
+              "#+begin_src a\"b<c\nx\n#+end_src"
+              'w3ctr t '(:html-fontify-method nil))))
     (let ((out (org-export-string-as
                 "#+caption: C\n#+begin_src emacs-lisp\nx\n#+end_src"
                 'w3ctr t)))
