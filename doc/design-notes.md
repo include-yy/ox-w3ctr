@@ -89,7 +89,7 @@ Node engine, writing an engine of your own).
 header argument, else `#+OPTIONS: fontify:`, else
 `org-w3ctr-fontify-method`) into a chain of engines ending with `plain`
 (`t--fontify-chain-for`), and `t--fontify-dispatch` runs the engines of
-`org-w3ctr-fontify-engines` (`font-lock`, `jstools`, `plain`) until one
+`org-w3ctr-fontify-engines` (`font-lock`, `shiki`, `plain`) until one
 returns tokens.  The contract:
 
 - An engine returns `((CLASS . TEXT) ...)` or `:decline`, never HTML.
@@ -113,7 +113,7 @@ returns tokens.  The contract:
   terminal palette (`#1f5bff` comes back pure blue), so inline styles use
   `tty-color-standard-values`.  Mode hooks run delayed by default, and
   `font-lock-ensure` still fontifies everything under `delay-mode-hooks`.
-- The `jstools` engine calls `highlightLanguages` once per export and
+- The `shiki` engine calls `highlightLanguages` once per export and
   `highlight` per block; the helper answers `[TEXT, SLUG]` pairs.  Slugs
   come from `jstools/lib/slugs.json` through a synthetic Shiki theme whose
   fake colours (`#000001`, ...) decode back to slugs, so Shiki's own scope

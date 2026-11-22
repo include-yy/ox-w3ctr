@@ -32,7 +32,7 @@ cd jstools && npm ci
 #+end_src
 
 #+begin_src org
-,#+OPTIONS: fontify:(font-lock jstools)
+,#+OPTIONS: fontify:(font-lock shiki)
 #+end_src
 
 * Engines and methods
@@ -42,13 +42,13 @@ An /engine/ turns code into coloured runs.  Three are shipped:
 | Engine      | What it uses                                     | Needs                        |
 |-------------+--------------------------------------------------+------------------------------|
 | =font-lock= | Emacs font-lock, through the language's mode     | nothing                      |
-| =jstools=   | Shiki (TextMate grammars, ~350 languages), Node  | =node=, =npm ci= in jstools/ |
+| =shiki=     | Shiki (TextMate grammars, ~350 languages), Node  | =node=, =npm ci= in jstools/ |
 | =plain=     | nothing: the code is only HTML-escaped           | nothing                      |
 
 The /method/ says which engines to try, in order:
 
 - an engine name, e.g. =font-lock=;
-- a list of engine names, e.g. =(jstools font-lock)=: the first engine
+- a list of engine names, e.g. =(shiki font-lock)=: the first engine
   that takes the block wins;
 - =nil=: no highlighting.
 
@@ -60,7 +60,7 @@ The method is chosen, from the most specific:
    #+begin_src org
    ,#+begin_src python :fontify nil
    ,#+end_src
-   src_python[:fontify jstools]{x = 1}
+   src_python[:fontify shiki]{x = 1}
    #+end_src
    The value is read as Lisp (never evaluated): a name, =nil=, or a
    parenthesized list.
@@ -74,7 +74,7 @@ when it comes from the block.
 
 The =font-lock= engine asks =org-src-get-lang-mode= for the major mode
 of a language (=python= gives =python-mode=, =elisp= gives
-=emacs-lisp-mode=, ...).  The =jstools= engine uses the language name
+=emacs-lisp-mode=, ...).  The =shiki= engine uses the language name
 as Shiki knows it, aliases included.
 
 =org-w3ctr-fontify-lang-alist= overrides either, per language:
@@ -82,7 +82,7 @@ as Shiki knows it, aliases included.
 #+begin_src emacs-lisp
 (setq org-w3ctr-fontify-lang-alist
       '(("json" :font-lock js-json-mode)   ; the default entry
-        ("conf" :font-lock conf-unix-mode :jstools "ini")
+        ("conf" :font-lock conf-unix-mode :shiki "ini")
         ("text" :font-lock nil)))           ; font-lock declines "text"
 #+end_src
 
@@ -173,7 +173,7 @@ on its own:
 ,#+end_src
 #+end_src
 
-* The jstools engine
+* The shiki engine
 
 The Node helper in =jstools/= (also used for MathJax) answers two
 JSON-RPC methods for highlighting:
@@ -192,7 +192,7 @@ the slugs, so its own scope matching decides, as for any theme.
 
 Setup: =node= on =exec-path=, then =npm ci= in =jstools/=.  Without
 them the engine is /unavailable/: it is skipped, with one warning per
-export (see below).  =org-w3ctr-fontify-jstools-timeout= (10 s) bounds
+export (see below).  =org-w3ctr-fontify-shiki-timeout= (10 s) bounds
 each request.
 
 * When something goes wrong
@@ -218,7 +218,7 @@ unknown.
 #+begin_example
 Blocks fontified, by engine
     41  font-lock
-     3  jstools
+     3  shiki
 
 Languages no engine took
      2  nosuchlang
@@ -278,7 +278,7 @@ character, or names an unknown slug, is a failure of the engine.
         |
         v
  run engines in order ............... org-w3ctr--fontify-dispatch
-   font-lock | jstools | ... | plain     (decline -> next engine;
+   font-lock | shiki | ... | plain       (decline -> next engine;
         |                                failure/unavailable -> policy,
         v                                engine broken for the export)
  ((CLASS . TEXT) ...) ............... the token list

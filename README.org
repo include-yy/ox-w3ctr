@@ -32,7 +32,7 @@ least now).
 
 The Node helper in =jstools/= is optional.  It renders math for the
 =mathml-by-mathjax= and =svg-by-mathjax= modes and highlights code for
-the =jstools= engine.  It needs =node= on =exec-path= and its packages:
+the =shiki= engine.  It needs =node= on =exec-path= and its packages:
 
 #+begin_src sh
 cd jstools && npm ci
@@ -45,13 +45,13 @@ Source blocks are coloured by an engine named in
 
 - =font-lock= (default): Emacs font-lock, through the language's major
   mode.
-- =jstools=: Shiki (TextMate grammars, ~350 languages) in the Node
+- =shiki=: Shiki (TextMate grammars, ~350 languages) in the Node
   helper.
 - =plain= or nil: no colour.
 
-A list tries engines in order, e.g. =(jstools font-lock)=; =plain= always
+A list tries engines in order, e.g. =(shiki font-lock)=; =plain= always
 ends it.  Override the method per file with =#+OPTIONS:
-fontify:(jstools font-lock)= and per block with a header argument:
+fontify:(shiki font-lock)= and per block with a header argument:
 =#+begin_src python :fontify nil=.
 
 The output is =<span class="tok-SLUG">= runs; faces map to slugs through

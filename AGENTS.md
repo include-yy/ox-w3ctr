@@ -116,7 +116,7 @@ Three tests read `ox-w3ctr.el` next to the loaded file and skip without
 it (`org-w3ctr--oinfo-props-are-looked-up`,
 `org-w3ctr--oinfo-props-go-through-pget`,
 `org-w3ctr-check-backend-transcoder-order`).
-`org-w3ctr--jstools-tokens-live` runs the real Node helper and skips
+`org-w3ctr--shiki-tokens-live` runs the real Node helper and skips
 without `node` or `jstools/node_modules`.
 
 The Node helper has its own tests (they need `npm ci` first):

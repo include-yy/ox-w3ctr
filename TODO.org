@@ -58,7 +58,7 @@
 - *CSS cleanup in =assets/style.css=.*  Not urgent.
   - Dead rules: =.org-center= (never emitted).
 - *Client-side highlighting.*  The server-side engines (=font-lock=,
-  =jstools=) are done (2026-10).  A =client= engine is designed but not
+  =shiki=) are done (2026-10).  A =client= engine is designed but not
   built: it would emit =<code class="language-LANG">= unchanged and add
   highlight.js or Prism to =<head>= only when a document needs it.  It
   makes the page depend on browser JavaScript, so it waits for a
@@ -243,7 +243,7 @@ same session.  Larger or planned work is in the =TODO= list above.
 - *Fontify subsystem polish (from the 0.2.18 review; none urgent).*
   - Efficiency, only if profiling flags the font-lock engine: memoize
     =org-w3ctr--font-lock-face-slug= per export (the state already has the
-    =(cache . jstools-languages)= pattern).
+    =(cache . shiki-languages)= pattern).
 
 - *Unnamed elements get a fresh random id on every export.*  With no
   explicit label, =t--reference= falls back to =t--get-reference= (vendored
@@ -264,6 +264,14 @@ same session.  Larger or planned work is in the =TODO= list above.
   =org-w3ctr-error=.  Decide whether =tex2mml= / =tex2svg= should reject
   TeX errors (or report them like the fontify report) when revisiting
   MathJax configuration.
+
+- *Server-side MathJax does not pre-check =node= / =mathjax=.*
+  =org-w3ctr--shiki-available-p= checks for =node= and
+  =jstools/node_modules/shiki= before spawning the helper, whereas
+  =org-w3ctr--latex-rpc= calls =org-w3ctr--jcall= directly and fails
+  with a raw process/RPC error when =node= or =npm ci= is missing.
+  Check =node= and =jstools/node_modules/mathjax= first and signal
+  =org-w3ctr-error= with setup context.
 
 ** Non-goals
 

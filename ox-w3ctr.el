@@ -217,8 +217,8 @@
     (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
     (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
     (:html-fontify-reuse-buffer nil nil t-fontify-reuse-buffer)
-    ;; Fontify jstools engine
-    (:html-fontify-jstools-timeout nil nil t-fontify-jstools-timeout)
+    ;; Fontify shiki engine
+    (:html-fontify-shiki-timeout nil nil t-fontify-shiki-timeout)
     ;; Fontify dispatcher
     (:html-fontify-method nil "fontify" t-fontify-method)
     (:html-fontify-on-error nil nil t-fontify-on-error)
@@ -533,8 +533,8 @@ that your own stylesheet colours."
   "Alist of (LANG . PLIST) choosing how each engine handles LANG.
 LANG is a source block language as written in the Org file.  The
 PLIST key `:font-lock' names the major mode the `font-lock' engine uses
-for LANG, overriding `org-src-get-lang-mode'; `:jstools' names the
-Shiki language the `jstools' engine uses, LANG itself by default.
+for LANG, overriding `org-src-get-lang-mode'; `:shiki' names the
+Shiki language the `shiki' engine uses, LANG itself by default.
 A nil value makes that engine decline LANG.  The default maps
 \"json\", for which Org guesses the absent `json-mode', to the
 built-in `js-json-mode'."
@@ -620,9 +620,9 @@ highlighting setup."
   :type 'boolean
   :safe #'booleanp)
 
-;;;; Fontify jstools engine
-(defcustom t-fontify-jstools-timeout 10
-  "Seconds the `jstools' engine waits for the helper's answer.
+;;;; Fontify shiki engine
+(defcustom t-fontify-shiki-timeout 10
+  "Seconds the `shiki' engine waits for the helper's answer.
 A request that takes longer counts as a failure of the engine (see
 `org-w3ctr-fontify-on-error'), which is then not used again in that
 export.  The first request of a session also starts the helper
@@ -640,12 +640,12 @@ no highlighting.  The `plain' engine, which only HTML-escapes the
 code, always ends the list.  The shipped engines are:
 - `font-lock': colour the code with Emacs font-lock, through the
   language's major mode (see `org-w3ctr--font-lock-tokens').
-- `jstools': colour it with the Node helper in jstools/ (see
-  `org-w3ctr--jstools-tokens').
+- `shiki': colour it with Shiki in the jstools Node helper (see
+  `org-w3ctr--shiki-tokens').
 - `plain': no colour.
 
 An unknown name signals `org-w3ctr-error' during export.  Set it
-per file with `#+OPTIONS: fontify:nil' (or `fontify:(jstools
+per file with `#+OPTIONS: fontify:nil' (or `fontify:(shiki
 font-lock)'), and per block with the `:fontify' header argument, for
 example `#+begin_src python :fontify nil'."
   :group 'org-export-w3ctr
@@ -656,8 +656,8 @@ example `#+begin_src python :fontify nil'."
 
 (defcustom t-fontify-engines
   '((font-lock :fontify t--font-lock-tokens :available always)
-    (jstools :fontify t--jstools-tokens :available t--jstools-available-p
-             :hint "it needs node on `exec-path' and \"npm ci\" in jstools/")
+    (shiki :fontify t--shiki-tokens :available t--shiki-available-p
+           :hint "it needs node on `exec-path' and \"npm ci\" in jstools/")
     (plain :fontify t--plain-tokens :available always))
   "Alist of (NAME . PLIST): the highlighting engines.
 NAME is the symbol used in `org-w3ctr-fontify-method'.  PLIST holds:
@@ -2471,7 +2471,7 @@ surfaces as `jsonrpc-error'."
 
 `tex2mml' and `tex2svg' convert math (see `org-w3ctr--latex-rpc'),
 `highlight' and `highlightLanguages' fontify code (see
-`org-w3ctr--jstools-tokens').  The Node helper also answers the test
+`org-w3ctr--shiki-tokens').  The Node helper also answers the test
 methods `echo' and `add'; they stay unexposed.")
 
 (defvar t--jstools
@@ -3958,7 +3958,7 @@ Return nil when LANG has no entry.  Signal `org-w3ctr-error' unless
 the alist is a list of (LANG . PLIST) entries, each LANG a string
 and each PLIST a property list with distinct keyword keys (see
 `org-w3ctr--fontify-plist-p'), where `:font-lock', if present, is a
-symbol other than t and `:jstools' is nil or a non-blank string.
+symbol other than t and `:shiki' is nil or a non-blank string.
 Any other keyword is allowed, so that an engine of one's own can
 read its key.  The whole alist is checked, not only LANG's entry."
   (declare (ftype (function (string list) list))
@@ -3971,7 +3971,7 @@ read its key.  The whole alist is checked, not only LANG's entry."
                    (t--fontify-plist-p (cdr entry))
                    (let ((mode (plist-get (cdr entry) :font-lock)))
                      (and (symbolp mode) (not (eq mode t))))
-                   (let ((name (plist-get (cdr entry) :jstools)))
+                   (let ((name (plist-get (cdr entry) :shiki)))
                      (or (null name) (t--nw-p name))))
         (t-error "Malformed fontify language entry: %S" entry)))
     (cdr (assoc lang alist))))
@@ -4593,22 +4593,25 @@ grammar.  Signal `org-w3ctr-error' for an unknown
            (set-buffer-modified-p nil)
            (t--font-lock-collect table fallback state)))))))
 
-;;;; Fontify jstools engine
+;;;; Fontify shiki engine
 
-;; The `jstools' engine asks the Node helper (jstools/lib/highlight.js,
-;; Shiki with TextMate grammars) for the tokens of a block.  The helper
-;; answers [TEXT, SLUG] pairs, never HTML; the slugs come from
-;; jstools/lib/slugs.json.  The language list is fetched once per export
-;; and kept in the fontify state, so a language Shiki does not know is
-;; declined without a round trip.
+;; The `shiki' engine asks the jstools Node helper
+;; (jstools/lib/highlight.js, Shiki with TextMate grammars) for the
+;; tokens of a block.  The helper answers [TEXT, SLUG] pairs, never
+;; HTML; the slugs come from jstools/lib/slugs.json.  The language list
+;; is fetched once per export and kept in the fontify state, so a
+;; language Shiki does not know is declined without a round trip.
 
-(defconst t--jstools-unknown-language -32010
+;; Options:
+;; - :html-fontify-shiki-timeout (`org-w3ctr-fontify-shiki-timeout')
+
+(defconst t--shiki-unknown-language -32010
   "The JSON-RPC error code of the helper for a language it lacks.
 
 It must match UNKNOWN_LANGUAGE in jstools/lib/highlight.js.")
 
-(defun t--jstools-available-p (_info)
-  "Return non-nil when the `jstools' engine can run.
+(defun t--shiki-available-p (_info)
+  "Return non-nil when the `shiki' engine can run.
 
 That needs the node executable on the variable `exec-path' and
 Shiki installed under jstools/node_modules (run \"npm ci\" in
@@ -4620,18 +4623,18 @@ jstools/).  INFO is ignored."
         (file-name-concat t--dir "jstools" "node_modules" "shiki"))
        t))
 
-(defun t--jstools-lang (lang info)
+(defun t--shiki-lang (lang info)
   "Return the Shiki language name for LANG under INFO, or nil.
 
-The `:jstools' key of LANG's entry in INFO's
+The `:shiki' key of LANG's entry in INFO's
 `:html-fontify-lang-alist' (see `org-w3ctr--fontify-lang-entry')
 wins when present; otherwise LANG itself is the name."
   (declare (ftype (function (string list) (or null string)))
            (important-return-value t))
   (let ((entry (t--fontify-lang-entry lang info)))
-    (if (plist-member entry :jstools) (plist-get entry :jstools) lang)))
+    (if (plist-member entry :shiki) (plist-get entry :shiki) lang)))
 
-(defun t--jstools-languages (info)
+(defun t--shiki-languages (info)
   "Return the language names the helper accepts, as a list of strings.
 
 The list is asked for once per export (the `highlightLanguages'
@@ -4641,17 +4644,17 @@ RPC errors propagate."
   (declare (ftype (function (list) list))
            (important-return-value t))
   (let ((state (t--fontify-state info))
-        (key '(cache . jstools-languages)))
+        (key '(cache . shiki-languages)))
     (or (gethash key state)
         (let* ((reply (t--jcall t--jstools 'highlightLanguages nil
-                                (t--pget info :html-fontify-jstools-timeout)))
+                                (t--pget info :html-fontify-shiki-timeout)))
                (names (plist-get reply :languages)))
           (unless (and (vectorp names) (> (length names) 0)
                        (seq-every-p #'stringp names))
             (t-error "Malformed highlightLanguages reply: %S" reply))
           (puthash key (append names nil) state)))))
 
-(defun t--jstools-pairs (pairs info)
+(defun t--shiki-pairs (pairs info)
   "Return the helper's PAIRS as a list of (CLASS . TEXT) tokens.
 
 PAIRS is the decoded `tokens' array: [TEXT SLUG] vectors, SLUG a
@@ -4676,35 +4679,34 @@ nil and is counted as `unknown-slug' in the fontify state.  Signal
                 (cons slug (aref pair 0))))
             pairs)))
 
-(defun t--jstools-tokens (code lang info)
-  "Fontify CODE (a string) in LANG with the `jstools' helper.
+(defun t--shiki-tokens (code lang info)
+  "Fontify CODE (a string) in LANG with the `shiki' engine.
 
-LANG is a language name as a string, mapped by
-`org-w3ctr--jstools-lang'.  INFO is the info plist.  Return the
-tokens of `org-w3ctr--jstools-pairs', or `:decline' when the
-helper does not know the language (checked against
-`org-w3ctr--jstools-languages', and again by its error code).
-Signal `org-w3ctr-error', with the whole reply, when the reply has
-no `:tokens' vector.  Other errors, a timeout among them, propagate:
-the dispatcher counts them as failures."
+LANG is a language name as a string, mapped by `org-w3ctr--shiki-lang'.
+INFO is the info plist.  Return the tokens of `org-w3ctr--shiki-pairs',
+or `:decline' when the helper does not know the language (checked
+against `org-w3ctr--shiki-languages', and again by its error code).
+Signal `org-w3ctr-error', with the whole reply, when the reply has no
+`:tokens' vector.  Other errors, a timeout among them, propagate: the
+dispatcher counts them as failures."
   (declare (ftype (function (string string list) (or list keyword)))
            (important-return-value t))
-  (let ((name (t--jstools-lang lang info)))
-    (if (not (and name (member name (t--jstools-languages info))))
+  (let ((name (t--shiki-lang lang info)))
+    (if (not (and name (member name (t--shiki-languages info))))
         :decline
       (let ((reply (condition-case err
                        (t--jcall t--jstools 'highlight
                                  (list :code code :lang name)
-                                 (t--pget info :html-fontify-jstools-timeout))
+                                 (t--pget info :html-fontify-shiki-timeout))
                      (jsonrpc-error
                       (if (eql (alist-get 'jsonrpc-error-code (cdr err))
-                               t--jstools-unknown-language)
+                               t--shiki-unknown-language)
                           :decline
                         (signal err))))))
         (cond
          ((eq reply :decline) :decline)
          ((vectorp (plist-get reply :tokens))
-          (t--jstools-pairs (plist-get reply :tokens) info))
+          (t--shiki-pairs (plist-get reply :tokens) info))
          (t (t-error "Malformed highlight reply: %S" reply)))))))
 
 ;;;; Fontify dispatcher
@@ -4977,7 +4979,6 @@ INFO's fontify state."
 ;; - :html-fontify-method (`org-w3ctr-fontify-method')
 ;; - :html-fontify-on-error (`org-w3ctr-fontify-on-error')
 ;; - :html-fontify-unknown-language (`org-w3ctr-fontify-unknown-language')
-;; - :html-fontify-jstools-timeout (`org-w3ctr-fontify-jstools-timeout')
 ;; Global only: `org-w3ctr-fontify-engines', `org-w3ctr-fontify-palette'.
 
 (defun t--fontify-default-info ()

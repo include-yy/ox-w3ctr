@@ -4173,8 +4173,8 @@ fresh: the code under test may store its state in it."
   (cl-flet ((entry (alist lang)
               (t--fontify-lang-entry
                lang (t-test-fontify-info :html-fontify-lang-alist alist))))
-    ($l (entry '(("c" :font-lock c-mode) ("sh" :jstools "bash")) "sh")
-        '(:jstools "bash"))
+    ($l (entry '(("c" :font-lock c-mode) ("sh" :shiki "bash")) "sh")
+        '(:shiki "bash"))
     ;; The first entry for LANG wins; an empty plist is an entry.
     ($l (entry '(("c" :font-lock c-mode) ("c" :font-lock nil)) "c")
         '(:font-lock c-mode))
@@ -4184,17 +4184,17 @@ fresh: the code under test may store its state in it."
     ;; Every entry is checked, not only the one asked for.
     ;; Keys are distinct keywords, but any keyword will do.
     ($l (entry '(("c" :my-engine x)) "c") '(:my-engine x))
-    ;; `:font-lock' is a symbol other than t, `:jstools' nil or a
+    ;; `:font-lock' is a symbol other than t, `:shiki' nil or a
     ;; non-blank string.
-    ($l (entry '(("c" :font-lock nil :jstools nil)) "c")
-        '(:font-lock nil :jstools nil))
+    ($l (entry '(("c" :font-lock nil :shiki nil)) "c")
+        '(:font-lock nil :shiki nil))
     ($l (entry '(("c" :font-lock no-such-mode)) "c") '(:font-lock no-such-mode))
     (dolist (bad '(("c" . c-mode) ("c" :font-lock) (c :font-lock c-mode) "c"
                    ("c" font-lock c-mode) ("c" :font-lock c-mode :font-lock nil)
                    ("c" :font-lock "c-mode") ("c" :font-lock t)
-                   ("c" :jstools emacs-lisp) ("c" :jstools "")
-                   ("c" :jstools " ") ("c" :jstools 1)))
-      ($e!l (entry (list '("sh" :jstools "bash") bad) "sh")
+                   ("c" :shiki emacs-lisp) ("c" :shiki "")
+                   ("c" :shiki " ") ("c" :shiki 1)))
+      ($e!l (entry (list '("sh" :shiki "bash") bad) "sh")
             (list 'org-w3ctr-error
                   (format "Malformed fontify language entry: %S" bad))))
     ($e!l (entry 'x "c")
@@ -4350,7 +4350,7 @@ fresh: the code under test may store its state in it."
     ;; stores, stay out of the report.
     (t--fontify-note state 'internal-marker 'x)
     (puthash '(broken . boom) t state)
-    (puthash '(cache . jstools-languages) '("py" "js") state)
+    (puthash '(cache . shiki-languages) '("py" "js") state)
     ;; Sections in their fixed order, rows by count then by name.
     ($l (t--fontify-report-text state)
         (concat "Blocks fontified, by engine\n"
@@ -4955,9 +4955,9 @@ fresh: the code under test may store its state in it."
               ($l (t--font-lock-tokens "x = 1" "fake" info) '((nil . "x = 1"))))))
       (t-clear-fontify-buffers))))
 
-;;;; Fontify jstools engine
+;;;; Fontify shiki engine
 
-(ert-deftest t--jstools-unknown-language ()
+(ert-deftest t--shiki-unknown-language ()
   "The unknown-language error code matches the helper's constant."
   (let ((file (file-name-concat t--dir "jstools" "lib" "highlight.js")))
     (skip-unless (file-readable-p file))
@@ -4965,9 +4965,9 @@ fresh: the code under test may store its state in it."
       (insert-file-contents file)
       ($s (re-search-forward
            "export const UNKNOWN_LANGUAGE = \\(-[0-9]+\\)$" nil t))
-      ($l (string-to-number (match-string 1)) t--jstools-unknown-language))))
+      ($l (string-to-number (match-string 1)) t--shiki-unknown-language))))
 
-(ert-deftest t--jstools-slugs-drift ()
+(ert-deftest t--shiki-slugs-drift ()
   "Every slug of jstools/lib/slugs.json is a slug of the default faces."
   (let ((file (file-name-concat t--dir "jstools" "lib" "slugs.json"))
         (faces (eval (car (get 't-fontify-faces 'standard-value)) t)))
@@ -4980,42 +4980,42 @@ fresh: the code under test may store its state in it."
       (dolist (rule rules)
         ($s (member (aref rule 1) (mapcar #'cdr faces)))))))
 
-(ert-deftest t--jstools-available-p ()
-  "Tests for `org-w3ctr--jstools-available-p'."
-  ($s (booleanp (t--jstools-available-p nil)))
+(ert-deftest t--shiki-available-p ()
+  "Tests for `org-w3ctr--shiki-available-p'."
+  ($s (booleanp (t--shiki-available-p nil)))
   ;; Without node on `exec-path' the engine is unavailable.
   (let ((exec-path nil))
-    ($n (t--jstools-available-p nil)))
+    ($n (t--shiki-available-p nil)))
   ;; With node, it still needs Shiki under jstools/node_modules.
-  (let ((t--dir (make-temp-file "ox-w3ctr-jstools" t)))
+  (let ((t--dir (make-temp-file "ox-w3ctr-shiki" t)))
     (unwind-protect
         (cl-letf (((symbol-function 'executable-find)
                    (lambda (name &rest _) (and (equal name "node") "node"))))
-          ($n (t--jstools-available-p nil))
+          ($n (t--shiki-available-p nil))
           (make-directory
            (file-name-concat t--dir "jstools" "node_modules" "shiki") t)
-          ($q (t--jstools-available-p nil) t))
+          ($q (t--shiki-available-p nil) t))
       (delete-directory t--dir t))))
 
-(ert-deftest t--jstools-lang ()
-  "Tests for `org-w3ctr--jstools-lang'."
-  ($l (t--jstools-lang "python" (t-test-fontify-info)) "python")
+(ert-deftest t--shiki-lang ()
+  "Tests for `org-w3ctr--shiki-lang'."
+  ($l (t--shiki-lang "python" (t-test-fontify-info)) "python")
   (let ((info (t-test-fontify-info
-               :html-fontify-lang-alist '(("el" :jstools "emacs-lisp")
-                                          ("c" :jstools nil)
+               :html-fontify-lang-alist '(("el" :shiki "emacs-lisp")
+                                          ("c" :shiki nil)
                                           ("sh" :font-lock sh-mode)))))
-    ($l (t--jstools-lang "el" info) "emacs-lisp")
-    ($n (t--jstools-lang "c" info))
-    ($l (t--jstools-lang "sh" info) "sh"))
+    ($l (t--shiki-lang "el" info) "emacs-lisp")
+    ($n (t--shiki-lang "c" info))
+    ($l (t--shiki-lang "sh" info) "sh"))
   ;; The alist is checked by `org-w3ctr--fontify-lang-entry'.
-  ($e!l (t--jstools-lang "el" (t-test-fontify-info
-                               :html-fontify-lang-alist
-                               '(("el" :jstools emacs-lisp))))
+  ($e!l (t--shiki-lang "el" (t-test-fontify-info
+                             :html-fontify-lang-alist
+                             '(("el" :shiki emacs-lisp))))
         '(org-w3ctr-error
-          "Malformed fontify language entry: (\"el\" :jstools emacs-lisp)")))
+          "Malformed fontify language entry: (\"el\" :shiki emacs-lisp)")))
 
-(ert-deftest t--jstools-languages ()
-  "Tests for `org-w3ctr--jstools-languages'."
+(ert-deftest t--shiki-languages ()
+  "Tests for `org-w3ctr--shiki-languages'."
   (let ((t--fontify-last-state nil)
         (calls 0))
     (cl-letf (((symbol-function 't--jcall)
@@ -5027,42 +5027,42 @@ fresh: the code under test may store its state in it."
                  ($n params)
                  ($l timeout 7)
                  '(:engine "shiki" :languages ["c" "python"]))))
-      (let ((info (t-test-fontify-info :html-fontify-jstools-timeout 7)))
-        ($l (t--jstools-languages info) '("c" "python"))
+      (let ((info (t-test-fontify-info :html-fontify-shiki-timeout 7)))
+        ($l (t--shiki-languages info) '("c" "python"))
         ;; Asked once per export.
-        ($l (t--jstools-languages info) '("c" "python"))
+        ($l (t--shiki-languages info) '("c" "python"))
         ($l calls 1)
-        (ignore (t--jstools-languages
-                 (t-test-fontify-info :html-fontify-jstools-timeout 7)))
+        (ignore (t--shiki-languages
+                 (t-test-fontify-info :html-fontify-shiki-timeout 7)))
         ($l calls 2)))
     ;; The whole reply is reported when `:languages' is not a non-empty
     ;; vector of strings.
     (dolist (reply '((:languages [1 2]) (:languages 42) (:languages t)
                      (:languages []) (:languages ("c")) (:other 1) 42))
       (cl-letf (((symbol-function 't--jcall) (lambda (&rest _) reply)))
-        ($e!l (t--jstools-languages (t-test-fontify-info))
+        ($e!l (t--shiki-languages (t-test-fontify-info))
               (list 'org-w3ctr-error
                     (format "Malformed highlightLanguages reply: %S"
                             reply)))))))
 
-(ert-deftest t--jstools-pairs ()
-  "Tests for `org-w3ctr--jstools-pairs'."
+(ert-deftest t--shiki-pairs ()
+  "Tests for `org-w3ctr--shiki-pairs'."
   (let ((t--fontify-last-state nil)
         (info (t-test-fontify-info)))
-    ($l (t--jstools-pairs [["def" "k"] [" " nil] ["x" "zz"]] info)
+    ($l (t--shiki-pairs [["def" "k"] [" " nil] ["x" "zz"]] info)
         '(("k" . "def") (nil . " ") (nil . "x")))
     ;; The unknown slug was dropped, and counted.
     ($l (gethash '(unknown-slug . "zz") (t--fontify-state info)) 1)
-    ($n (t--jstools-pairs [] info))
-    ($e!l (t--jstools-pairs '(("a" "k")) info)
+    ($n (t--shiki-pairs [] info))
+    ($e!l (t--shiki-pairs '(("a" "k")) info)
           '(org-w3ctr-error "Malformed highlight reply: ((\"a\" \"k\"))"))
     (dolist (bad '(["a"] ["a" "k" "x"] [1 "k"] ["a" k]))
-      ($e!l (t--jstools-pairs (vector bad) info)
+      ($e!l (t--shiki-pairs (vector bad) info)
             (list 'org-w3ctr-error
                   (format "Malformed highlight token: %S" bad))))))
 
-(ert-deftest t--jstools-tokens ()
-  "Tests for `org-w3ctr--jstools-tokens'."
+(ert-deftest t--shiki-tokens ()
+  "Tests for `org-w3ctr--shiki-tokens'."
   (let* ((t--fontify-last-state nil)
          (highlights 0)
          (reply '(:tokens [["x" "k"] [" = 1" nil]]))
@@ -5082,43 +5082,43 @@ fresh: the code under test may store its state in it."
                        ("num" 42)
                        ("c" (signal 'jsonrpc-error
                                     `((jsonrpc-error-code
-                                       . ,t--jstools-unknown-language))))
+                                       . ,t--shiki-unknown-language))))
                        (_ (signal 'jsonrpc-error
                                   '((jsonrpc-error-message
                                      . "Timed out"))))))))))
     (cl-letf (((symbol-function 't--jcall) jcall))
       (let ((info (t-test-fontify-info
-                   :html-fontify-jstools-timeout 7
-                   :html-fontify-lang-alist '(("py" :jstools "python")
-                                              ("off" :jstools nil)))))
-        ($l (t--jstools-tokens "x = 1" "py" info) '(("k" . "x") (nil . " = 1")))
+                   :html-fontify-shiki-timeout 7
+                   :html-fontify-lang-alist '(("py" :shiki "python")
+                                              ("off" :shiki nil)))))
+        ($l (t--shiki-tokens "x = 1" "py" info) '(("k" . "x") (nil . " = 1")))
         ;; Declined locally: no highlight request at all.
-        ($q (t--jstools-tokens "x" "rust" info) :decline)
-        ($q (t--jstools-tokens "x" "off" info) :decline)
+        ($q (t--shiki-tokens "x" "rust" info) :decline)
+        ($q (t--shiki-tokens "x" "off" info) :decline)
         ($l highlights 1)
         ;; Declined by the helper's error code.
-        ($q (t--jstools-tokens "x" "c" info) :decline)
+        ($q (t--shiki-tokens "x" "c" info) :decline)
         ;; A reply without a `:tokens' vector is reported whole.
-        ($e!l (t--jstools-tokens "x" "other" info)
+        ($e!l (t--shiki-tokens "x" "other" info)
               '(org-w3ctr-error "Malformed highlight reply: (:other 1)"))
-        ($e!l (t--jstools-tokens "x" "num" info)
+        ($e!l (t--shiki-tokens "x" "num" info)
               '(org-w3ctr-error "Malformed highlight reply: 42"))
         ;; Any other error propagates.
         (let ((t--fontify-last-state nil)
               (info (t-test-fontify-info
-                     :html-fontify-lang-alist '(("python" :jstools "python")))))
+                     :html-fontify-lang-alist '(("python" :shiki "python")))))
           (cl-letf (((symbol-function 't--jcall)
                      (lambda (_client method &rest _)
                        (if (eq method 'highlightLanguages)
                            '(:languages ["python"])
                          (signal 'jsonrpc-error
                                  '((jsonrpc-error-message . "Timed out")))))))
-            (should-error (t--jstools-tokens "x" "python" info)
+            (should-error (t--shiki-tokens "x" "python" info)
                           :type 'jsonrpc-error)))))))
 
-(ert-deftest t--jstools-tokens-live ()
-  "The jstools engine against the real Node helper."
-  (skip-unless (t--jstools-available-p nil))
+(ert-deftest t--shiki-tokens-live ()
+  "The shiki engine against the real Node helper."
+  (skip-unless (t--shiki-available-p nil))
   (let* ((t--fontify-last-state nil)
          (name (t--jrpc--name t--jstools))
          (conn (t--jrpc--conn t--jstools))
@@ -5128,17 +5128,17 @@ fresh: the code under test may store its state in it."
                       ;; font-lock must decline YAML whatever is installed.
                       :html-fontify-lang-alist '(("yaml" :font-lock nil))))
                (code "def f(x):\r\n    return x + 1  # c\n")
-               (tokens (t--jstools-tokens code "python" info)))
+               (tokens (t--shiki-tokens code "python" info)))
           ($l (mapconcat #'cdr tokens) code)
           ($s (member '("k" . "def") tokens))
           ($s (member '("op" . "+") tokens))
-          ($q (t--fontify-check-tokens tokens code 'jstools info) tokens)
-          ($q (t--jstools-tokens "x" "no-such-lang" info) :decline)
-          ;; Through the dispatcher: font-lock declines YAML, jstools takes it.
+          ($q (t--fontify-check-tokens tokens code 'shiki info) tokens)
+          ($q (t--shiki-tokens "x" "no-such-lang" info) :decline)
+          ;; Through the dispatcher: font-lock declines YAML, shiki takes it.
           (let ((result (t--fontify-dispatch "a: 1\n" "yaml"
-                                             '(font-lock jstools plain)
+                                             '(font-lock shiki plain)
                                              info nil)))
-            ($q (car result) 'jstools)
+            ($q (car result) 'shiki)
             ($s (member '("n" . "1") (cdr result)))))
       ;; A helper this test started is stopped, with its buffers.
       (unless was-running
@@ -5240,7 +5240,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   ($n (t--fontify-read-method "nil" nil))
   ($q (t--fontify-read-method "font-lock" nil) 'font-lock)
   ($q (t--fontify-read-method "  font-lock " nil) 'font-lock)
-  ($l (t--fontify-read-method "(jstools font-lock)" nil) '(jstools font-lock))
+  ($l (t--fontify-read-method "(shiki font-lock)" nil) '(shiki font-lock))
   ;; Read, never evaluated.
   ($l (t--fontify-read-method "(error \"x\")" nil) '(error "x"))
   ;; Exactly one object, or an error with the line.
