@@ -2849,24 +2849,38 @@ user control attributes.  Only named blocks get an automatic id."
                   (format " class=\"%s\"" (t--encode-plain-text* type)))
                 body)))))
 
+;; See https://html.spec.whatwg.org/#valid-custom-element-name
 (defconst t--custom-element-name-regexp
   (rx string-start
       (any "a-z")
-      (* (any "a-z0-9._-"))
+      (* (any "a-z0-9._"))
       "-"
       (* (any "a-z0-9._-"))
       string-end)
-  "Regexp matching a valid custom element name.
-See https://html.spec.whatwg.org/#valid-custom-element-name; the
-non-ASCII characters it also allows are not accepted here.  Match it
-with `org-w3ctr--custom-element-name-p', which turns off case folding.")
+  "Regexp matching the ASCII subset of valid custom element names.
+Match it with `org-w3ctr--custom-element-name-p', which turns off
+case folding and excludes `org-w3ctr--custom-element-reserved-regexp'.")
+
+(defconst t--custom-element-reserved-regexp
+  (rx string-start
+      (or "annotation-xml" "color-profile"
+          "font-face" "font-face-src" "font-face-uri"
+          "font-face-format" "font-face-name"
+          "missing-glyph")
+      string-end)
+  "Regexp matching the eight WHATWG reserved custom element names.
+Match with `case-fold-search' bound to nil.")
 
 (defun t--custom-element-name-p (name)
-  "Return t if string NAME is a valid custom element name."
+  "Return t if string NAME is a valid custom element name.
+Follows the ASCII subset of the WHATWG valid custom element name
+rule and rejects the eight reserved SVG/MathML names."
   (declare (ftype (function (string) boolean))
            (pure t) (important-return-value t))
   (let ((case-fold-search nil))
-    (and (string-match-p t--custom-element-name-regexp name) t)))
+    (and (string-match-p t--custom-element-name-regexp name)
+         (not (string-match-p t--custom-element-reserved-regexp name))
+         t)))
 
 (defun t--special-block-validate-registry (registry &optional info)
   "Signal `org-w3ctr-error' if REGISTRY is malformed.

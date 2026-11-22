@@ -2604,7 +2604,10 @@ int a = 1;</code></p>\n</details>")
     ($s (t--custom-element-name-p s)))
   (let ((case-fold-search t))
     (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""
-                 "é-card"))
+                 "a-b\n" "é-card"
+                 "annotation-xml" "color-profile" "font-face"
+                 "font-face-src" "font-face-uri" "font-face-format"
+                 "font-face-name" "missing-glyph"))
       ($n (t--custom-element-name-p s)))))
 
 (ert-deftest t--special-block-validate-registry ()
