@@ -2908,40 +2908,35 @@ REGISTRY is well-formed."
       nil)))
 
 (defun t--special-block-spec (type info)
-  "Return the spec of custom element TYPE in INFO, or nil.
-TYPE is a string.  The spec is a (PLIST . NAME) cons from
+  "Return the registry entry of custom element TYPE in INFO, or nil.
+TYPE is a string.  The returned entry is the (NAME . PLIST) cons from
 `:html-special-block-custom-elements'; it is non-nil even when PLIST
 is empty, so a nil result means TYPE is not registered.  Signal
-`org-w3ctr-error' if the registry contains a malformed entry.
-
-The result is (PLIST . NAME) rather than the registry's (NAME . PLIST)
-so `car' retrieves the plist."
+`org-w3ctr-error' if the registry is malformed or has an invalid
+custom element name."
   (declare (ftype (function (string list) list))
            (important-return-value t))
   (let ((registry (t--pget info :html-special-block-custom-elements)))
     (t--special-block-validate-registry registry info)
-    (when-let* ((entry (assoc type registry)))
-      (cons (cdr entry) (car entry)))))
+    (assoc type registry)))
 
 (defun t--special-block-custom (special-block contents info spec)
   "Transcode SPECIAL-BLOCK as the custom element named by its type.
 CONTENTS is the block text (nil becomes \"\").  INFO is the info plist.
-SPEC is the registry spec from `org-w3ctr--special-block-spec'.
+SPEC is the validated (NAME . PLIST) entry from
+`org-w3ctr--special-block-spec'.
 
 Return the formatted custom element string.  When SPEC has a
 `:template', insert it verbatim before CONTENTS (trusted HTML, meant
-for a Declarative Shadow DOM <template>).  Attributes use
-`org-w3ctr--make-attr__id*' (named-only).  Signal `org-w3ctr-error'
-if the type is not a valid custom element name."
+for a Declarative Shadow DOM <template>).  Only named blocks get an
+automatic id."
   (declare (ftype (function (t (or null string) list list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type special-block))
-         (template (plist-get (car spec) :template))
+         (template (plist-get (cdr spec) :template))
          (tpl (and (t--nw-p template)
                    (org-element-normalize-string template)))
          (body (and (or tpl contents) (concat tpl contents))))
-    (unless (t--custom-element-name-p type)
-      (t-error "Invalid custom element name: %s" type))
     (format "<%s%s>%s</%s>" type
             (t--make-attr__id* special-block info t)
             (t--prepend-newline body)

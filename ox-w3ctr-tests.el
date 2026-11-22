@@ -2712,17 +2712,13 @@ int a = 1;</code></p>\n</details>")
          (info '(:html-prefer-user-labels t)))
     ;; no :template: the contents follow the opening tag directly
     ($l (t--special-block-custom (funcall mk "my-card") "<p>hi</p>\n"
-                                 info '(nil . "my-card"))
+                                 info '("my-card"))
         "<my-card>\n<p>hi</p>\n</my-card>")
     ;; a :template is normalized and inserted before the contents
     ($l (t--special-block-custom
          (funcall mk "my-card") "<p>hi</p>\n" info
-         `((:template ,tpl) . "my-card"))
-        ($c "<my-card>\n" tpl "\n<p>hi</p>\n</my-card>"))
-    ;; a type that is not a valid custom element name signals
-    ($e!l (t--special-block-custom
-           (funcall mk "card") "x" info '(nil . "card"))
-          '(org-w3ctr-error "Invalid custom element name: card"))))
+         `("my-card" :template ,tpl))
+        ($c "<my-card>\n" tpl "\n<p>hi</p>\n</my-card>"))))
 
 (ert-deftest t-special-block-custom-elements ()
   "Tests for `:html-special-block-custom-elements'."
