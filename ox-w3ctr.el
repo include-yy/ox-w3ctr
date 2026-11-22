@@ -302,20 +302,16 @@
 (defcustom t-prefer-user-labels nil
   "Non-nil means use user-defined NAME and ID over internal references.
 
-By default, `org-w3ctr--reference' generates internal ID values
-during export.  When this variable is non-nil, the NAME keyword
-or the ID property (prefixed with `org-w3ctr--id-attr-prefix') is
-used as the ID attribute instead.
+By default, internal `orgXXXXXXX' ID values are generated during
+export.  When this variable is non-nil, the NAME keyword or the ID
+property (prefixed with \"ID-\") is used as the ID attribute
+instead.
 
 Regardless of this variable, CUSTOM_ID and valid target names are
 always used."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
-
-(defconst t--id-attr-prefix "ID-"
-  "Prefix to use in ID attributes.
-This affects IDs that are determined from the ID property.")
 
 ;;;; Drawer
 (defcustom t-drawer-format-function #'t-drawer-default-format-function
@@ -332,14 +328,15 @@ It is called with five arguments:
 
 It should return the complete HTML for the drawer.  The default is
 `org-w3ctr-drawer-default-format-function', which emits a
-`<details>' element with a `<summary>'."
+<details> element with a <summary>."
   :group 'org-export-w3ctr
   :type 'function)
 
 ;;;; Footnote
 (defcustom t-footnote-format "[%s]"
   "Format string for footnote references and definition labels.
-`%s' is replaced by the footnote link in references, or by the
+
+\"%s\" is replaced by the footnote link in references, or by the
 label in the footnotes section."
   :group 'org-export-w3ctr
   :type 'string)
@@ -353,9 +350,13 @@ label in the footnotes section."
   #'t-footnote-section-default-format-function
   "Function to format the footnotes section.
 
-Called with the list of footnote definitions (as returned by
-`org-export-collect-footnote-definitions') and INFO, the info plist.
-Should return the complete HTML for the section.  The default is
+It is called with two arguments:
+- DEFINITIONS  the non-empty list of footnote definitions returned
+               by `org-export-collect-footnote-definitions' (it is
+               never called when there are no footnotes).
+- INFO         the info plist.
+
+It should return the complete HTML for the section.  The default is
 `org-w3ctr-footnote-section-default-format-function'."
   :group 'org-export-w3ctr
   :type 'function)
@@ -383,16 +384,19 @@ See `org-w3ctr-checkbox-types' for details."
 Each entry is (NAME . PLIST) where NAME is a string and PLIST holds
 configuration for that custom element.  A special block whose type
 matches NAME becomes <NAME>...</NAME> instead of a <div> or an HTML5
-element.  Each NAME must be a valid custom element name: lowercase,
-starting with a letter, and containing a hyphen.
+element.  Each NAME must be unique and a valid WHATWG custom element
+name (lowercase ASCII, starting with a letter, containing a hyphen,
+and not one of the eight reserved SVG/MathML names); malformed,
+invalid, or duplicate entries signal `org-w3ctr-error' during export.
 
 An empty PLIST is equivalent to registering just the name.  Keys:
 - `:template'  inserted verbatim at the start of the element, for
                example a <template shadowrootmode=\"open\"> for
                Declarative Shadow DOM.
-- `:src', `:script'  read by the default
-               `org-w3ctr-special-block-head-function' to build the
-               <head> scripts.
+- `:src', `:script'  read by
+               `org-w3ctr-special-block-head-default-function' (the
+               default of `org-w3ctr-special-block-head-function')
+               to build the <head> scripts.
 Other keys are left to a custom head function."
   :group 'org-export-w3ctr
   :type '(alist :key-type string :value-type plist))
@@ -417,7 +421,9 @@ It should return a string, or nil for nothing.  The default is
 ;;;; Table
 (defcustom t-table-use-header-tags-for-first-column nil
   "Non-nil means the first column of a table becomes row headers.
-The cells use <th scope=\"row\"> instead of <td>."
+
+Body-row cells in the first column use <th scope=\"row\"> instead
+of <td> (header-row cells still use <th scope=\"col\">)."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
@@ -1573,12 +1579,16 @@ byte-compiled code."
     (intern (concat "org-w3ctr--oinfo" (symbol-name key))))
 
   ;; FIXME: Revisit which keys belong in this list (add hot keys like
-  ;; `:html-prefer-user-labels', `:html-container', and
-  ;; `:html-self-link-headlines', and consider dropping once-per-export
-  ;; template keys based on `org-w3ctr-collect-oinfo-statistics').
+  ;; `:html-container' and `:html-self-link-headlines', and consider
+  ;; dropping once-per-export template keys based on
+  ;; `org-w3ctr-collect-oinfo-statistics').
   (defconst t--oinfo-cache-props
-    '(;; Item and Plain Lists
+    '(;; Reference
+      :html-prefer-user-labels
+      ;; Item and Plain Lists
       :html-checkbox-type
+      ;; Table
+      :html-table-use-header-tags-for-first-column
       ;; LaTeX
       :with-latex :html-math-custom-format-function
       ;; Timestamp
@@ -2122,6 +2132,10 @@ non-nil symbol, or its ATTRS is invalid."
 
 ;; Options:
 ;; - :html-prefer-user-labels (`org-w3ctr-prefer-user-labels')
+
+(defconst t--id-attr-prefix "ID-"
+  "Prefix to use in ID attributes.
+This affects IDs that are determined from the ID property.")
 
 ;; Reference generation: vendored from ox.el so the fallback in
 ;; `org-w3ctr--reference' does not depend on `org-export-get-reference'
