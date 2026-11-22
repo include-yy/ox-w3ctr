@@ -2830,6 +2830,10 @@ int a = 1;</code></p>\n</details>")
     ($l (cdr r) '("a.js")))
   (let ((r (t--special-block-head-entry '("a-b") nil)))
     ($l (car r) "")
+    ($n (cdr r)))
+  ;; blank :src and :script values are ignored
+  (let ((r (t--special-block-head-entry '("a-b" :src "  " :script "\n") nil)))
+    ($l (car r) "")
     ($n (cdr r))))
 
 (ert-deftest t-special-block-head-default-function ()

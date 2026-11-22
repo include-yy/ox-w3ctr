@@ -2909,11 +2909,12 @@ REGISTRY is well-formed."
 
 (defun t--special-block-spec (type info)
   "Return the registry entry of custom element TYPE in INFO, or nil.
-TYPE is a string.  The returned entry is the (NAME . PLIST) cons from
-`:html-special-block-custom-elements'; it is non-nil even when PLIST
-is empty, so a nil result means TYPE is not registered.  Signal
-`org-w3ctr-error' if the registry is malformed or has an invalid
-custom element name."
+TYPE is a string.  INFO is the info plist.
+
+Return the (NAME . PLIST) entry from
+`:html-special-block-custom-elements', or nil when TYPE is not
+registered.  Signal `org-w3ctr-error' if the registry is malformed or
+has an invalid custom element name."
   (declare (ftype (function (string list) list))
            (important-return-value t))
   (let ((registry (t--pget info :html-special-block-custom-elements)))
@@ -2927,9 +2928,9 @@ SPEC is the validated (NAME . PLIST) entry from
 `org-w3ctr--special-block-spec'.
 
 Return the formatted custom element string.  When SPEC has a
-`:template', insert it verbatim before CONTENTS (trusted HTML, meant
-for a Declarative Shadow DOM <template>).  Only named blocks get an
-automatic id."
+non-blank `:template', insert it verbatim before CONTENTS (trusted
+HTML, meant for a Declarative Shadow DOM <template>).  Only named
+blocks get an automatic id."
   (declare (ftype (function (t (or null string) list list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type special-block))
@@ -2944,14 +2945,15 @@ automatic id."
 
 (defun t-special-block (special-block contents info)
   "Transcode a SPECIAL-BLOCK element from Org to HTML.
-CONTENTS is the block text (or nil).  INFO is the info plist.
+CONTENTS is the block text (nil becomes \"\").  INFO is the info plist.
 
 Return the formatted HTML string.  Types registered in
 `:html-special-block-custom-elements' are exported as custom elements
 of the same name; others in `org-w3ctr-html5-elements' keep their
 HTML5 tag name, and the rest become a <div class=\"TYPE\"> (with user
-attributes replacing the default class).  Signal `org-w3ctr-error' on
-a malformed registry or invalid custom element name."
+attributes replacing the default class).  Only named blocks get an
+automatic id; captions are dropped.  Signal `org-w3ctr-error' on a
+malformed registry or invalid custom element name."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let ((type (org-element-property :type special-block)))
@@ -2966,8 +2968,8 @@ Scan the parse tree for special blocks, skipping what the export
 ignores, and return the matching (NAME . PLIST) entries of
 `:html-special-block-custom-elements' in registry order, without
 duplicates.  Registry order keeps the result stable when blocks move
-in the document.  Signal `org-w3ctr-error' if the registry contains
-a malformed entry."
+in the document.  Signal `org-w3ctr-error' if the registry is
+malformed or has an invalid custom element name."
   (declare (ftype (function (list) list))
            (important-return-value t))
   (when-let* ((registry (t--pget info :html-special-block-custom-elements)))
@@ -2987,12 +2989,14 @@ string (possibly empty) and SEEN is the updated seen-list."
   (let ((plist (cdr entry))
         (parts nil))
     (when-let* ((src (plist-get plist :src))
+                ((t--nw-p src))
                 ((not (member src seen))))
       (push src seen)
       (push (format "<script type=\"module\" src=\"%s\"></script>\n"
                     (t--encode-plain-text* src))
             parts))
-    (when-let* ((js (plist-get plist :script)))
+    (when-let* ((js (plist-get plist :script))
+                ((t--nw-p js)))
       (push (format "<script type=\"module\">\n%s\n</script>\n" js)
             parts))
     (cons (apply #'concat (nreverse parts)) seen)))
@@ -3014,14 +3018,14 @@ Return nil when nothing is produced."
       (let ((result (t--special-block-head-entry entry seen)))
         (setq seen (cdr result))
         (push (car result) parts)))
-    (let ((s (apply #'concat (nreverse parts))))
-      (and (t--nw-p s) s))))
+    (t--nw-p (apply #'concat (nreverse parts)))))
 
 (defun t--special-block-head (info)
   "Return the <head> contents for the custom elements used in INFO.
 INFO is the info plist.  Call `:html-special-block-head-function'
 with the used entries, or return nil when no registered element is
-used.  Signal `org-w3ctr-error' if the registry is malformed."
+used.  Signal `org-w3ctr-error' if the registry is malformed or has an
+invalid custom element name."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* ((specs (t--special-block-used-elements info)))
