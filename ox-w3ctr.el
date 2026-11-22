@@ -2685,11 +2685,12 @@ the first paragraph; otherwise concatenate CHECKBOX and CONTENTS."
   (declare (ftype (function (string (or null string)) string))
            (pure t) (important-return-value t))
   (let ((body (or contents "")))
-    (if (and (not (string-empty-p checkbox))
-             (string-match "\\`\\(<p\\(?: [^>]*\\)?>\\)" body))
-        (concat (match-string 1 body) checkbox
-                (substring body (match-end 1)))
-      (concat checkbox body))))
+    (save-match-data
+      (if (and (not (string-empty-p checkbox))
+               (string-match "\\`\\(<p\\(?: [^>]*\\)?>\\)" body))
+          (concat (match-string 1 body) checkbox
+                  (substring body (match-end 1)))
+        (concat checkbox body)))))
 
 (defun t--format-ordered-item (contents checkbox info cnt)
   "Format an ordered list item into HTML.
@@ -2701,10 +2702,9 @@ CNT is non-nil."
   (declare (ftype (function ((or null string) t list (or null integer)) string))
            (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
-        (counter (if (not cnt) "" (format " value=\"%s\"" cnt))))
-    (concat (format "<li%s>" counter)
-            (t--splice-checkbox checkbox (t--nw-trim contents))
-            "</li>")))
+        (counter (if (not cnt) "" (format " value=\"%d\"" cnt))))
+    (format "<li%s>%s</li>" counter
+            (t--splice-checkbox checkbox (t--nw-trim contents)))))
 
 (defun t--format-unordered-item (contents checkbox info)
   "Format an unordered list item into HTML.
@@ -2730,8 +2730,8 @@ any checkbox) in <dt>."
            (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info))
         (term (or term "")))
-    (concat (format "<dt>%s</dt>" (concat checkbox term))
-            "<dd>" (t--nw-trim contents) "</dd>")))
+    (format "<dt>%s%s</dt><dd>%s</dd>"
+            checkbox term (or (t--nw-trim contents) ""))))
 
 ;;;; Item
 

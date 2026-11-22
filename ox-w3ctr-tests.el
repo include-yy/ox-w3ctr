@@ -2304,7 +2304,12 @@ int a = 1;</code></p>\n</details>")
     ($l (t--format-checkbox 'test info) "")
     ($l (t--format-checkbox [1] info) "")
     ($l (t--format-checkbox '(1 . 2) info) "")
-    ($l (t--format-checkbox #s(hello wtf) info) "")))
+    ($l (t--format-checkbox #s(hello wtf) info) ""))
+  ;; Unknown checkbox type propagates `org-w3ctr-error'.
+  (let ((info '(:html-checkbox-type bogus)))
+    ($e!l (t--format-checkbox 'on info)
+          '(org-w3ctr-error "Unknown checkbox type: bogus"))
+    ($l (t--format-checkbox nil info) "")))
 
 (ert-deftest t--splice-checkbox ()
   "Tests for `org-w3ctr--splice-checkbox'."
@@ -2319,7 +2324,13 @@ int a = 1;</code></p>\n</details>")
       "<p id=\"x\" class=\"hi\">&#x2610; a</p>")
   ;; tags that merely start with `<p' (like `<pre>') are not matched
   ($l (t--splice-checkbox "&#x2610; " "<pre>a</pre>")
-      "&#x2610; <pre>a</pre>"))
+      "&#x2610; <pre>a</pre>")
+  ;; preserves caller's match data
+  (let ((s "outer-match"))
+    (string-match "\\(outer\\)-\\(match\\)" s)
+    ($l (t--splice-checkbox "&#x2610; " "<p>a</p>") "<p>&#x2610; a</p>")
+    ($l (match-string 1 s) "outer")
+    ($l (match-string 2 s) "match")))
 
 (ert-deftest t--format-ordered-item ()
   "Tests for `org-w3ctr--format-ordered-item'."
