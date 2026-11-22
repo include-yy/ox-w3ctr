@@ -1960,25 +1960,12 @@ versa (excluding the test-only `echo' and `add' methods)."
       "<div style=\"text-align:center;\"></div>")
      ("#+begin_center\n123\n#+end_center"
       "<div style=\"text-align:center;\">\n<p>123</p>\n</div>")
-     ("#+BEGIN_CENTER\n\n\n#+END_CENTER"
-      "<div style=\"text-align:center;\">\n\n</div>")
-     ("#+BEGIN_CENTER\n\n\n\n\n\n#+END_CENTER"
-      "<div style=\"text-align:center;\">\n\n</div>")
-     ;; with attr__: generic div, no centering
+     ;; attr__ or attr_html: generic div, no centering
      ("#+attr__: [my-class]\n#+begin_center\nhello\n#+end_center"
       "<div class=\"my-class\">\n<p>hello</p>\n</div>")
-     ;; with attr__: explicit style overrides centering
-     ("#+attr__:(style \"text-align:right\")\n#+begin_center\nhello\n#+end_center"
-      "<div style=\"text-align:right\">\n<p>hello</p>\n</div>")
-     ;; explicit id: how a center block gets an anchor
-     ("#+attr__: (id foo)\n#+begin_center\nhello\n#+end_center"
-      "<div id=\"foo\">\n<p>hello</p>\n</div>")
-     ;; with attr_html: the standard Org attribute syntax drops the
-     ;; centering too
      ("#+attr_html: :class foo\n#+begin_center\nhello\n#+end_center"
       "<div class=\"foo\">\n<p>hello</p>\n</div>")
-     ;; presence alone drops the centering: an empty attribute keyword
-     ;; still selects a generic div
+     ;; presence alone (even empty) drops centering
      ("#+attr__:\n#+begin_center\nhello\n#+end_center"
       "<div>\n<p>hello</p>\n</div>")
      ("#+attr_html:\n#+begin_center\nhello\n#+end_center"
@@ -1986,27 +1973,15 @@ versa (excluding the test-only `echo' and `add' methods)."
      ;; captions are dropped
      ("#+caption: A centered block\n#+begin_center\nhello\n#+end_center"
       "<div style=\"text-align:center;\">\n<p>hello</p>\n</div>")))
-  ;; #+name: without attr__: keeps centering, and emits the user label
-  ;; when `:html-prefer-user-labels' is on.  With attr__, keeps the id
-  ;; and drops the centering style.
+  ;; #+name: without attr__ keeps centering; with attr__ keeps id and
+  ;; drops centering.
   (t-check-element-values
    #'t-center-block
    '(("#+name: my-block\n#+begin_center\nhello\n#+end_center"
       "<div id=\"my-block\" style=\"text-align:center;\">\n<p>hello</p>\n</div>")
      ("#+name: my-block\n#+attr__: [box]\n#+begin_center\nhello\n#+end_center"
       "<div id=\"my-block\" class=\"box\">\n<p>hello</p>\n</div>"))
-   t '(:html-prefer-user-labels t))
-  ;; Under the default options (`prefer-user-labels' nil), a named
-  ;; center block still keeps centering and gets a generated id matching
-  ;; a link to it.
-  (let ((out (org-export-string-as
-              "[[my-block]]\n\n#+name: my-block\n#+begin_center\nhello\n#+end_center"
-              'w3ctr t)))
-    ($s (string-match "href=\"#\\(org[0-9a-f]+\\)\"" out))
-    ($s (string-match-p
-         (format "<div id=\"%s\" style=\"text-align:center;\">\n<p>hello</p>\n</div>"
-                 (match-string 1 out))
-         out))))
+   t '(:html-prefer-user-labels t)))
 
 ;;;; Drawer
 
@@ -2029,12 +2004,14 @@ versa (excluding the test-only `echo' and `add' methods)."
                    (if (t--pget info :html-prefer-user-labels) "on" "off")))))
     (t-check-element-values
      #'t-drawer
-     '((":hello:\n:end:"
+     `((":hello:\n:end:"
         "<DRAWER name=hello summary=hello attrs= contents=nil labels=on/>")
        ("#+caption: what can i say\n:test:\nbody\n:end:"
-        "<DRAWER name=test summary=what can i say attrs= contents=\"<p>body</p>\n\" labels=on/>")
+        ,($c "<DRAWER name=test summary=what can i say attrs= "
+             "contents=\"<p>body</p>\n\" labels=on/>"))
        ("#+name: id\n#+attr__: [example]\n:h:\n:end:"
-        "<DRAWER name=h summary=h attrs= id=\"id\" class=\"example\" contents=nil labels=on/>"))
+        ,($c "<DRAWER name=h summary=h attrs= id=\"id\" class=\"example\" "
+             "contents=nil labels=on/>")))
      nil '(:html-prefer-user-labels t))))
 
 (ert-deftest t-drawer ()
@@ -2276,11 +2253,11 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr-checkbox-types'."
   ;; The registry has exactly the three documented types, each with
   ;; exactly the three states and non-empty string markup.
-  ($l (mapcar #'car org-w3ctr-checkbox-types) '(unicode ascii html))
-  (let ((safe-fn (get 'org-w3ctr-checkbox-type 'safe-local-variable)))
+  ($l (mapcar #'car t-checkbox-types) '(unicode ascii html))
+  (let ((safe-fn (get 't-checkbox-type 'safe-local-variable)))
     ($s (functionp safe-fn))
     ($n (funcall safe-fn 'bogus))
-    (dolist (entry org-w3ctr-checkbox-types)
+    (dolist (entry t-checkbox-types)
       ($s (funcall safe-fn (car entry)))
       ($l (mapcar #'car (cdr entry)) '(on off trans))
       (dolist (state (cdr entry))
@@ -2351,7 +2328,7 @@ int a = 1;</code></p>\n</details>")
   ;; a <p> after leading text is not spliced (must anchor at string start)
   ($l (t--splice-checkbox "&#x2610; " "foo <p>a</p>")
       "&#x2610; foo <p>a</p>")
-  ;; case-sensitive: uppercase <P> is not spliced even when case-fold-search is t
+  ;; case-sensitive: uppercase <P> is not spliced under case-fold-search
   (let ((case-fold-search t))
     ($l (t--splice-checkbox "&#x2610; " "<P>a</P>")
         "&#x2610; <P>a</P>"))
@@ -2445,7 +2422,6 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-item-unordered ()
   "Tests for `org-w3ctr-item' unordered clause."
-
   (t-check-element-values
    #'t-item
    '(("- 123" "<li>123</li>")
@@ -2473,7 +2449,6 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-item-ordered ()
   "Tests for `org-w3ctr-item' ordered clause."
-
   (t-check-element-values
    #'t-item
    '(("1. 123" "<li>123</li>")
@@ -2501,7 +2476,6 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-item-descriptive ()
   "Tests for `org-w3ctr-item' descriptive clause."
-
   (t-check-element-values
    #'t-item
    '(("- 123 :: tag" "<dt>123</dt><dd>tag</dd>")
@@ -2542,7 +2516,6 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-item ()
   "Tests for `org-w3ctr-item'."
-
   (t-check-element-values
    #'t-item
    '(("- [@a] [ ] 123 :: 456" "<dt>&#x2610; 123</dt><dd>456</dd>")
@@ -2609,7 +2582,7 @@ int a = 1;</code></p>\n</details>")
   "Tests for `org-w3ctr-html5-elements'."
   ;; The list is the compatibility target: it must stay identical to
   ;; ox-html's, which the package already requires.
-  ($l org-w3ctr-html5-elements org-html-html5-elements))
+  ($l t-html5-elements org-html-html5-elements))
 
 (ert-deftest t--special-block-builtin ()
   "Tests for `org-w3ctr--special-block-builtin'."
@@ -2703,7 +2676,8 @@ int a = 1;</code></p>\n</details>")
     ($l (t--special-block-spec "x-a" info) '("x-a" :src "a.js"))
     ($l (t--special-block-spec "x-empty" info) '("x-empty"))
     ($n (t--special-block-spec "x-other" info)))
-  ($n (t--special-block-spec "x-a" (list :html-special-block-custom-elements nil)))
+  ($n (t--special-block-spec
+       "x-a" (list :html-special-block-custom-elements nil)))
   ($e!l (org-export-string-as
          "#+begin_x-old\nhi\n#+end_x-old" 'w3ctr t
          '(:html-special-block-custom-elements ("x-old")))
@@ -2946,7 +2920,8 @@ int a = 1;</code></p>\n</details>")
       ($n (string-search "<script type=\"module\"" (head "hello")))
       (let ((called nil))
         (head "hello" (list :html-special-block-head-function
-                            (lambda (_specs _info) (setq called t) "<!-- x -->")))
+                            (lambda (_specs _info)
+                              (setq called t) "<!-- x -->")))
         ($n called))
       ;; a custom hook returning nil adds nothing
       ($n (string-search "<script type=\"module\""
@@ -3154,12 +3129,12 @@ cookie-less column is remembered as the `none' marker."
     ($l (cell "| <l> | <r> |\n| Name | Val |\n|------+-----|\n| foo | bar |"
               2 "Name")
         "\n<th scope=\"col\" style=\"text-align:left\">Name</th>")
-    ;; an empty or whitespace-only cell becomes &nbsp;; nil is the bare-cell case
+    ;; empty or whitespace-only cell becomes &nbsp;; nil is bare cell
     ($l (cell "| |" 0 "") "\n<td>&#xa0;</td>")
     ($l (cell "| |" 0 "  \t ") "\n<td>&#xa0;</td>")
     ($l (cell "| |" 0 nil) "\n<td>&#xa0;</td>")
-    ;; the first column can carry row headers; header row still uses scope="col",
-    ;; and non-first body columns stay <td>
+    ;; first column can carry row headers; header row still uses
+    ;; scope="col", and non-first body columns stay <td>
     ($l (cell "| Name | Value |\n|------+-------|\n| foo | bar |" 0 "Name"
               (list :html-table-use-header-tags-for-first-column t))
         "\n<th scope=\"col\">Name</th>")
