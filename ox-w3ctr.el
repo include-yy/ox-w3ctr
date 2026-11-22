@@ -3383,7 +3383,7 @@ malformed."
 
 ;;;; Fixed Width
 
-;; See (info "(org) Literal Examples")
+;; See (info "(org)Literal Examples")
 ;; The block is a bare <pre>: `.example' would turn a layout block into
 ;; a numbered example box, so unlike ox-html no class is added.  The
 ;; value is emitted as parsed: the parser already removed the `:'
@@ -3395,10 +3395,11 @@ malformed."
   "Transcode a FIXED-WIDTH element from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return a bare <pre> element: a missing `:value' defaults to \"\", a
-blank value is kept as is, and a non-blank one is newline-wrapped and
-escaped via `org-w3ctr--encode-plain-text'.  Attributes use
-`org-w3ctr--make-attr__id*' (named-only); captions are dropped."
+Return a bare <pre> element as a string: a missing `:value' defaults
+to \"\", a blank value is kept as is, and a non-blank one is
+HTML-escaped and wrapped in newlines.  Accept `#+attr__:' and
+`#+attr_html:' for custom attributes; only named blocks get an
+automatic id.  Captions are dropped."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let ((value (or (org-element-property :value fixed-width) "")))
@@ -3409,20 +3410,18 @@ escaped via `org-w3ctr--encode-plain-text'.  Attributes use
 
 ;;;; Horizontal Rule
 
-;; See (info "(org) Horizontal Rules")
-;; Unlike ox-html, the element honors `#+attr__'/`#+attr_html' and
-;; `#+name:' (emitted verbatim under `org-w3ctr-prefer-user-labels',
-;; or as a generated reference otherwise).
+;; See (info "(org)Horizontal Rules")
 
 (defun t-horizontal-rule (horizontal-rule _contents info)
   "Transcode a HORIZONTAL-RULE element from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return a void <hr> element as a string.  Attributes use
-`org-w3ctr--make-attr__id*' (named-only); captions are dropped."
+Return a void <hr> element as a string.  Accept `#+attr__:' and
+`#+attr_html:' for custom attributes; only named rules get an
+automatic id.  Captions are dropped."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
-  (t--void-element "hr" (t--make-attr__id* horizontal-rule info t)))
+  (format "<hr%s>" (t--make-attr__id* horizontal-rule info t)))
 
 ;;;; Keyword
 
