@@ -1604,7 +1604,9 @@ byte-compiled code."
       :html-file-timestamp-function :html-viewport
       :time-stamp-file :with-author :author :title
       :html-mathjax-config :html-math-head-function
-      :html-use-cc-badges :html-license :html-license-format-function)
+      :html-use-cc-badges :html-license :html-license-format-function
+      ;; Internal export state
+      :html-special-block-registry-checked)
     "List of property keys cached by the OINFO oclosures.
 
 Access these keys only through `org-w3ctr--pget' and `org-w3ctr--pput',
@@ -2800,11 +2802,11 @@ automatic id.  Captions are dropped."
 
 ;;;; Special Block
 
-;; See (info "(org)Special blocks") and (info "(org)HTML doctypes")
+;; See (info "(org)Blocks") and (info "(org)HTML doctypes")
 ;; `org-w3ctr-special-block' dispatches between two paths: types listed
 ;; in `:html-special-block-custom-elements' go to
 ;; `org-w3ctr--special-block-custom'; all others go to
-;; `org-w3ctr--special-block-builtin', which follows ox-html.
+;; `org-w3ctr--special-block-builtin' (HTML5 elements and <div> fallbacks).
 ;; <head> scripts for used custom elements are injected by
 ;; `org-w3ctr--build-head' via `:html-special-block-head-function'.
 
@@ -2823,54 +2825,29 @@ Copied from `org-html-html5-elements' for compatibility; matched
 case-sensitively.")
 
 (defun t--special-block-builtin (special-block contents info)
-  "Transcode SPECIAL-BLOCK as an HTML element or a <div>.
+  "Transcode SPECIAL-BLOCK as an HTML5 element or a <div>.
 CONTENTS is the block text (nil becomes \"\").  INFO is the info plist.
 
 Return the formatted element string.  A type in
 `org-w3ctr-html5-elements' becomes that element; any other type
-becomes a <div> with the type as its class.  User attributes replace
-that class, so an empty `#+attr__:' gives a plain <div>.  Attributes
-use `org-w3ctr--make-attr__id*' (named-only)."
+becomes a <div> with the type as its class.  With `#+attr__:' or
+`#+attr_html:' (even when empty), drop that default class and let the
+user control attributes.  Only named blocks get an automatic id."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type special-block))
-         (contents (or contents ""))
-         (attrs (t--make-attr__id* special-block info t)))
+         (attrs (t--make-attr__id* special-block info t))
+         (body (t--prepend-newline contents)))
     (if (member type t-html5-elements)
-        (format "<%s%s>\n%s</%s>" type attrs contents type)
+        (format "<%s%s>%s</%s>" type attrs body type)
       (let ((user-attrs-p
              (or (org-element-property :attr__ special-block)
                  (org-element-property :attr_html special-block))))
-        (format "<div%s%s>\n%s\n</div>"
+        (format "<div%s%s>%s</div>"
+                attrs
                 (if user-attrs-p ""
                   (format " class=\"%s\"" (t--encode-plain-text* type)))
-                attrs contents)))))
-
-(defun t--special-block-validate-registry (registry)
-  "Signal `org-w3ctr-error' if REGISTRY has a malformed entry.
-REGISTRY is the value of `:html-special-block-custom-elements': a
-list whose entries must each be a cons with a string car.  Return
-nil when every entry is well-formed."
-  (declare (ftype (function (list) null)))
-  (dolist (entry registry)
-    (unless (and (consp entry) (stringp (car entry)))
-      (t-error "Malformed custom element registry entry: %S" entry))))
-
-(defun t--special-block-spec (type info)
-  "Return the spec of custom element TYPE in INFO, or nil.
-TYPE is a string.  The spec is a (PLIST . NAME) cons from
-`:html-special-block-custom-elements'; it is non-nil even when PLIST
-is empty, so a nil result means TYPE is not registered.  Signal
-`org-w3ctr-error' if the registry contains a malformed entry.
-
-The result is (PLIST . NAME) rather than the registry's (NAME . PLIST)
-so `car' retrieves the plist."
-  (declare (ftype (function (string list) list))
-           (important-return-value t))
-  (let ((registry (t--pget info :html-special-block-custom-elements)))
-    (t--special-block-validate-registry registry)
-    (when-let* ((entry (assoc type registry)))
-      (cons (cdr entry) (car entry)))))
+                body)))))
 
 (defconst t--custom-element-name-regexp
   (rx string-start
@@ -2891,6 +2868,47 @@ with `org-w3ctr--custom-element-name-p', which turns off case folding.")
   (let ((case-fold-search nil))
     (and (string-match-p t--custom-element-name-regexp name) t)))
 
+(defun t--special-block-validate-registry (registry &optional info)
+  "Signal `org-w3ctr-error' if REGISTRY is malformed.
+REGISTRY is the value of `:html-special-block-custom-elements': a
+proper list whose entries are (NAME . PLIST) conses where NAME is a
+valid custom element name string and PLIST is a property list.  When
+optional INFO is non-nil, cache REGISTRY as validated in INFO so
+repeated checks of the same object are skipped.  Return nil when
+REGISTRY is well-formed."
+  (declare (ftype (function (t &optional list) null)))
+  (unless (and info
+               (eq registry
+                   (t--pget info :html-special-block-registry-checked)))
+    (unless (proper-list-p registry)
+      (t-error "Malformed custom element registry: %S" registry))
+    (dolist (entry registry)
+      (unless (and (consp entry)
+                   (stringp (car entry))
+                   (plistp (cdr entry)))
+        (t-error "Malformed custom element registry entry: %S" entry))
+      (unless (t--custom-element-name-p (car entry))
+        (t-error "Invalid custom element name: %s" (car entry))))
+    (when info
+      (t--pput info :html-special-block-registry-checked registry)
+      nil)))
+
+(defun t--special-block-spec (type info)
+  "Return the spec of custom element TYPE in INFO, or nil.
+TYPE is a string.  The spec is a (PLIST . NAME) cons from
+`:html-special-block-custom-elements'; it is non-nil even when PLIST
+is empty, so a nil result means TYPE is not registered.  Signal
+`org-w3ctr-error' if the registry contains a malformed entry.
+
+The result is (PLIST . NAME) rather than the registry's (NAME . PLIST)
+so `car' retrieves the plist."
+  (declare (ftype (function (string list) list))
+           (important-return-value t))
+  (let ((registry (t--pget info :html-special-block-custom-elements)))
+    (t--special-block-validate-registry registry info)
+    (when-let* ((entry (assoc type registry)))
+      (cons (cdr entry) (car entry)))))
+
 (defun t--special-block-custom (special-block contents info spec)
   "Transcode SPECIAL-BLOCK as the custom element named by its type.
 CONTENTS is the block text (nil becomes \"\").  INFO is the info plist.
@@ -2904,25 +2922,27 @@ if the type is not a valid custom element name."
   (declare (ftype (function (t (or null string) list list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type special-block))
-         (template (plist-get (car spec) :template)))
+         (template (plist-get (car spec) :template))
+         (tpl (and (t--nw-p template)
+                   (org-element-normalize-string template)))
+         (body (and (or tpl contents) (concat tpl contents))))
     (unless (t--custom-element-name-p type)
       (t-error "Invalid custom element name: %s" type))
-    (format "<%s%s>\n%s%s</%s>" type
+    (format "<%s%s>%s</%s>" type
             (t--make-attr__id* special-block info t)
-            (if (t--nw-p template)
-                (org-element-normalize-string template)
-              "")
-            (or contents "") type)))
+            (t--prepend-newline body)
+            type)))
 
 (defun t-special-block (special-block contents info)
   "Transcode a SPECIAL-BLOCK element from Org to HTML.
 CONTENTS is the block text (or nil).  INFO is the info plist.
 
 Return the formatted HTML string.  Types registered in
-`:html-special-block-custom-elements' are rendered by
-`org-w3ctr--special-block-custom'; all others go to
-`org-w3ctr--special-block-builtin'.  Signal `org-w3ctr-error' on a
-malformed registry or invalid custom element name."
+`:html-special-block-custom-elements' are exported as custom elements
+of the same name; others in `org-w3ctr-html5-elements' keep their
+HTML5 tag name, and the rest become a <div class=\"TYPE\"> (with user
+attributes replacing the default class).  Signal `org-w3ctr-error' on
+a malformed registry or invalid custom element name."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let ((type (org-element-property :type special-block)))
@@ -2942,7 +2962,7 @@ a malformed entry."
   (declare (ftype (function (list) list))
            (important-return-value t))
   (when-let* ((registry (t--pget info :html-special-block-custom-elements)))
-    (t--special-block-validate-registry registry)
+    (t--special-block-validate-registry registry info)
     (let ((used (org-element-map (t--pget info :parse-tree) 'special-block
                   (lambda (b) (org-element-property :type b))
                   info)))

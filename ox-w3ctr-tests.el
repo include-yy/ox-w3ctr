@@ -2585,23 +2585,40 @@ int a = 1;</code></p>\n</details>")
    '(;; an HTML5 element keeps its name
      ("#+begin_section\nhello\n#+end_section"
       "<section>\n<p>hello</p>\n</section>")
+     ("#+begin_section\n#+end_section"
+      "<section></section>")
      ;; any other type becomes a <div class="TYPE">
      ("#+begin_foo\nhello\n#+end_foo"
-      "<div class=\"foo\">\n<p>hello</p>\n\n</div>")
+      "<div class=\"foo\">\n<p>hello</p>\n</div>")
      ;; user attributes replace the type class
      ("#+attr__: [bar]\n#+begin_foo\nhello\n#+end_foo"
-      "<div class=\"bar\">\n<p>hello</p>\n\n</div>")
+      "<div class=\"bar\">\n<p>hello</p>\n</div>")
      ;; an empty #+attr__: gives a plain <div>
      ("#+attr__:\n#+begin_div\nhello\n#+end_div"
-      "<div>\n<p>hello</p>\n\n</div>"))
+      "<div>\n<p>hello</p>\n</div>"))
    nil '(:html-prefer-user-labels t)))
+
+(ert-deftest t--custom-element-name-p ()
+  "Tests for `org-w3ctr--custom-element-name-p'."
+  (dolist (s '("my-card" "x-" "a-b-c" "a1-b.c_d"))
+    ($s (t--custom-element-name-p s)))
+  (let ((case-fold-search t))
+    (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""
+                 "é-card"))
+      ($n (t--custom-element-name-p s)))))
 
 (ert-deftest t--special-block-validate-registry ()
   "Tests for `org-w3ctr--special-block-validate-registry'."
   ($n (t--special-block-validate-registry nil))
   ($n (t--special-block-validate-registry
        '(("a-b") ("c-d" :src "x.js"))))
-  ;; Not a cons, or a car that is not a string: signals.
+  ;; Non-proper-list registry signals.
+  ($e!l (t--special-block-validate-registry "a-b")
+        '(org-w3ctr-error "Malformed custom element registry: \"a-b\""))
+  ($e!l (t--special-block-validate-registry '(("a-b") . bad))
+        '(org-w3ctr-error
+          "Malformed custom element registry: ((\"a-b\") . bad)"))
+  ;; Not a cons, non-string car, or non-plist cdr: signals.
   ($e!l (t--special-block-validate-registry '("a-b"))
         '(org-w3ctr-error
           "Malformed custom element registry entry: \"a-b\""))
@@ -2609,7 +2626,29 @@ int a = 1;</code></p>\n</details>")
         '(org-w3ctr-error "Malformed custom element registry entry: 42"))
   ($e!l (t--special-block-validate-registry '((42 :src "x.js")))
         '(org-w3ctr-error
-          "Malformed custom element registry entry: (42 :src \"x.js\")")))
+          "Malformed custom element registry entry: (42 :src \"x.js\")"))
+  ($e!l (t--special-block-validate-registry '(("a-b" . "x.js")))
+        '(org-w3ctr-error
+          "Malformed custom element registry entry: (\"a-b\" . \"x.js\")"))
+  ($e!l (t--special-block-validate-registry '(("a-b" :src)))
+        '(org-w3ctr-error
+          "Malformed custom element registry entry: (\"a-b\" :src)"))
+  ;; Invalid custom element name signals even if unused.
+  ($e!l (t--special-block-validate-registry '(("card")))
+        '(org-w3ctr-error "Invalid custom element name: card"))
+  ($e!l (t--special-block-validate-registry '(("My-Card")))
+        '(org-w3ctr-error "Invalid custom element name: My-Card"))
+  ;; With INFO, a validated registry is cached and not re-checked.
+  (let* ((reg (list (list "a-b" :src "x.js")))
+         (info (list :html-special-block-custom-elements reg))
+         (calls 0))
+    (cl-letf (((symbol-function 'org-w3ctr--custom-element-name-p)
+               (lambda (name) (cl-incf calls) (and (stringp name) t))))
+      ($n (t--special-block-validate-registry reg info))
+      ($l calls 1)
+      ($s (eq (t--pget info :html-special-block-registry-checked) reg))
+      ($n (t--special-block-validate-registry reg info))
+      ($l calls 1))))
 
 (ert-deftest t--special-block-spec ()
   "Tests for `org-w3ctr--special-block-spec'."
@@ -2635,15 +2674,6 @@ int a = 1;</code></p>\n</details>")
   ($e!l (org-export-string-as "hello" 'w3ctr nil
                               '(:html-special-block-custom-elements (42)))
         '(org-w3ctr-error "Malformed custom element registry entry: 42")))
-
-(ert-deftest t--custom-element-name-p ()
-  "Tests for `org-w3ctr--custom-element-name-p'."
-  (dolist (s '("my-card" "x-" "a-b-c" "a1-b.c_d"))
-    ($s (t--custom-element-name-p s)))
-  (let ((case-fold-search t))
-    (dolist (s '("card" "-card" "1-card" "My-card" "MY-CARD" "my card" ""
-                 "é-card"))
-      ($n (t--custom-element-name-p s)))))
 
 (ert-deftest t--special-block-custom-template ()
   "Tests for the :template key of custom elements."
@@ -2698,13 +2728,13 @@ int a = 1;</code></p>\n</details>")
    '(;; listed type: the custom element itself, no class added
      ("#+begin_my-card\nhello\n#+end_my-card"
       "<my-card>\n<p>hello</p>\n</my-card>")
-     ("#+begin_my-card\n#+end_my-card" "<my-card>\n</my-card>")
+     ("#+begin_my-card\n#+end_my-card" "<my-card></my-card>")
      ;; attributes as for other elements
      ("#+name: nm\n#+attr__: [x]\n#+begin_my-card\nhello\n#+end_my-card"
       "<my-card id=\"nm\" class=\"x\">\n<p>hello</p>\n</my-card>")
      ;; unlisted types are unaffected
      ("#+begin_foo-bar\nhello\n#+end_foo-bar"
-      "<div class=\"foo-bar\">\n<p>hello</p>\n\n</div>"))
+      "<div class=\"foo-bar\">\n<p>hello</p>\n</div>"))
    nil (list :html-prefer-user-labels t
              :html-special-block-custom-elements '(("my-card"))))
   ;; empty plist is equivalent to just registering the name
@@ -2726,8 +2756,8 @@ int a = 1;</code></p>\n</details>")
 
 (ert-deftest t-special-block ()
   "Tests for `org-w3ctr-special-block'."
-  ;; The extra blank line before </div> and the case-sensitive type
-  ;; match are ox-html's behavior, kept for compatibility.
+  ;; The case-sensitive type match is ox-html's behavior, kept for
+  ;; compatibility.
   (t-check-element-values
    #'t-special-block
    '(;; listed type: the element itself
@@ -2735,29 +2765,29 @@ int a = 1;</code></p>\n</details>")
       "<section>\n<p>hello</p>\n</section>")
      ;; other type: a <div> carrying the type as class
      ("#+begin_foo\nhello\n#+end_foo"
-      "<div class=\"foo\">\n<p>hello</p>\n\n</div>")
-     ("#+begin_foo\n#+end_foo" "<div class=\"foo\">\n\n</div>")
+      "<div class=\"foo\">\n<p>hello</p>\n</div>")
+     ("#+begin_foo\n#+end_foo" "<div class=\"foo\"></div>")
      ;; case-sensitive, as in ox-html
      ("#+begin_SECTION\nhello\n#+end_SECTION"
-      "<div class=\"SECTION\">\n<p>hello</p>\n\n</div>")
+      "<div class=\"SECTION\">\n<p>hello</p>\n</div>")
      ;; user attributes (#+attr_html: or #+attr__:): full control,
      ;; no class added, as for center blocks
      ("#+attr_html: :class bar\n#+begin_foo\nhello\n#+end_foo"
-      "<div class=\"bar\">\n<p>hello</p>\n\n</div>")
+      "<div class=\"bar\">\n<p>hello</p>\n</div>")
      ("#+attr_html: :class bar\n#+begin_section\nhello\n#+end_section"
       "<section class=\"bar\">\n<p>hello</p>\n</section>")
      ("#+attr__: [bar]\n#+begin_foo\nhello\n#+end_foo"
-      "<div class=\"bar\">\n<p>hello</p>\n\n</div>")
+      "<div class=\"bar\">\n<p>hello</p>\n</div>")
      ;; an empty #+attr__: gives a plain <div>
      ("#+attr__:\n#+begin_div\nhello\n#+end_div"
-      "<div>\n<p>hello</p>\n\n</div>")
+      "<div>\n<p>hello</p>\n</div>")
      ("#+attr__: [bar]\n#+begin_section\nhello\n#+end_section"
       "<section class=\"bar\">\n<p>hello</p>\n</section>")
      ;; named blocks get an id, unless one is given explicitly
      ("#+name: nm\n#+begin_foo\nhello\n#+end_foo"
-      "<div class=\"foo\" id=\"nm\">\n<p>hello</p>\n\n</div>")
+      "<div id=\"nm\" class=\"foo\">\n<p>hello</p>\n</div>")
      ("#+name: nm\n#+attr_html: :id own\n#+begin_foo\nhello\n#+end_foo"
-      "<div id=\"own\">\n<p>hello</p>\n\n</div>")
+      "<div id=\"own\">\n<p>hello</p>\n</div>")
      ("#+name: nm\n#+attr__: [bar]\n#+begin_aside\nhello\n#+end_aside"
       "<aside id=\"nm\" class=\"bar\">\n<p>hello</p>\n</aside>"))
    nil '(:html-prefer-user-labels t)))

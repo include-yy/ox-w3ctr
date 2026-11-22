@@ -74,10 +74,15 @@
   block-level =<p>= light content: style =:host= and reset
   =::slotted(p)= for inline components, wrap =<slot>= in a flow
   container for block components, route named slots with
-  =#+attr_html: :slot NAME=, and choose =:src= vs =:script=.  Theme
-  through CSS custom properties (=--w3c-*=), and, as optional sugar,
-  map a block's =:parameters= (=#+begin_x-badge :variant warn=) onto
-  element attributes.
+  =#+attr_html: :slot NAME=, and choose =:src= vs =:script=.  Theme through CSS custom properties (=--w3c-*=), and, as optional
+  sugar, map a block's =:parameters= (=#+begin_x-badge :variant warn=)
+  onto element attributes.  For CSS-only / Light DOM components,
+  consider extending the default =head-function= with =:css= (deduped
+  =<link rel="stylesheet">=) and =:style= (inline =<style>=); for
+  high-frequency components, prefer Light DOM + =:css=/=:style=, a
+  =<link rel="stylesheet">= inside DSD =:template=, or =:src= with
+  shared =adoptedStyleSheets= rather than repeating large inline
+  =<style>= blocks per instance.
 - *Caption policy across blocks.*  =#+caption:= parses on nearly every
   block -- =example-block=, =src-block=, =quote-block=, =verse-block=,
   =center-block=, =special-block=, =table=, =fixed-width=,
