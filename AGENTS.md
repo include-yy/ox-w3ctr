@@ -52,19 +52,8 @@ start, read it; when it is absent or older than 24 hours, re-run the
 probes and rewrite it.  When a probe disagrees with a fresh file, report
 the mismatch and let the user decide, rather than overwriting silently.
 
-Only the env-detect skill writes `.agents/env.md`; a skill that changes
-the environment (python-env) re-runs it instead of editing the file.
-Project-level facts (a venv, its dependencies) live in project files
-(`AGENTS.md`, plus `requirements.txt` when dependencies exist), never
-in env.md.
-
-Python commands run against the project venv, never the system
-interpreter — the system Python is reserved for the env-detect probe.
-The venv is a project fact: the python-env skill creates it.  There
-are currently no Python dependencies; when one appears it is pinned in
-`requirements.txt`, which the skill creates on demand.  Find the venv
-python at `.venv/Scripts/python.exe` (Windows) or `.venv/bin/python`
-(POSIX).
+Only the env-detect skill writes `.agents/env.md`.  Project-level
+facts live in project files (`AGENTS.md`), never in env.md.
 
 Invariants the detected values must satisfy:
 
