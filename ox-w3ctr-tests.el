@@ -2434,7 +2434,8 @@ int a = 1;</code></p>\n</details>")
      ("- [@a] [ ] 123" "<li>&#x2610; 123</li>")
      ("- [@pp] [ ] 123" "<li>[@pp] [ ] 123</li>")
      ;; zero width space
-     ("- [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>"))
+     ("- [​@1] [ ] 123" "<li>[​@1] [ ] 123</li>")
+     ("- a\n- b :: c" "<li>c</li>" "<li>a</li>"))
    nil '(:html-checkbox-type unicode)))
 
 (ert-deftest t-item-ordered ()
@@ -2558,7 +2559,10 @@ int a = 1;</code></p>\n</details>")
       "<blockquote class=\"test\">\n<p>456</p>\n</blockquote>")
      ("#+begin_quote\n\n\n#+end_quote" "<blockquote>\n\n</blockquote>")
      ("#+begin_quote\n\n\n\n\n\n\n\n\n\n#+end_quote"
-      "<blockquote>\n\n</blockquote>")))
+      "<blockquote>\n\n</blockquote>")
+     ;; captions are dropped
+     ("#+caption: A quote\n#+begin_quote\n456\n#+end_quote"
+      "<blockquote>\n<p>456</p>\n</blockquote>")))
   ;; a name becomes an id when `:html-prefer-user-labels' is on
   (t-check-element-values
    #'t-quote-block

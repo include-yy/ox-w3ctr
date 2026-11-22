@@ -2715,9 +2715,8 @@ Return an <li> element as a string."
   (declare (ftype (function ((or null string) t list) string))
            (important-return-value t))
   (let ((checkbox (t--format-checkbox checkbox info)))
-    (concat "<li>"
-            (t--splice-checkbox checkbox (t--nw-trim contents))
-            "</li>")))
+    (format "<li>%s</li>"
+            (t--splice-checkbox checkbox (t--nw-trim contents)))))
 
 (defun t--format-descriptive-item (contents checkbox info term)
   "Format a descriptive list item into HTML.
@@ -2740,7 +2739,7 @@ any checkbox) in <dt>."
 ;; item is exported under that type.  An item that does not match is
 ;; exported as is, without an error:
 ;; - in a descriptive list, an item without " :: " gets an empty <dt>;
-;; - in an ordered or unordered list, an item's " :: " tag is dropped.
+;; - in an unordered list, an item's " :: " tag is dropped.
 (defun t-item (item contents info)
   "Transcode an ITEM element from Org to HTML.
 CONTENTS is nil or a string.  INFO is the info plist.
@@ -2772,13 +2771,13 @@ type (`ordered', `unordered', or `descriptive').  Signal
   "Transcode a PLAIN-LIST element from Org to HTML.
 CONTENTS is the list text (nil becomes \"\").  INFO is the info plist.
 
-Return an <ol>, <ul>, or <dl> element as a string.  Attributes use
-`org-w3ctr--make-attr__id*' (named-only).  Signal `org-w3ctr-error'
-on an unknown list type."
+Return an <ol>, <ul>, or <dl> element as a string.  Accept `#+attr__:'
+and `#+attr_html:' for custom attributes; only named lists get an
+automatic id.  Signal `org-w3ctr-error' on an unknown list type."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((type (pcase (org-element-property :type plain-list)
-                 (`ordered "ol") (`unordered "ul") (`descriptive "dl")
+                 ('ordered "ol") ('unordered "ul") ('descriptive "dl")
                  (other (t-error "Unknown HTML list type: %s" other))))
          (attributes (t--make-attr__id* plain-list info t)))
     (format "<%s%s>\n%s</%s>" type attributes (or contents "") type)))
@@ -2790,8 +2789,9 @@ on an unknown list type."
   "Transcode a QUOTE-BLOCK element from Org to HTML.
 CONTENTS is the block text (nil becomes \"\").  INFO is the info plist.
 
-Return a <blockquote> element as a string.  Attributes use
-`org-w3ctr--make-attr__id*' (named-only); captions are dropped."
+Return a <blockquote> element as a string.  Accept `#+attr__:' and
+`#+attr_html:' for custom attributes; only named blocks get an
+automatic id.  Captions are dropped."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format "<blockquote%s>%s</blockquote>"
