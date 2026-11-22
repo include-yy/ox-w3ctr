@@ -3570,66 +3570,52 @@ the result is not a string."
     out))
 
 (defun t--format-latex (frag mode info &optional default-display)
-  "Return the exported string for LaTeX fragment FRAG under MODE.
-INFO is the info plist.  DEFAULT-DISPLAY is forwarded to
-`org-w3ctr--latex-rpc' for delimiter-less input (such as a LaTeX
-environment).
+  "Format LaTeX FRAG under MODE, returning an HTML string or nil.
+INFO is the info plist.  Non-nil DEFAULT-DISPLAY treats a
+delimiter-less FRAG (such as an environment) as display math.
 
-MODE is the value of `:with-latex': nil and `verbatim' return nil,
-both handled by ox.el before the transcoders run; `mathjax' (or t)
-normalizes delimiters and HTML-escapes `<', `>', and `&' via
-`org-w3ctr--encode-plain-text'; `mathml-by-mathjax' and
-`svg-by-mathjax' convert through the jstools RPC; `custom' calls
-`:html-math-custom-format-function' on FRAG and INFO (returning a
-string or nil).
-
-A delimiter-less FRAG with nil DEFAULT-DISPLAY (such as a bare
-`\\cmd' parsed as a `latex-fragment') is not treated as math in the
-built-in modes: it is HTML-escaped as plain text without calling the
-RPC or incrementing `:html-math-count' in INFO.  When a math fragment
-or environment produces output, `:html-math-count' in INFO is
-incremented.  An unknown MODE or a non-string/nil custom result
-signals `org-w3ctr-error'."
+MODE is `:with-latex' (nil, `verbatim', `mathjax'/t,
+`mathml-by-mathjax', `svg-by-mathjax', or `custom').  Built-in modes
+HTML-escape blank bodies and delimiter-less fragments with nil
+DEFAULT-DISPLAY as plain text; emitted math increments
+`:html-math-count' in INFO.  Signal `org-w3ctr-error' on an unknown
+MODE or a custom result that is neither a string nor nil."
   (declare (ftype (function (string t list &optional boolean)
                             (or null string)))
            (important-return-value t))
-  (let ((math-p (or (cdr (t--split-latex frag))
-                    (and default-display (t--nw-p frag)))))
-    (pcase mode
-      ((or `nil `verbatim) nil)
-      ;; ox.el owns the two modes above: it prunes math under nil
-      ;; (`org-export--skip-p') and expands it into plain text under
-      ;; `verbatim' (`org-export--remove-uninterpreted-data') before the
-      ;; transcoders run.  The nil above means "seen, not handled" -- the
-      ;; export drops the math -- and is only reachable from a direct call.
-      ((or `mathjax `t)
-       (if (not math-p)
-           (t--encode-plain-text frag)
-         (when info
-           (t--pput info :html-math-count
-                    (1+ (or (t--pget info :html-math-count) 0))))
-         (t--encode-plain-text (t--normalize-latex frag))))
-      ((or `mathml-by-mathjax `svg-by-mathjax)
-       (if (not math-p)
-           (t--encode-plain-text frag)
-         (let ((out (t--latex-rpc (if (eq mode 'mathml-by-mathjax)
-                                      'tex2mml 'tex2svg)
-                                  frag default-display)))
-           (when info
-             (t--pput info :html-math-count
-                      (1+ (or (t--pget info :html-math-count) 0))))
-           out)))
-      (`custom
-       (let ((out (funcall (or (t--pget info :html-math-custom-format-function)
-                               #'t-math-custom-default-format-function)
-                           frag info)))
-         (unless (string-or-null-p out)
-           (t-error "Custom LaTeX renderer returned a non-string: %S" out))
-         (when (and info (t--nw-p out))
-           (t--pput info :html-math-count
-                    (1+ (or (t--pget info :html-math-count) 0))))
-         out))
-      (other (t-error "Unknown LaTeX mode: %S" other)))))
+  (cond
+   ;; ox.el owns nil and `verbatim': it prunes math under nil
+   ;; (`org-export--skip-p') and expands it into plain text under
+   ;; `verbatim' (`org-export--remove-uninterpreted-data') before the
+   ;; transcoders run.  Returning nil here is only reachable from a
+   ;; direct call.
+   ((memq mode '(nil verbatim)) nil)
+   ((eq mode 'custom)
+    (let ((out (funcall (or (t--pget info :html-math-custom-format-function)
+                            #'t-math-custom-default-format-function)
+                        frag info)))
+      (unless (string-or-null-p out)
+        (t-error "Custom LaTeX renderer returned a non-string: %S" out))
+      (when (and info (t--nw-p out))
+        (t--pput info :html-math-count
+                 (1+ (or (t--pget info :html-math-count) 0))))
+      out))
+   ((not (memq mode '(mathjax t mathml-by-mathjax svg-by-mathjax)))
+    (t-error "Unknown LaTeX mode: %S" mode))
+   ((pcase-let ((`(,tex . ,kind) (t--split-latex frag)))
+      (not (and (or kind default-display) (t--nw-p tex))))
+    (t--encode-plain-text frag))
+   (t
+    (prog1 (pcase mode
+             ((or `mathjax `t)
+              (t--encode-plain-text (t--normalize-latex frag)))
+             (`mathml-by-mathjax
+              (t--latex-rpc 'tex2mml frag default-display))
+             (`svg-by-mathjax
+              (t--latex-rpc 'tex2svg frag default-display)))
+      (when info
+        (t--pput info :html-math-count
+                 (1+ (or (t--pget info :html-math-count) 0))))))))
 
 (defun t-latex-fragment (latex-fragment _contents info)
   "Transcode a LATEX-FRAGMENT object from Org to HTML.

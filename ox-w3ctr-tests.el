@@ -3703,6 +3703,10 @@ cookie-less column is remembered as the `none' marker."
           "\\cmd{a &lt; b}")
       ($l (t--format-latex "\\cmd{a & b}" 'svg-by-mathjax info)
           "\\cmd{a &amp; b}")
+      ;; empty or blank-body delimiters are not treated as math either
+      ($l (t--format-latex "\\(\\)" 'mathjax info) "\\(\\)")
+      ($l (t--format-latex "\\[  \\]" 'mathml-by-mathjax info) "\\[  \\]")
+      ($l (t--format-latex "$$$$" 'svg-by-mathjax info) "$$$$")
       ($n called)
       ($n (t--pget info :html-math-count))
       ;; real math fragments and environments increment `:html-math-count'
