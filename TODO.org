@@ -262,9 +262,7 @@ same session.  Larger or planned work is in the =TODO= list above.
 - *Fontify subsystem polish (from the 0.2.18 review; none urgent).*
   - Efficiency, only if profiling flags the engrave engine: memoize
     =org-w3ctr--engrave-face-slug= per export (the state already has the
-    =(cache . jstools-languages)= pattern); and =org-w3ctr--fontify-merge=
-    builds merged text with repeated =concat=, O(n^2) in a pathological
-    many-tiny-token case.
+    =(cache . jstools-languages)= pattern).
   - Efficiency, same caveat: consider reusing one scratch buffer per major
     mode across blocks (stashed in the fontify state) instead of a fresh
     =with-temp-buffer= + =(funcall mode)= per block; =delay-mode-hooks=

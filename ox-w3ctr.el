@@ -210,11 +210,11 @@
     (:with-latex nil "tex" t-with-latex)
     (:html-math-custom-format-function nil nil t-math-custom-format-function)
     ;; Src Block
+    (:html-fontify-faces nil nil t-fontify-faces)
+    (:html-fontify-extra-faces nil nil t-fontify-extra-faces)
     (:html-fontify-method nil "fontify" t-fontify-method)
     (:html-fontify-on-error nil nil t-fontify-on-error)
     (:html-fontify-unknown-language nil nil t-fontify-unknown-language)
-    (:html-fontify-faces nil nil t-fontify-faces)
-    (:html-fontify-extra-faces nil nil t-fontify-extra-faces)
     (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
     (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
     (:html-fontify-lang-alist nil nil t-fontify-lang-alist)
@@ -475,6 +475,90 @@ and must return the HTML/MathML/SVG string, or nil to emit nothing."
   :type 'function)
 
 ;;;; Src Block
+(defcustom t-fontify-faces
+  '(;; faces.el, excluding bold, italic, bold-italic, underline, ...
+    (shadow . "h")
+    (success . "sc")
+    (warning . "w")
+    (error . "e")
+    ;; font-lock.el
+    (font-lock-comment-face . "c")
+    (font-lock-comment-delimiter-face . "cd")
+    (font-lock-string-face . "s")
+    (font-lock-doc-face . "d")
+    (font-lock-doc-markup-face . "m")
+    (font-lock-keyword-face . "k")
+    (font-lock-builtin-face . "b")
+    (font-lock-function-name-face . "f")
+    (font-lock-variable-name-face . "v")
+    (font-lock-type-face . "t")
+    (font-lock-constant-face . "o")
+    (font-lock-warning-face . "wr")
+    (font-lock-negation-char-face . "nc")
+    (font-lock-preprocessor-face . "pp")
+    (font-lock-regexp-grouping-construct . "rc")
+    (font-lock-regexp-grouping-backslash . "rb")
+    ;; font-lock.el, the faces added with tree-sitter that inherit
+    ;; from none of the above.
+    (font-lock-number-face . "n")
+    (font-lock-operator-face . "op")
+    ;; css-mode: reuse the function-name / keyword colours.
+    (css-property . "f")
+    (css-selector . "k"))
+  "Alist of (FACE . SLUG) pairs used to highlight code.
+A run of code in FACE becomes <span class=\"ef-SLUG\">; the colours
+of the slugs live in the stylesheet (see `org-w3ctr-fontify-palette').
+A SLUG is a lowercase letter followed by lowercase letters, digits
+or hyphens.  A face without an entry is looked up through its
+`:inherit' chain (see `org-w3ctr-fontify-face-fallback'), so most
+derived faces need none.  `default' is deliberately absent: plain
+text gets no span.  Add your own pairs to
+`org-w3ctr-fontify-extra-faces' rather than here."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type (symbol :tag "Face") :value-type string))
+
+(defcustom t-fontify-extra-faces nil
+  "Alist of (FACE . SLUG) pairs consulted before `org-w3ctr-fontify-faces'.
+Use it to map a mode's own faces to existing slugs, or to new ones
+that your own stylesheet colours."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type (symbol :tag "Face") :value-type string))
+
+(defcustom t-fontify-palette
+  '(("h" :light "#57606a" :dark "#8b949e")
+    ("sc" :light "#116329" :dark "#56d364")
+    ("w" :light "#7d4e00" :dark "#e3b341" :style (bold))
+    ("e" :light "#cf222e" :dark "#ff7b72")
+    ("c" :light "#57606a" :dark "#8b949e" :style (italic))
+    ("cd" :light "#57606a" :dark "#8b949e" :style (italic))
+    ("s" :light "#0a3069" :dark "#a5d6ff")
+    ("d" :light "#1a7f37" :dark "#7ee787")
+    ("m" :light "#0550ae" :dark "#79c0ff")
+    ("k" :light "#cf222e" :dark "#ff7b72")
+    ("b" :light "#953800" :dark "#ffa657")
+    ("f" :light "#6f42c1" :dark "#d2a8ff")
+    ("v" :light "#0550ae" :dark "#79c0ff")
+    ("t" :light "#0b6e75" :dark "#56d4dd")
+    ("o" :light "#0550ae" :dark "#79c0ff")
+    ("wr" :light "#cf222e" :dark "#ff7b72" :style (bold))
+    ("nc" :light "#cf222e" :dark "#ff7b72")
+    ("pp" :light "#8a4600" :dark "#f0883e")
+    ("rc" :light "#116329" :dark "#56d364")
+    ("rb" :light "#7d4e00" :dark "#e3b341")
+    ("n" :light "#0550ae" :dark "#79c0ff")
+    ("op" :light "#a0361c" :dark "#ff9b80"))
+  "Colours of the highlighting slugs, for the light and dark themes.
+Each entry is (SLUG :light COLOR :dark COLOR [:style STYLES]): SLUG
+is a slug of `org-w3ctr-fontify-faces', each COLOR a \"#rrggbb\"
+string, and STYLES a list of `bold' and `italic'.  The stylesheet
+does not read this option: `org-w3ctr-fontify-update-stylesheet'
+writes it into the stylesheet as CSS custom properties
+\(--ef-SLUG), one value per theme, and an .ef-SLUG rule per slug.
+The shipped colours reach a WCAG contrast of at least 4.5:1 on
+every code background of assets/style.css, in both themes."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type string :value-type plist))
+
 (defcustom t-fontify-method 'engrave
   "Method used to fontify source code.
 
@@ -544,90 +628,6 @@ A block without a language never counts."
   :group 'org-export-w3ctr
   :type '(choice (const error) (const warn) (const plain))
   :safe (lambda (v) (memq v '(error warn plain))))
-
-(defcustom t-fontify-faces
-  '(;; faces.el, excluding bold, italic, bold-italic, underline, ...
-    (shadow . "h")
-    (success . "sc")
-    (warning . "w")
-    (error . "e")
-    ;; font-lock.el
-    (font-lock-comment-face . "c")
-    (font-lock-comment-delimiter-face . "cd")
-    (font-lock-string-face . "s")
-    (font-lock-doc-face . "d")
-    (font-lock-doc-markup-face . "m")
-    (font-lock-keyword-face . "k")
-    (font-lock-builtin-face . "b")
-    (font-lock-function-name-face . "f")
-    (font-lock-variable-name-face . "v")
-    (font-lock-type-face . "t")
-    (font-lock-constant-face . "o")
-    (font-lock-warning-face . "wr")
-    (font-lock-negation-char-face . "nc")
-    (font-lock-preprocessor-face . "pp")
-    (font-lock-regexp-grouping-construct . "rc")
-    (font-lock-regexp-grouping-backslash . "rb")
-    ;; font-lock.el, the faces added with tree-sitter that inherit
-    ;; from none of the above.
-    (font-lock-number-face . "n")
-    (font-lock-operator-face . "op")
-    ;; css-mode: reuse the function-name / keyword colours.
-    (css-property . "f")
-    (css-selector . "k"))
-  "Alist of (FACE . SLUG) pairs used to highlight code.
-A run of code in FACE becomes <span class=\"ef-SLUG\">; the colours
-of the slugs live in the stylesheet (see `org-w3ctr-fontify-palette').
-A SLUG is a lowercase letter followed by lowercase letters, digits
-or hyphens.  A face without an entry is looked up through its
-`:inherit' chain (see `org-w3ctr-fontify-face-fallback'), so most
-derived faces need none.  `default' is deliberately absent: plain
-text gets no span.  Add your own pairs to
-`org-w3ctr-fontify-extra-faces' rather than here."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type (symbol :tag "Face") :value-type string))
-
-(defcustom t-fontify-palette
-  '(("h" :light "#57606a" :dark "#8b949e")
-    ("sc" :light "#116329" :dark "#56d364")
-    ("w" :light "#7d4e00" :dark "#e3b341" :style (bold))
-    ("e" :light "#cf222e" :dark "#ff7b72")
-    ("c" :light "#57606a" :dark "#8b949e" :style (italic))
-    ("cd" :light "#57606a" :dark "#8b949e" :style (italic))
-    ("s" :light "#0a3069" :dark "#a5d6ff")
-    ("d" :light "#1a7f37" :dark "#7ee787")
-    ("m" :light "#0550ae" :dark "#79c0ff")
-    ("k" :light "#cf222e" :dark "#ff7b72")
-    ("b" :light "#953800" :dark "#ffa657")
-    ("f" :light "#6f42c1" :dark "#d2a8ff")
-    ("v" :light "#0550ae" :dark "#79c0ff")
-    ("t" :light "#0b6e75" :dark "#56d4dd")
-    ("o" :light "#0550ae" :dark "#79c0ff")
-    ("wr" :light "#cf222e" :dark "#ff7b72" :style (bold))
-    ("nc" :light "#cf222e" :dark "#ff7b72")
-    ("pp" :light "#8a4600" :dark "#f0883e")
-    ("rc" :light "#116329" :dark "#56d364")
-    ("rb" :light "#7d4e00" :dark "#e3b341")
-    ("n" :light "#0550ae" :dark "#79c0ff")
-    ("op" :light "#a0361c" :dark "#ff9b80"))
-  "Colours of the highlighting slugs, for the light and dark themes.
-Each entry is (SLUG :light COLOR :dark COLOR [:style STYLES]): SLUG
-is a slug of `org-w3ctr-fontify-faces', each COLOR a \"#rrggbb\"
-string, and STYLES a list of `bold' and `italic'.  The stylesheet
-does not read this option: `org-w3ctr-fontify-update-stylesheet'
-writes it into the stylesheet as CSS custom properties
-\(--ef-SLUG), one value per theme, and an .ef-SLUG rule per slug.
-The shipped colours reach a WCAG contrast of at least 4.5:1 on
-every code background of assets/style.css, in both themes."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type string :value-type plist))
-
-(defcustom t-fontify-extra-faces nil
-  "Alist of (FACE . SLUG) pairs consulted before `org-w3ctr-fontify-faces'.
-Use it to map a mode's own faces to existing slugs, or to new ones
-that your own stylesheet colours."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type (symbol :tag "Face") :value-type string))
 
 (defcustom t-fontify-face-fallback 'inherit
   "What to do with a face that has no slug of its own.
@@ -3853,28 +3853,30 @@ A non-blank caption becomes an unstyled <span> before <pre>."
             (if has-user-attrs "" " class=\"example\"")
             (if caption (format "<span>%s</span>\n" caption) "")
             content)))
-
+
 ;;;; Fontify token IR
 
-;; Every highlighting engine hands back the same intermediate
-;; representation: a list of (CLASS . TEXT) tokens, where TEXT is raw,
-;; unescaped code and CLASS is nil (no span), a slug of the face
-;; tables (`org-w3ctr-fontify-faces'), or (style . CSS) under the
-;; `inline' face fallback.  Engines never produce HTML: their tokens are
-;; checked by `org-w3ctr--fontify-check-tokens', merged by
-;; `org-w3ctr--fontify-merge' and turned into markup only by
-;; `org-w3ctr--fontify-render', so escaping lives in one place.  The
-;; CSS for the slugs is in assets/style.css (".ef-SLUG").  The readers
-;; of the option tables every engine shares (the face tables and the
-;; language alist) live here too, ahead of the engines.
+;; Highlighting engines return raw (CLASS . TEXT) tokens and never emit
+;; HTML; validation, merging, and HTML escaping live in one place here.
+
+;; Options:
+;; - :html-fontify-faces (`org-w3ctr-fontify-faces')
+;; - :html-fontify-extra-faces (`org-w3ctr-fontify-extra-faces')
+;; - :html-fontify-lang-alist (`org-w3ctr-fontify-lang-alist')
+
+;; FIXME: Consider caching `org-w3ctr--fontify-face-table' and
+;; `org-w3ctr--fontify-slugs' in INFO's fontify state (when INFO is
+;; non-empty) instead of re-validating and rebuilding them three times
+;; per highlighted block.
 
 (defun t--fontify-face-table (info)
   "Return the (FACE . SLUG) alist in force for INFO.
+INFO is the info plist.
 
-It is INFO's `:html-fontify-extra-faces' followed by its
-`:html-fontify-faces', so an extra entry shadows a default one.
-Signal `org-w3ctr-error' on a non-list table or an entry that is not
-a (FACE . SLUG) pair, FACE being a non-boolean, non-keyword symbol
+The result is INFO's `:html-fontify-extra-faces' followed by its
+`:html-fontify-faces', so an extra entry shadows a default one.  Signal
+`org-w3ctr-error' if either table is not a proper list or an entry is
+not a (FACE . SLUG) pair, FACE being a non-boolean, non-keyword symbol
 and SLUG a lowercase letter followed by lowercase letters, digits or
 hyphens."
   (declare (ftype (function (list) list))
@@ -3882,25 +3884,26 @@ hyphens."
   (let ((extra (t--pget info :html-fontify-extra-faces))
         (faces (t--pget info :html-fontify-faces))
         (case-fold-search nil))
-    (unless (and (proper-list-p extra) (proper-list-p faces))
-      (t-error "Fontify face tables must be lists: %S, %S" extra faces))
+    (unless (proper-list-p extra)
+      (t-error "Fontify extra faces must be a list: %S" extra))
+    (unless (proper-list-p faces)
+      (t-error "Fontify faces must be a list: %S" faces))
     (let ((table (append extra faces)))
       (dolist (entry table table)
-        (let ((face (car-safe entry))
-              (slug (cdr-safe entry)))
-          (unless (and (consp entry)
-                       (symbolp face)
-                       (not (booleanp face))
-                       (not (keywordp face))
-                       (stringp slug)
-                       (string-match-p "\\`[a-z][a-z0-9-]*\\'" slug))
-            (t-error "Malformed fontify face entry: %S" entry)))))))
+        (unless (and (consp entry)
+                     (let ((face (car entry))
+                           (slug (cdr entry)))
+                       (and (symbolp face)
+                            (not (or (booleanp face) (keywordp face)))
+                            (stringp slug)
+                            (string-match-p "\\`[a-z][a-z0-9-]*\\'" slug))))
+          (t-error "Malformed fontify face entry: %S" entry))))))
 
 (defun t--fontify-slugs (info)
-  "Return the slugs a token CLASS may take under INFO.
+  "Return the allowed token slugs under INFO.
+INFO is the info plist.
 
-They are the SLUGs of `org-w3ctr--fontify-face-table', without
-duplicates."
+They are the distinct slugs from `org-w3ctr--fontify-face-table'."
   (declare (ftype (function (list) list))
            (important-return-value t))
   (delete-dups (mapcar #'cdr (t--fontify-face-table info))))
@@ -3923,6 +3926,7 @@ also be one of KEYS."
            (setq p (cddr p)))
          ok)))
 
+;; FIXME: see later -- revisit docstring, validation, and caching.
 (defun t--fontify-lang-entry (lang info)
   "Return the PLIST of LANG's entry in INFO's `:html-fontify-lang-alist'.
 
@@ -3954,7 +3958,7 @@ read its key.  The whole alist is checked, not only LANG's entry."
 
 TOKENS is the list of (CLASS . TEXT) that ENGINE, a symbol, returned
 for the string CODE.  INFO is the info plist.  Each TEXT must be a
-non-empty string; each CLASS nil, one of `org-w3ctr--fontify-slugs'
+non-empty string; each CLASS nil, a slug from `org-w3ctr--fontify-slugs'
 or (style . CSS) with a non-blank string CSS; and the texts must
 concatenate back to CODE exactly.  Signal `org-w3ctr-error' naming
 ENGINE otherwise."
@@ -3987,10 +3991,17 @@ concatenates to the same code.  TOKENS itself is not modified."
   (declare (ftype (function (list) list))
            (pure t) (important-return-value t))
   (let (out)
-    (dolist (token tokens (nreverse out))
-      (if (and out (equal (caar out) (car token)))
-          (setcar out (cons (car token) (concat (cdar out) (cdr token))))
-        (push token out)))))
+    (while tokens
+      (let* ((first (pop tokens))
+             (class (car first))
+             (parts (list (cdr first))))
+        (while (and tokens (equal (caar tokens) class))
+          (push (cdr (pop tokens)) parts))
+        (push (if (cdr parts)
+                  (cons class (apply #'concat (nreverse parts)))
+                first)
+              out)))
+    (nreverse out)))
 
 (defun t--fontify-render (tokens)
   "Return the bare HTML for the checked TOKENS.
@@ -4857,11 +4868,8 @@ INFO's fontify state."
 
 ;; Options:
 ;; - :html-fontify-method (`org-w3ctr-fontify-method')
-;; - :html-fontify-faces (`org-w3ctr-fontify-faces')
-;; - :html-fontify-extra-faces (`org-w3ctr-fontify-extra-faces')
 ;; - :html-fontify-face-fallback (`org-w3ctr-fontify-face-fallback')
 ;; - :html-fontify-run-mode-hooks (`org-w3ctr-fontify-run-mode-hooks')
-;; - :html-fontify-lang-alist (`org-w3ctr-fontify-lang-alist')
 ;; - :html-fontify-on-error (`org-w3ctr-fontify-on-error')
 ;; - :html-fontify-unknown-language (`org-w3ctr-fontify-unknown-language')
 ;; - :html-fontify-jstools-timeout (`org-w3ctr-fontify-jstools-timeout')

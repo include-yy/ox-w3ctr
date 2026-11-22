@@ -4125,18 +4125,14 @@ fresh: the code under test may store its state in it."
             (list 'org-w3ctr-error
                   (format "Malformed fontify face entry: %S" bad)))))
   ($e!l (t--fontify-face-table (t-test-fontify-info :html-fontify-faces 'x))
-        '(org-w3ctr-error "Fontify face tables must be lists: nil, x"))
+        '(org-w3ctr-error "Fontify faces must be a list: x"))
   ($e!l (t--fontify-face-table
          (t-test-fontify-info :html-fontify-extra-faces 'x))
-        (list 'org-w3ctr-error
-              (format "Fontify face tables must be lists: x, %S"
-                      t-fontify-faces)))
+        '(org-w3ctr-error "Fontify extra faces must be a list: x"))
   ($e!l (t--fontify-face-table
          (t-test-fontify-info :html-fontify-extra-faces '((foo . "k") . bar)))
-        (list 'org-w3ctr-error
-              (format
-               "Fontify face tables must be lists: ((foo . \"k\") . bar), %S"
-               t-fontify-faces))))
+        '(org-w3ctr-error
+          "Fontify extra faces must be a list: ((foo . \"k\") . bar)")))
 
 (ert-deftest t--fontify-slugs ()
   "Tests for `org-w3ctr--fontify-slugs'."
@@ -4248,7 +4244,10 @@ fresh: the code under test may store its state in it."
         '(("k" . "abc") (nil . "de") ("k" . "f")
           ((style . "x") . "gh") ((style . "y") . "i")))
     ;; The input is left alone.
-    ($l tokens copy)))
+    ($l tokens copy))
+  ;; Long runs are joined in a single pass without argument-limit trouble.
+  (let ((many (make-list 5000 '("k" . "x"))))
+    ($l (t--fontify-merge many) (list (cons "k" (make-string 5000 ?x))))))
 
 (ert-deftest t--fontify-render ()
   "Tests for `org-w3ctr--fontify-render'."
