@@ -1119,6 +1119,10 @@ This can be either:
           function))
 
 ;;;; Math
+;; FIXME: Revisit the default client-side MathJax configuration (for
+;; example `tags: 'ams'' equation numbering and `\label'/`\eqref'
+;; behavior, which differ from the per-fragment server-side `jstools'
+;; `mathml-by-mathjax' and `svg-by-mathjax' modes).
 (defcustom t-mathjax-config "\
 <script>
   window.MathJax = {
@@ -1616,6 +1620,7 @@ byte-compiled code."
       :html-mathjax-config :html-math-head-function
       :html-use-cc-badges :html-license :html-license-format-function
       ;; Internal export state
+      :html-math-count
       :html-special-block-registry-checked :html-table-align-cache)
     "List of property keys cached by the OINFO oclosures.
 
@@ -3484,14 +3489,7 @@ named blocks get an automatic id.  Captions are dropped."
 
 ;;;; LaTeX
 
-;; See (info "(org) LaTeX fragments")
-;; The fragment or environment value is handed to
-;; `org-w3ctr--format-latex', which dispatches on `:with-latex'
-;; (`org-w3ctr-with-latex').  Under nil Org prunes the math before the
-;; transcoder runs.  The two RPC modes render server-side through the
-;; jstools Node helper (MathJax); `mathjax' leaves the TeX for the
-;; client to render.
-;;
+;; See (info "(org)LaTeX fragments")
 ;; Options:
 ;; - :with-latex (`org-w3ctr-with-latex')
 ;; - :html-math-custom-format-function
@@ -3573,7 +3571,8 @@ result is not a string."
 (defun t--format-latex (frag mode info &optional default-display)
   "Return the exported string for LaTeX fragment FRAG under MODE.
 INFO is the info plist.  DEFAULT-DISPLAY is forwarded to
-`org-w3ctr--latex-rpc' for delimiter-less input.
+`org-w3ctr--latex-rpc' for delimiter-less input (such as a LaTeX
+environment).
 
 MODE is the value of `:with-latex': nil and `verbatim' return nil,
 both handled by ox.el before the transcoders run; `mathjax' (or t)
@@ -3581,37 +3580,64 @@ normalizes delimiters and HTML-escapes `<', `>', and `&' via
 `org-w3ctr--encode-plain-text'; `mathml-by-mathjax' and
 `svg-by-mathjax' convert through the jstools RPC; `custom' calls
 `:html-math-custom-format-function' on FRAG and INFO (returning a
-string or nil).  An unknown MODE or a non-string/nil custom result
+string or nil).
+
+A delimiter-less FRAG with nil DEFAULT-DISPLAY (such as a bare
+`\\cmd' parsed as a `latex-fragment') is not treated as math in the
+built-in modes: it is HTML-escaped as plain text without calling the
+RPC or incrementing `:html-math-count' in INFO.  When a math fragment
+or environment produces output, `:html-math-count' in INFO is
+incremented.  An unknown MODE or a non-string/nil custom result
 signals `org-w3ctr-error'."
   (declare (ftype (function (string t list &optional boolean)
                             (or null string)))
            (important-return-value t))
-  (pcase mode
-    ((or `nil `verbatim) nil)
-    ;; ox.el owns the two modes above: it prunes math under nil
-    ;; (`org-export--skip-p') and expands it into plain text under
-    ;; `verbatim' (`org-export--remove-uninterpreted-data') before the
-    ;; transcoders run.  The nil above means "seen, not handled" -- the
-    ;; export drops the math -- and is only reachable from a direct call.
-    ((or `mathjax `t) (t--encode-plain-text (t--normalize-latex frag)))
-    (`mathml-by-mathjax (t--latex-rpc 'tex2mml frag default-display))
-    (`svg-by-mathjax (t--latex-rpc 'tex2svg frag default-display))
-    (`custom
-     (let ((out (funcall (or (t--pget info :html-math-custom-format-function)
-                             #'t-math-custom-default-format-function)
-                         frag info)))
-       (unless (string-or-null-p out)
-         (t-error "Custom LaTeX renderer returned a non-string: %S" out))
-       out))
-    (other (t-error "Unknown LaTeX mode: %S" other))))
+  (let ((math-p (or (cdr (t--split-latex frag))
+                    (and default-display (t--nw-p frag)))))
+    (pcase mode
+      ((or `nil `verbatim) nil)
+      ;; ox.el owns the two modes above: it prunes math under nil
+      ;; (`org-export--skip-p') and expands it into plain text under
+      ;; `verbatim' (`org-export--remove-uninterpreted-data') before the
+      ;; transcoders run.  The nil above means "seen, not handled" -- the
+      ;; export drops the math -- and is only reachable from a direct call.
+      ((or `mathjax `t)
+       (if (not math-p)
+           (t--encode-plain-text frag)
+         (when info
+           (t--pput info :html-math-count
+                    (1+ (or (t--pget info :html-math-count) 0))))
+         (t--encode-plain-text (t--normalize-latex frag))))
+      ((or `mathml-by-mathjax `svg-by-mathjax)
+       (if (not math-p)
+           (t--encode-plain-text frag)
+         (let ((out (t--latex-rpc (if (eq mode 'mathml-by-mathjax)
+                                      'tex2mml 'tex2svg)
+                                  frag default-display)))
+           (when info
+             (t--pput info :html-math-count
+                      (1+ (or (t--pget info :html-math-count) 0))))
+           out)))
+      (`custom
+       (let ((out (funcall (or (t--pget info :html-math-custom-format-function)
+                               #'t-math-custom-default-format-function)
+                           frag info)))
+         (unless (string-or-null-p out)
+           (t-error "Custom LaTeX renderer returned a non-string: %S" out))
+         (when (and info (t--nw-p out))
+           (t--pput info :html-math-count
+                    (1+ (or (t--pget info :html-math-count) 0))))
+         out))
+      (other (t-error "Unknown LaTeX mode: %S" other)))))
 
 (defun t-latex-fragment (latex-fragment _contents info)
   "Transcode a LATEX-FRAGMENT object from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return the fragment formatted for `:with-latex' via
-`org-w3ctr--format-latex', or nil when that mode emits nothing.  A
-missing `:value' defaults to \"\"."
+Return the fragment formatted according to `:with-latex', or nil when
+that mode emits nothing.  A missing `:value' defaults to \"\".  Signal
+`org-w3ctr-error' on an unknown `:with-latex' mode or an invalid
+custom or RPC result."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex
@@ -3623,9 +3649,10 @@ missing `:value' defaults to \"\"."
 CONTENTS is nil.  INFO is the info plist.
 
 Return the environment, with common indentation removed, formatted
-for `:with-latex' via `org-w3ctr--format-latex', or nil when that
-mode emits nothing.  A missing `:value' defaults to \"\"; attributes,
-names, and captions are ignored."
+according to `:with-latex', or nil when that mode emits nothing.  A
+missing `:value' defaults to \"\"; attributes, names, and captions are
+ignored.  Signal `org-w3ctr-error' on an unknown `:with-latex' mode or
+an invalid custom or RPC result."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (t--format-latex
@@ -6712,15 +6739,16 @@ INFO is the info plist."
   (t--pget info :html-head-include-style))
 
 (defun t--has-math-p (info)
-  "Return non-nil if the Org document has a LaTeX fragment or environment.
+  "Return non-nil if the export emitted any LaTeX math in INFO.
+INFO is the info plist.
 
-INFO is the info plist."
+Check that `:with-latex' is non-nil and `:html-math-count'
+\(incremented by `org-w3ctr--format-latex') is positive."
   (declare (ftype (function (list) boolean))
            (important-return-value t))
   (and (t--pget info :with-latex)
-       (org-element-map (t--pget info :parse-tree)
-           '(latex-fragment latex-environment)
-         (lambda (_) t) info t nil t)))
+       (let ((n (t--pget info :html-math-count)))
+         (and (integerp n) (> n 0)))))
 
 (defun t--normalize-string-or-function (input &rest args)
   "Normalize INPUT, whether a string or a function.
@@ -7672,35 +7700,42 @@ string: the doctype, an <html> element in the `:language'
 language, the <head> from `org-w3ctr--build-head', and a <body>
 holding, in order, the navbar from `:html-navbar-format-function',
 a <div class=\"head\"> with the title and the preamble, CONTENTS,
-the postamble, and the `:html-fixup-js' script."
+the postamble, and the `:html-fixup-js' script.
+
+Build the <body> components before `<head>' so that LaTeX math in
+the title, subtitle, or navbar increments `:html-math-count' before
+`org-w3ctr--build-head' checks `org-w3ctr--has-math-p'."
   (declare (ftype (function ((or null string) list) string))
            (important-return-value t))
-  (concat
-   "<!DOCTYPE html>\n"
-   (format "<html lang=\"%s\">\n" (t--pget info :language))
-   (t--build-head info)
-   "<body>\n"
-   ;; A nil `:html-navbar-format-function' suppresses the navbar: the
-   ;; option doubles as the switch, unlike the other format hooks,
-   ;; which fall back to their defaults.
-   (when-let* ((fun (t--pget info :html-navbar-format-function)))
-     (funcall fun info))
-   ;; Title and preamble in the head block.
-   (format "<div class=\"head\">\n%s%s</div>\n"
-           (t--build-title info)
-           (t--build-pre/postamble 'preamble info))
-   contents
-   ;; Postamble.
-   (t--build-pre/postamble 'postamble info)
-   ;; The fixup script, unless switched off: the document's own, else
-   ;; the shipped default.
-   (when (t--pget info :html-include-fixup-js)
-     (org-element-normalize-string
-      (or (t--nw-p (t--pget info :html-fixup-js))
-          (t--load-fixup-js))))
-   ;; Closing document.
-   "</body>
-</html>"))
+  (let ((body
+         (concat
+          "<body>\n"
+          ;; A nil `:html-navbar-format-function' suppresses the navbar: the
+          ;; option doubles as the switch, unlike the other format hooks,
+          ;; which fall back to their defaults.
+          (when-let* ((fun (t--pget info :html-navbar-format-function)))
+            (funcall fun info))
+          ;; Title and preamble in the head block.
+          (format "<div class=\"head\">\n%s%s</div>\n"
+                  (t--build-title info)
+                  (t--build-pre/postamble 'preamble info))
+          contents
+          ;; Postamble.
+          (t--build-pre/postamble 'postamble info)
+          ;; The fixup script, unless switched off: the document's own, else
+          ;; the shipped default.
+          (when (t--pget info :html-include-fixup-js)
+            (org-element-normalize-string
+             (or (t--nw-p (t--pget info :html-fixup-js))
+                 (t--load-fixup-js))))
+          ;; Closing document.
+          "</body>
+</html>")))
+    (concat
+     "<!DOCTYPE html>\n"
+     (format "<html lang=\"%s\">\n" (t--pget info :language))
+     (t--build-head info)
+     body)))
 
 (defun t-template (contents info)
   "Assemble the complete document for CONTENTS and INFO.

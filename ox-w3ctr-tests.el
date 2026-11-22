@@ -3691,6 +3691,27 @@ cookie-less column is remembered as the `none' marker."
     ($l (rpc 'svg-by-mathjax "\\begin{equation}\nx=1\n\\end{equation}" t)
         (list t--jstools 'tex2svg
               (list :tex "\\begin{equation}\nx=1\n\\end{equation}" :display t))))
+  ;; a delimiter-less inline fragment (such as a bare `\Users' from
+  ;; `C:\Users\foo') is HTML-escaped as plain text without calling the
+  ;; RPC or incrementing `:html-math-count'
+  (let ((info (list :with-latex 'mathjax))
+        called)
+    (cl-letf (((symbol-function 't--jcall)
+               (lambda (&rest _) (setq called t) "<M>")))
+      ($l (t--format-latex "\\Users" 'mathjax info) "\\Users")
+      ($l (t--format-latex "\\cmd{a < b}" 'mathml-by-mathjax info)
+          "\\cmd{a &lt; b}")
+      ($l (t--format-latex "\\cmd{a & b}" 'svg-by-mathjax info)
+          "\\cmd{a &amp; b}")
+      ($n called)
+      ($n (t--pget info :html-math-count))
+      ;; real math fragments and environments increment `:html-math-count'
+      ($l (t--format-latex "$x$" 'mathjax info) "\\(x\\)")
+      ($l (t--pget info :html-math-count) 1)
+      ($l (t--format-latex "\\begin{equation}\nx=1\n\\end{equation}"
+                           'svg-by-mathjax info t)
+          "<M>")
+      ($l (t--pget info :html-math-count) 2)))
   ;; any other mode signals org-w3ctr-error
   ($e!l (t--format-latex "$x$" 'bogus nil)
         '(org-w3ctr-error "Unknown LaTeX mode: bogus")))
@@ -8129,17 +8150,27 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--has-math-p ()
   "Tests for `org-w3ctr--has-math-p'."
-  (cl-flet ((mkinfo (str) `( :with-latex t
-                             :parse-tree
-                             ,(with-temp-buffer
-                                (save-excursion (insert str))
-                                (org-element-parse-buffer)))))
-    ($n (t--has-math-p (mkinfo "123")))
-    ($n (t--has-math-p (mkinfo "$1+2")))
-    ($s (t--has-math-p (mkinfo "$1+2$")))
-    ($s (t--has-math-p (mkinfo "\\(1+2\\)")))
-    ($s (t--has-math-p (mkinfo "\\[1+2\\]")))
-    ($s (t--has-math-p (mkinfo "\\begin_equation\n123\n\\end_equation")))))
+  ;; Direct counter and `:with-latex' checks on INFO.
+  ($n (t--has-math-p (list :with-latex 'mathjax)))
+  ($n (t--has-math-p (list :with-latex 'mathjax :html-math-count 0)))
+  ($n (t--has-math-p (list :with-latex nil :html-math-count 2)))
+  ($s (t--has-math-p (list :with-latex 'mathjax :html-math-count 1)))
+  ;; End-to-end export: only real math fragments or environments
+  ;; (including math in `#+TITLE:') inject the MathJax `<head>' config;
+  ;; plain text, unclosed `$', and bare `\Users' backslashes do not.
+  (cl-flet ((has-mathjax (doc)
+              (and (string-match-p
+                    "MathJax-script"
+                    (org-export-string-as doc 'w3ctr nil))
+                   t)))
+    ($n (has-mathjax "123"))
+    ($n (has-mathjax "$1+2"))
+    ($n (has-mathjax "C:\\Users\\foo"))
+    ($s (has-mathjax "$1+2$"))
+    ($s (has-mathjax "\\(1+2\\)"))
+    ($s (has-mathjax "\\[1+2\\]"))
+    ($s (has-mathjax "\\begin{equation}\n123\n\\end{equation}"))
+    ($s (has-mathjax "#+TITLE: Math $x^2$\n\nPlain body."))))
 
 (ert-deftest t--normalize-string-or-function ()
   "Tests for `org-w3ctr--normalize-string-or-function'."
