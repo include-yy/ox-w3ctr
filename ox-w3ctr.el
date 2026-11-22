@@ -3719,7 +3719,7 @@ for custom attributes; only named paragraphs get an automatic id."
 
 ;;;; Code references
 
-;; See (info "(org) Literal Examples")
+;; See (info "(org)Literal Examples")
 ;; A `(ref:NAME)' label at the end of a code line is a link target for
 ;; `[[(NAME)]]'.  As in ox-html, the label text is removed from the code
 ;; and only its position is kept: ox-w3ctr does not implement the `-r'
@@ -3802,27 +3802,20 @@ info plist."
 ;;;; Example Block
 
 ;; See (info "(org)Literal Examples")
-;; The W3C stylesheet uses `.example' for numbered example boxes with
-;; `::before' pseudo-elements; the class is added automatically unless
-;; the user provides `#+attr__:' or `#+attr_html:', in which case the
-;; user controls all attributes -- dropping `example' also drops the
-;; box and its counter, so write [example foo] to keep both.  A bare
-;; `<pre>' without a wrapper is available via `org-w3ctr-fixed-width'.
-;;
-;; A caption is a bare <span> before the <pre>.  It is deliberately
-;; unstyled: W3C's `.caption' and <figcaption> belong to figures and
-;; would add a "Figure N" counter.
+;; W3C's `.example' drives the box and its "Example N" counter; user
+;; attributes replace it (write `[example foo]' to keep it).  Captions
+;; use an unstyled <span> so W3C's figure counter is not triggered.
+
 (defun t-example-block (example-block _contents info)
   "Transcode an EXAMPLE-BLOCK element from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return a <div><pre>...</pre></div> string.  The code is extracted via
-`org-w3ctr--code-text' and escaped via `org-w3ctr--encode-plain-text',
-with a missing `:value' defaulting to \"\".  Without user attributes
-the <div> gets class=\"example\"; attributes use
-`org-w3ctr--make-attr__id*' (named-only unless the block defines code
-references).  A non-blank caption becomes an unstyled <span> before
-<pre>."
+Return a <div><pre>...</pre></div> string with common indentation
+\(unless `-i' is set) and code-reference labels removed, and `<', `>',
+and `&' HTML-escaped; a missing `:value' defaults to \"\".  Without
+`#+attr__:' or `#+attr_html:', the <div> gets class=\"example\"; only
+named blocks or blocks defining code references get an automatic id.
+A non-blank caption becomes an unstyled <span> before <pre>."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((has-user-attrs (or (org-element-property :attr__ example-block)
