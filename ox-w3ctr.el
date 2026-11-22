@@ -3513,26 +3513,27 @@ other string (such as a `\\begin{...}' environment or a bare TeX
 command) is kept as is with KIND nil."
   (declare (ftype (function (string) cons))
            (pure t) (important-return-value t))
-  (cond
-   ((and (string-prefix-p "$$" frag)
-         (string-suffix-p "$$" frag)
-         (>= (length frag) 4))
-    (cons (substring frag 2 -2) 'display))
-   ((and (string-prefix-p "\\[" frag)
-         (string-suffix-p "\\]" frag)
-         (>= (length frag) 4))
-    (cons (substring frag 2 -2) 'display))
-   ((and (not (string-prefix-p "$$" frag))
-         (not (string-suffix-p "$$" frag))
-         (string-prefix-p "$" frag)
-         (string-suffix-p "$" frag)
-         (>= (length frag) 2))
-    (cons (substring frag 1 -1) 'inline))
-   ((and (string-prefix-p "\\(" frag)
-         (string-suffix-p "\\)" frag)
-         (>= (length frag) 4))
-    (cons (substring frag 2 -2) 'inline))
-   (t (cons frag nil))))
+  (let ((len (length frag)))
+    (cond
+     ((and (>= len 4)
+           (string-prefix-p "$$" frag)
+           (string-suffix-p "$$" frag))
+      (cons (substring frag 2 -2) 'display))
+     ((and (>= len 4)
+           (string-prefix-p "\\[" frag)
+           (string-suffix-p "\\]" frag))
+      (cons (substring frag 2 -2) 'display))
+     ((and (>= len 2)
+           (string-prefix-p "$" frag)
+           (string-suffix-p "$" frag)
+           (not (string-prefix-p "$$" frag))
+           (not (string-suffix-p "$$" frag)))
+      (cons (substring frag 1 -1) 'inline))
+     ((and (>= len 4)
+           (string-prefix-p "\\(" frag)
+           (string-suffix-p "\\)" frag))
+      (cons (substring frag 2 -2) 'inline))
+     (t (cons frag nil)))))
 
 (defun t--normalize-latex (frag)
   "Normalize the delimiters of LaTeX FRAG for MathJax.
@@ -3550,11 +3551,11 @@ unchanged, so this never signals and never drops text."
 (defun t--latex-rpc (method frag &optional default-display)
   "Convert LaTeX FRAG through the jstools RPC METHOD.
 
-METHOD is one of `org-w3ctr--jstools-methods'.  Split FRAG with
-`org-w3ctr--split-latex' (using DEFAULT-DISPLAY when FRAG has no
-outer math delimiters), send `(:tex ... :display ...)' to the RPC,
-and return the string result.  Signal `org-w3ctr-error' when the
-result is not a string."
+METHOD is `tex2mml' or `tex2svg' (see `org-w3ctr--jstools-methods').
+Split FRAG with `org-w3ctr--split-latex' (using DEFAULT-DISPLAY when
+FRAG has no outer math delimiters), send `(:tex ... :display ...)' to
+the RPC, and return the string result.  Signal `org-w3ctr-error' when
+the result is not a string."
   (declare (ftype (function (symbol string &optional boolean) string))
            (important-return-value t))
   (pcase-let* ((`(,tex . ,kind) (t--split-latex frag))
