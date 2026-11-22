@@ -3425,7 +3425,7 @@ automatic id.  Captions are dropped."
 
 ;;;; Keyword
 
-;; See (info "(org) Quoting HTML tags") and (info "(org) Table of Contents")
+;; See (info "(org)Quoting HTML tags") and (info "(org)Table of Contents")
 ;; Only #+HTML: and #+TOC: are standard Org syntax; #+H: (shorthand for
 ;; #+HTML:), #+E:, and #+D: are ox-w3ctr extensions.
 
@@ -3433,12 +3433,15 @@ automatic id.  Captions are dropped."
   "Transcode a KEYWORD element from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return a string, or nil when nothing is emitted.  The upcased `:key'
-dispatches: H/HTML passes through raw; E and D run through
-`org-w3ctr--eval-lisp' as `eval' (needing `org-w3ctr-allow-eval') and
-`sexp', and may signal `org-w3ctr-error'; TOC delegates to
-`org-w3ctr--keyword-toc'; any other key yields nil.  A missing
-`:value' defaults to \"\"."
+Return a string, or nil when nothing is emitted, according to the
+upcased `:key': H and HTML pass through raw; E evaluates the first
+Lisp form (requiring `org-w3ctr-allow-eval') and emits the result
+raw; D renders the first S-expression as HTML; TOC builds a table of
+contents, tables, or listings; any other key yields nil.
+
+A missing `:value' defaults to \"\".  Signal `org-w3ctr-error' when
+Lisp evaluation is disabled or fails, or when an S-expression is
+malformed."
   (declare (ftype (function (t t list) (or null string)))
            (important-return-value t))
   (let ((key (org-element-property :key keyword))
@@ -3461,21 +3464,23 @@ dispatches: H/HTML passes through raw; E and D run through
   "Transcode a VERSE-BLOCK element from Org to HTML.
 CONTENTS is the block text (nil becomes \"\").  INFO is the info plist.
 
-Return a <p> element as a string: leading whitespace becomes &#xa0;,
-trailing whitespace before newlines is consumed, and each newline
-becomes <br> (absorbing any trailing <br>).  Attributes use
-`org-w3ctr--make-attr__id*' (named-only); captions are dropped."
+Return a <p> element as a string: leading whitespace on each line
+becomes &#xa0;, trailing whitespace before a newline is stripped, and
+each newline becomes <br> (absorbing an existing trailing <br>).
+Accept `#+attr__:' and `#+attr_html:' for custom attributes; only
+named blocks get an automatic id.  Captions are dropped."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format
-   "<p%s>\n%s</p>"
+   "<p%s>%s</p>"
    (t--make-attr__id* verse-block info t)
-   (replace-regexp-in-string
-    "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
-    ;; An explicit `\\' line break is already `<br>\n'; absorb the
-    ;; `<br>' so the newline does not add a second one.
+   (t--prepend-newline
     (replace-regexp-in-string
-     "\\(?:<br>\\)?[ \t]*\n" "<br>\n" (or contents "")))))
+     "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
+     ;; An explicit `\\' line break is already `<br>\n'; absorb the
+     ;; `<br>' so the newline does not add a second one.
+     (replace-regexp-in-string
+      "\\(?:<br>\\)?[ \t]*\n" "<br>\n" (or contents ""))))))
 
 ;;;; LaTeX
 

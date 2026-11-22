@@ -3545,8 +3545,8 @@ cookie-less column is remembered as the `none' marker."
   "Tests for `org-w3ctr-verse-block'."
   (t-check-element-values
    #'t-verse-block
-   '(("#+begin_verse\n#+end_verse" "<p>\n</p>")
-     ("#+BEGIN_VERSE\n#+END_VERSE" "<p>\n</p>")
+   '(("#+begin_verse\n#+end_verse" "<p></p>")
+     ("#+BEGIN_VERSE\n#+END_VERSE" "<p></p>")
      ("#+begin_verse\n1  2  3\n#+end_verse" "<p>\n1  2  3<br>\n</p>")
      ;; an Org line break has already produced <br>; the newline must
      ;; not add a second one
@@ -3556,7 +3556,7 @@ cookie-less column is remembered as the `none' marker."
      ("#+begin_verse\n 1\n  2\n \t 3\n#+end_verse"
       "<p>\n1<br>\n&#xa0;2<br>\n&#xa0;&#xa0;3<br>\n</p>")
      ("#+name: this\n#+begin_verse\n#+end_verse"
-      "<p id=\"this\">\n</p>")
+      "<p id=\"this\"></p>")
      ("#+attr__:[hi]\n#+begin_verse\n\n\n#+end_verse"
       "<p class=\"hi\">\n<br>\n<br>\n</p>")
      ;; `#+attr_html' is the fallback attribute syntax
@@ -3583,7 +3583,7 @@ cookie-less column is remembered as the `none' marker."
                                 (match-string 1 out))
                         out)))
   ;; A synthetic element with nil CONTENTS falls back to "".
-  ($l (t-verse-block '(verse-block nil) nil nil) "<p>\n</p>"))
+  ($l (t-verse-block '(verse-block nil) nil nil) "<p></p>"))
 
 ;;;; LaTeX
 
