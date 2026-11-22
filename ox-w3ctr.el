@@ -2538,11 +2538,11 @@ Return CONTENTS as is, or \"\" when nil."
 
 (defun t--footnote-key (label n)
   "Return the key of a footnote with LABEL and number N.
-A nil or purely numeric LABEL is ignored, so that `[fn:1]' and an
-anonymous footnote do not share a key."
+A nil, empty, or purely numeric LABEL is ignored, so that `[fn:1]'
+and an anonymous footnote do not share a key."
   (declare (ftype (function ((or null string) integer) (or string integer)))
            (pure t) (important-return-value t))
-  (if (and label (not (string-match-p "\\`[0-9]+\\'" label)))
+  (if (and label (not (string-match-p "\\`[0-9]*\\'" label)))
       label n))
 
 (defun t--footnote-id (label n)
@@ -2686,7 +2686,8 @@ insert CHECKBOX right after that tag so the checkbox stays inline with
 the first paragraph; otherwise concatenate CHECKBOX and CONTENTS."
   (declare (ftype (function (string (or null string)) string))
            (pure t) (important-return-value t))
-  (let ((body (or contents "")))
+  (let ((body (or contents ""))
+        (case-fold-search nil))
     (save-match-data
       (if (and (not (string-empty-p checkbox))
                (string-match "\\`\\(<p\\(?: [^>]*\\)?>\\)" body))
@@ -2885,8 +2886,8 @@ rule and rejects the eight reserved SVG/MathML names."
 (defun t--special-block-validate-registry (registry &optional info)
   "Signal `org-w3ctr-error' if REGISTRY is malformed.
 REGISTRY is the value of `:html-special-block-custom-elements': a
-proper list whose entries are (NAME . PLIST) conses where NAME is a
-valid custom element name string and PLIST is a property list.  When
+proper list of unique (NAME . PLIST) conses where NAME is a valid
+custom element name string and PLIST is a property list.  When
 optional INFO is non-nil, cache REGISTRY as validated in INFO so
 repeated checks of the same object are skipped.  Return nil when
 REGISTRY is well-formed."
@@ -2896,13 +2897,17 @@ REGISTRY is well-formed."
                    (t--pget info :html-special-block-registry-checked)))
     (unless (proper-list-p registry)
       (t-error "Malformed custom element registry: %S" registry))
-    (dolist (entry registry)
-      (unless (and (consp entry)
-                   (stringp (car entry))
-                   (plistp (cdr entry)))
-        (t-error "Malformed custom element registry entry: %S" entry))
-      (unless (t--custom-element-name-p (car entry))
-        (t-error "Invalid custom element name: %s" (car entry))))
+    (let (seen)
+      (dolist (entry registry)
+        (unless (and (consp entry)
+                     (stringp (car entry))
+                     (plistp (cdr entry)))
+          (t-error "Malformed custom element registry entry: %S" entry))
+        (unless (t--custom-element-name-p (car entry))
+          (t-error "Invalid custom element name: %s" (car entry)))
+        (when (member (car entry) seen)
+          (t-error "Duplicate custom element name: %s" (car entry)))
+        (push (car entry) seen)))
     (when info
       (t--pput info :html-special-block-registry-checked registry)
       nil)))

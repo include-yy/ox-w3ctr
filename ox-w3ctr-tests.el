@@ -2087,6 +2087,8 @@ int a = 1;</code></p>\n</details>")
   ($l (t--footnote-key "name" 3) "name")
   ($l (t--footnote-key "1a" 3) "1a")
   ($l (t--footnote-key "1" 3) 3)
+  ($l (t--footnote-key "42" 3) 3)
+  ($l (t--footnote-key "" 3) 3)
   ($l (t--footnote-key nil 3) 3))
 
 (ert-deftest t--footnote-id ()
@@ -2094,6 +2096,8 @@ int a = 1;</code></p>\n</details>")
   ($l (t--footnote-id "name" 3) "fn-name")
   ($l (t--footnote-id "1a" 3) "fn-1a")
   ($l (t--footnote-id "1" 3) "fn-3")
+  ($l (t--footnote-id "42" 3) "fn-3")
+  ($l (t--footnote-id "" 3) "fn-3")
   ($l (t--footnote-id nil 3) "fn-3"))
 
 (ert-deftest t-footnote-reference ()
@@ -2325,6 +2329,10 @@ int a = 1;</code></p>\n</details>")
   ;; tags that merely start with `<p' (like `<pre>') are not matched
   ($l (t--splice-checkbox "&#x2610; " "<pre>a</pre>")
       "&#x2610; <pre>a</pre>")
+  ;; case-sensitive: uppercase <P> is not spliced even when case-fold-search is t
+  (let ((case-fold-search t))
+    ($l (t--splice-checkbox "&#x2610; " "<P>a</P>")
+        "&#x2610; <P>a</P>"))
   ;; preserves caller's match data
   (let ((s "outer-match"))
     (string-match "\\(outer\\)-\\(match\\)" s)
@@ -2641,6 +2649,10 @@ int a = 1;</code></p>\n</details>")
         '(org-w3ctr-error "Invalid custom element name: card"))
   ($e!l (t--special-block-validate-registry '(("My-Card")))
         '(org-w3ctr-error "Invalid custom element name: My-Card"))
+  ;; Duplicate custom element names signal.
+  ($e!l (t--special-block-validate-registry
+         '(("a-b" :src "1.js") ("a-b" :src "2.js")))
+        '(org-w3ctr-error "Duplicate custom element name: a-b"))
   ;; With INFO, a validated registry is cached and not re-checked.
   (let* ((reg (list (list "a-b" :src "x.js")))
          (info (list :html-special-block-custom-elements reg))
