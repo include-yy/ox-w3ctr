@@ -265,8 +265,9 @@ same session.  Larger or planned work is in the =TODO= list above.
     + collect, minding buffer-local state leaking between blocks.
 
 - *Unnamed elements get a fresh random id on every export.*  With no
-  explicit label, =t--reference= falls back to =org-export-get-reference=,
-  which mints an =orgXXXXXXX= id from a randomly seeded counter.  Four of
+  explicit label, =t--reference= falls back to =t--get-reference= (vendored
+  from =org-export-get-reference=), which mints an =orgXXXXXXX= id from a
+  random number.  Four of
   the 57 corpus documents hold such ids (=verify-corpus= counts them in
   =refs=), and an anchor into one is not stable across exports.  Never
   diff raw export hashes -- compare the normalized =norm= (see the
