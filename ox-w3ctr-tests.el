@@ -1982,13 +1982,19 @@ versa (excluding the test-only `echo' and `add' methods)."
      ("#+attr__:\n#+begin_center\nhello\n#+end_center"
       "<div>\n<p>hello</p>\n</div>")
      ("#+attr_html:\n#+begin_center\nhello\n#+end_center"
-      "<div>\n<p>hello</p>\n</div>")))
+      "<div>\n<p>hello</p>\n</div>")
+     ;; captions are dropped
+     ("#+caption: A centered block\n#+begin_center\nhello\n#+end_center"
+      "<div style=\"text-align:center;\">\n<p>hello</p>\n</div>")))
   ;; #+name: without attr__: keeps centering, and emits the user label
-  ;; when `:html-prefer-user-labels' is on.
+  ;; when `:html-prefer-user-labels' is on.  With attr__, keeps the id
+  ;; and drops the centering style.
   (t-check-element-values
    #'t-center-block
    '(("#+name: my-block\n#+begin_center\nhello\n#+end_center"
-      "<div id=\"my-block\" style=\"text-align:center;\">\n<p>hello</p>\n</div>"))
+      "<div id=\"my-block\" style=\"text-align:center;\">\n<p>hello</p>\n</div>")
+     ("#+name: my-block\n#+attr__: [box]\n#+begin_center\nhello\n#+end_center"
+      "<div id=\"my-block\" class=\"box\">\n<p>hello</p>\n</div>"))
    t '(:html-prefer-user-labels t))
   ;; Under the default options (`prefer-user-labels' nil), a named
   ;; center block still keeps centering and gets a generated id matching
@@ -2016,18 +2022,19 @@ versa (excluding the test-only `echo' and `add' methods)."
 (ert-deftest t-drawer-format-function ()
   "The drawer goes through `org-w3ctr-drawer-format-function'."
   (let ((org-w3ctr-drawer-format-function
-         (lambda (name summary attrs _contents info)
-           (format "<DRAWER name=%s summary=%s attrs=%s labels=%s/>"
+         (lambda (name summary attrs contents info)
+           (format "<DRAWER name=%s summary=%s attrs=%s contents=%S labels=%s/>"
                    name summary attrs
+                   (and contents (substring-no-properties contents))
                    (if (t--pget info :html-prefer-user-labels) "on" "off")))))
     (t-check-element-values
      #'t-drawer
      '((":hello:\n:end:"
-        "<DRAWER name=hello summary=hello attrs= labels=on/>")
-       ("#+caption: what can i say\n:test:\n:end:"
-        "<DRAWER name=test summary=what can i say attrs= labels=on/>")
+        "<DRAWER name=hello summary=hello attrs= contents=nil labels=on/>")
+       ("#+caption: what can i say\n:test:\nbody\n:end:"
+        "<DRAWER name=test summary=what can i say attrs= contents=\"<p>body</p>\n\" labels=on/>")
        ("#+name: id\n#+attr__: [example]\n:h:\n:end:"
-        "<DRAWER name=h summary=h attrs= id=\"id\" class=\"example\" labels=on/>"))
+        "<DRAWER name=h summary=h attrs= id=\"id\" class=\"example\" contents=nil labels=on/>"))
      nil '(:html-prefer-user-labels t))))
 
 (ert-deftest t-drawer ()

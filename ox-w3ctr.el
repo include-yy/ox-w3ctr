@@ -323,7 +323,7 @@ This affects IDs that are determined from the ID property.")
 
 It is called with five arguments:
 - NAME     the drawer name (a string).
-- SUMMARY  the <summary> text (a string): the caption when one is
+- SUMMARY  the <summary> text (a string): the non-blank caption when
            present, NAME otherwise.
 - ATTRS    the HTML attribute string (a string, possibly empty),
            including the leading space when non-empty.
@@ -2450,18 +2450,15 @@ methods `echo' and `add'; they stay unexposed.")
 ;;;; Center Block
 
 ;; See (info "(org)Paragraphs")
-;; `<center>' was deprecated in HTML5; use `<div>' with inline style.
-;; When the user provides `#+attr__:' or `#+attr_html:', the block
-;; becomes a generic `<div>' -- the centering style is dropped and
-;; the user takes full control of attributes.
+;; Use `<div>' instead of the obsolete HTML `<center>'.
 (defun t-center-block (center-block contents info)
   "Transcode a CENTER-BLOCK element from Org to HTML.
 CONTENTS is the block text (nil becomes \"\").  INFO is the info plist.
 
 Return a <div> element as a string.  Without user attributes, add an
-inline centering style; with `#+attr__:' or `#+attr_html:', drop it
-and let the user control attributes.  Attributes use
-`org-w3ctr--make-attr__id*' (named-only); captions are dropped."
+inline centering style; with `#+attr__:' or `#+attr_html:' (even when
+empty), drop it and let the user control attributes.  Only named blocks
+get an automatic id; captions are dropped."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((has-user-attrs (or (org-element-property :attr__ center-block)
@@ -2474,9 +2471,6 @@ and let the user control attributes.  Attributes use
 ;;;; Drawer
 
 ;; See (info "(org)Drawers")
-;; `<details>' is the semantic HTML5 element for collapsible content.
-;; Supports `#+attr__:' / `#+attr_html:' for custom attributes.
-;; Caption becomes the `<summary>' text; falls back to drawer name.
 ;; Options:
 ;; - :html-drawer-format-function (`org-w3ctr-drawer-format-function')
 (defun t-drawer-default-format-function (_name summary attrs contents _info)
@@ -2497,7 +2491,8 @@ CONTENTS is the drawer text (or nil).  INFO is the info plist.
 Return the string built by `:html-drawer-format-function' (default
 `org-w3ctr-drawer-default-format-function').  The <summary> text is
 the non-blank caption if present, or the drawer name otherwise.
-Attributes use `org-w3ctr--make-attr__id*' (named-only)."
+Accept `#+attr__:' and `#+attr_html:' for custom attributes; only
+named drawers get an automatic id."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((name (org-element-property :drawer-name drawer))
