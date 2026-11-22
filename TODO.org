@@ -64,9 +64,10 @@
     =:not(#toch2)= (missing space vs =#toc > h2=), overlapping
     =.self-link:hover= / =::before= rules, and hardcoded =color:#000=
     on =:is(h4,h5,h6)+a.self-link::before= (invisible in dark mode).
-  - Unify local overrides: fold =pre > code.src= / =code.src-inline=
-    background (=--src-bg=) into the main =:root= light/dark blocks
-    instead of keeping a separate =@media (prefers-color-scheme: dark)=.
+  - Unify local overrides: fold =pre > code= background (=--src-bg=)
+    into the main =:root= light/dark blocks instead of keeping a
+    separate =@media (prefers-color-scheme: dark)= (see =Source block
+    =<code>= class naming=).
   - Prune unused W3C/Bikeshed rules (~30 classes not emitted by
     =ox-w3ctr.el=): keep author-usable special-block / table hooks
     (=.note=, =.issue=, =.advisement=, =.algorithm=, =.data=), and
@@ -81,9 +82,9 @@
   body-usage flag like =org-w3ctr--has-math-p=, since
   =org-w3ctr-template-1= already renders =body= before
   =org-w3ctr--build-head=.  Two details to coordinate with the class
-  naming task below: emitting =language-LANG= (for blocks and, if
-  desired, =src-inline=), and keeping client language aliases / theme
-  backgrounds from clashing with =assets/style.css= (=pre > code.src=
+  naming task below: emitting =language-LANG= (for both blocks and
+  =inline-src-block=), and keeping client language aliases / theme
+  backgrounds from clashing with =assets/style.css= (=pre > code=
   and dark mode).  Still waits for a concrete need since it introduces
   a browser JavaScript dependency.
 - *Special-block custom elements: a component cookbook.*  The
@@ -296,20 +297,29 @@ same session.  Larger or planned work is in the =TODO= list above.
   Call =(org-w3ctr--jstools-available-p "mathjax")= first and signal
   =org-w3ctr-error= with setup context.
 
-- *Source block =<code>= class naming (=src= vs =language-=).*
-  =org-w3ctr-src-block= emits =<code class="src src-LANG">= when
-  =LANG= is present and bare =<code>= when =LANG= is nil, while
-  =assets/style.css= styles =pre > code.src= (plus =code.src-inline=
-  and the dark-mode override) and has no =.language-*= rules.  Two
-  decisions remain:
-  1. Whether language-less =#+begin_src= blocks should keep bare
-     =<code>= (pinned by the =org-w3ctr-src-block= test) or emit
-     =<code class="src">= so they share the =pre > code.src= block
-     styling.
-  2. Whether to keep =src src-LANG=, add HTML5/Prism/highlight.js-style
-     =language-LANG= alongside =src=, or switch to =language-LANG=
-     and update =assets/style.css= and tests (see =Client-side
-     highlighting= above).
+- *Source block =<code>= class naming (=src= / =src-inline= → =language-=).*
+  Checked W3C =tr-design= (=src/base.css=, =src/dark.css=): W3C's
+  shared stylesheets define no syntax-highlighting classes and no
+  background rules for plain =pre= / =code= (specs rely on generators
+  such as ReSpec to inject highlight CSS/HTML), so =ox-w3ctr= owns
+  both code-block background styling and =.tok-*= colours in
+  =assets/style.css=.  Currently =org-w3ctr-src-block= emits
+  =<code class="src src-LANG">= (or bare =<code>= when =LANG= is nil),
+  =org-w3ctr-inline-src-block= emits =<code class="src-inline src-LANG">=,
+  and =assets/style.css= styles =pre > code.src= plus =code.src-inline=.
+  Plan:
+  1. In =assets/style.css=, replace =pre > code.src= with =pre > code=
+     (only =org-w3ctr-src-block= nests =<code>= inside =<pre>=;
+     =example-block= and =fixed-width= emit bare =<pre>=), so
+     language-less =#+begin_src= blocks keep bare =<code>= and still
+     get the block padding and background.
+  2. Switch =src src-LANG= in =org-w3ctr-src-block= and
+     =src-inline src-LANG= in =org-w3ctr-inline-src-block= to
+     =language-LANG=, dropping =src= and =src-inline=.  Drop the
+     =code.src-inline= background/padding rule in =assets/style.css=
+     so inline highlighted code keeps =.tok-*= foreground colours on a
+     transparent background like plain =<code>= (=~code~= / ==verbatim==).
+  3. Update =ox-w3ctr-tests.el= assertions to match =language-LANG=.
 
 ** Non-goals
 
@@ -346,3 +356,13 @@ Explicitly out of scope for now.
   =org-export--annotate-info= keyword/macro preprocessing ~10%,
   parse-tree ~4%, backend transcode walk + transcoders +
   fontification ~12%.  ox-w3ctr is already faster than ox-html.
+- *LaTeX engine fallback chain / extra client options.*  Unlike
+  =fontify= (which routes across many programming languages and falls
+  back through =org-w3ctr-fontify-engines=), LaTeX has one syntax, so
+  explicit =:with-latex= selection (=mathjax=, =mathml-by-mathjax=,
+  =svg-by-mathjax=, =verbatim=, =custom=, =nil=) beats silent
+  fallback.  Alternative client-side renderers that read =\(...\)= /
+  =\[...\]= (such as KaTeX auto-render, local/mirror MathJax, or
+  suppressing script injection) already need only overriding
+  =org-w3ctr-math-head-function= (or =org-w3ctr-mathjax-config=),
+  without touching =org-w3ctr-math-custom-format-function=.
