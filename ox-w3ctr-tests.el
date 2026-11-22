@@ -5289,29 +5289,29 @@ COUNTER, a cons cell, has its car incremented on every call."
                           'src-block)))
     (let ((info (t-test-fontify-info :html-fontify-method 'font-lock)))
       ;; Without a header argument, INFO decides.
-      ($l (t--fontify-chain-for info nil) '(font-lock plain))
-      ($l (t--fontify-chain-for info (el "")) '(font-lock plain))
-      ($l (t--fontify-chain-for info (el " :results silent")) '(font-lock plain))
+      ($l (t--fontify-chain-for nil info) '(font-lock plain))
+      ($l (t--fontify-chain-for (el "") info) '(font-lock plain))
+      ($l (t--fontify-chain-for (el " :results silent") info) '(font-lock plain))
       ;; The block's :fontify wins.
-      ($l (t--fontify-chain-for info (el " :fontify nil")) '(plain))
-      ($l (t--fontify-chain-for info (el " :fontify (plain)")) '(plain))
+      ($l (t--fontify-chain-for (el " :fontify nil") info) '(plain))
+      ($l (t--fontify-chain-for (el " :fontify (plain)") info) '(plain))
       ;; Lisp in header arguments is not evaluated.
-      ($l (t--fontify-chain-for info (el " :var x=(error \"no\") :fontify nil"))
+      ($l (t--fontify-chain-for (el " :var x=(error \"no\") :fontify nil") info)
           '(plain))
       ;; A block's bad method carries the block's line.
-      ($e!l (t--fontify-chain-for info (el " :fontify bogus"))
+      ($e!l (t--fontify-chain-for (el " :fontify bogus") info)
             '(org-w3ctr-error "Unknown fontify method: bogus at line 1"))
-      ($e!l (t--fontify-chain-for info (el " :fontify (a"))
+      ($e!l (t--fontify-chain-for (el " :fontify (a") info)
             '(org-w3ctr-error "Invalid :fontify value \"(a\" at line 1")))
-    ($e!l (t--fontify-chain-for (t-test-fontify-info :html-fontify-method 'x)
-                                nil)
+    ($e!l (t--fontify-chain-for nil
+                                (t-test-fontify-info :html-fontify-method 'x))
           '(org-w3ctr-error "Unknown fontify method: x"))))
 
 (ert-deftest t--fontify-policy ()
   "Tests for `org-w3ctr--fontify-policy'."
   (let ((info (t-test-fontify-info :html-fontify-on-error 'warn)))
-    ($q (t--fontify-policy info :html-fontify-on-error '(error warn)) 'warn)
-    ($e!l (t--fontify-policy info :html-fontify-on-error '(error))
+    ($q (t--fontify-policy :html-fontify-on-error '(error warn) info) 'warn)
+    ($e!l (t--fontify-policy :html-fontify-on-error '(error) info)
           '(org-w3ctr-error "Unknown value for :html-fontify-on-error: warn"))))
 
 (ert-deftest t--fontify-check-options ()

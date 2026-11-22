@@ -4728,18 +4728,20 @@ dispatcher counts them as failures."
 
 ;;;; Fontify dispatcher
 
-;; `org-w3ctr-fontify-code' resolves the method of a block (its
-;; `:fontify' header argument, else `:html-fontify-method') into a
-;; chain of engines ending with `plain', and runs them in order until
-;; one returns tokens.  An engine may decline the language (the next
-;; one is tried), be unavailable, or fail.  The last two are handled by
-;; `:html-fontify-on-error' and break the engine for the rest of the
-;; export, so a dead helper process costs one timeout, not one per
-;; block.  When every engine declines, `:html-fontify-unknown-language'
-;; decides.  Everything is counted in the fontify state.
+;; Resolves a block's method (`:fontify' header or
+;; `:html-fontify-method') into an engine chain ending with `plain',
+;; and tries them in order until one returns tokens.  Unavailable or
+;; failing engines break for the rest of the export; if all decline,
+;; `:html-fontify-unknown-language' decides.
+
+;; Options:
+;; - :html-fontify-method (`org-w3ctr-fontify-method')
+;; - :html-fontify-on-error (`org-w3ctr-fontify-on-error')
+;; - :html-fontify-unknown-language (`org-w3ctr-fontify-unknown-language')
+;; Global only: `org-w3ctr-fontify-engines'.
 
 (defun t--plain-tokens (code _lang _info)
-  "The `plain' engine: return CODE as a single token without a class.
+  "Return CODE as a single classless token for the `plain' engine.
 
 An empty CODE gives no token.  LANG and INFO are ignored."
   (declare (ftype (function (string t t) list))
@@ -4821,7 +4823,7 @@ evaluated.  Signal `org-w3ctr-error' with ELEMENT's line otherwise."
                value (t--fontify-line element)))
     (car read)))
 
-(defun t--fontify-chain-for (info element)
+(defun t--fontify-chain-for (element info)
   "Return the engine chain for ELEMENT under INFO, the info plist.
 
 ELEMENT's `:fontify' header argument, when present, gives the method
@@ -4829,7 +4831,7 @@ ELEMENT's `:fontify' header argument, when present, gives the method
 `:html-fontify-method' does.  Header arguments are parsed without
 evaluating Lisp.  The method goes through `org-w3ctr--fontify-chain';
 an error about a block's own method gets the block's line."
-  (declare (ftype (function (list t) list))
+  (declare (ftype (function (t list) list))
            (important-return-value t))
   (let* ((params (and element (org-element-property :parameters element)))
          (cell (and params
@@ -4843,11 +4845,13 @@ an error about a block's own method gets the block's line."
           (t-error (t-error "%s at line %s" (cadr err)
                             (t--fontify-line element))))))))
 
-(defun t--fontify-policy (info key choices)
-  "Return INFO's value for KEY, which must be one of CHOICES.
+(defun t--fontify-policy (key choices info)
+  "Validate KEY against CHOICES in INFO and return its value.
 
-Signal `org-w3ctr-error' otherwise."
-  (declare (ftype (function (list symbol list) symbol))
+KEY is a property in the info plist INFO, and CHOICES a list of
+symbols checked with `memq'.  Signal `org-w3ctr-error' when the
+value is not in CHOICES."
+  (declare (ftype (function (symbol list list) symbol))
            (important-return-value t))
   (let ((value (t--pget info key)))
     (unless (memq value choices)
@@ -4864,12 +4868,12 @@ The policies, the face fallback, the face tables
 but an error inside an engine counts as its failure, which the
 default policy only warns about."
   (declare (ftype (function (list) null)))
-  (ignore (t--fontify-policy info :html-fontify-on-error
-                             '(error warn silent))
-          (t--fontify-policy info :html-fontify-unknown-language
-                             '(error warn plain))
-          (t--fontify-policy info :html-fontify-face-fallback
-                             '(inherit inline none))
+  (ignore (t--fontify-policy :html-fontify-on-error
+                             '(error warn silent) info)
+          (t--fontify-policy :html-fontify-unknown-language
+                             '(error warn plain) info)
+          (t--fontify-policy :html-fontify-face-fallback
+                             '(inherit inline none) info)
           (t--fontify-face-table info)
           ;; The whole alist is checked whatever the language.
           (t--fontify-lang-entry "" info)))
@@ -4883,8 +4887,8 @@ break ENGINE for the rest of the export, then follow INFO's
 silent."
   (declare (ftype (function (symbol t t t list) null)))
   (let* ((state (t--fontify-state info))
-         (policy (t--fontify-policy info :html-fontify-on-error
-                                    '(error warn silent)))
+         (policy (t--fontify-policy :html-fontify-on-error
+                                    '(error warn silent) info))
          (why (if (eq (car err) 't-error) (cadr err)
                 (error-message-string err)))
          (msg (format "Fontify engine %s failed on %s: %s"
@@ -4906,8 +4910,8 @@ once per engine, or stay silent.  The message adds the engine's
 `:hint', if any."
   (declare (ftype (function (symbol list) null)))
   (let* ((state (t--fontify-state info))
-         (policy (t--fontify-policy info :html-fontify-on-error
-                                    '(error warn silent)))
+         (policy (t--fontify-policy :html-fontify-on-error
+                                    '(error warn silent) info))
          (hint (plist-get (t--fontify-engine engine) :hint))
          (msg (format "Fontify engine %s is unavailable%s"
                       engine (if hint (concat ": " hint) ""))))
@@ -4928,8 +4932,8 @@ Count it in INFO's fontify state, then follow INFO's
 or carry on."
   (declare (ftype (function (t t list) null)))
   (let ((state (t--fontify-state info))
-        (policy (t--fontify-policy info :html-fontify-unknown-language
-                                   '(error warn plain)))
+        (policy (t--fontify-policy :html-fontify-unknown-language
+                                   '(error warn plain) info))
         (msg (format "No fontify engine handles %s"
                      (t--fontify-where lang element))))
     (t--fontify-note state 'unknown-language lang)
@@ -4940,20 +4944,21 @@ or carry on."
     nil))
 
 (defun t--fontify-dispatch (code lang chain info element)
-  "Run the engines of CHAIN on CODE in LANG until one returns tokens.
+  "Fontify CODE in LANG along CHAIN until an engine returns tokens.
 
-Return (ENGINE . TOKENS), the TOKENS checked by
-`org-w3ctr--fontify-check-tokens'.  INFO is the info plist, and
-ELEMENT the block, for messages.  The options are checked first
-\(`org-w3ctr--fontify-check-options'), so that a malformed one
-signals instead of counting as an engine failure.  An engine broken
-earlier in the export is skipped; one whose `:available' function
-returns nil goes through `org-w3ctr--fontify-unavailable'; one that
-returns `:decline' passes; one that fails, in its `:available' or
-its `:fontify' function, goes through `org-w3ctr--fontify-failure'.
-When every engine other than `plain' that was tried declined,
-`org-w3ctr--fontify-unknown' is called.  Each step is counted in
-INFO's fontify state."
+CODE and LANG are strings, CHAIN a list of engine names, INFO the
+info plist, and ELEMENT the block (or nil) for messages.  Check
+options first (`org-w3ctr--fontify-check-options') so a malformed one
+signals instead of counting as an engine failure.
+
+Skip any engine already broken in INFO's fontify state.  Otherwise
+handle an `:available' nil via `org-w3ctr--fontify-unavailable', a
+`:decline' by passing, and an error (from `:available', `:fontify',
+or `org-w3ctr--fontify-check-tokens') via `org-w3ctr--fontify-failure'.
+
+Call `org-w3ctr--fontify-unknown' when every non-`plain' engine that
+was tried declined, and count each step in INFO's fontify state.
+Return (ENGINE . TOKENS), falling back to `plain' if none succeeds."
   (declare (ftype (function (string string list list t) cons))
            (important-return-value t))
   (t--fontify-check-options info)
@@ -4991,12 +4996,6 @@ INFO's fontify state."
     (or result (cons 'plain (t--plain-tokens code lang info)))))
 
 ;;;; Source block
-
-;; Options:
-;; - :html-fontify-method (`org-w3ctr-fontify-method')
-;; - :html-fontify-on-error (`org-w3ctr-fontify-on-error')
-;; - :html-fontify-unknown-language (`org-w3ctr-fontify-unknown-language')
-;; Global only: `org-w3ctr-fontify-engines', `org-w3ctr-fontify-palette'.
 
 (defun t--fontify-default-info ()
   "Return a plist of the current values of the fontify options.
@@ -5036,7 +5035,7 @@ the method are still checked: a malformed one signals
                             string))
            (important-return-value t))
   (let* ((info (or info (t--fontify-default-info)))
-         (chain (t--fontify-chain-for info element)))
+         (chain (t--fontify-chain-for element info)))
     (t--fontify-check-options info)
     (if (or (string-empty-p code) (null lang))
         (t--encode-plain-text code)
