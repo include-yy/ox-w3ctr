@@ -2085,12 +2085,14 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t--footnote-key ()
   "Tests for `org-w3ctr--footnote-key'."
   ($l (t--footnote-key "name" 3) "name")
+  ($l (t--footnote-key "1a" 3) "1a")
   ($l (t--footnote-key "1" 3) 3)
   ($l (t--footnote-key nil 3) 3))
 
 (ert-deftest t--footnote-id ()
   "Tests for `org-w3ctr--footnote-id'."
   ($l (t--footnote-id "name" 3) "fn-name")
+  ($l (t--footnote-id "1a" 3) "fn-1a")
   ($l (t--footnote-id "1" 3) "fn-3")
   ($l (t--footnote-id nil 3) "fn-3"))
 
@@ -2102,11 +2104,14 @@ int a = 1;</code></p>\n</details>")
      ("A[fn:name].\n\n[fn:name] The definition."
       "[<a href=\"#fn-name\">name</a>]")
      ("A[fn::text]." "[<a href=\"#fn-1\">1</a>]")
+     ;; Non-consecutive footnotes get no separator.
+     ("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
+      "[<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]")
      ;; Two footnotes in a row are separated (values are in reverse
      ;; call order, as in the other `org-w3ctr-check-element-values' tests).
      ("A[fn:1][fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
       ", [<a href=\"#fn-2\">2</a>]" "[<a href=\"#fn-1\">1</a>]"))
-   t '(:with-latex verbatim :html-prefer-user-labels t))
+   t '(:with-latex verbatim))
   ;; a custom reference format is read from INFO
   (t-check-element-values
    #'t-footnote-reference
@@ -2187,12 +2192,16 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t-footnote-section-format-function ()
   "The footnotes section goes through `org-w3ctr-footnote-section-format-function'."
   (let ((org-w3ctr-footnote-section-format-function
-         (lambda (definitions _info)
-           (format "<FOOTNOTES n=%d/>" (length definitions)))))
+         (lambda (definitions info)
+           (format "<FOOTNOTES n=%d fmt=%s/>"
+                   (length definitions)
+                   (t--pget info :html-footnote-format)))))
     (t-check-element-values
      #'t-footnote-section
      '(("A[fn:1] B[fn:2].\n\n[fn:1] one.\n\n[fn:2] two."
-        "<FOOTNOTES n=2/>"))
+        "<FOOTNOTES n=2 fmt=[%s]/>")
+       ;; No footnotes: returns nil without calling the custom function.
+       ("Just text." nil))
      nil '(:with-latex verbatim))))
 
 (ert-deftest t-footnote-section ()
@@ -2223,6 +2232,14 @@ int a = 1;</code></p>\n</details>")
            "<dd>\n<p>one.</p>\n</dd>\n"
            "<dt id=\"fn-2\">[2]</dt>\n"
            "<dd>\n<p>two.</p>\n</dd>\n"
+           "</dl>\n</div>\n"))
+     ;; An anonymous footnote followed by [fn:1] must not collide on fn-1.
+     ("A[fn::anon] B[fn:1].\n\n[fn:1] named-num."
+      ,($c "<div id=\"references\">\n<h2>References</h2>\n<dl>\n"
+           "<dt id=\"fn-1\">[1]</dt>\n"
+           "<dd>\nanon\n</dd>\n"
+           "<dt id=\"fn-2\">[2]</dt>\n"
+           "<dd>\n<p>named-num.</p>\n</dd>\n"
            "</dl>\n</div>\n"))
      ;; no footnotes: the section is nil, not an empty one
      ("Just text." nil))

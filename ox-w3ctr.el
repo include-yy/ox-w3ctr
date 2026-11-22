@@ -2519,6 +2519,7 @@ Return CONTENTS as is, or \"\" when nil."
 
 ;;;; Footnote
 
+;; See (info "(org)Creating Footnotes")
 ;; Options:
 ;; - :html-footnote-format (`org-w3ctr-footnote-format')
 ;; - :html-footnote-separator (`org-w3ctr-footnote-separator')
@@ -2544,10 +2545,10 @@ anonymous footnote do not share a key."
   "Transcode a FOOTNOTE-REFERENCE object from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return the formatted link string.  Consecutive footnote references are
+Return the formatted link string pointing to the matching definition
+in the footnotes section.  Consecutive footnote references are
 separated by `:html-footnote-separator'; formatting uses
-`:html-footnote-format', and the anchor uses `org-w3ctr--footnote-id'
-and `org-w3ctr--footnote-key'."
+`:html-footnote-format'."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (concat
@@ -2567,9 +2568,8 @@ and `org-w3ctr--footnote-key'."
 DEFINITION is a (NUMBER LABEL DEF) tuple from
 `org-export-collect-footnote-definitions'.  INFO is the info plist.
 
-Return a string containing the <dt> and <dd> elements, using
-`org-w3ctr--footnote-id', `:html-footnote-format', and
-`org-w3ctr--trim'."
+Return a string containing the <dt> and <dd> elements, with the label
+formatted by `:html-footnote-format' and the body trimmed."
   (declare (ftype (function (list list) string))
            (important-return-value t))
   (pcase-let ((`(,n ,label ,def) definition))
@@ -2584,9 +2584,8 @@ Return a string containing the <dt> and <dd> elements, using
 DEFINITIONS is the list from `org-export-collect-footnote-definitions'.
 INFO is the info plist.
 
-Return a `<div id=\"references\">' section with an `<h2>References</h2>'
-heading and a `<dl>' formatting each entry via
-`org-w3ctr--footnote-definition'."
+Return a <div id=\"references\"> section with an <h2>References</h2>
+heading and a <dl> containing a <dt>/<dd> pair for each entry."
   (declare (ftype (function (list list) string))
            (important-return-value t))
   (format "<div id=\"references\">\n<h2>References</h2>\n<dl>\n%s\n</dl>\n</div>\n"
@@ -2594,7 +2593,8 @@ heading and a `<dl>' formatting each entry via
                      definitions "\n")))
 
 (defun t-footnote-section (info)
-  "Format the footnotes section for INFO.  INFO is the info plist.
+  "Format the footnotes section for INFO.
+INFO is the info plist.
 
 Return the HTML string built by `:html-footnote-section-format-function',
 defaulting to `org-w3ctr-footnote-section-default-format-function', from
