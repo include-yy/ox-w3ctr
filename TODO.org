@@ -55,8 +55,25 @@
   MathJax's =fontCache: 'global'= shares one =<defs>= per document
   (~1.9x smaller on a 100-formula sample).  Tried and reverted;
   revisit if SVG output is kept.
-- *CSS cleanup in =assets/style.css=.*  Not urgent.
+- *CSS cleanup in =assets/style.css=.*  Not urgent (~50 KB, inlined
+  into every exported document by =org-w3ctr--load-css=).
   - Dead rules: =.org-center= (never emitted).
+  - Spliced =self-link= / heading block (L1714--1779, from CSP3 and
+    rdf12-concepts): undefined =--selflink-bg= / =--selflink-text= /
+    =--selflink-hover-text= variables on =dfn > a.self-link=, typo
+    =:not(#toch2)= (missing space vs =#toc > h2=), overlapping
+    =.self-link:hover= / =::before= rules, and hardcoded =color:#000=
+    on =:is(h4,h5,h6)+a.self-link::before= (invisible in dark mode).
+  - Unify local overrides: fold =pre > code.src= / =code.src-inline=
+    background (=--src-bg=) into the main =:root= light/dark blocks
+    instead of keeping a separate =@media (prefers-color-scheme: dark)=.
+  - Prune unused W3C/Bikeshed rules (~30 classes not emitted by
+    =ox-w3ctr.el=): keep author-usable special-block / table hooks
+    (=.note=, =.issue=, =.advisement=, =.algorithm=, =.data=), and
+    consider dropping spec-status / Bikeshed UI rules
+    (=.outdated-warning=, =.annoying-warning=, =.edited-rec-warning=,
+    =.amendment=, =.correction=, =.addition=, =.codepoint=, =.uname=,
+    =#toc-theme-toggle=, =.toc-sidebar=).
 - *Client-side highlighting.*  The server-side engines (=font-lock=,
   =shiki=) are done (2026-10).  Rather than building a full third
   engine, this can reuse the =plain= (or =nil=) fontify path plus a
