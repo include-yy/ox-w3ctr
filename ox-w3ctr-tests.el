@@ -2936,7 +2936,17 @@ int a = 1;</code></p>\n</details>")
         '(right left))
     ($l (cookies "| a | b |" 2) '(nil nil))
     ;; a column past the first row's width is nil
-    ($l (cookies "| <l> |\n| a |" 3) '(left nil nil))))
+    ($l (cookies "| <l> |\n| a |" 3) '(left nil nil))
+    ;; uppercase cookie is ignored (and does not overwrite an earlier one)
+    (let ((case-fold-search t))
+      ($l (cookies "| <r> |\n| <L> |\n| a |" 1) '(right)))
+    ;; preserves caller's match data
+    (let ((table (t-get-element "| <l> |\n| a |" 'table))
+          (s "outer-match"))
+      (string-match "\\(outer\\)-\\(match\\)" s)
+      ($q (t--table-column-cookie table 0 nil) 'left)
+      ($l (match-string 1 s) "outer")
+      ($l (match-string 2 s) "match"))))
 
 (ert-deftest t--table-cell-align ()
   "Tests for `org-w3ctr--table-cell-align'."
@@ -2952,7 +2962,7 @@ int a = 1;</code></p>\n</details>")
   (let* ((cell (t-get-element "| <l> |\n| a |" 'table-cell))
          (info (list :html-table-align-cache nil)))
     ($q (t--table-cell-align cell info) 'left)
-    ($s (hash-table-p (plist-get info :html-table-align-cache)))))
+    ($s (hash-table-p (t--pget info :html-table-align-cache)))))
 
 (ert-deftest t--table-cell-align-memo ()
   "Tests for the per-table memoization of `org-w3ctr--table-cell-align'.
@@ -2992,7 +3002,7 @@ cookie-less column is remembered as the `none' marker."
       ($n (t--table-cell-align (car cells) info))
       ($l calls 1)
       (let* ((table (org-export-get-parent-table (car cells)))
-             (vec (gethash table (plist-get info :html-table-align-cache))))
+             (vec (gethash table (t--pget info :html-table-align-cache))))
         ($q (aref vec 0) 'none))))
   ;; a ragged row reaches a column past the first row's width; the
   ;; cache vector is extended for it
@@ -3000,9 +3010,9 @@ cookie-less column is remembered as the `none' marker."
          (info (list :html-table-align-cache nil))
          (table (org-export-get-parent-table (car cells))))
     ($n (t--table-cell-align (car cells) info))
-    ($l (length (gethash table (plist-get info :html-table-align-cache))) 2)
+    ($l (length (gethash table (t--pget info :html-table-align-cache))) 2)
     ($n (t--table-cell-align (nth 4 cells) info))
-    ($l (length (gethash table (plist-get info :html-table-align-cache))) 3)))
+    ($l (length (gethash table (t--pget info :html-table-align-cache))) 3)))
 
 (ert-deftest t--table-cell-attrs ()
   "Tests for `org-w3ctr--table-cell-attrs'."

@@ -1606,7 +1606,7 @@ byte-compiled code."
       :html-mathjax-config :html-math-head-function
       :html-use-cc-badges :html-license :html-license-format-function
       ;; Internal export state
-      :html-special-block-registry-checked)
+      :html-special-block-registry-checked :html-table-align-cache)
     "List of property keys cached by the OINFO oclosures.
 
 Access these keys only through `org-w3ctr--pget' and `org-w3ctr--pput',
@@ -3041,7 +3041,7 @@ invalid custom element name."
 
 (defun t--table-column-cookie (table column info)
   "Return the explicit alignment cookie for COLUMN in TABLE, or nil.
-INFO is the info plist.
+COLUMN is a 0-based column index.  INFO is the info plist.
 
 Return `left', `center', or `right' from the last special row with an
 <l>, <c>, or <r> cookie for COLUMN, or nil if none is set.  A width
@@ -3049,18 +3049,18 @@ number in the cookie is ignored; a width-only cookie (for example
 <5>) is not an alignment."
   (declare (ftype (function (t fixnum list) symbol))
            (important-return-value t))
-  (let (align)
-    (dolist (row (org-element-contents table) align)
-      (when (org-export-table-row-is-special-p row info)
-        (let* ((cells (org-element-contents row))
-               (value (and (< column (length cells))
-                           (org-element-contents (nth column cells)))))
-          (when (and value (null (cdr value)) (stringp (car value))
-                     (string-match "\\`<\\([lrc]\\)?\\([0-9]+\\)?>\\'"
-                                   (car value))
-                     (match-string 1 (car value)))
-            (setq align (pcase (match-string 1 (car value))
-                          ("l" 'left) ("c" 'center) ("r" 'right)))))))))
+  (let ((case-fold-search nil)
+        align)
+    (save-match-data
+      (dolist (row (org-element-contents table) align)
+        (when (org-export-table-row-is-special-p row info)
+          (when-let* ((cell (nth column (org-element-contents row)))
+                      (value (org-element-contents cell)))
+            (when (and (null (cdr value))
+                       (stringp (car value))
+                       (string-match "\\`<\\([lrc]\\)[0-9]*>\\'" (car value)))
+              (setq align (pcase (match-string 1 (car value))
+                            ("l" 'left) ("c" 'center) ("r" 'right))))))))))
 
 (defun t--table-cell-align (cell info)
   "Return the explicit alignment for CELL's column, or nil.
@@ -3096,10 +3096,11 @@ cookie)."
 
 (defun t--table-cell-attrs (cell info)
   "Return CELL's inline alignment attribute, or the empty string.
+INFO is the info plist.
 
-Only an explicit Org alignment cookie produces an attribute; a
-column without a cookie is left to the CSS.  INFO is the info
-plist."
+Only an explicit Org alignment cookie produces an attribute (a
+leading space followed by `style=\"text-align:...\"'); a column
+without a cookie is left to the CSS."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (if-let* ((align (t--table-cell-align cell info)))
