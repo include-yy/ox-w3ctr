@@ -3595,6 +3595,10 @@ MODE or a custom result that is neither a string nor nil."
                         frag info)))
       (unless (string-or-null-p out)
         (t-error "Custom LaTeX renderer returned a non-string: %S" out))
+      ;; FIXME: `custom' bypasses the math-p filter, so any non-blank
+      ;; result (including a pass-through bare `\cmd') increments
+      ;; `:html-math-count'.  Revisit if a custom head function ever
+      ;; gets falsely triggered.
       (when (and info (t--nw-p out))
         (t--pput info :html-math-count
                  (1+ (or (t--pget info :html-math-count) 0))))
