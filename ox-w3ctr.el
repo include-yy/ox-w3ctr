@@ -209,16 +209,19 @@
     ;; LaTeX
     (:with-latex nil "tex" t-with-latex)
     (:html-math-custom-format-function nil nil t-math-custom-format-function)
-    ;; Src Block
+    ;; Fontify token IR
     (:html-fontify-faces nil nil t-fontify-faces)
     (:html-fontify-extra-faces nil nil t-fontify-extra-faces)
+    (:html-fontify-lang-alist nil nil t-fontify-lang-alist)
+    ;; Engrave-faces subset
+    (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
+    (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
+    ;; Fontify jstools engine
+    (:html-fontify-jstools-timeout nil nil t-fontify-jstools-timeout)
+    ;; Fontify dispatcher
     (:html-fontify-method nil "fontify" t-fontify-method)
     (:html-fontify-on-error nil nil t-fontify-on-error)
     (:html-fontify-unknown-language nil nil t-fontify-unknown-language)
-    (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
-    (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
-    (:html-fontify-lang-alist nil nil t-fontify-lang-alist)
-    (:html-fontify-jstools-timeout nil nil t-fontify-jstools-timeout)
     ;; Timestamp
     (:html-timezone "HTML_TIMEZONE" nil t-timezone)
     (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
@@ -474,7 +477,7 @@ and must return the HTML/MathML/SVG string, or nil to emit nothing."
   :group 'org-export-w3ctr
   :type 'function)
 
-;;;; Src Block
+;;;; Fontify token IR
 (defcustom t-fontify-faces
   '(;; faces.el, excluding bold, italic, bold-italic, underline, ...
     (shadow . "h")
@@ -524,6 +527,20 @@ that your own stylesheet colours."
   :group 'org-export-w3ctr
   :type '(alist :key-type (symbol :tag "Face") :value-type string))
 
+(defcustom t-fontify-lang-alist
+  '(("json" :engrave js-json-mode))
+  "Alist of (LANG . PLIST) choosing how each engine handles LANG.
+LANG is a source block language as written in the Org file.  The
+PLIST key `:engrave' names the major mode the `engrave' engine uses
+for LANG, overriding `org-src-get-lang-mode'; `:jstools' names the
+Shiki language the `jstools' engine uses, LANG itself by default.
+A nil value makes that engine decline LANG.  The default maps
+\"json\", for which Org guesses the absent `json-mode', to the
+built-in `js-json-mode'."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type string :value-type plist))
+
+;;;; Fontify stylesheet
 (defcustom t-fontify-palette
   '(("h" :light "#57606a" :dark "#8b949e")
     ("sc" :light "#116329" :dark "#56d364")
@@ -559,6 +576,45 @@ every code background of assets/style.css, in both themes."
   :group 'org-export-w3ctr
   :type '(alist :key-type string :value-type plist))
 
+;;;; Engrave-faces subset
+(defcustom t-fontify-face-fallback 'inherit
+  "What to do with a face that has no slug of its own.
+
+- `inherit': follow the face's `:inherit' chain and use the first
+  ancestor with a slug; a face with none gets no span.
+- `inline': as `inherit', and a face still without a slug gets an
+  inline style built from its attributes.  Those depend on the
+  theme and display of the exporting Emacs, so the result is not
+  reproducible and ignores the page's light/dark switch.
+- `none': only faces listed in the tables count.
+
+Faces left without a slug are listed by
+`org-w3ctr-show-fontify-report'."
+  :group 'org-export-w3ctr
+  :type '(choice (const inherit) (const inline) (const none))
+  :safe (lambda (v) (memq v '(inherit inline none))))
+
+(defcustom t-fontify-run-mode-hooks nil
+  "Non-nil means run the major mode's hooks when fontifying code.
+By default the mode's hooks are delayed (see the function
+`delay-mode-hooks'), so personal hooks (LSP clients, linters, minor
+modes that add faces) can neither slow the export nor make its
+output depend on the machine."
+  :group 'org-export-w3ctr
+  :type 'boolean
+  :safe #'booleanp)
+
+;;;; Fontify jstools engine
+(defcustom t-fontify-jstools-timeout 10
+  "Seconds the `jstools' engine waits for the helper's answer.
+A request that takes longer counts as a failure of the engine (see
+`org-w3ctr-fontify-on-error'), which is then not used again in that
+export.  The first request of a session also starts the helper
+process and loads Shiki."
+  :group 'org-export-w3ctr
+  :type 'number)
+
+;;;; Fontify dispatcher
 (defcustom t-fontify-method 'engrave
   "Method used to fontify source code.
 
@@ -628,55 +684,6 @@ A block without a language never counts."
   :group 'org-export-w3ctr
   :type '(choice (const error) (const warn) (const plain))
   :safe (lambda (v) (memq v '(error warn plain))))
-
-(defcustom t-fontify-face-fallback 'inherit
-  "What to do with a face that has no slug of its own.
-
-- `inherit': follow the face's `:inherit' chain and use the first
-  ancestor with a slug; a face with none gets no span.
-- `inline': as `inherit', and a face still without a slug gets an
-  inline style built from its attributes.  Those depend on the
-  theme and display of the exporting Emacs, so the result is not
-  reproducible and ignores the page's light/dark switch.
-- `none': only faces listed in the tables count.
-
-Faces left without a slug are listed by
-`org-w3ctr-show-fontify-report'."
-  :group 'org-export-w3ctr
-  :type '(choice (const inherit) (const inline) (const none))
-  :safe (lambda (v) (memq v '(inherit inline none))))
-
-(defcustom t-fontify-run-mode-hooks nil
-  "Non-nil means run the major mode's hooks when fontifying code.
-By default the mode's hooks are delayed (see the function
-`delay-mode-hooks'), so personal hooks (LSP clients, linters, minor
-modes that add faces) can neither slow the export nor make its
-output depend on the machine."
-  :group 'org-export-w3ctr
-  :type 'boolean
-  :safe #'booleanp)
-
-(defcustom t-fontify-lang-alist
-  '(("json" :engrave js-json-mode))
-  "Alist of (LANG . PLIST) choosing how each engine handles LANG.
-LANG is a source block language as written in the Org file.  The
-PLIST key `:engrave' names the major mode the `engrave' engine uses
-for LANG, overriding `org-src-get-lang-mode'; `:jstools' names the
-Shiki language the `jstools' engine uses, LANG itself by default.
-A nil value makes that engine decline LANG.  The default maps
-\"json\", for which Org guesses the absent `json-mode', to the
-built-in `js-json-mode'."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type string :value-type plist))
-
-(defcustom t-fontify-jstools-timeout 10
-  "Seconds the `jstools' engine waits for the helper's answer.
-A request that takes longer counts as a failure of the engine (see
-`org-w3ctr-fontify-on-error'), which is then not used again in that
-export.  The first request of a session also starts the helper
-process and loads Shiki."
-  :group 'org-export-w3ctr
-  :type 'number)
 
 ;;;; Timestamp
 (defconst t-timezone-regex
@@ -4244,14 +4251,12 @@ UTF-8 with LF line ends, and the CSS cache is cleared via
 
 ;;;; Engrave-faces subset
 
-;; A self-contained subset of engrave-faces.el: the engine that turns
-;; Emacs font-lock faces into tokens.  See
-;; https://github.com/tecosaur/engrave-faces (v0.3.1,
-;; engrave-faces-html.el + engrave-faces.el).  Faces map to slugs
-;; through `org-w3ctr-fontify-faces'; a face without an entry is looked
-;; up through its `:inherit' chain, and only under the `inline'
-;; fallback does a face still without a slug get an inline style (the
-;; slug -> colour mapping is otherwise the stylesheet's job).
+;; Fontifies code via Emacs major modes and `font-lock', inspired by
+;; engrave-faces v0.3.1 (https://github.com/tecosaur/engrave-faces).
+
+;; Options:
+;; - :html-fontify-face-fallback (`org-w3ctr-fontify-face-fallback')
+;; - :html-fontify-run-mode-hooks (`org-w3ctr-fontify-run-mode-hooks')
 
 ;; Bound around the mode setup, so declared special here.
 (defvar treesit-auto-install-grammar)
@@ -4862,8 +4867,6 @@ INFO's fontify state."
 
 ;; Options:
 ;; - :html-fontify-method (`org-w3ctr-fontify-method')
-;; - :html-fontify-face-fallback (`org-w3ctr-fontify-face-fallback')
-;; - :html-fontify-run-mode-hooks (`org-w3ctr-fontify-run-mode-hooks')
 ;; - :html-fontify-on-error (`org-w3ctr-fontify-on-error')
 ;; - :html-fontify-unknown-language (`org-w3ctr-fontify-unknown-language')
 ;; - :html-fontify-jstools-timeout (`org-w3ctr-fontify-jstools-timeout')
