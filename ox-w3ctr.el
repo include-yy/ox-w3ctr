@@ -2481,6 +2481,27 @@ methods `echo' and `add'; they stay unexposed.")
                 nil t--jstools-methods)
   "The JSON-RPC client for the jstools Node helper (MathJax and Shiki).")
 
+(defun t--jstools-available-p (&optional package)
+  "Return non-nil when the jstools Node helper can run.
+
+If the helper process is already running, return non-nil.  Otherwise
+check that its executable is on the variable `exec-path', its entry
+script is readable, and jstools/node_modules exists (plus PACKAGE
+beneath it, when PACKAGE is non-nil)."
+  (declare (ftype (function (&optional (or null string)) boolean))
+           (important-return-value t))
+  (let ((conn (t--jrpc--conn t--jstools))
+        (cmd (t--jrpc--command t--jstools)))
+    (or (and conn (jsonrpc-running-p conn))
+        (and (executable-find (car cmd))
+             (file-readable-p (cadr cmd))
+             (file-directory-p
+              (file-name-concat t--dir "jstools" "node_modules"))
+             (or (null package)
+                 (file-directory-p
+                  (file-name-concat t--dir "jstools" "node_modules"
+                                    package)))))))
+
 (defun t-show-jstools-events ()
   "Show the JSON-RPC event log for the jstools connection."
   (interactive)
@@ -4613,15 +4634,11 @@ It must match UNKNOWN_LANGUAGE in jstools/lib/highlight.js.")
 (defun t--shiki-available-p (_info)
   "Return non-nil when the `shiki' engine can run.
 
-That needs the node executable on the variable `exec-path' and
-Shiki installed under jstools/node_modules (run \"npm ci\" in
-jstools/).  INFO is ignored."
+Delegates to `org-w3ctr--jstools-available-p' for \"shiki\".  INFO is
+ignored."
   (declare (ftype (function (t) boolean))
            (important-return-value t))
-  (and (executable-find "node")
-       (file-directory-p
-        (file-name-concat t--dir "jstools" "node_modules" "shiki"))
-       t))
+  (t--jstools-available-p "shiki"))
 
 (defun t--shiki-lang (lang info)
   "Return the Shiki language name for LANG under INFO, or nil.

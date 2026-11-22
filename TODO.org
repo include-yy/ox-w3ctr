@@ -266,11 +266,11 @@ same session.  Larger or planned work is in the =TODO= list above.
   MathJax configuration.
 
 - *Server-side MathJax does not pre-check =node= / =mathjax=.*
-  =org-w3ctr--shiki-available-p= checks for =node= and
-  =jstools/node_modules/shiki= before spawning the helper, whereas
+  =org-w3ctr--jstools-available-p= already checks =node=, =jstools/index.js=,
+  and an optional package under =jstools/node_modules/=, whereas
   =org-w3ctr--latex-rpc= calls =org-w3ctr--jcall= directly and fails
   with a raw process/RPC error when =node= or =npm ci= is missing.
-  Check =node= and =jstools/node_modules/mathjax= first and signal
+  Call =(org-w3ctr--jstools-available-p "mathjax")= first and signal
   =org-w3ctr-error= with setup context.
 
 ** Non-goals

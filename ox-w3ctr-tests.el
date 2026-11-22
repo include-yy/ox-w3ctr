@@ -1922,6 +1922,37 @@ versa (excluding the test-only `echo' and `add' methods)."
       (file-name-concat t--dir "jstools/index.js"))
   ($l (cddr (t--jrpc--command t--jstools)) '("--timeout" "30000")))
 
+(ert-deftest t--jstools-available-p ()
+  "Tests for `org-w3ctr--jstools-available-p'."
+  ($s (booleanp (t--jstools-available-p)))
+  ;; A live connection short-circuits without checking exec-path or disk.
+  (let ((exec-path nil)
+        (t--dir "/no-such-dir"))
+    (cl-letf (((symbol-function 't--jrpc--conn) (lambda (_) 'fake-conn))
+              ((symbol-function 'jsonrpc-running-p) (lambda (_) t)))
+      ($q (t--jstools-available-p "shiki") t))
+    (cl-letf (((symbol-function 't--jrpc--conn) (lambda (_) nil)))
+      ($n (t--jstools-available-p))))
+  ;; Without a live process, executable, script, node_modules, and PACKAGE
+  ;; are checked in turn.
+  (let ((t--dir (make-temp-file "ox-w3ctr-jstools" t)))
+    (unwind-protect
+        (cl-letf (((symbol-function 't--jrpc--conn) (lambda (_) nil))
+                  ((symbol-function 'executable-find)
+                   (lambda (name &rest _) (and (equal name "node") "node"))))
+          ($n (t--jstools-available-p))
+          (make-directory
+           (file-name-concat t--dir "jstools" "node_modules") t)
+          ($q (t--jstools-available-p) t)
+          ($n (t--jstools-available-p "mathjax"))
+          (make-directory
+           (file-name-concat t--dir "jstools" "node_modules" "mathjax") t)
+          ($q (t--jstools-available-p "mathjax") t)
+          (cl-letf (((symbol-function 't--jrpc--command)
+                     (lambda (_) (list "node" (file-name-concat t--dir "no.js")))))
+            ($n (t--jstools-available-p "mathjax"))))
+      (delete-directory t--dir t))))
+
 (ert-deftest t-show-jstools-events ()
   "Tests for `org-w3ctr-show-jstools-events'."
   ;; Only the wiring is checked (a smoke test): the command shows the
@@ -4983,19 +5014,20 @@ fresh: the code under test may store its state in it."
 (ert-deftest t--shiki-available-p ()
   "Tests for `org-w3ctr--shiki-available-p'."
   ($s (booleanp (t--shiki-available-p nil)))
-  ;; Without node on `exec-path' the engine is unavailable.
-  (let ((exec-path nil))
-    ($n (t--shiki-available-p nil)))
-  ;; With node, it still needs Shiki under jstools/node_modules.
-  (let ((t--dir (make-temp-file "ox-w3ctr-shiki" t)))
-    (unwind-protect
-        (cl-letf (((symbol-function 'executable-find)
-                   (lambda (name &rest _) (and (equal name "node") "node"))))
-          ($n (t--shiki-available-p nil))
-          (make-directory
-           (file-name-concat t--dir "jstools" "node_modules" "shiki") t)
-          ($q (t--shiki-available-p nil) t))
-      (delete-directory t--dir t))))
+  ;; Without node on `exec-path' (and no live helper) it is unavailable.
+  (cl-letf (((symbol-function 't--jrpc--conn) (lambda (_) nil)))
+    (let ((exec-path nil))
+      ($n (t--shiki-available-p nil)))
+    ;; With node, it still needs Shiki under jstools/node_modules.
+    (let ((t--dir (make-temp-file "ox-w3ctr-shiki" t)))
+      (unwind-protect
+          (cl-letf (((symbol-function 'executable-find)
+                     (lambda (name &rest _) (and (equal name "node") "node"))))
+            ($n (t--shiki-available-p nil))
+            (make-directory
+             (file-name-concat t--dir "jstools" "node_modules" "shiki") t)
+            ($q (t--shiki-available-p nil) t))
+        (delete-directory t--dir t)))))
 
 (ert-deftest t--shiki-lang ()
   "Tests for `org-w3ctr--shiki-lang'."
