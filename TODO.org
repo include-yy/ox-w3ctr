@@ -57,7 +57,7 @@
   revisit if SVG output is kept.
 - *CSS cleanup in =assets/style.css=.*  Not urgent.
   - Dead rules: =.org-center= (never emitted).
-- *Client-side highlighting.*  The server-side engines (=engrave=,
+- *Client-side highlighting.*  The server-side engines (=font-lock=,
   =jstools=) are done (2026-10).  A =client= engine is designed but not
   built: it would emit =<code class="language-LANG">= unchanged and add
   highlight.js or Prism to =<head>= only when a document needs it.  It
@@ -235,33 +235,14 @@ same session.  Larger or planned work is in the =TODO= list above.
   =org-w3ctr--link-org-files-as-html= rewrites =.org= only (not
   =.org.gpg= as ox-html does).
 
-- *De-engrave the naming: names describe function, provenance goes in a
-  comment.*  The fontify engine borrowed its ideas (and ~5% of its lines)
-  from engrave-faces v0.3.1, but its names say otherwise.  Rename in one
-  pass:
-  - the 11 =t--engrave-*= functions and =t--engrave-css-weights= to
-    =t--fontify-*=, unifying the whole subsystem under one prefix;
-  - the section =;;;; Engrave-faces subset= to =;;;; Fontify: font-lock
-    engine=;
-  - the engine =engrave= to =font-lock= (=org-w3ctr-fontify-engines=,
-    =org-w3ctr-fontify-method=, the =:engrave= key of
-    =org-w3ctr-fontify-lang-alist=), so the shipped engines
-    =font-lock / jstools / plain= each name their mechanism;
-  - the CSS prefix =ef-= to =tok-= (=--ef-*=, =.ef-*=, the renderer, the
-    palette, assets/style.css, the tests and doc/fontify.org).
-  Then credit engrave-faces v0.3.1 in the section comment, noting only
-  =org-w3ctr--fontify-next-face-change= is lifted (from htmlize, via
-  engrave-faces).  Breaking (the engine name and every highlighted span's class), but the
-  package has one user, so the cheapest time is now, before 0.3.
-
 - *=npm audit= flags =@xmldom/xmldom= in jstools.*  It comes with
   =mathjax= 4.0.0-beta.7, pinned in =package-lock.json= (MathJax 4.1.x is
   out); Shiki adds no finding.  Upgrade MathJax deliberately, re-run
   =npm test= and the math export tests, rather than =npm audit fix=.
 
 - *Fontify subsystem polish (from the 0.2.18 review; none urgent).*
-  - Efficiency, only if profiling flags the engrave engine: memoize
-    =org-w3ctr--engrave-face-slug= per export (the state already has the
+  - Efficiency, only if profiling flags the font-lock engine: memoize
+    =org-w3ctr--font-lock-face-slug= per export (the state already has the
     =(cache . jstools-languages)= pattern).
   - Efficiency, same caveat: consider reusing one scratch buffer per major
     mode across blocks (stashed in the fontify state) instead of a fresh

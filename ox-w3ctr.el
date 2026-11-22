@@ -213,7 +213,7 @@
     (:html-fontify-faces nil nil t-fontify-faces)
     (:html-fontify-extra-faces nil nil t-fontify-extra-faces)
     (:html-fontify-lang-alist nil nil t-fontify-lang-alist)
-    ;; Engrave-faces subset
+    ;; Fontify: font-lock engine
     (:html-fontify-face-fallback nil nil t-fontify-face-fallback)
     (:html-fontify-run-mode-hooks nil nil t-fontify-run-mode-hooks)
     ;; Fontify jstools engine
@@ -509,7 +509,7 @@ and must return the HTML/MathML/SVG string, or nil to emit nothing."
     (css-property . "f")
     (css-selector . "k"))
   "Alist of (FACE . SLUG) pairs used to highlight code.
-A run of code in FACE becomes <span class=\"ef-SLUG\">; the colours
+A run of code in FACE becomes <span class=\"tok-SLUG\">; the colours
 of the slugs live in the stylesheet (see `org-w3ctr-fontify-palette').
 A SLUG is a lowercase letter followed by lowercase letters, digits
 or hyphens.  A face without an entry is looked up through its
@@ -528,10 +528,10 @@ that your own stylesheet colours."
   :type '(alist :key-type (symbol :tag "Face") :value-type string))
 
 (defcustom t-fontify-lang-alist
-  '(("json" :engrave js-json-mode))
+  '(("json" :font-lock js-json-mode))
   "Alist of (LANG . PLIST) choosing how each engine handles LANG.
 LANG is a source block language as written in the Org file.  The
-PLIST key `:engrave' names the major mode the `engrave' engine uses
+PLIST key `:font-lock' names the major mode the `font-lock' engine uses
 for LANG, overriding `org-src-get-lang-mode'; `:jstools' names the
 Shiki language the `jstools' engine uses, LANG itself by default.
 A nil value makes that engine decline LANG.  The default maps
@@ -570,13 +570,13 @@ is a slug of `org-w3ctr-fontify-faces', each COLOR a \"#rrggbb\"
 string, and STYLES a list of `bold' and `italic'.  The stylesheet
 does not read this option: `org-w3ctr-fontify-update-stylesheet'
 writes it into the stylesheet as CSS custom properties
-\(--ef-SLUG), one value per theme, and an .ef-SLUG rule per slug.
+\(--tok-SLUG), one value per theme, and an .tok-SLUG rule per slug.
 The shipped colours reach a WCAG contrast of at least 4.5:1 on
 every code background of assets/style.css, in both themes."
   :group 'org-export-w3ctr
   :type '(alist :key-type string :value-type plist))
 
-;;;; Engrave-faces subset
+;;;; Fontify: font-lock engine
 (defcustom t-fontify-face-fallback 'inherit
   "What to do with a face that has no slug of its own.
 
@@ -615,31 +615,31 @@ process and loads Shiki."
   :type 'number)
 
 ;;;; Fontify dispatcher
-(defcustom t-fontify-method 'engrave
+(defcustom t-fontify-method 'font-lock
   "Method used to fontify source code.
 
 The value is an engine name from `org-w3ctr-fontify-engines', a
 list of them tried in order until one takes the block, or nil for
 no highlighting.  The `plain' engine, which only HTML-escapes the
 code, always ends the list.  The shipped engines are:
-- `engrave': colour the code with Emacs font-lock, through a
-  subset of engrave-faces (see `org-w3ctr--engrave-tokens').
+- `font-lock': colour the code with Emacs font-lock, through the
+  language's major mode (see `org-w3ctr--font-lock-tokens').
 - `jstools': colour it with the Node helper in jstools/ (see
   `org-w3ctr--jstools-tokens').
 - `plain': no colour.
 
 An unknown name signals `org-w3ctr-error' during export.  Set it
 per file with `#+OPTIONS: fontify:nil' (or `fontify:(jstools
-engrave)'), and per block with the `:fontify' header argument, for
+font-lock)'), and per block with the `:fontify' header argument, for
 example `#+begin_src python :fontify nil'."
   :group 'org-export-w3ctr
-  :type '(choice (const :tag "Emacs font-lock" engrave)
+  :type '(choice (const :tag "Emacs font-lock" font-lock)
                  (const :tag "No highlighting" nil)
                  (symbol :tag "Engine")
                  (repeat :tag "Engines, in order" symbol)))
 
 (defcustom t-fontify-engines
-  '((engrave :fontify t--engrave-tokens :available always)
+  '((font-lock :fontify t--font-lock-tokens :available always)
     (jstools :fontify t--jstools-tokens :available t--jstools-available-p
              :hint "it needs node on `exec-path' and \"npm ci\" in jstools/")
     (plain :fontify t--plain-tokens :available always))
@@ -3941,7 +3941,7 @@ LANG is a language name as a string, and INFO the info plist.
 Return nil when LANG has no entry.  Signal `org-w3ctr-error' unless
 the alist is a list of (LANG . PLIST) entries, each LANG a string
 and each PLIST a property list with distinct keyword keys (see
-`org-w3ctr--fontify-plist-p'), where `:engrave', if present, is a
+`org-w3ctr--fontify-plist-p'), where `:font-lock', if present, is a
 symbol other than t and `:jstools' is nil or a non-blank string.
 Any other keyword is allowed, so that an engine of one's own can
 read its key.  The whole alist is checked, not only LANG's entry."
@@ -3953,7 +3953,7 @@ read its key.  The whole alist is checked, not only LANG's entry."
     (dolist (entry alist)
       (unless (and (consp entry) (stringp (car entry))
                    (t--fontify-plist-p (cdr entry))
-                   (let ((mode (plist-get (cdr entry) :engrave)))
+                   (let ((mode (plist-get (cdr entry) :font-lock)))
                      (and (symbolp mode) (not (eq mode t))))
                    (let ((name (plist-get (cdr entry) :jstools)))
                      (or (null name) (t--nw-p name))))
@@ -4015,7 +4015,7 @@ concatenates to the same code.  TOKENS itself is not modified."
 
 TOKENS is a list of (CLASS . TEXT), as accepted by
 `org-w3ctr--fontify-check-tokens'.  Each TEXT is HTML-escaped.  A
-slug CLASS wraps it in <span class=\"ef-SLUG\">, a (style . CSS)
+slug CLASS wraps it in <span class=\"tok-SLUG\">, a (style . CSS)
 CLASS in <span style=\"CSS\"> with CSS attribute-escaped; a nil
 CLASS, or a TEXT that is only spaces, tabs and line breaks, leaves it
 unwrapped.  The result has no wrapper element."
@@ -4030,7 +4030,7 @@ unwrapped.  The result has no wrapper element."
              (string-match-p "\\`[ \t\n\r\f]+\\'" (cdr token)))
          escaped)
         ((stringp class)
-         (concat "<span class=\"ef-" class "\">" escaped "</span>"))
+         (concat "<span class=\"tok-" class "\">" escaped "</span>"))
         (t (concat "<span style=\"" (t--encode-plain-text* (cdr class))
                    "\">" escaped "</span>")))))
    tokens))
@@ -4136,8 +4136,8 @@ table knows."
 
 ;; `org-w3ctr-fontify-palette' is the single source of highlighting
 ;; colours, enforced against assets/style.css by a test.  Rules use
-;; `var(--ef-SLUG)' so a block can recolour a slug locally with
-;; `#+attr__: (style "--ef-k: red")'.
+;; `var(--tok-SLUG)' so a block can recolour a slug locally with
+;; `#+attr__: (style "--tok-k: red")'.
 
 (defconst t--fontify-css-begin
   "/* BEGIN generated by org-w3ctr-fontify-update-stylesheet */"
@@ -4151,8 +4151,8 @@ table knows."
   "Return the CSS for the highlighting PALETTE, marker lines included.
 
 PALETTE has the shape of `org-w3ctr-fontify-palette'.  The CSS
-defines --ef-SLUG for the light theme on :root, redefines it under
-`prefers-color-scheme: dark', and gives each slug an .ef-SLUG rule
+defines --tok-SLUG for the light theme on :root, redefines it under
+`prefers-color-scheme: dark', and gives each slug an .tok-SLUG rule
 using it.
 
 Signal `org-w3ctr-error' unless PALETTE is a non-empty proper list of
@@ -4184,9 +4184,9 @@ a property list with the keys `:light' and `:dark', each a lowercase
         (when (member slug seen)
           (t-error "Duplicate fontify palette slug: %S" slug))
         (push slug seen)
-        (push (format "  --ef-%s: %s;" slug lc) light)
-        (push (format "    --ef-%s: %s;" slug dc) dark)
-        (push (concat (format ".ef-%s { color: var(--ef-%s);" slug slug)
+        (push (format "  --tok-%s: %s;" slug lc) light)
+        (push (format "    --tok-%s: %s;" slug dc) dark)
+        (push (concat (format ".tok-%s { color: var(--tok-%s);" slug slug)
                       (if (memq 'bold styles) " font-weight: 700;" "")
                       (if (memq 'italic styles) " font-style: italic;" "")
                       " }")
@@ -4249,7 +4249,7 @@ UTF-8 with LF line ends, and the CSS cache is cleared via
     (t-clear-css)
     file))
 
-;;;; Engrave-faces subset
+;;;; Fontify: font-lock engine
 
 ;; Fontifies code via Emacs major modes and `font-lock', inspired by
 ;; engrave-faces v0.3.1 (https://github.com/tecosaur/engrave-faces).
@@ -4263,7 +4263,7 @@ UTF-8 with LF line ends, and the CSS cache is cleared via
 (declare-function treesit-parser-list "treesit.c")
 (declare-function tty-color-standard-values "term/tty-colors")
 
-(defconst t--engrave-css-weights
+(defconst t--font-lock-css-weights
   '((thin . 100) (ultralight . 200) (extra-light . 200) (ultra-light . 200)
     (light . 300) (semi-light . 350) (demilight . 350) (book . 380)
     (medium . 500) (semi-bold . 600) (demibold . 600) (demi-bold . 600)
@@ -4273,7 +4273,7 @@ UTF-8 with LF line ends, and the CSS cache is cleared via
 
 Normal weights are absent: they need no declaration.")
 
-(defun t--engrave-normalize-face (prop)
+(defun t--font-lock-normalize-face (prop)
   "Return the face property PROP as a list of faces, the first winning.
 
 PROP is what a `face' text property may hold: nil, a face name (a
@@ -4291,7 +4291,7 @@ else gives nil."
    ((not (consp prop)) nil)
    ((eq (car prop) 'quote)
     (and (proper-list-p prop) (= (length prop) 2)
-         (t--engrave-normalize-face (cadr prop))))
+         (t--font-lock-normalize-face (cadr prop))))
    ;; A malformed plist must not fall through to the list case below,
    ;; which would pick faces out of its values.
    ((keywordp (car prop)) (and (plistp prop) (list prop)))
@@ -4299,9 +4299,9 @@ else gives nil."
     (and (stringp (cdr prop)) (list (list :foreground (cdr prop)))))
    ((eq (car prop) 'background-color)
     (and (stringp (cdr prop)) (list (list :background (cdr prop)))))
-   ((proper-list-p prop) (mapcan #'t--engrave-normalize-face prop))))
+   ((proper-list-p prop) (mapcan #'t--font-lock-normalize-face prop))))
 
-(defun t--engrave-face-slug (face table inherit)
+(defun t--font-lock-face-slug (face table inherit)
   "Return the slug that TABLE gives FACE, or nil.
 
 FACE is a face symbol or an anonymous face (a plist), and TABLE an
@@ -4321,11 +4321,11 @@ once, so a cycle ends."
             (let ((parent (cond ((consp f) (plist-get f :inherit))
                                 ((facep f) (face-attribute f :inherit)))))
               (unless (memq parent '(nil unspecified))
-                (setq todo (append (t--engrave-normalize-face parent)
+                (setq todo (append (t--font-lock-normalize-face parent)
                                    todo))))))))
     slug))
 
-(defun t--engrave-color (color)
+(defun t--font-lock-color (color)
   "Return COLOR, a color name or spec, as a \"#rrggbb\" string, or nil.
 
 The value is the color's standard definition, from
@@ -4338,7 +4338,7 @@ would otherwise round it to its terminal palette."
               (rgb (tty-color-standard-values (downcase color))))
     (apply #'format "#%02x%02x%02x" (mapcar (lambda (c) (ash c -8)) rgb))))
 
-(defun t--engrave-face-attribute (faces attribute)
+(defun t--font-lock-face-attribute (faces attribute)
   "Return the first specified value of ATTRIBUTE among FACES, or nil.
 
 FACES is a list of face symbols and plists, the first winning; a
@@ -4353,7 +4353,7 @@ face's."
                 (unless (memq v '(nil unspecified)) v)))
             faces))
 
-(defun t--engrave-inline-style (faces)
+(defun t--font-lock-inline-style (faces)
   "Return the CSS declarations for the merged attributes of FACES, or nil.
 
 FACES is a list of face symbols and plists, the first winning; the
@@ -4362,10 +4362,10 @@ strike-through are translated; nil means none of them is set."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (let* ((faces (remq 'default faces))
-         (attr (lambda (a) (t--engrave-face-attribute faces a)))
-         (fg (t--engrave-color (funcall attr :foreground)))
-         (bg (t--engrave-color (funcall attr :background)))
-         (weight (cdr (assq (funcall attr :weight) t--engrave-css-weights)))
+         (attr (lambda (a) (t--font-lock-face-attribute faces a)))
+         (fg (t--font-lock-color (funcall attr :foreground)))
+         (bg (t--font-lock-color (funcall attr :background)))
+         (weight (cdr (assq (funcall attr :weight) t--font-lock-css-weights)))
          (italic (memq (funcall attr :slant) '(italic oblique)))
          (lines (delq nil (list (and (funcall attr :underline) "underline")
                                 (and (funcall attr :strike-through)
@@ -4379,32 +4379,32 @@ strike-through are translated; nil means none of them is set."
                                                (string-join lines " ")))))))
     (and decls (string-join decls " "))))
 
-(defun t--engrave-face-class (prop table fallback)
+(defun t--font-lock-face-class (prop table fallback)
   "Return the token CLASS for the face property PROP.
 
 TABLE is the (FACE . SLUG) alist and FALLBACK one of `inherit',
 `inline' or `none' (see `org-w3ctr-fontify-face-fallback').  The
 faces of PROP are tried in order, each through
-`org-w3ctr--engrave-face-slug', following `:inherit' unless
+`org-w3ctr--font-lock-face-slug', following `:inherit' unless
 FALLBACK is `none'; the first slug found is the CLASS.  With none,
 the `inline' FALLBACK gives (style . CSS) from
-`org-w3ctr--engrave-inline-style', and the others nil."
+`org-w3ctr--font-lock-inline-style', and the others nil."
   (declare (ftype (function (t list symbol) t))
            (important-return-value t))
-  (let ((faces (t--engrave-normalize-face prop)))
+  (let ((faces (t--font-lock-normalize-face prop)))
     (or (seq-some (lambda (f)
-                    (t--engrave-face-slug f table (not (eq fallback 'none))))
+                    (t--font-lock-face-slug f table (not (eq fallback 'none))))
                   faces)
         (and (eq fallback 'inline)
-             (when-let* ((css (t--engrave-inline-style faces)))
+             (when-let* ((css (t--font-lock-inline-style faces)))
                (cons 'style css))))))
 
-(defun t--engrave-collect (table fallback &optional state)
+(defun t--font-lock-collect (table fallback &optional state)
   "Return the current buffer's text as a list of (CLASS . TEXT) tokens.
 
 The buffer must already be fontified (see `font-lock-ensure').  The
 text is cut at every `face' text-property change, and each run's
-CLASS comes from `org-w3ctr--engrave-face-class' with TABLE and
+CLASS comes from `org-w3ctr--font-lock-face-class' with TABLE and
 FALLBACK.  When STATE is non-nil, every face of a run that found no
 slug (other than `default') is counted there as `missed-face'.
 Point is preserved."
@@ -4419,9 +4419,9 @@ Point is preserved."
                       (point) 'face nil (point-max)))
                (text (buffer-substring-no-properties (point) next))
                (prop (get-text-property (point) 'face))
-               (class (t--engrave-face-class prop table fallback)))
+               (class (t--font-lock-face-class prop table fallback)))
           (when (and state (not (stringp class)))
-            (dolist (face (t--engrave-normalize-face prop))
+            (dolist (face (t--font-lock-normalize-face prop))
               (unless (eq face 'default)
                 (t--fontify-note state 'missed-face
                                  (if (symbolp face) face "(anonymous face)")))))
@@ -4429,31 +4429,31 @@ Point is preserved."
           (goto-char next)))
       (nreverse tokens))))
 
-(defun t--engrave-lang-mode (lang info)
-  "Return the major mode the `engrave' engine uses for LANG, or nil.
+(defun t--font-lock-lang-mode (lang info)
+  "Return the major mode the `font-lock' engine uses for LANG, or nil.
 
 LANG is a language name as a string, and INFO the info plist.  The
 entry for LANG in INFO's `:html-fontify-lang-alist' (see
-`org-w3ctr--fontify-lang-entry') decides when it has an `:engrave'
+`org-w3ctr--fontify-lang-entry') decides when it has an `:font-lock'
 key (a nil value meaning no mode); otherwise `org-src-get-lang-mode'
 does.  A mode that is not a symbol naming a function (a macro or a
 special form is not one) gives nil."
   (declare (ftype (function (string list) symbol))
            (important-return-value t))
   (let* ((entry (t--fontify-lang-entry lang info))
-         (mode (if (plist-member entry :engrave)
-                   (plist-get entry :engrave)
+         (mode (if (plist-member entry :font-lock)
+                   (plist-get entry :font-lock)
                  (org-src-get-lang-mode lang))))
     (and mode (symbolp mode) (functionp mode) mode)))
 
-(defun t--engrave-tokens (code lang info)
+(defun t--font-lock-tokens (code lang info)
   "Fontify CODE (a string) in LANG's major mode and return its tokens.
 
 LANG is a language name as a string.  INFO is the info plist: it
-picks the mode (`org-w3ctr--engrave-lang-mode'), the face table and
+picks the mode (`org-w3ctr--font-lock-lang-mode'), the face table and
 fallback, and whether the mode's hooks run
 \(`:html-fontify-run-mode-hooks'), and holds the fontify state.
-Return the tokens of `org-w3ctr--engrave-collect', or `:decline'
+Return the tokens of `org-w3ctr--font-lock-collect', or `:decline'
 when LANG has no mode or its mode is a tree-sitter mode without a
 grammar.  The mode's messages and warnings are silenced, and it may
 not offer to install a grammar.  Signal `org-w3ctr-error' for an
@@ -4461,7 +4461,7 @@ unknown `:html-fontify-face-fallback'."
   (declare (ftype (function (string string list) (or list keyword)))
            (important-return-value t))
   (let ((fallback (t--pget info :html-fontify-face-fallback))
-        (mode (t--engrave-lang-mode lang info)))
+        (mode (t--font-lock-lang-mode lang info)))
     (unless (memq fallback '(inherit inline none))
       (t-error "Unknown fontify face fallback: %S" fallback))
     (if (not mode)
@@ -4483,7 +4483,7 @@ unknown `:html-fontify-face-fallback'."
             (insert code)
             (font-lock-ensure)
             (set-buffer-modified-p nil)
-            (t--engrave-collect table fallback state)))))))
+            (t--font-lock-collect table fallback state)))))))
 
 ;;;; Fontify jstools engine
 

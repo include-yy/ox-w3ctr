@@ -43,24 +43,24 @@ cd jstools && npm ci
 Source blocks are coloured by an engine named in
 =org-w3ctr-fontify-method=:
 
-- =engrave= (default): Emacs font-lock, through the language's major
+- =font-lock= (default): Emacs font-lock, through the language's major
   mode.
 - =jstools=: Shiki (TextMate grammars, ~350 languages) in the Node
   helper.
 - =plain= or nil: no colour.
 
-A list tries engines in order, e.g. =(jstools engrave)=; =plain= always
+A list tries engines in order, e.g. =(jstools font-lock)=; =plain= always
 ends it.  Override the method per file with =#+OPTIONS:
-fontify:(jstools engrave)= and per block with a header argument:
+fontify:(jstools font-lock)= and per block with a header argument:
 =#+begin_src python :fontify nil=.
 
-The output is =<span class="ef-SLUG">= runs; faces map to slugs through
+The output is =<span class="tok-SLUG">= runs; faces map to slugs through
 =org-w3ctr-fontify-faces= (and =org-w3ctr-fontify-extra-faces=),
 following =:inherit=.  The colours, light and dark, come from
 =org-w3ctr-fontify-palette=; after changing it, run =M-x
 org-w3ctr-fontify-update-stylesheet= to rewrite the generated block of
 =assets/style.css=.  A block can recolour a slug locally with
-=#+attr__: (style "--ef-k: red")=.
+=#+attr__: (style "--tok-k: red")=.
 
 A language no engine knows, or an engine that fails, is warned about
 once per export and the block exported as plain text (see

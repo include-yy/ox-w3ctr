@@ -89,7 +89,7 @@ Node engine, writing an engine of your own).
 header argument, else `#+OPTIONS: fontify:`, else
 `org-w3ctr-fontify-method`) into a chain of engines ending with `plain`
 (`t--fontify-chain-for`), and `t--fontify-dispatch` runs the engines of
-`org-w3ctr-fontify-engines` (`engrave`, `jstools`, `plain`) until one
+`org-w3ctr-fontify-engines` (`font-lock`, `jstools`, `plain`) until one
 returns tokens.  The contract:
 
 - An engine returns `((CLASS . TEXT) ...)` or `:decline`, never HTML.
@@ -99,14 +99,14 @@ returns tokens.  The contract:
   or carry an unknown class; `t--fontify-merge` joins neighbours of one
   class; `t--fontify-render` is the only place that escapes.
 - Fallback, in three layers: a face without a slug follows its `:inherit`
-  chain (`t--engrave-face-slug`); a declining engine passes the block on,
+  chain (`t--font-lock-face-slug`); a declining engine passes the block on,
   and a failing or unavailable one is handled by `:html-fontify-on-error`
   and broken for the rest of the export; `plain` takes what is left, and a
   language every engine declined goes through
   `:html-fontify-unknown-language`.  Everything is counted in INFO's
   `:html-fontify-state` and shown by `M-x org-w3ctr-show-fontify-report`.
 - Measured facts: Emacs 31 *asks* to install a missing tree-sitter
-  grammar, which hangs a batch export, so `t--engrave-tokens` binds
+  grammar, which hangs a batch export, so `t--font-lock-tokens` binds
   `treesit-auto-install-grammar` to `never` (declared with `defvar`, or
   the `let` would be lexical and do nothing) and declines a `*-ts-mode`
   left without a parser.  In batch, `color-values` rounds to the 8-colour
