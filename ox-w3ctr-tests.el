@@ -4651,6 +4651,7 @@ fresh: the code under test may store its state in it."
   ($l (t--font-lock-color "#1F5BFF") "#1f5bff")
   ;; Named colors keep their standard value even in batch.
   ($l (t--font-lock-color "Purple") "#a020f0")
+  ($l (t--font-lock-color "Dark Blue") "#00008b")
   ($n (t--font-lock-color "unspecified-fg"))
   ($n (t--font-lock-color "nosuchcolor"))
   ($n (t--font-lock-color nil)))

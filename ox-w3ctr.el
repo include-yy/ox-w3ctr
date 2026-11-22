@@ -570,7 +570,7 @@ is a slug of `org-w3ctr-fontify-faces', each COLOR a \"#rrggbb\"
 string, and STYLES a list of `bold' and `italic'.  The stylesheet
 does not read this option: `org-w3ctr-fontify-update-stylesheet'
 writes it into the stylesheet as CSS custom properties
-\(--tok-SLUG), one value per theme, and an .tok-SLUG rule per slug.
+\(--tok-SLUG), one value per theme, and a .tok-SLUG rule per slug.
 The shipped colours reach a WCAG contrast of at least 4.5:1 on
 every code background of assets/style.css, in both themes."
   :group 'org-export-w3ctr
@@ -4152,7 +4152,7 @@ table knows."
 
 PALETTE has the shape of `org-w3ctr-fontify-palette'.  The CSS
 defines --tok-SLUG for the light theme on :root, redefines it under
-`prefers-color-scheme: dark', and gives each slug an .tok-SLUG rule
+`prefers-color-scheme: dark', and gives each slug a .tok-SLUG rule
 using it.
 
 Signal `org-w3ctr-error' unless PALETTE is a non-empty proper list of
@@ -4260,8 +4260,6 @@ UTF-8 with LF line ends, and the CSS cache is cleared via
 
 ;; Bound around the mode setup, so declared special here.
 (defvar treesit-auto-install-grammar)
-(declare-function treesit-parser-list "treesit.c")
-(declare-function tty-color-standard-values "term/tty-colors")
 
 (defconst t--font-lock-css-weights
   '((thin . 100) (ultralight . 200) (extra-light . 200) (ultra-light . 200)
@@ -4273,6 +4271,9 @@ UTF-8 with LF line ends, and the CSS cache is cleared via
 
 Normal weights are absent: they need no declaration.")
 
+;; Font-lock modes and `:inherit' chains use all Emacs `face' shapes.
+;; Flattening them once into symbols and plists gives slug lookup,
+;; inline CSS and missed-face reporting one uniform input.
 (defun t--font-lock-normalize-face (prop)
   "Return the face property PROP as a list of faces, the first winning.
 
@@ -4295,10 +4296,12 @@ else gives nil."
    ;; A malformed plist must not fall through to the list case below,
    ;; which would pick faces out of its values.
    ((keywordp (car prop)) (and (plistp prop) (list prop)))
+   ;; Legacy color pairs -> anonymous plists.
    ((eq (car prop) 'foreground-color)
     (and (stringp (cdr prop)) (list (list :foreground (cdr prop)))))
    ((eq (car prop) 'background-color)
     (and (stringp (cdr prop)) (list (list :background (cdr prop)))))
+   ;; Flatten nested specs; fresh outer lists keep `mapcan' pure.
    ((proper-list-p prop) (mapcan #'t--font-lock-normalize-face prop))))
 
 (defun t--font-lock-face-slug (face table inherit)
@@ -4335,7 +4338,7 @@ would otherwise round it to its terminal palette."
            (important-return-value t))
   (when-let* (((stringp color))
               ((not (string-prefix-p "unspecified" color)))
-              (rgb (tty-color-standard-values (downcase color))))
+              (rgb (tty-color-standard-values (tty-color-canonicalize color))))
     (apply #'format "#%02x%02x%02x" (mapcar (lambda (c) (ash c -8)) rgb))))
 
 (defun t--font-lock-face-attribute (faces attribute)
@@ -4386,8 +4389,8 @@ TABLE is the (FACE . SLUG) alist and FALLBACK one of `inherit',
 `inline' or `none' (see `org-w3ctr-fontify-face-fallback').  The
 faces of PROP are tried in order, each through
 `org-w3ctr--font-lock-face-slug', following `:inherit' unless
-FALLBACK is `none'; the first slug found is the CLASS.  With none,
-the `inline' FALLBACK gives (style . CSS) from
+FALLBACK is `none'; the first slug found is the CLASS.  If none is
+found, the `inline' FALLBACK gives (style . CSS) from
 `org-w3ctr--font-lock-inline-style', and the others nil."
   (declare (ftype (function (t list symbol) t))
            (important-return-value t))
@@ -4434,7 +4437,7 @@ Point is preserved."
 
 LANG is a language name as a string, and INFO the info plist.  The
 entry for LANG in INFO's `:html-fontify-lang-alist' (see
-`org-w3ctr--fontify-lang-entry') decides when it has an `:font-lock'
+`org-w3ctr--fontify-lang-entry') decides when it has a `:font-lock'
 key (a nil value meaning no mode); otherwise `org-src-get-lang-mode'
 does.  A mode that is not a symbol naming a function (a macro or a
 special form is not one) gives nil."
@@ -4449,15 +4452,16 @@ special form is not one) gives nil."
 (defun t--font-lock-tokens (code lang info)
   "Fontify CODE (a string) in LANG's major mode and return its tokens.
 
-LANG is a language name as a string.  INFO is the info plist: it
-picks the mode (`org-w3ctr--font-lock-lang-mode'), the face table and
-fallback, and whether the mode's hooks run
-\(`:html-fontify-run-mode-hooks'), and holds the fontify state.
+LANG is a language name as a string, and INFO the info plist; INFO
+supplies the mode (`org-w3ctr--font-lock-lang-mode'), face table,
+`:html-fontify-face-fallback', `:html-fontify-run-mode-hooks', and
+fontify state.  Mode messages and warnings are silenced, and grammar
+auto-install is disabled.
+
 Return the tokens of `org-w3ctr--font-lock-collect', or `:decline'
 when LANG has no mode or its mode is a tree-sitter mode without a
-grammar.  The mode's messages and warnings are silenced, and it may
-not offer to install a grammar.  Signal `org-w3ctr-error' for an
-unknown `:html-fontify-face-fallback'."
+grammar.  Signal `org-w3ctr-error' for an unknown
+`:html-fontify-face-fallback' or malformed fontify options."
   (declare (ftype (function (string string list) (or list keyword)))
            (important-return-value t))
   (let ((fallback (t--pget info :html-fontify-face-fallback))
