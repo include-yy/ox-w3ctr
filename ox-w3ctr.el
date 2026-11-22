@@ -1799,11 +1799,13 @@ Return nil otherwise."
   (and (t--nw-p s) (t--trim s)))
 
 (defun t--prepend-newline (contents)
-  "Prepend a newline to CONTENTS if it is a string.
+  "Prepend a newline to CONTENTS if it is a non-empty string.
 Otherwise, return an empty string."
   (declare (ftype (function (t) string))
            (pure t) (important-return-value t))
-  (if (stringp contents) (concat "\n" contents) ""))
+  (if (and (stringp contents) (not (string-empty-p contents)))
+      (concat "\n" contents)
+    ""))
 
 (defun t--make-string (n string)
   "Return a new string by repeating STRING N times.
@@ -2955,11 +2957,10 @@ blocks get an automatic id."
   (let* ((type (org-element-property :type special-block))
          (template (plist-get (cdr spec) :template))
          (tpl (and (t--nw-p template)
-                   (org-element-normalize-string template)))
-         (body (and (or tpl contents) (concat tpl contents))))
+                   (org-element-normalize-string template))))
     (format "<%s%s>%s</%s>" type
             (t--make-attr__id* special-block info t)
-            (t--prepend-newline body)
+            (t--prepend-newline (concat tpl contents))
             type)))
 
 (defun t-special-block (special-block contents info)
@@ -3269,67 +3270,72 @@ tables get an automatic id."
 
 ;;;; Export Block
 
-;; See (info "(org) Quoting HTML tags")
+;; `org-w3ctr--eval-lisp' backs all six Lisp-in-Org entry points:
+;; EMACS-LISP/ELISP and LISP-DATA blocks, @@e:/@@d: snippets, and
+;; #+E:/#+D: keywords.
+(defun t--eval-lisp (element value type context)
+  "Read the first Lisp form in VALUE according to TYPE and return a string.
+ELEMENT is the Org element or object being exported.  VALUE is the raw
+Lisp text.  TYPE is `eval' or `sexp'.  CONTEXT is the construct label
+for error messages (for example, \"EMACS-LISP block\").
+
+When TYPE is `eval', require `org-w3ctr-allow-eval' before reading,
+evaluate the form with lexical binding, and convert the result via
+`org-w3ctr--2str' without HTML escaping (nil and non-scalars become
+\"\").  When TYPE is `sexp', render the form as HTML via
+`org-w3ctr--sexp2html'.  Trailing forms in VALUE are ignored; a blank
+VALUE returns \"\" without reading or checking `org-w3ctr-allow-eval'.
+
+Signal `org-w3ctr-error' on an unknown TYPE.  Any gate, read,
+evaluation, or rendering error is re-signaled as `org-w3ctr-error'
+prefixed with CONTEXT and, when ELEMENT has a valid `:begin' position
+in the current buffer, its line number."
+  (declare (ftype (function (t string symbol string) string))
+           (important-return-value t))
+  (unless (memq type '(eval sexp))
+    (t-error "Unknown Lisp handling type: %S" type))
+  (if (not (t--nw-p value)) ""
+    (condition-case err
+        (pcase type
+          ('eval
+           (unless t-allow-eval
+             (t-error (concat "Lisp evaluation is disabled; "
+                              "set `org-w3ctr-allow-eval' to enable it")))
+           (or (t--2str (eval (read value) t)) ""))
+          ('sexp
+           (t--sexp2html (read value))))
+      (error
+       ;; A nested `org-w3ctr-error' (from the gate, `eval', or
+       ;; `org-w3ctr--sexp2html') has a clean message already; do not
+       ;; re-render it with its type name and quotes, as
+       ;; `error-message-string' would.
+       (let ((beg (org-element-property :begin element))
+             (msg (if (eq (car err) 't-error)
+                      (cadr err)
+                    (error-message-string err))))
+         (if (and (integerp beg) (<= (point-min) beg (point-max)))
+             (t-error "%s at line %d: %s"
+                      context (line-number-at-pos beg) msg)
+           (t-error "%s: %s" context msg)))))))
+
+;; See (info "(org)Quoting HTML tags")
 ;; The parser upcases `:type' and keeps `:value' as written, list
 ;; indentation included (stripping common indentation would alter a JS
 ;; template literal or a multi-line Lisp string).
-;;
-;; `org-w3ctr--eval-lisp' backs all six Lisp-in-Org entry points:
-;; EMACS-LISP/ELISP and LISP-DATA blocks here, @@e:/@@d: snippets, and
-;; #+E:/#+D: keywords.  The `eval' forms run arbitrary code at export
-;; time and require `org-w3ctr-allow-eval'; the `sexp' forms only
-;; render S-expression data as HTML via `org-w3ctr--sexp2html'.
-
-(defun t--eval-lisp (element value type context)
-  "Read the first Lisp form in VALUE according to TYPE and return a string.
-
-When TYPE is `eval', require `org-w3ctr-allow-eval' before reading,
-evaluate the form with lexical binding, and return it raw via
-`org-w3ctr--2str' (or \"\" on nil).  When TYPE is `sexp', render it via
-`org-w3ctr--sexp2html'.  Trailing forms are ignored; a blank VALUE
-returns \"\" without reading or checking `org-w3ctr-allow-eval'.
-
-Signal `org-w3ctr-error', prefixed with CONTEXT and ELEMENT's `:begin'
-line number, on an unknown TYPE or any failure."
-  (declare (ftype (function (t string symbol string) string))
-           (important-return-value t))
-  (condition-case err
-      (progn
-        ;; TYPE is call-site code, not document input: reject an
-        ;; unknown one even when VALUE is blank.
-        (unless (memq type '(eval sexp))
-          (t-error "Unknown Lisp handling type: %S" type))
-        (if (not (t--nw-p value)) ""
-          (pcase type
-            ('eval
-             (unless t-allow-eval
-               (t-error (concat "Lisp evaluation is disabled; "
-                                "set `org-w3ctr-allow-eval' to enable it")))
-             (or (t--2str (eval (read value) t)) ""))
-            ('sexp
-             (t--sexp2html (read value))))))
-    (error
-     ;; A nested `org-w3ctr-error' (from the gate, `eval', or
-     ;; `org-w3ctr--sexp2html') has a clean message already; do not
-     ;; re-render it with its type name and quotes, as
-     ;; `error-message-string' would.
-     (t-error "%s at line %d: %s"
-              context
-              (line-number-at-pos (org-element-property :begin element))
-              (if (eq (car err) 't-error)
-                  (cadr err)
-                (error-message-string err))))))
-
 (defun t-export-block (export-block _contents _info)
   "Transcode an EXPORT-BLOCK element from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return the exported string.  The upcased `:type' dispatches: HTML
-passes through raw; CSS and JS/JAVASCRIPT wrap in <style>/<script>;
-EMACS-LISP/ELISP and LISP-DATA run through `org-w3ctr--eval-lisp' as
-`eval' (needing `org-w3ctr-allow-eval') and `sexp', and may signal
-`org-w3ctr-error'; any other type yields \"\".  A missing `:value'
-defaults to \"\"; attributes, names, and captions are ignored."
+Return the exported string according to the upcased `:type': HTML
+passes through raw; CSS and JS/JAVASCRIPT wrap in <style> and
+<script>; EMACS-LISP and ELISP evaluate the first Lisp form
+\(requiring `org-w3ctr-allow-eval') and emit the result raw;
+LISP-DATA renders the first S-expression as HTML; any other type
+yields \"\".
+
+A missing `:value' defaults to \"\"; attributes, names, and captions
+are ignored.  Signal `org-w3ctr-error' when Lisp evaluation is
+disabled or fails, or when an S-expression is malformed."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type export-block))
@@ -3347,27 +3353,29 @@ defaults to \"\"; attributes, names, and captions are ignored."
 
 ;;;; Export Snippet
 
-;; See (info "(org) Quoting HTML tags")
+;; See (info "(org)Quoting HTML tags")
 ;; Only @@html: is standard Org syntax; @@h: (shorthand for @@html:),
-;; @@e:, and @@d: are ox-w3ctr extensions mirroring the #+H, #+E, and
-;; #+D keywords.  @@e: evaluates its value as Lisp and requires
-;; `org-w3ctr-allow-eval'.
+;; @@e:, and @@d: are ox-w3ctr extensions mirroring the #+H:, #+E:, and
+;; #+D: keywords.
 
 (defun t-export-snippet (export-snippet _contents _info)
   "Transcode an EXPORT-SNIPPET object from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return the exported content as a string.  The backend name is translated
-via `org-export-snippet-translation-alist' (case-sensitive), then
-matched case-insensitively: `html'/`h' passes through raw; `e' and `d'
-run through `org-w3ctr--eval-lisp' as `eval' (needing
-`org-w3ctr-allow-eval') and `sexp', and may signal `org-w3ctr-error'.
-Any other backend yields \"\".  A missing `:value' defaults to \"\"."
+Return the exported string.  The `:back-end' name is matched
+case-insensitively: \"html\" and \"h\" pass through raw; \"e\"
+evaluates the first Lisp form (requiring `org-w3ctr-allow-eval') and
+emits the result raw; \"d\" renders the first S-expression as HTML;
+any other back-end yields \"\".
+
+A missing `:value' defaults to \"\".  Signal `org-w3ctr-error' when
+Lisp evaluation is disabled or fails, or when an S-expression is
+malformed."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
-  (let* ((backend (org-export-snippet-backend export-snippet))
-         (value (or (org-element-property :value export-snippet) "")))
-    (pcase (downcase (symbol-name backend))
+  (let ((backend (org-element-property :back-end export-snippet))
+        (value (or (org-element-property :value export-snippet) "")))
+    (pcase (and (stringp backend) (downcase backend))
       ((or "h" "html") value)
       ("e" (t--eval-lisp export-snippet value 'eval "@@e snippet"))
       ("d" (t--eval-lisp export-snippet value 'sexp "@@d snippet"))

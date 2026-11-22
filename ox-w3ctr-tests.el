@@ -769,7 +769,7 @@ too."
   "Tests for `org-w3ctr--prepend-newline'."
   ($it t--prepend-newline
     ($l (it nil) "")
-    ($l (it "") "\n")
+    ($l (it "") "")
     ($l (it "abc") "\nabc")
     ($l (it 123) "")
     ($l (it '(1 2)) "")))
@@ -3274,13 +3274,17 @@ cookie-less column is remembered as the `none' marker."
       ($e!l (t--eval-lisp el "(123)" 'sexp "CTX")
             '(org-w3ctr-error
               "CTX at line 2: Invalid S-expression tag: 123"))
-      ;; an unknown TYPE signals even when VALUE is blank
+      ;; synthetic or out-of-range `:begin' omits the line number
+      ;; instead of reading `(point)' or signaling `args-out-of-range'
+      ($e!l (t--eval-lisp '(export-block nil) "(broken" 'sexp "CTX")
+            '(org-w3ctr-error "CTX: End of file during parsing"))
+      ($e!l (t--eval-lisp '(export-block (:begin 99999)) "(broken" 'sexp "CTX")
+            '(org-w3ctr-error "CTX: End of file during parsing"))
+      ;; an unknown TYPE signals directly even when VALUE is blank
       ($e!l (t--eval-lisp el "x" 'foo "CTX")
-            '(org-w3ctr-error
-              "CTX at line 2: Unknown Lisp handling type: foo"))
+            '(org-w3ctr-error "Unknown Lisp handling type: foo"))
       ($e!l (t--eval-lisp el "" 'foo "CTX")
-            '(org-w3ctr-error
-              "CTX at line 2: Unknown Lisp handling type: foo")))))
+            '(org-w3ctr-error "Unknown Lisp handling type: foo")))))
 
 (ert-deftest t--eval-lisp-eval-gate ()
   "Evaluation is off by default and behind `org-w3ctr-allow-eval'."
@@ -3340,16 +3344,16 @@ cookie-less column is remembered as the `none' marker."
        ;; CSS
        ("#+begin_export css\np {color: red;}\n#+end_export"
         "<style>\np {color: red;}\n</style>")
-       ("#+begin_export css\n#+end_export" "<style>\n</style>")
+       ("#+begin_export css\n#+end_export" "<style></style>")
        ("#+begin_export CSS\n.test {margin: auto;}\n#+end_export"
         "<style>\n.test {margin: auto;}\n</style>")
        ;; JS
        ("#+begin_export js\nlet f = x => x + 1;\n#+end_export"
         "<script>\nlet f = x => x + 1;\n</script>")
-       ("#+begin_export js\n#+end_export" "<script>\n</script>")
+       ("#+begin_export js\n#+end_export" "<script></script>")
        ("#+begin_export javascript\nlet f = x => x + 1;\n#+end_export"
         "<script>\nlet f = x => x + 1;\n</script>")
-       ("#+begin_export javascript\n#+end_export" "<script>\n</script>")
+       ("#+begin_export javascript\n#+end_export" "<script></script>")
        ;; Elisp
        ("#+begin_export emacs-lisp\n(+ 1 2)\n#+end_export" "3")
        ("#+begin_export emacs-lisp\n#+end_export" "")
@@ -3416,18 +3420,8 @@ cookie-less column is remembered as the `none' marker."
        ;; Otherwise
        ("@@wtf::hello@@" ""))
      t)
-    ;; Backend lookup goes through `org-export-snippet-backend', so
-    ;; `org-export-snippet-translation-alist' is honored; the target
-    ;; may route into the Lisp flavors as well.
-    (dlet ((org-export-snippet-translation-alist
-            '(("my-h" . "html") ("my-e" . "e") ("my-d" . "d"))))
-      (t-check-element-values
-       #'t-export-snippet
-       '(("@@my-h:<b>x</b>@@" "<b>x</b>")
-         ("@@my-e:(+ 1 2)@@" "3")
-         ("@@my-d:(wbr)@@" "<wbr>"))
-       t))
-    ;; A synthetic snippet with nil `:value' falls back to "".
+    ;; A synthetic snippet with nil `:back-end' or `:value' falls back to "".
+    ($l (t-export-snippet '(export-snippet (:value "x")) nil nil) "")
     ($l (t-export-snippet '(export-snippet (:back-end "h")) nil nil) "")
     ;; Error handling: malformed Lisp signals `org-w3ctr-error' with line number.
     ($e!l (org-export-string-as "@@e:(broken@@" 'w3ctr t)
@@ -8277,7 +8271,7 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--wrap-navbar ()
   "Tests for `org-w3ctr--wrap-navbar'."
-  ($l (t--wrap-navbar "") "<nav id=\"navbar\">\n\n</nav>\n")
+  ($l (t--wrap-navbar "") "<nav id=\"navbar\">\n</nav>\n")
   ($l (t--wrap-navbar "1") "<nav id=\"navbar\">\n1\n</nav>\n")
   ;; Content passes through verbatim; the wrapper only adds the
   ;; element and its surrounding newlines.
@@ -8290,7 +8284,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   ($l (t--wrap-navbar "a\n") "<nav id=\"navbar\">\na\n</nav>\n")
   ($l (t--wrap-navbar "\n  a\nb  \n\n") "<nav id=\"navbar\">\na\nb\n</nav>\n")
   ;; Blank input is wrapped as an empty shell.
-  ($l (t--wrap-navbar "  \n ") "<nav id=\"navbar\">\n\n</nav>\n"))
+  ($l (t--wrap-navbar "  \n ") "<nav id=\"navbar\">\n</nav>\n"))
 
 (ert-deftest t--format-navbar-vector ()
   "Tests for `org-w3ctr--format-navbar-vector'."
