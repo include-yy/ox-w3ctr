@@ -3684,9 +3684,9 @@ an invalid custom or RPC result."
 ;; See (info "(org)Paragraphs")
 ;; A paragraph holding one image becomes <figure><figcaption>.  The
 ;; "Figure N" label is the W3C stylesheet's counter on figcaption; do not
-;; compute it in Elisp (see the caption item in TODO.org).  `#+attr__'
-;; and `#+attr_html' apply to the <figure> through
-;; `org-w3ctr--element-attrs', just like every other block.
+;; compute it in Elisp.  `#+attr__' and `#+attr_html' apply to the
+;; <figure> through `org-w3ctr--element-attrs', just like every other
+;; block.
 
 (defun t--wrap-image (contents caption attrs)
   "Wrap CONTENTS in a <figure> element for standalone images.

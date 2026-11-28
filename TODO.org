@@ -71,51 +71,6 @@ for this link"=.  Revisit if explicit descriptions are ever required
 across internal links; also note =org-w3ctr--link-org-files-as-html=
 rewrites =.org= only (not =.org.gpg= as ox-html does).
 
-*** Caption policy across blocks                                   :blocks:
-
-=#+caption:= parses on nearly every block -- =example-block=,
-=src-block=, =quote-block=, =verse-block=, =center-block=,
-=special-block=, =table=, =fixed-width=, =latex-environment=,
-=export-block=, =drawer= -- but only four have a consumer today: the
-standalone-image paragraph (=<figure><figcaption>=), the table
-(=<caption>=), the captioned =src-block= (an unstyled =<span>= as the
-first child of its =.example= <div>), and the drawer (the caption
-reused as =<summary>=).  Everything else drops the caption silently.
-
-W3C's base.css splits a caption in two: the *label and number* come
-from a CSS counter on the container class
-(=figcaption::before { content: "Figure " counter(figure) ". " }=,
-=.example::before= gives "Example N", and likewise =.issue::before= /
-=.note::before=), while the *text* is content the author supplies.  So
-the back-end picks the container/class and emits the text, and must
-not compute numbers in Elisp -- do not port ox-html's
-=org-export-get-ordinal= / "Listing N:" machinery.
-
-Decide a mapping {element -> container/class -> caption home}, using
-W3C classes only (there is no =.quote= / =.verse= / =.center=
-counter):
-
-- figure (image paragraph) -> =<figure><figcaption>= (done).
-- table -> =<caption>= (done).
-- =example-block= / =src-block= -> =.example= <div>, caption in an
-  unstyled =<span>= as the first child (done 2026-10-18).  A bare span
-  because =.caption=/=figcaption= carry the figure counter; the span
-  renders exactly like bare text but leaves a styling hook.  The
-  =.example= class stays as before: always on =example-block=, added
-  to a captioned =src-block=.
-- the rest (quote, verse, center, special, fixed-width,
-  =latex-environment=, =export-block=) have no W3C home; do not invent
-  one -- leave the caption dropped and say so.
-
-Pin the invariants while unifying: is the counter class applied only
-when captioned (=src-block='s rule) or always (=example-block='s)?
-And is the self-link anchor emitted on every captioned block or only
-=src-block=?  Decided 2026-10-17: a coderef target block gets an id
-but no ¶ self-link for now (the coderef link needs only the id); see
-the self-link entry below for the deferred decision -- note that
-=.caption=/=figcaption= carry the figure counter, so an example
-caption cannot use them.
-
 *** Self-links on literal blocks (deferred)                        :blocks:
 
 Headlines and captioned src blocks emit =<a class="self-link">=;
