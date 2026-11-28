@@ -5145,6 +5145,7 @@ missing `:value' defaulting to \"\", fontified bare by
 ;; See (info "(org)Special Symbols")
 (defun t-entity (entity _contents _info)
   "Transcode an ENTITY object from Org to HTML.
+
 CONTENTS is nil.  INFO is the info plist.
 
 Return ENTITY's `:html' string (for example, \"&alpha;\"), with a
@@ -5158,6 +5159,7 @@ missing `:html' defaulting to \"\"."
 ;; See (info "(org)Paragraphs")
 (defun t-line-break (_line-break _contents _info)
   "Transcode a LINE-BREAK object from Org to HTML.
+
 CONTENTS is nil.  INFO is the info plist.
 
 Return \"<br>\\n\"."
@@ -5170,6 +5172,7 @@ Return \"<br>\\n\"."
 ;; See (info "(org)Internal Links")
 (defun t-target (target _contents info)
   "Transcode a TARGET object from Org to HTML.
+
 CONTENTS is nil.  INFO is the info plist.
 
 Return an empty <span> element carrying TARGET's reference
@@ -5184,6 +5187,7 @@ Return an empty <span> element carrying TARGET's reference
 ;; See (info "(org)Radio Targets")
 (defun t-radio-target (radio-target text info)
   "Transcode a RADIO-TARGET object from Org to HTML.
+
 TEXT is the target text (nil becomes \"\").  INFO is the info plist.
 
 Return a <span> element carrying RADIO-TARGET's reference
@@ -5200,6 +5204,7 @@ its content."
 ;; See (info "(org)Checkboxes")
 (defun t-statistics-cookie (statistics-cookie _contents _info)
   "Transcode a STATISTICS-COOKIE object from Org to HTML.
+
 CONTENTS is nil.  INFO is the info plist.
 
 Return STATISTICS-COOKIE's `:value' wrapped in <code>, with a missing
@@ -5214,6 +5219,7 @@ Return STATISTICS-COOKIE's `:value' wrapped in <code>, with a missing
 ;; See (info "(org)Subscripts and Superscripts")
 (defun t-subscript (_subscript contents _info)
   "Transcode a SUBSCRIPT object from Org to HTML.
+
 CONTENTS is the subscript text (nil becomes \"\").  INFO is the info
 plist.
 
@@ -5227,6 +5233,7 @@ Return CONTENTS wrapped in a <sub> element."
 ;; See (info "(org)Subscripts and Superscripts")
 (defun t-superscript (_superscript contents _info)
   "Transcode a SUPERSCRIPT object from Org to HTML.
+
 CONTENTS is the superscript text (nil becomes \"\").  INFO is the info
 plist.
 
@@ -5237,12 +5244,13 @@ Return CONTENTS wrapped in a <sup> element."
 
 ;;;; Markup texts
 
-;; See (info "(org) Emphasis and Monospace")
+;; See (info "(org)Emphasis and Monospace")
 ;; Options:
 ;; - :html-text-markup-alist (`org-w3ctr-text-markup-alist')
 
 (defun t--get-markup-format (name info)
   "Return the markup format string for NAME from INFO.
+
 NAME is a symbol (like `bold') and INFO is the info plist.
 
 Return \"%s\" if `:html-text-markup-alist' has no entry for NAME or
@@ -5263,6 +5271,7 @@ NAME is not a string."
 
 (defun t-bold (_bold contents info)
   "Transcode BOLD from Org to HTML.
+
 CONTENTS is the bold text (nil becomes \"\").  INFO is the info plist.
 
 Return the formatted text."
@@ -5272,6 +5281,7 @@ Return the formatted text."
 
 (defun t-italic (_italic contents info)
   "Transcode ITALIC from Org to HTML.
+
 CONTENTS is the italic text (nil becomes \"\").  INFO is the info
 plist.
 
@@ -5282,6 +5292,7 @@ Return the formatted text."
 
 (defun t-underline (_underline contents info)
   "Transcode UNDERLINE from Org to HTML.
+
 CONTENTS is the underlined text (nil becomes \"\").  INFO is the info
 plist.
 
@@ -5292,6 +5303,7 @@ Return the formatted text."
 
 (defun t-verbatim (verbatim _contents info)
   "Transcode VERBATIM from Org to HTML.
+
 CONTENTS is nil.  INFO is the info plist.
 
 Return VERBATIM's HTML-encoded `:value' (defaulting to \"\") wrapped
@@ -5304,6 +5316,7 @@ in its markup format."
 
 (defun t-code (code _contents info)
   "Transcode CODE from Org to HTML.
+
 CONTENTS is nil.  INFO is the info plist.
 
 Return CODE's HTML-encoded `:value' (defaulting to \"\") wrapped in
@@ -5316,6 +5329,7 @@ its markup format."
 
 (defun t-strike-through (_strike-through contents info)
   "Transcode STRIKE-THROUGH from Org to HTML.
+
 CONTENTS is the struck-through text (nil becomes \"\").  INFO is the
 info plist.
 
@@ -5327,9 +5341,9 @@ Return the formatted text."
 ;;;; Plain Text
 
 ;; Options:
-;; :with-smart-quotes    (`org-export-with-smart-quotes')
-;; :with-special-strings (`org-export-with-special-strings')
-;; :preserve-breaks      (`org-export-preserve-breaks')
+;; - :with-smart-quotes    (`org-export-with-smart-quotes')
+;; - :with-special-strings (`org-export-with-special-strings')
+;; - :preserve-breaks      (`org-export-preserve-breaks')
 
 (defun t--convert-special-strings (string)
   "Convert special characters in STRING to HTML."
@@ -5352,6 +5366,7 @@ Return the formatted text."
 
 (defun t-plain-text (text info)
   "Transcode a TEXT string from Org to HTML.
+
 TEXT is the plain text content.  INFO is the info plist.
 
 Encode HTML entities, activate smart quotes when enabled, convert
@@ -5656,6 +5671,7 @@ This is the default value of `org-w3ctr-timestamp-format-function'."
 
 (defun t-timestamp (timestamp _contents info)
   "Transcode a TIMESTAMP object from Org to HTML.
+
 CONTENTS is nil.  INFO is the info plist.
 
 Call INFO's `:html-timestamp-format-function' with TIMESTAMP and
@@ -5991,6 +6007,7 @@ itself is attribute-escaped for `href'."
 
 (defun t-link (link desc info)
   "Transcode a LINK object from Org to HTML.
+
 DESC is the link description (or nil).  INFO is the info plist.
 
 Return an <img> element for an inline image link, a custom protocol's
