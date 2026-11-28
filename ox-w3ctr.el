@@ -1049,7 +1049,7 @@ and `org-w3ctr--headline-self-link'."
 
 ;;;; <meta>
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
-  "Function to generate the file timestamp for <meta> tags.
+  "Function to generate the file timestamp for the HTML head comment.
 
 This function should take INFO as the only argument and return a
 string representing the timestamp.
@@ -6466,46 +6466,37 @@ low-level list item or a normal section."
 ;;;; <meta> tags export.
 
 ;; Options:
-;; - :time-stamp-file (`org-export-timestamp-file')
+;; - :time-stamp-file (`org-export-time-stamp-file')
 ;; - :html-file-timestamp-function (`org-w3ctr-file-timestamp-function')
 ;; - `org-w3ctr-coding-system'
 ;; - :html-viewport (`org-w3ctr-viewport')
 ;; - :author #+AUTHOR: (`user-full-name')
 ;; - :with-author (`org-export-with-author')
 ;; - :title #+TITLE:
-;; - :with-title (`org-export-with-title')
 ;; - :description #+DESCRIPTION:
 ;; - :keywords #+KEYWORDS:
 ;; - `org-w3ctr-meta-tags'
 
-(defun t--build-meta-entry ( label identity
-                             &optional content-format
-                             &rest content-formatters)
-  "Build a <meta> tag from LABEL and IDENTITY.
+(defun t--build-meta-entry (label identity &optional content)
+  "Build a <meta> tag from LABEL, IDENTITY, and optional CONTENT.
 
 Construct a tag of the form <meta LABEL=\"IDENTITY\">, or, when
-CONTENT-FORMAT is present, <meta LABEL=\"IDENTITY\"
-content=\"{content}\">.
-
-{content} is CONTENT-FORMAT, after any CONTENT-FORMATTERS are
-applied to it, encoded as plain text.  LABEL and IDENTITY are not
-escaped; callers pass literal names."
-  (declare (ftype (function ( string string
-                              &optional string &rest t)
+CONTENT is non-nil, <meta LABEL=\"IDENTITY\" content=\"CONTENT\">.
+Both IDENTITY and CONTENT are HTML-attribute escaped.  LABEL is not
+escaped; callers pass a literal attribute name."
+  (declare (ftype (function (string string &optional (or null string))
                             string))
            (pure t) (important-return-value t))
   (concat
-   "<meta " (format "%s=\"%s\"" label identity)
-   (when content-format
-     (format " content=\"%s\""
-             (t--encode-plain-text*
-              (if (not content-formatters) content-format
-                (apply #'format content-format content-formatters)))))
+   (format "<meta %s=\"%s\"" label (t--encode-plain-text* identity))
+   (when content
+     (format " content=\"%s\"" (t--encode-plain-text* content)))
    ">\n"))
 
 (defun t-file-timestamp-default-function (_info)
-  "Return the current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
-  (declare (ftype (function (t) string))
+  "Return the current timestamp in ISO 8601 format (YYYY-MM-DDThh:mmZ).
+INFO is unused."
+  (declare (ftype (function (list) string))
            (side-effect-free t) (important-return-value t))
   (format-time-string "%FT%RZ" nil t))
 
@@ -6513,31 +6504,33 @@ escaped; callers pass literal names."
   "Return the file timestamp string from the INFO plist.
 
 INFO is the info plist.  Return nil when `:time-stamp-file' is nil;
-otherwise call the function in `:html-file-timestamp-function' with
-INFO and return its result.  Signal `org-w3ctr-error' if that option
-is not a function."
+otherwise call the function in `:html-file-timestamp-function' (or
+`org-w3ctr-file-timestamp-default-function' when nil) with INFO and
+return its result.  Signal `org-w3ctr-error' when that option is
+neither nil nor a function."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when (t--pget info :time-stamp-file)
-    (if-let* ((fun (t--pget info :html-file-timestamp-function))
-              ((functionp fun)))
-        (funcall fun info)
-      (t-error "Invalid file timestamp function: %s"
-               (t--pget info :html-file-timestamp-function)))))
+    (let ((fun (or (t--pget info :html-file-timestamp-function)
+                   #'t-file-timestamp-default-function)))
+      (unless (functionp fun)
+        (t-error "Invalid file timestamp function: %S" fun))
+      (funcall fun info))))
 
 (defun t--ensure-charset-utf8 ()
   "Return \"utf-8\" after validating `org-w3ctr-coding-system'.
 
-Signal an error when `org-w3ctr-coding-system' is not a symbol, names
-no coding system, or names one whose MIME charset is not UTF-8."
+Signal `org-w3ctr-error' when `org-w3ctr-coding-system' is not a
+symbol, names no coding system, or names one whose MIME charset is
+not UTF-8."
   (declare (ftype (function () string))
-           (side-effect-free t) (important-return-value t))
-  (let* ((c t-coding-system)
-         (h (lambda (_) (t-error "Invalid coding system: %s" c))))
-    (unless (symbolp c) (funcall h c))
-    (handler-bind ((coding-system-error h))
-      (let ((uc (coding-system-get c :mime-charset)))
-        (if (eq uc 'utf-8) "utf-8" (funcall h c))))))
+           (important-return-value t))
+  (let ((c t-coding-system))
+    (if (and (symbolp c)
+             (coding-system-p c)
+             (eq (coding-system-get c :mime-charset) 'utf-8))
+        "utf-8"
+      (t-error "Invalid coding system: %S" c))))
 
 (defun t--build-viewport-options (info)
   "Build the viewport <meta> tag from `:html-viewport'.
@@ -6575,8 +6568,9 @@ escaped as plain text; return a left-to-right mark (invisible) when
 (defun t--get-info-author-raw (info)
   "Return the author from the INFO plist, or nil.
 
-INFO is the info plist.  Return nil when `:with-author' or `:author'
-is nil; otherwise interpret `:author' as raw Org syntax and trim it."
+INFO is the info plist.  Return nil when `:with-author' is nil or
+`:author' is absent, empty, or whitespace-only; otherwise interpret
+`:author' as raw Org syntax and trim it."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* (((t--pget info :with-author))
@@ -6611,8 +6605,9 @@ when it is a function) and build one <meta> tag per entry."
            (important-return-value t))
   (mapconcat
    (lambda (args) (apply #'t--build-meta-entry args))
-   (remq nil (if (not (functionp t-meta-tags)) t-meta-tags
-               (funcall t-meta-tags info)))))
+   (remq nil (if (functionp t-meta-tags)
+                 (funcall t-meta-tags info)
+               t-meta-tags))))
 
 (defun t--build-meta-info (info)
   "Return the head meta block for the exported document.

@@ -8227,38 +8227,47 @@ COUNTER, a cons cell, has its car incremented on every call."
   ($it t--build-meta-entry
     ($l (it "name" "author")
         "<meta name=\"author\">\n")
+    ($l (it "name" "author" nil)
+        "<meta name=\"author\">\n")
     ($l (it "property" "og:title" "My Title")
         "<meta property=\"og:title\" content=\"My Title\">\n")
-    ($l (it "name" "description" "Version %s" "1.0")
-        "<meta name=\"description\" content=\"Version 1.0\">\n")
+    ($l (it "name" "a\"b" "100% %s")
+        "<meta name=\"a&quot;b\" content=\"100% %s\">\n")
     ($l (it "name" "quote" "He said \"Hello\"")
         "<meta name=\"quote\" content=\"He said &quot;Hello&quot;\">\n")
     ($l (it "name" "chars" "a & b < c > d")
         "<meta name=\"chars\" content=\"a &amp; b &lt; c &gt; d\">\n")
-    ($l (it "name" "version" "v%s.%s" "1" "2")
-        "<meta name=\"version\" content=\"v1.2\">\n")
-    ($l (it "name" "version" "'%s'" "v1.2")
-        "<meta name=\"version\" content=\"&apos;v1.2&apos;\">\n")))
+    ($l (it "name" "apos" "'v1.2'")
+        "<meta name=\"apos\" content=\"&apos;v1.2&apos;\">\n")))
+
+(ert-deftest t-file-timestamp-default-function ()
+  "Tests for `org-w3ctr-file-timestamp-default-function'."
+  ($s (string-match-p
+       ($c "\\`[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\}"
+           "T[0-9]\\{2\\}:[0-9]\\{2\\}Z\\'")
+       (t-file-timestamp-default-function nil))))
 
 (ert-deftest t--get-info-file-timestamp ()
   "Tests for `org-w3ctr--get-info-file-timestamp'."
   ($n (t--get-info-file-timestamp nil))
-  ($e!l
-   (t--get-info-file-timestamp '( :time-stamp-file t
-                                  :html-file-timestamp-function nil))
-   '(org-w3ctr-error "Invalid file timestamp function: nil"))
-  ($e!l
-   (t--get-info-file-timestamp '( :time-stamp-file t
-                                  :html-file-timestamp-function "bad"))
-   '(org-w3ctr-error "Invalid file timestamp function: bad"))
-  (t-check-element-values
-   #'t--get-info-file-timestamp
-   `(("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
-     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t))
-     ("" ,(format-time-string "%Y-%m-%dT%H:%MZ" nil t)))
-   nil
-   '( :html-file-timestamp-function t-file-timestamp-default-function
-      :time-stamp-file t)))
+  ;; A nil function falls back to the default.
+  (cl-letf (((symbol-function 't-file-timestamp-default-function)
+             (lambda (_info) "2026-01-01T00:00Z")))
+    ($l (t--get-info-file-timestamp '(:time-stamp-file t))
+        "2026-01-01T00:00Z")
+    ($l (t--get-info-file-timestamp
+         '(:time-stamp-file t :html-file-timestamp-function nil))
+        "2026-01-01T00:00Z"))
+  ;; Custom function receives INFO and returns its string.
+  ($l (t--get-info-file-timestamp
+       (list :time-stamp-file t :tag "ok"
+             :html-file-timestamp-function
+             (lambda (info) (plist-get info :tag))))
+      "ok")
+  ;; Non-nil non-function signals org-w3ctr-error.
+  ($e!l (t--get-info-file-timestamp
+         '(:time-stamp-file t :html-file-timestamp-function "bad"))
+        '(org-w3ctr-error "Invalid file timestamp function: \"bad\"")))
 
 (ert-deftest t--ensure-charset-utf8 ()
   "Tests for `org-w3ctr--ensure-charset-utf8'."
@@ -8282,7 +8291,7 @@ COUNTER, a cons cell, has its car incremented on every call."
           '(t-error "Invalid coding system: japanese-iso-8bit"))
     ($l (test 'cp65001) "utf-8")
     ($e!l (test 'wtf) '(t-error "Invalid coding system: wtf"))
-    ($e!l (test "UTF-8") '(t-error "Invalid coding system: UTF-8"))
+    ($e!l (test "UTF-8") '(t-error "Invalid coding system: \"UTF-8\""))
     ($e!l (test [1]) '(t-error "Invalid coding system: [1]"))))
 
 (ert-deftest t--build-viewport-options ()
