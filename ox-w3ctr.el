@@ -243,7 +243,7 @@
     (:html-tags-format-function nil nil t-tags-format-function)
     (:html-tag-class-prefix nil nil t-tag-class-prefix)
     ;; Headline
-    (:html-format-headline-function nil nil t-format-headline-function)
+    (:html-headline-format-function nil nil t-headline-format-function)
     (:html-toplevel-hlevel nil nil t-toplevel-hlevel)
     (:html-honor-ox-headline-levels nil nil t-honor-ox-headline-levels)
     (:html-container nil nil t-container-element)
@@ -971,8 +971,8 @@ name.  For example, if a tag is \"a\", its class will be
   :safe #'stringp)
 
 ;;;; Headline
-(defcustom t-format-headline-function
-  #'t-format-headline-default-function
+(defcustom t-headline-format-function
+  #'t-headline-default-format-function
   "Function to format headline text.
 
 This function will be called with six arguments:
@@ -984,7 +984,7 @@ This function will be called with six arguments:
 - INFO      the export options (plist).
 
 The function should return the formatted HTML string for the headline.
-The default is `org-w3ctr-format-headline-default-function'."
+The default is `org-w3ctr-headline-default-format-function'."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -1613,7 +1613,7 @@ byte-compiled code."
       :with-todo-keywords
       :html-priority-format-function :with-priority
       :html-tags-format-function :html-tag-class-prefix :with-tags
-      :html-format-headline-function
+      :html-headline-format-function
       :html-toplevel-hlevel :html-honor-ox-headline-levels
       :html-heading-format-function
       ;; <meta>, Math, and CC badges
@@ -6190,7 +6190,7 @@ Return the formatted HTML string, or nil when TAGS is empty."
 ;;;; Headline
 
 ;; Options:
-;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
+;; - :html-headline-format-function (`org-w3ctr-headline-format-function')
 ;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
 ;; - :html-honor-ox-headline-levels (`org-w3ctr-honor-ox-headline-levels')
 ;; - :html-container (`org-w3ctr-container-element')
@@ -6201,11 +6201,11 @@ Return the formatted HTML string, or nil when TAGS is empty."
 ;; - :section-numbers (`org-export-with-section-numbers')
 ;; - `org-footnote-section'
 
-(defun t-format-headline-default-function
+(defun t-headline-default-format-function
     (todo _todo-type priority text tags info)
   "Format a headline from its todo, priority, text, and tags.
 
-See `org-w3ctr-format-headline-function' for details and the
+See `org-w3ctr-headline-format-function' for details and the
 description of TODO, TODO-TYPE, PRIORITY, TEXT, TAGS, and INFO
 arguments."
   (declare (ftype (function ((or null string) symbol
@@ -6224,7 +6224,7 @@ arguments."
 
 HEADLINE is the headline element and TEXT its already-exported title.
 Extract the TODO keyword, its type, priority and tags from HEADLINE,
-then call the function in `:html-format-headline-function' with those
+then call the function in `:html-headline-format-function' with those
 values followed by TEXT and INFO: (TODO TODO-TYPE PRIORITY TEXT TAGS
 INFO).  Return the formatted HTML string that function returns."
   (declare (ftype (function (t string list) string))
@@ -6237,8 +6237,8 @@ INFO).  Return the formatted HTML string that function returns."
                         (org-element-property :priority headline)))
          (tags (and (t--pget info :with-tags)
                     (org-export-get-tags headline info))))
-    (funcall (or (t--pget info :html-format-headline-function)
-                 #'t-format-headline-default-function)
+    (funcall (or (t--pget info :html-headline-format-function)
+                 #'t-headline-default-format-function)
              todo todo-type priority text tags info)))
 
 (defun t--build-base-headline (headline info)

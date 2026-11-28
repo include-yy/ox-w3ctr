@@ -7775,11 +7775,11 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 ;;;; Headline
 
-(ert-deftest t-format-headline-default-function ()
-  "Tests for `org-w3ctr-format-headline-default-function'."
-  ($l (t-format-headline-default-function nil nil nil "Title" nil nil)
+(ert-deftest t-headline-default-format-function ()
+  "Tests for `org-w3ctr-headline-default-format-function'."
+  ($l (t-headline-default-format-function nil nil nil "Title" nil nil)
       "Title")
-  ($l (t-format-headline-default-function "TODO" 'todo 65 "Title" '("a") nil)
+  ($l (t-headline-default-format-function "TODO" 'todo 65 "Title" '("a") nil)
       ($c "<span class=\"todo TODO\">TODO</span> "
           "<span class=\"priority\">[A]</span> "
           "Title&#xa0;&#xa0;&#xa0;"
@@ -7799,19 +7799,19 @@ COUNTER, a cons cell, has its car incremented on every call."
        ("#+TODO: TODO WAIT<SEEN | DONE\n* WAIT<SEEN d"
         "WAIT&lt;SEEN|todo|nil|d|nil"))
      t (list :with-todo-keywords t :with-priority t :with-tags t
-             :html-format-headline-function fmt :with-toc nil))
+             :html-headline-format-function fmt :with-toc nil))
     ;; Disabled options suppress TODO, priority, and tags.
     (t-check-element-values
      #'t--build-bare-headline
      '(("* TODO [#A] text :x:" "nil|nil|nil|text|nil"))
      t (list :with-todo-keywords nil :with-priority nil :with-tags nil
-             :html-format-headline-function fmt :with-toc nil)))
+             :html-headline-format-function fmt :with-toc nil)))
   ;; A nil format function falls back to the default.
   (t-check-element-values
    #'t--build-bare-headline
    '(("* TODO a" "<span class=\"todo TODO\">TODO</span> a"))
    t '(:with-todo-keywords t :with-toc nil
-                           :html-format-headline-function nil)))
+                           :html-headline-format-function nil)))
 
 (ert-deftest t--build-base-headline ()
   "Tests for `org-w3ctr--build-base-headline'."
@@ -7837,8 +7837,8 @@ COUNTER, a cons cell, has its car incremented on every call."
            "test7&#xa0;&#xa0;&#xa0;<span class=\"tag\">"
            "<span class=\"tag1\">tag1</span>&#xa0;"
            "<span class=\"tag2\">tag2</span></span>")))
-   t '(:html-format-headline-function
-       t-format-headline-default-function
+   t '(:html-headline-format-function
+       t-headline-default-format-function
        :with-todo-keywords t :with-priority t :with-tags t
        :html-todo-kwd-class-prefix "org-status-"
        :html-tags-format-function t-tags-default-format-function)))
@@ -7977,8 +7977,8 @@ COUNTER, a cons cell, has its car incremented on every call."
         "<ol>\n<li id=\"c\">c</li>\n</ol>\n"))
      t '( :html-honor-ox-headline-levels t
           :headline-levels 2
-          :html-format-headline-function
-          t-format-headline-default-function))))
+          :html-headline-format-function
+          t-headline-default-format-function))))
 
 (ert-deftest t--headline-container ()
   "Tests for `org-w3ctr--headline-container'."

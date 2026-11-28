@@ -159,8 +159,7 @@ cd jstools && npm test
 - **Naming.**  Internal helpers `t--*`, public API `t-*`.  No third
   scheme (`org-w3ctr-faces-*` is gone; keep it that way).  Formatter
   hooks are `<subject>-format-function`, their defaults
-  `<subject>-default-format-function`; `:html-format-headline-function`
-  is the one exception, kept verbatim from ox-html.
+  `<subject>-default-format-function`.
 - **No `cl-lib`.**  This package does not depend on `cl-lib`; use
   traditional Emacs Lisp constructs (`mapcar`, `let`, `dolist`) instead
   of `cl-loop`, `cl-destructuring-bind`, etc.
