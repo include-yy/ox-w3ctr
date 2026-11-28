@@ -3905,11 +3905,6 @@ A non-blank caption becomes an unstyled <span> before <pre>."
 ;; - :html-fontify-extra-faces (`org-w3ctr-fontify-extra-faces')
 ;; - :html-fontify-lang-alist (`org-w3ctr-fontify-lang-alist')
 
-;; FIXME: Consider caching `org-w3ctr--fontify-face-table' and
-;; `org-w3ctr--fontify-slugs' in INFO's fontify state (when INFO is
-;; non-empty) instead of re-validating and rebuilding them three times
-;; per highlighted block.
-
 (defun t--fontify-face-table (info)
   "Return the (FACE . SLUG) alist in force for INFO.
 INFO is the info plist.
@@ -3919,35 +3914,53 @@ The result is INFO's `:html-fontify-extra-faces' followed by its
 `org-w3ctr-error' if either table is not a proper list or an entry is
 not a (FACE . SLUG) pair, FACE being a non-boolean, non-keyword symbol
 and SLUG a lowercase letter followed by lowercase letters, digits or
-hyphens."
+hyphens.  When INFO already has a fontify state, cache the validated
+table there keyed by `eq' on both input lists."
   (declare (ftype (function (list) list))
            (important-return-value t))
-  (let ((extra (t--pget info :html-fontify-extra-faces))
-        (faces (t--pget info :html-fontify-faces))
-        (case-fold-search nil))
-    (unless (proper-list-p extra)
-      (t-error "Fontify extra faces must be a list: %S" extra))
-    (unless (proper-list-p faces)
-      (t-error "Fontify faces must be a list: %S" faces))
-    (let ((table (append extra faces)))
-      (dolist (entry table table)
-        (unless (and (consp entry)
-                     (let ((face (car entry))
-                           (slug (cdr entry)))
-                       (and (symbolp face)
-                            (not (or (booleanp face) (keywordp face)))
-                            (stringp slug)
-                            (string-match-p "\\`[a-z][a-z0-9-]*\\'" slug))))
-          (t-error "Malformed fontify face entry: %S" entry))))))
+  (let* ((state (t--pget info :html-fontify-state))
+         (extra (t--pget info :html-fontify-extra-faces))
+         (faces (t--pget info :html-fontify-faces))
+         (cached (and state (gethash '(cache . face-table) state))))
+    (if (and cached (eq (car cached) extra) (eq (cadr cached) faces))
+        (nth 2 cached)
+      (unless (proper-list-p extra)
+        (t-error "Fontify extra faces must be a list: %S" extra))
+      (unless (proper-list-p faces)
+        (t-error "Fontify faces must be a list: %S" faces))
+      (let ((table (append extra faces))
+            (case-fold-search nil))
+        (dolist (entry table)
+          (unless (and (consp entry)
+                       (let ((face (car entry))
+                             (slug (cdr entry)))
+                         (and (symbolp face)
+                              (not (or (booleanp face) (keywordp face)))
+                              (stringp slug)
+                              (string-match-p "\\`[a-z][a-z0-9-]*\\'" slug))))
+            (t-error "Malformed fontify face entry: %S" entry)))
+        (when state
+          (puthash '(cache . face-table) (list extra faces table) state))
+        table))))
 
 (defun t--fontify-slugs (info)
   "Return the allowed token slugs under INFO.
 INFO is the info plist.
 
-They are the distinct slugs from `org-w3ctr--fontify-face-table'."
+They are the distinct slugs from `org-w3ctr--fontify-face-table'.
+When INFO already has a fontify state, cache the list there keyed by
+`eq' on the face table."
   (declare (ftype (function (list) list))
            (important-return-value t))
-  (delete-dups (mapcar #'cdr (t--fontify-face-table info))))
+  (let* ((state (t--pget info :html-fontify-state))
+         (table (t--fontify-face-table info))
+         (cached (and state (gethash '(cache . slugs) state))))
+    (if (and cached (eq (car cached) table))
+        (cdr cached)
+      (let ((slugs (delete-dups (mapcar #'cdr table))))
+        (when state
+          (puthash '(cache . slugs) (cons table slugs) state))
+        slugs))))
 
 (defun t--fontify-plist-p (object &optional keys)
   "Return non-nil if OBJECT is a property list with distinct keyword keys.
@@ -3967,32 +3980,39 @@ also be one of KEYS."
            (setq p (cddr p)))
          ok)))
 
-;; FIXME: see later -- revisit docstring, validation, and caching.
 (defun t--fontify-lang-entry (lang info)
   "Return the PLIST of LANG's entry in INFO's `:html-fontify-lang-alist'.
 
-LANG is a language name as a string, and INFO the info plist.
-Return nil when LANG has no entry.  Signal `org-w3ctr-error' unless
-the alist is a list of (LANG . PLIST) entries, each LANG a string
-and each PLIST a property list with distinct keyword keys (see
+LANG is a language name as a string (or nil to validate the alist only
+and return nil), and INFO is the info plist.  Return nil when LANG has
+no entry.  Signal `org-w3ctr-error' unless the alist is a list of
+\(LANG . PLIST) entries, each LANG a non-blank string and each PLIST a
+property list with distinct keyword keys (see
 `org-w3ctr--fontify-plist-p'), where `:font-lock', if present, is a
-symbol other than t and `:shiki' is nil or a non-blank string.
-Any other keyword is allowed, so that an engine of one's own can
-read its key.  The whole alist is checked, not only LANG's entry."
-  (declare (ftype (function (string list) list))
+non-keyword symbol other than t and `:shiki' is nil or a non-blank
+string.  Any other keyword is allowed, so that an engine of one's own
+can read its key.  The whole alist is checked, not only LANG's entry;
+when INFO already has a fontify state, cache the validated alist there
+by `eq'."
+  (declare (ftype (function ((or null string) list) list))
            (important-return-value t))
-  (let ((alist (t--pget info :html-fontify-lang-alist)))
-    (unless (proper-list-p alist)
-      (t-error "Fontify language alist must be a list: %S" alist))
-    (dolist (entry alist)
-      (unless (and (consp entry) (stringp (car entry))
-                   (t--fontify-plist-p (cdr entry))
-                   (let ((mode (plist-get (cdr entry) :font-lock)))
-                     (and (symbolp mode) (not (eq mode t))))
-                   (let ((name (plist-get (cdr entry) :shiki)))
-                     (or (null name) (t--nw-p name))))
-        (t-error "Malformed fontify language entry: %S" entry)))
-    (cdr (assoc lang alist))))
+  (let* ((state (t--pget info :html-fontify-state))
+         (alist (t--pget info :html-fontify-lang-alist)))
+    (unless (and state (eq (gethash '(cache . lang-alist) state :miss) alist))
+      (unless (proper-list-p alist)
+        (t-error "Fontify language alist must be a list: %S" alist))
+      (dolist (entry alist)
+        (unless (and (consp entry) (t--nw-p (car entry))
+                     (t--fontify-plist-p (cdr entry))
+                     (let ((mode (plist-get (cdr entry) :font-lock)))
+                       (and (symbolp mode)
+                            (not (or (eq mode t) (keywordp mode)))))
+                     (let ((name (plist-get (cdr entry) :shiki)))
+                       (or (null name) (t--nw-p name))))
+          (t-error "Malformed fontify language entry: %S" entry)))
+      (when state
+        (puthash '(cache . lang-alist) alist state)))
+    (and lang (cdr (assoc lang alist)))))
 
 (defun t--fontify-check-tokens (tokens code engine info)
   "Return TOKENS after checking that they faithfully describe CODE.
@@ -4858,13 +4878,16 @@ value is not in CHOICES."
 (defun t--fontify-check-options (info)
   "Check the fontify options of INFO, the info plist; return nil.
 
-The policies, the face fallback, the face tables
-\(`org-w3ctr--fontify-face-table') and the language alist
-\(`org-w3ctr--fontify-lang-entry') must be well-formed; signal
-`org-w3ctr-error' otherwise.  The engines read these options too,
-but an error inside an engine counts as its failure, which the
-default policy only warns about."
+The policies, the face fallback, `:html-fontify-shiki-timeout' (nil or
+a positive number), the face tables (`org-w3ctr--fontify-face-table')
+and the language alist (`org-w3ctr--fontify-lang-entry') must be
+well-formed; signal `org-w3ctr-error' otherwise.  The engines read
+these options too, but an error inside an engine counts as its
+failure, which the default policy only warns about."
   (declare (ftype (function (list) null)))
+  (let ((timeout (t--pget info :html-fontify-shiki-timeout)))
+    (unless (or (null timeout) (and (numberp timeout) (> timeout 0)))
+      (t-error "Invalid value for :html-fontify-shiki-timeout: %S" timeout)))
   (ignore (t--fontify-policy :html-fontify-on-error
                              '(error warn silent) info)
           (t--fontify-policy :html-fontify-unknown-language
@@ -4872,8 +4895,7 @@ default policy only warns about."
           (t--fontify-policy :html-fontify-face-fallback
                              '(inherit inline none) info)
           (t--fontify-face-table info)
-          ;; The whole alist is checked whatever the language.
-          (t--fontify-lang-entry "" info)))
+          (t--fontify-lang-entry nil info)))
 
 (defun t--fontify-failure (engine err lang element info)
   "Handle the failure ERR of ENGINE on LANG code in ELEMENT.
@@ -4944,9 +4966,9 @@ or carry on."
   "Fontify CODE in LANG along CHAIN until an engine returns tokens.
 
 CODE and LANG are strings, CHAIN a list of engine names, INFO the
-info plist, and ELEMENT the block (or nil) for messages.  Check
-options first (`org-w3ctr--fontify-check-options') so a malformed one
-signals instead of counting as an engine failure.
+info plist (whose fontify options the caller has already checked via
+`org-w3ctr--fontify-check-options'), and ELEMENT the block (or nil)
+for messages.
 
 Skip any engine already broken in INFO's fontify state.  Otherwise
 handle an `:available' nil via `org-w3ctr--fontify-unavailable', a
@@ -4958,7 +4980,6 @@ was tried declined, and count each step in INFO's fontify state.
 Return (ENGINE . TOKENS), falling back to `plain' if none succeeds."
   (declare (ftype (function (string string list list t) cons))
            (important-return-value t))
-  (t--fontify-check-options info)
   (let ((state (t--fontify-state info))
         (tried 0) (declined 0) result)
     (while (and chain (not result))

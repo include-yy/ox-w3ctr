@@ -4175,7 +4175,19 @@ fresh: the code under test may store its state in it."
   ($e!l (t--fontify-face-table
          (t-test-fontify-info :html-fontify-extra-faces '((foo . "k") . bar)))
         '(org-w3ctr-error
-          "Fontify extra faces must be a list: ((foo . \"k\") . bar)")))
+          "Fontify extra faces must be a list: ((foo . \"k\") . bar)"))
+  ;; When INFO already has a fontify state, the validated table is
+  ;; cached by `eq' on the input lists, and invalidated when either changes.
+  (let* ((t--fontify-last-state nil)
+         (info (t-test-fontify-info :html-fontify-extra-faces '((foo . "k"))))
+         (_state (t--fontify-state info))
+         (t1 (t--fontify-face-table info))
+         (t2 (t--fontify-face-table info)))
+    ($q t1 t2)
+    (t--pput info :html-fontify-extra-faces '((bar . "s")))
+    (let ((t3 (t--fontify-face-table info)))
+      ($n (eq t1 t3))
+      ($l (car t3) '(bar . "s")))))
 
 (ert-deftest t--fontify-slugs ()
   "Tests for `org-w3ctr--fontify-slugs'."
@@ -4199,7 +4211,19 @@ fresh: the code under test may store its state in it."
   ;; Extra faces may bring new slugs.
   ($s (member "zz" (t--fontify-slugs
                     (t-test-fontify-info :html-fontify-extra-faces
-                                         '((foo . "zz")))))))
+                                         '((foo . "zz"))))))
+  ;; Cached in an existing fontify state and invalidated when faces change.
+  (let* ((t--fontify-last-state nil)
+         (info (t-test-fontify-info :html-fontify-extra-faces '((foo . "zz"))))
+         (_state (t--fontify-state info))
+         (s1 (t--fontify-slugs info))
+         (s2 (t--fontify-slugs info)))
+    ($q s1 s2)
+    (t--pput info :html-fontify-extra-faces '((bar . "yy")))
+    (let ((s3 (t--fontify-slugs info)))
+      ($n (eq s1 s3))
+      ($s (member "yy" s3))
+      ($n (member "zz" s3)))))
 
 (ert-deftest t--fontify-plist-p ()
   "Tests for `org-w3ctr--fontify-plist-p'."
@@ -4227,14 +4251,21 @@ fresh: the code under test may store its state in it."
     ;; Every entry is checked, not only the one asked for.
     ;; Keys are distinct keywords, but any keyword will do.
     ($l (entry '(("c" :my-engine x)) "c") '(:my-engine x))
-    ;; `:font-lock' is a symbol other than t, `:shiki' nil or a
-    ;; non-blank string.
+    ;; nil LANG validates the alist and returns nil.
+    ($n (entry '(("c" :font-lock c-mode)) nil))
+    ($e!l (entry '(("" :font-lock c-mode)) nil)
+          '(org-w3ctr-error
+            "Malformed fontify language entry: (\"\" :font-lock c-mode)"))
+    ;; `:font-lock' is a non-keyword symbol other than t, `:shiki' nil or a
+    ;; non-blank string, and LANG a non-blank string.
     ($l (entry '(("c" :font-lock nil :shiki nil)) "c")
         '(:font-lock nil :shiki nil))
     ($l (entry '(("c" :font-lock no-such-mode)) "c") '(:font-lock no-such-mode))
     (dolist (bad '(("c" . c-mode) ("c" :font-lock) (c :font-lock c-mode) "c"
+                   ("" :font-lock c-mode) (" " :font-lock c-mode)
                    ("c" font-lock c-mode) ("c" :font-lock c-mode :font-lock nil)
                    ("c" :font-lock "c-mode") ("c" :font-lock t)
+                   ("c" :font-lock :kw)
                    ("c" :shiki emacs-lisp) ("c" :shiki "")
                    ("c" :shiki " ") ("c" :shiki 1)))
       ($e!l (entry (list '("sh" :shiki "bash") bad) "sh")
@@ -4244,7 +4275,18 @@ fresh: the code under test may store its state in it."
           '(org-w3ctr-error "Fontify language alist must be a list: x"))
     ($e!l (entry '(("c") . x) "c")
           '(org-w3ctr-error
-            "Fontify language alist must be a list: ((\"c\") . x)"))))
+            "Fontify language alist must be a list: ((\"c\") . x)")))
+  ;; Cached by `eq' in an existing fontify state and invalidated on replacement.
+  (let* ((t--fontify-last-state nil)
+         (alist '(("c" :font-lock c-mode)))
+         (info (t-test-fontify-info :html-fontify-lang-alist alist))
+         (state (t--fontify-state info)))
+    ($l (t--fontify-lang-entry "c" info) '(:font-lock c-mode))
+    ($q (gethash '(cache . lang-alist) state) alist)
+    (t--pput info :html-fontify-lang-alist '(("" :font-lock c-mode)))
+    ($e!l (t--fontify-lang-entry "c" info)
+          '(org-w3ctr-error
+            "Malformed fontify language entry: (\"\" :font-lock c-mode)"))))
 
 (ert-deftest t--fontify-check-tokens ()
   "Tests for `org-w3ctr--fontify-check-tokens'."
@@ -5330,7 +5372,10 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr--fontify-check-options'."
   ($n (t--fontify-check-options (t-test-fontify-info)))
   ($n (t--fontify-check-options
-       (t-test-fontify-info :html-fontify-lang-alist '(("c" :font-lock c-mode)))))
+       (t-test-fontify-info :html-fontify-lang-alist '(("c" :font-lock c-mode))
+                            :html-fontify-shiki-timeout nil)))
+  ($n (t--fontify-check-options
+       (t-test-fontify-info :html-fontify-shiki-timeout 0.5)))
   (pcase-dolist (`(,message ,key ,value)
                  '(("Unknown value for :html-fontify-on-error: loud"
                     :html-fontify-on-error loud)
@@ -5338,6 +5383,12 @@ COUNTER, a cons cell, has its car incremented on every call."
                     :html-fontify-unknown-language loud)
                    ("Unknown value for :html-fontify-face-fallback: bogus"
                     :html-fontify-face-fallback bogus)
+                   ("Invalid value for :html-fontify-shiki-timeout: 0"
+                    :html-fontify-shiki-timeout 0)
+                   ("Invalid value for :html-fontify-shiki-timeout: -1"
+                    :html-fontify-shiki-timeout -1)
+                   ("Invalid value for :html-fontify-shiki-timeout: \"10\""
+                    :html-fontify-shiki-timeout "10")
                    ("Malformed fontify face entry: (foo . \"K\")"
                     :html-fontify-extra-faces ((foo . "K")))
                    ("Malformed fontify language entry: (\"x\" :font-lock \"x-mode\")"
@@ -5505,37 +5556,6 @@ COUNTER, a cons cell, has its car incremented on every call."
              "x" "l" '(nope plain)
              (t-test-fontify-info :html-fontify-unknown-language 'error) el)
             '(org-w3ctr-error "No fontify engine handles the l code at line 1")))
-    ;; Both policies are checked even when unused.
-    ($e!l (t--fontify-dispatch "x" "l" '(plain)
-                               (t-test-fontify-info :html-fontify-on-error 'loud)
-                               nil)
-          '(org-w3ctr-error "Unknown value for :html-fontify-on-error: loud"))
-    ($e!l (t--fontify-dispatch "x" "l" '(plain)
-                               (t-test-fontify-info
-                                :html-fontify-unknown-language 'loud)
-                               nil)
-          '(org-w3ctr-error
-            "Unknown value for :html-fontify-unknown-language: loud"))
-    ;; Malformed options signal under the default `warn' policy, instead
-    ;; of failing the engines into plain output.
-    ($e!l (t--fontify-dispatch "(a)" "emacs-lisp" '(font-lock plain)
-                               (t-test-fontify-info
-                                :html-fontify-face-fallback 'bogus)
-                               nil)
-          '(org-w3ctr-error
-            "Unknown value for :html-fontify-face-fallback: bogus"))
-    ($e!l (t--fontify-dispatch "(a)" "emacs-lisp" '(plain)
-                               (t-test-fontify-info
-                                :html-fontify-extra-faces '((foo . "K")))
-                               nil)
-          '(org-w3ctr-error "Malformed fontify face entry: (foo . \"K\")"))
-    ($e!l (t--fontify-dispatch "(a)" "emacs-lisp" '(font-lock plain)
-                               (t-test-fontify-info
-                                :html-fontify-lang-alist
-                                '(("emacs-lisp" . emacs-lisp-mode)))
-                               nil)
-          '(org-w3ctr-error
-            "Malformed fontify language entry: (\"emacs-lisp\" . emacs-lisp-mode)"))
     ;; A chain without `plain' still ends in plain tokens, and a
     ;; language every engine declined is unknown.
     (let ((t-fontify-engines
@@ -5670,15 +5690,32 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($l (t-fontify-code "(a < b)" "emacs-lisp") "(a &lt; b)"))
     ($l (t-fontify-code "" "emacs-lisp") "")
     ($l (t-fontify-code "(a < b)" nil) "(a &lt; b)")
-    ;; The options are checked even when there is nothing to fontify.
+    ;; The options are checked even when there is nothing to fontify,
+    ;; and malformed options signal under the default `warn' policy
+    ;; instead of failing the engines into plain output.
     ($e!l (t-fontify-code "x" nil
                           (t-test-fontify-info :html-fontify-on-error 'loud))
           '(org-w3ctr-error "Unknown value for :html-fontify-on-error: loud"))
+    ($e!l (t-fontify-code "(a)" "emacs-lisp"
+                          (t-test-fontify-info
+                           :html-fontify-unknown-language 'loud))
+          '(org-w3ctr-error
+            "Unknown value for :html-fontify-unknown-language: loud"))
     ($e!l (t-fontify-code "" "emacs-lisp"
                           (t-test-fontify-info
                            :html-fontify-face-fallback 'bogus))
           '(org-w3ctr-error
             "Unknown value for :html-fontify-face-fallback: bogus"))
+    ($e!l (t-fontify-code "(a)" "emacs-lisp"
+                          (t-test-fontify-info
+                           :html-fontify-extra-faces '((foo . "K"))))
+          '(org-w3ctr-error "Malformed fontify face entry: (foo . \"K\")"))
+    ($e!l (t-fontify-code "(a)" "emacs-lisp"
+                          (t-test-fontify-info
+                           :html-fontify-lang-alist
+                           '(("emacs-lisp" . emacs-lisp-mode))))
+          '(org-w3ctr-error
+            "Malformed fontify language entry: (\"emacs-lisp\" . emacs-lisp-mode)"))
     ;; With INFO its `:html-fontify-method' decides, over the option.
     (let ((t-fontify-method nil))
       (should (string-match-p
