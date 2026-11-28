@@ -3362,7 +3362,7 @@ cookie-less column is remembered as the `none' marker."
   (let ((t-allow-eval t))
     (t-check-element-values
      #'t-export-block
-     '(;; HTML
+     `(;; HTML
        ("#+begin_export html\nanythinghere\n#+end_export" "anythinghere\n")
        ("#+begin_export html\n#+end_export" "")
        ("#+begin_export html\n\n#+end_export" "\n")
@@ -3401,7 +3401,8 @@ cookie-less column is remembered as the `none' marker."
        ("#+begin_export wtf\n no exported\n#+end_export" "")
        ("#+begin_export\n not exported\n#+end_export" "")
        ;; Attributes, names, and captions are ignored
-       ("#+name: x\n#+attr__: [c]\n#+caption: Cap\n#+begin_export css\np{}\n#+end_export"
+       (,($c "#+name: x\n#+attr__: [c]\n#+caption: Cap\n"
+             "#+begin_export css\np{}\n#+end_export")
         "<style>\np{}\n</style>"))
      t)
     ;; A synthetic element with nil `:value' falls back to "".
@@ -3459,11 +3460,13 @@ cookie-less column is remembered as the `none' marker."
     ($l (t-export-snippet '(export-snippet (:back-end html :value "x")) nil nil)
         "")
     ($l (t-export-snippet '(export-snippet (:back-end "h")) nil nil) "")
-    ;; Error handling: malformed Lisp signals `org-w3ctr-error' with line number.
+    ;; Error handling: malformed Lisp signals `org-w3ctr-error' with line.
     ($e!l (org-export-string-as "@@e:(broken@@" 'w3ctr t)
-          '(org-w3ctr-error "@@e snippet at line 1: End of file during parsing"))
+          (list 'org-w3ctr-error
+                "@@e snippet at line 1: End of file during parsing"))
     ($e!l (org-export-string-as "text\n@@d:(broken@@" 'w3ctr t)
-          '(org-w3ctr-error "@@d snippet at line 2: End of file during parsing"))))
+          (list 'org-w3ctr-error
+                "@@d snippet at line 2: End of file during parsing"))))
 
 ;;;; Fixed Width
 
@@ -3562,11 +3565,13 @@ cookie-less column is remembered as the `none' marker."
     ($l (t-keyword '(keyword (:key "H")) nil nil) "")
     ;; A synthetic lowercase :key falls through (the parser upcases).
     ($n (t-keyword '(keyword (:key "h" :value "x")) nil nil))
-    ;; Error handling: malformed Lisp signals `org-w3ctr-error' with line number.
+    ;; Error handling: malformed Lisp signals `org-w3ctr-error' with line.
     ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
-          '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
+          (list 'org-w3ctr-error
+                "#+E keyword at line 1: End of file during parsing"))
     ($e!l (org-export-string-as "text\n#+d: (broken" 'w3ctr t)
-          '(org-w3ctr-error "#+D keyword at line 2: End of file during parsing"))
+          (list 'org-w3ctr-error
+                "#+D keyword at line 2: End of file during parsing"))
     ;; TOC delegates to `org-w3ctr--keyword-toc' with KEYWORD, VALUE, INFO.
     (let ((el (t-get-element "#+TOC: headlines 2" 'keyword))
           got)
@@ -3609,7 +3614,7 @@ cookie-less column is remembered as the `none' marker."
       "<p>\na<br>\n<br>\nb<br>\n</p>")
      ;; a line break as the block's last line is absorbed too
      ("#+begin_verse\na\\\\\n#+end_verse" "<p>\na<br>\n</p>")
-     ;; a raw <br> at line end (with or without trailing spaces/tabs) is absorbed
+     ;; a raw <br> at line end (with or without trailing space/tab) is absorbed
      ("#+begin_verse\na@@h:<br>@@\nb\n#+end_verse" "<p>\na<br>\nb<br>\n</p>")
      ("#+begin_verse\na@@h:<br>@@ \t\nb\n#+end_verse"
       "<p>\na<br>\nb<br>\n</p>"))
@@ -3651,11 +3656,14 @@ cookie-less column is remembered as the `none' marker."
   ($l (t--split-latex "\\(\\)") '("" . inline))
   ($l (t--split-latex "\\[\\]") '("" . display))
   ;; an environment containing inner \(...\) stays intact with KIND nil
-  (let ((env "\\begin{equation}\n\\text{if } \\(x\\) \\text{ then } y\n\\end{equation}"))
+  (let ((env ($c "\\begin{equation}\n"
+                 "\\text{if } \\(x\\) \\text{ then } y\n"
+                 "\\end{equation}")))
     ($l (t--split-latex env) (cons env nil)))
   ;; bare TeX commands and malformed delimiters return KIND nil
   ($l (t--split-latex "\\foo{bar}") '("\\foo{bar}" . nil))
-  (dolist (s '("" "$" "$$" "$$$" "$x" "$$x" "$$x$" "$x$$" "x$" "x$$" "\\(" "\\["))
+  (dolist (s '("" "$" "$$" "$$$" "$x" "$$x" "$$x$" "$x$$"
+               "x$" "x$$" "\\(" "\\["))
     ($l (t--split-latex s) (cons s nil))))
 
 (ert-deftest t--normalize-latex ()
@@ -3715,7 +3723,8 @@ cookie-less column is remembered as the `none' marker."
   ($n (t--format-latex "$x$" 'verbatim nil))
   ;; `org-w3ctr-with-latex' `:safe' predicate admits the 7 valid modes only.
   (let ((pred (get 't-with-latex 'safe-local-variable)))
-    (dolist (v '(nil verbatim mathjax t mathml-by-mathjax svg-by-mathjax custom))
+    (dolist (v '(nil verbatim mathjax t mathml-by-mathjax
+                     svg-by-mathjax custom))
       ($s (funcall pred v)))
     ($n (funcall pred 'bogus)))
   ;; mathjax normalizes the delimiters and HTML-escapes <, >, & for
@@ -3757,7 +3766,8 @@ cookie-less column is remembered as the `none' marker."
         (list t--jstools 'tex2mml (list :tex "a < b" :display :json-false)))
     ($l (rpc 'svg-by-mathjax "\\begin{equation}\nx=1\n\\end{equation}" t)
         (list t--jstools 'tex2svg
-              (list :tex "\\begin{equation}\nx=1\n\\end{equation}" :display t))))
+              (list :tex "\\begin{equation}\nx=1\n\\end{equation}"
+                    :display t))))
   ;; a delimiter-less inline fragment (such as a bare `\Users' from
   ;; `C:\Users\foo') is HTML-escaped as plain text without calling the
   ;; RPC, the custom renderer, or incrementing `:html-math-count'
@@ -3847,13 +3857,14 @@ cookie-less column is remembered as the `none' marker."
   "Tests for `org-w3ctr-latex-environment'."
   (t-check-element-values
    #'t-latex-environment
-   '(("\\begin{equation}\nx=1\n\\end{equation}"
+   `(("\\begin{equation}\nx=1\n\\end{equation}"
       "\\begin{equation}\nx=1\n\\end{equation}")
      ;; the value keeps its content but loses common indentation
      ("  \\begin{equation}\n  x=1\n  \\end{equation}"
       "\\begin{equation}\nx=1\n\\end{equation}")
      ;; attributes, names, and captions are ignored
-     ("#+name: eq1\n#+caption: Cap\n#+attr__: [cls]\n\\begin{equation}\nx=1\n\\end{equation}"
+     (,($c "#+name: eq1\n#+caption: Cap\n#+attr__: [cls]\n"
+           "\\begin{equation}\nx=1\n\\end{equation}")
       "\\begin{equation}\nx=1\n\\end{equation}")
      ;; HTML special characters are escaped in mathjax mode
      ("\\begin{align}\na &< b\n\\end{align}"
@@ -3958,10 +3969,14 @@ cookie-less column is remembered as the `none' marker."
            "<img src=\"1.jpg\" alt=\"1.jpg\"></a>\n</figure>"))
      ;; in a non-standalone paragraph `:attr_html' stays on the <p>
      ("#+attr_html: :class foo\n[[./1.png]] [[./2.png]]"
-      "<p class=\"foo\"><img src=\"./1.png\" alt=\"1.png\"> <img src=\"./2.png\" alt=\"2.png\"></p>")
+      ,($c "<p class=\"foo\"><img src=\"./1.png\" alt=\"1.png\"> "
+           "<img src=\"./2.png\" alt=\"2.png\"></p>"))
      ;; `#+attr__' takes priority over `#+attr_html' on <figure>
-     ("#+attr__: [bar]\n#+attr_html: :class foo\n[[https://example.com/1.jpg][file:1.jpg]]"
-      "<figure class=\"bar\">\n<a href=\"https://example.com/1.jpg\"><img src=\"1.jpg\" alt=\"1.jpg\"></a>\n</figure>")
+     (,($c "#+attr__: [bar]\n#+attr_html: :class foo\n"
+           "[[https://example.com/1.jpg][file:1.jpg]]")
+      ,($c "<figure class=\"bar\">\n"
+           "<a href=\"https://example.com/1.jpg\">"
+           "<img src=\"1.jpg\" alt=\"1.jpg\"></a>\n</figure>"))
      ;; a caption on a regular paragraph is dropped
      ("#+caption: Cap\nregular text" "<p>regular text</p>"))
    t '(:html-prefer-user-labels t))
@@ -3991,8 +4006,9 @@ cookie-less column is remembered as the `none' marker."
       ($s (string-match-p (t--coderef-regexp el) "x (ref:a)"))
       ($n (string-match-p (t--coderef-regexp el) "x ((a))")))
     ;; The block's own `-l' switch sets the format and quotes regexp specials.
-    (let ((el (t-get-element "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
-                             'example-block)))
+    (let ((el (t-get-element
+               "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
+               'example-block)))
       ($s (string-match-p (t--coderef-regexp el) "x ((a))"))
       ($n (string-match-p (t--coderef-regexp el) "x (ref:a)")))
     (let ((el (t-get-element "#+begin_example -l \"[%s]\"\nx [a]\n#+end_example"
@@ -4007,7 +4023,8 @@ cookie-less column is remembered as the `none' marker."
                     (format "Invalid code reference label format: %S" bad)))))
     (let ((org-coderef-label-format "bad"))
       ($e!l (t--coderef-regexp '(example-block nil))
-            '(org-w3ctr-error "Invalid code reference label format: \"bad\"")))))
+            (list 'org-w3ctr-error
+                  "Invalid code reference label format: \"bad\"")))))
 
 (ert-deftest t--code-text ()
   "Tests for `org-w3ctr--code-text'."
@@ -4051,7 +4068,7 @@ cookie-less column is remembered as the `none' marker."
       ($l (f "#+begin_example\nx (ref:a)\ny (ref:b)\n#+end_example"
              'example-block)
           '("a" "b"))
-      ;; A label repeated on several lines is returned once, keeping first order.
+      ;; A label repeated on several lines is returned once (first order).
       ($l (f "#+begin_example\nx (ref:a)\ny (ref:b)\nz (ref:a)\n#+end_example"
              'example-block)
           '("a" "b"))
@@ -4103,8 +4120,10 @@ cookie-less column is remembered as the `none' marker."
       ($nq (t--coderef-table nil) empty)
       ($n (t--pget nil :html-coderef-cache)))
     (let* ((tree (with-temp-buffer
-                   (insert ($c "#+begin_example\na (ref:a)\na2 (ref:a)\n#+end_example\n"
-                               "#+begin_src text\nb (ref:b)\n#+end_src\n"))
+                   (insert
+                    ($c "#+begin_example\na (ref:a)\na2 (ref:a)\n"
+                        "#+end_example\n#+begin_src text\nb (ref:b)\n"
+                        "#+end_src\n"))
                    (org-mode)
                    (org-element-parse-buffer)))
            (info (list :parse-tree tree))
@@ -4161,14 +4180,15 @@ cookie-less column is remembered as the `none' marker."
         (org-coderef-label-format "(ref:%s)"))
     (t-check-element-values
      #'t-example-block
-     '(("#+name: t\n#+begin_example\n#+end_example"
+     `(("#+name: t\n#+begin_example\n#+end_example"
         "<div id=\"t\" class=\"example\">\n<pre></pre>\n</div>")
        ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
         "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
        ;; content is HTML-escaped via `org-w3ctr--encode-plain-text'
        ;; (quotes stay raw)
        ("#+begin_example\n<b>&\"x\"</b>\n#+end_example"
-        "<div class=\"example\">\n<pre>\n&lt;b&gt;&amp;\"x\"&lt;/b&gt;\n</pre>\n</div>")
+        ,($c "<div class=\"example\">\n<pre>\n"
+             "&lt;b&gt;&amp;\"x\"&lt;/b&gt;\n</pre>\n</div>"))
        ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
         "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
        ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
@@ -4185,7 +4205,8 @@ cookie-less column is remembered as the `none' marker."
        ("#+attr_html:\n#+begin_example\n1\n#+end_example"
         "<div>\n<pre>\n1\n</pre>\n</div>")
        ;; `#+attr__:' wins over `#+attr_html:'; they are not merged
-       ("#+attr__: [a]\n#+attr_html: :class b\n#+begin_example\n1\n#+end_example"
+       (,($c "#+attr__: [a]\n#+attr_html: :class b\n"
+             "#+begin_example\n1\n#+end_example")
         "<div class=\"a\">\n<pre>\n1\n</pre>\n</div>")
        ;; switches are not interpreted, except `-i': `-n' adds no line numbers
        ("#+begin_example -n\na\nb\n#+end_example"
@@ -4201,10 +4222,13 @@ cookie-less column is remembered as the `none' marker."
         "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
        ;; a non-blank caption becomes a bare span before the <pre>
        ("#+name: t\n#+caption: Cap\n#+begin_example\nx\n#+end_example"
-        "<div id=\"t\" class=\"example\">\n<span>Cap</span>\n<pre>\nx\n</pre>\n</div>")
+        ,($c "<div id=\"t\" class=\"example\">\n<span>Cap</span>\n"
+             "<pre>\nx\n</pre>\n</div>"))
        ;; caption markup is exported, not escaped
        ("#+caption: *Bold* and /italic/\n#+begin_example\nx\n#+end_example"
-        "<div class=\"example\">\n<span><b>Bold</b> and <i>italic</i></span>\n<pre>\nx\n</pre>\n</div>")
+        ,($c "<div class=\"example\">\n"
+             "<span><b>Bold</b> and <i>italic</i></span>\n"
+             "<pre>\nx\n</pre>\n</div>"))
        ;; an empty or blank caption is dropped
        ("#+caption:\n#+begin_example\nx\n#+end_example"
         "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
@@ -4380,7 +4404,7 @@ fresh: the code under test may store its state in it."
          (state (t--fontify-state info)))
     ($l (t--fontify-lang-entry "c" info) '(:font-lock c-mode))
     ($q (car (gethash '(cache . lang-alist) state)) alist)
-    ;; Mutating ALIST in place keeps `eq', proving the cache skips re-validation.
+    ;; Mutating ALIST in place keeps `eq', proving the cache skips validation.
     (setcar (car alist) "")
     ($n (t--fontify-lang-entry "c" info))
     (t--pput info :html-fontify-lang-alist '(("" :font-lock c-mode)))
@@ -4667,8 +4691,9 @@ fresh: the code under test may store its state in it."
   ($e!l (t--fontify-stylesheet 'x)
         '(org-w3ctr-error "Fontify palette must be a non-empty list: x"))
   ($e!l (t--fontify-stylesheet '(("k" :light "#111111" :dark "#eeeeee") . bad))
-        '(org-w3ctr-error
-          "Fontify palette must be a non-empty list: ((\"k\" :light \"#111111\" :dark \"#eeeeee\") . bad)")))
+        (list 'org-w3ctr-error
+              ($c "Fontify palette must be a non-empty list: "
+                  "((\"k\" :light \"#111111\" :dark \"#eeeeee\") . bad)"))))
 
 (ert-deftest t--fontify-stylesheet-shipped ()
   "The shipped palette, the face table and the stylesheet agree."
@@ -4803,7 +4828,7 @@ fresh: the code under test may store its state in it."
             (let ((t--style-cache nil))
               ($l (t-fontify-update-stylesheet) default))
             ($l (funcall bytes default) expected))
-          ;; On error (bad palette or missing markers), file and cache stay intact.
+          ;; On error (bad palette or missing markers), keep file and cache.
           (let ((t--style-cache "keep")
                 (t-fontify-palette nil))
             ($e! (t-fontify-update-stylesheet file) 'org-w3ctr-error)
@@ -4866,7 +4891,7 @@ fresh: the code under test may store its state in it."
     ;; Two levels: property-use -> property-name -> variable-name.
     ($l (t--font-lock-face-slug 'font-lock-property-use-face table t) "v")
     ($n (t--font-lock-face-slug 'font-lock-property-use-face table nil))
-    ;; An anonymous face inherits through its own :inherit only when INHERIT is non-nil.
+    ;; An anonymous face follows its own `:inherit' only when INHERIT is t.
     ($l (t--font-lock-face-slug '(:inherit font-lock-keyword-face) table t) "k")
     ($n (t--font-lock-face-slug '(:inherit font-lock-keyword-face) table nil))
     ($l (t--font-lock-face-slug
@@ -4910,8 +4935,8 @@ fresh: the code under test may store its state in it."
   ($l (t--font-lock-face-attribute '((:weight bold) (:foreground "blue"))
                                    :foreground)
       "blue")
-  ($l (t--font-lock-face-attribute '((:foreground unspecified) (:foreground "blue"))
-                                   :foreground)
+  ($l (t--font-lock-face-attribute
+       '((:foreground unspecified) (:foreground "blue")) :foreground)
       "blue")
   ($l (t--font-lock-face-attribute '(no-such-face (:foreground "blue"))
                                    :foreground)
@@ -4921,7 +4946,7 @@ fresh: the code under test may store its state in it."
   ($l (t--font-lock-face-attribute '(font-lock-warning-face) :weight) 'bold)
   ($n (t--font-lock-face-attribute '(bold) :foreground))
   ($n (t--font-lock-face-attribute nil :foreground))
-  ;; Inherit is passed as t, never `default', so `default' attributes do not leak.
+  ;; Inherit is passed as t, never `default', so `default' does not leak.
   (let ((orig (symbol-function 'face-attribute))
         got-inherit)
     (cl-letf (((symbol-function 'face-attribute)
@@ -5012,7 +5037,7 @@ fresh: the code under test may store its state in it."
       (put-text-property 2 4 'face 'css-selector)
       ($l (t--font-lock-collect table 'inherit)
           '(("k" . "a") ("k" . "bc") (nil . " def") ("c" . ";x")))
-      ;; Faces without a slug are counted in STATE; slug hits and `default' are not.
+      ;; Faces without a slug are counted in STATE; hits and `default' are not.
       (put-text-property 4 5 'face '(bold default))
       (put-text-property 5 6 'face '(:foreground "red"))
       (let ((state (make-hash-table :test #'equal)))
@@ -5057,7 +5082,8 @@ fresh: the code under test may store its state in it."
     ($n (with-alist '(("c" :font-lock if)) "c"))
     ;; A malformed alist fails loudly.
     ($e!l (with-alist '(("c" . c-mode)) "c")
-          '(org-w3ctr-error "Malformed fontify language entry: (\"c\" . c-mode)"))
+          (list 'org-w3ctr-error
+                "Malformed fontify language entry: (\"c\" . c-mode)"))
     ;; An entry without :font-lock leaves the choice to Org.
     ($q (with-alist '(("c" :other x)) "c") 'c-mode)))
 
@@ -5211,7 +5237,8 @@ fresh: the code under test may store its state in it."
             ;; Reusing a mode buffer skips re-init and gives identical tokens.
             (let* ((reinfo (t-test-fontify-info :html-fontify-reuse-buffer t))
                    (other "(let ((x 1)) \"hi\")")
-                   (expected-other (t--font-lock-tokens other "emacs-lisp" info))
+                   (expected-other
+                    (t--font-lock-tokens other "emacs-lisp" info))
                    (inits 0)
                    (orig (symbol-function 'emacs-lisp-mode)))
               (cl-letf (((symbol-function 'emacs-lisp-mode)
@@ -5270,7 +5297,8 @@ fresh: the code under test may store its state in it."
               ($q (t--font-lock-tokens "x = 1" "fake" info) :decline)
               ($q install 'never)
               (setq parsers '(parser))
-              ($l (t--font-lock-tokens "x = 1" "fake" info) '((nil . "x = 1"))))))
+              ($l (t--font-lock-tokens "x = 1" "fake" info)
+                  '((nil . "x = 1"))))))
       (t-clear-fontify-buffers))))
 
 ;;;; Fontify shiki engine
@@ -5539,7 +5567,8 @@ COUNTER, a cons cell, has its car incremented on every call."
   (let ((t-fontify-engines
          '((ok-nil :fontify ignore :available always :hint nil)
            (ok-str :fontify ignore :available always :hint "needs x"))))
-    ($l (t--fontify-engine 'ok-nil) '(:fontify ignore :available always :hint nil))
+    ($l (t--fontify-engine 'ok-nil)
+        '(:fontify ignore :available always :hint nil))
     ($l (t--fontify-engine 'ok-str)
         '(:fontify ignore :available always :hint "needs x")))
   ;; A malformed entry names the engine; only the entry asked for is
@@ -5641,7 +5670,8 @@ COUNTER, a cons cell, has its car incremented on every call."
       ;; Without a header argument, INFO decides.
       ($l (t--fontify-chain-for nil info) '(font-lock plain))
       ($l (t--fontify-chain-for (el "") info) '(font-lock plain))
-      ($l (t--fontify-chain-for (el " :results silent") info) '(font-lock plain))
+      ($l (t--fontify-chain-for (el " :results silent") info)
+          '(font-lock plain))
       ;; The block's :fontify wins.
       ($l (t--fontify-chain-for (el " :fontify nil") info) '(plain))
       ($l (t--fontify-chain-for (el " :fontify (plain)") info) '(plain))
@@ -5664,7 +5694,8 @@ COUNTER, a cons cell, has its car incremented on every call."
         (org-mode)
         ($e!l (t--fontify-chain-for (t-parse1 'src-block) info)
               '(org-w3ctr-error "Invalid :fontify value nil at line 2")))
-      ($e!l (t--fontify-chain-for '(src-block (:parameters ":fontify bogus")) info)
+      ($e!l (t--fontify-chain-for
+             '(src-block (:parameters ":fontify bogus")) info)
             '(org-w3ctr-error "Unknown fontify method: bogus")))
     ($e!l (t--fontify-chain-for nil
                                 (t-test-fontify-info :html-fontify-method 'x))
@@ -5697,7 +5728,7 @@ COUNTER, a cons cell, has its car incremented on every call."
       (dolist (v good) ($s (funcall pred v)))
       (dolist (v bad) ($n (funcall pred v)))))
   (pcase-dolist (`(,message ,key ,value)
-                 '(("Unknown value for :html-fontify-on-error: loud"
+                 `(("Unknown value for :html-fontify-on-error: loud"
                     :html-fontify-on-error loud)
                    ("Unknown value for :html-fontify-unknown-language: loud"
                     :html-fontify-unknown-language loud)
@@ -5711,7 +5742,8 @@ COUNTER, a cons cell, has its car incremented on every call."
                     :html-fontify-shiki-timeout "10")
                    ("Malformed fontify face entry: (foo . \"K\")"
                     :html-fontify-extra-faces ((foo . "K")))
-                   ("Malformed fontify language entry: (\"x\" :font-lock \"x-mode\")"
+                   (,(concat "Malformed fontify language entry: "
+                             "(\"x\" :font-lock \"x-mode\")")
                     :html-fontify-lang-alist (("x" :font-lock "x-mode")))))
     ($e!l (t--fontify-check-options (t-test-fontify-info key value))
           (list 'org-w3ctr-error message))))
@@ -5893,7 +5925,8 @@ COUNTER, a cons cell, has its car incremented on every call."
           ($e!l (t--fontify-dispatch
                  "x" "l" '(nope plain)
                  (t-test-fontify-info :html-fontify-unknown-language 'error) el)
-                '(org-w3ctr-error "No fontify engine handles the l code at line 2")))))
+                (list 'org-w3ctr-error
+                      "No fontify engine handles the l code at line 2")))))
     ;; A chain without `plain' still ends in plain tokens, and a
     ;; language every engine declined is unknown.
     (let ((t-fontify-engines
@@ -5986,11 +6019,12 @@ COUNTER, a cons cell, has its car incremented on every call."
                      (engine
                       (lambda (name behavior)
                         (list name
-                              :fontify (t-test-fontify-stub
-                                        (if (memq behavior
-                                                  '(unavailable available-error))
-                                            'tokens
-                                          behavior))
+                              :fontify
+                              (t-test-fontify-stub
+                               (if (memq behavior
+                                         '(unavailable available-error))
+                                   'tokens
+                                 behavior))
                               :available
                               (pcase behavior
                                 ('unavailable #'ignore)
@@ -5999,7 +6033,8 @@ COUNTER, a cons cell, has its car incremented on every call."
                                 (_ #'always)))))
                      (t-fontify-engines
                       (list (funcall engine 'a ba) (funcall engine 'b bb)
-                            '(plain :fontify t--plain-tokens :available always)))
+                            '(plain :fontify t--plain-tokens
+                                    :available always)))
                      (info (t-test-fontify-info
                             :html-fontify-on-error on-error
                             :html-fontify-unknown-language unknown))
@@ -6084,8 +6119,9 @@ COUNTER, a cons cell, has its car incremented on every call."
                           (t-test-fontify-info
                            :html-fontify-lang-alist
                            '(("emacs-lisp" . emacs-lisp-mode))))
-          '(org-w3ctr-error
-            "Malformed fontify language entry: (\"emacs-lisp\" . emacs-lisp-mode)"))
+          (list 'org-w3ctr-error
+                ($c "Malformed fontify language entry: "
+                    "(\"emacs-lisp\" . emacs-lisp-mode)")))
     ;; With INFO its `:html-fontify-method' decides, over the option.
     (let ((t-fontify-method nil))
       ($s (string-match-p
@@ -6134,16 +6170,18 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($s (string-match-p
            "<div>\n<pre><code class=\"language-emacs-lisp\">" out))
       ($s (string-match-p "tok-k" out)))
-    ;; A block without a language gets a bare <code>; empty and multi-line blocks.
+    ;; Bare <code> without a language; empty and multi-line blocks.
     ($l (org-export-string-as "#+begin_src\n<x>\n#+end_src" 'w3ctr t)
         "<div>\n<pre><code>&lt;x&gt;</code></pre></div>\n<main>\n</main>\n")
     ($l (org-export-string-as "#+begin_src\n#+end_src" 'w3ctr t)
         "<div>\n<pre><code></code></pre></div>\n<main>\n</main>\n")
     ($l (org-export-string-as "#+begin_src emacs-lisp\n#+end_src" 'w3ctr t)
-        "<div>\n<pre><code class=\"language-emacs-lisp\"></code></pre></div>\n<main>\n</main>\n")
+        ($c "<div>\n<pre><code class=\"language-emacs-lisp\"></code></pre>"
+            "</div>\n<main>\n</main>\n"))
     ($l (org-export-string-as "#+begin_src text\na\nb\n#+end_src" 'w3ctr t
                               '(:html-fontify-method nil))
-        "<div>\n<pre><code class=\"language-text\">a\nb</code></pre></div>\n<main>\n</main>\n")
+        ($c "<div>\n<pre><code class=\"language-text\">a\nb</code></pre>"
+            "</div>\n<main>\n</main>\n"))
     ;; INFO reaches `org-w3ctr-fontify-code'.
     ($s (string-match-p
          "<code class=\"language-emacs-lisp\">(defun foo () 1)</code>"
@@ -6168,8 +6206,10 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($s (string-match "<div id=\"\\(org[^\"]*\\)\" class=\"example\">" out))
       ($s (string-match-p
            (regexp-quote
-            (format "<a class=\"self-link\" href=\"#%s\" aria-label=\"source block\"></a>"
-                    (match-string 1 out)))
+            (format
+             ($c "<a class=\"self-link\" href=\"#%s\""
+                 " aria-label=\"source block\"></a>")
+             (match-string 1 out)))
            out))
       ($s (string-match-p "<span>C</span>" out)))
     ;; Attributes come from `#+attr__', or `#+attr_html' when that is
@@ -6198,7 +6238,8 @@ COUNTER, a cons cell, has its car incremented on every call."
                   'w3ctr t)))
         ($s (string-match-p "<div id=\"nm\" class=\"example\">" out))
         ($s (string-match-p
-             "<a class=\"self-link\" href=\"#nm\" aria-label=\"source block\"></a>"
+             ($c "<a class=\"self-link\" href=\"#nm\""
+                 " aria-label=\"source block\"></a>")
              out)))
       ;; The caption is transcoded, and the id is escaped in the self-link.
       (let ((out (org-export-string-as
@@ -6222,8 +6263,8 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($s (string-match-p "<div id=\"nm\" class=\"foo\">" out))
         ($s (string-match-p "<a class=\"self-link\" href=\"#nm\"" out)))
       (let ((out (org-export-string-as
-                  (concat "#+name: nm\n#+caption: C\n#+attr__: (id \"custom\")\n"
-                          "#+begin_src emacs-lisp\nx\n#+end_src")
+                  ($c "#+name: nm\n#+caption: C\n#+attr__: (id \"custom\")\n"
+                      "#+begin_src emacs-lisp\nx\n#+end_src")
                   'w3ctr t)))
         ($s (string-match-p "<div id=\"custom\">" out))
         ($s (string-match-p "<a class=\"self-link\" href=\"#custom\"" out)))
@@ -6277,9 +6318,10 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($l (org-export-string-as
              "#+begin_src nosuchlang\n<x>\n#+end_src" 'w3ctr t
              '(:html-fontify-unknown-language warn))
-            (concat "<div>\n<pre><code class=\"language-nosuchlang\">&lt;x&gt;</code>"
-                    "</pre></div>\n<main>\n</main>\n")))
-      ($l warnings '("No fontify engine handles the nosuchlang code at line 1")))))
+            ($c "<div>\n<pre><code class=\"language-nosuchlang\">"
+                "&lt;x&gt;</code></pre></div>\n<main>\n</main>\n")))
+      ($l warnings
+          '("No fontify engine handles the nosuchlang code at line 1")))))
 
 (ert-deftest t-src-block-coderef-id ()
   "A source block that defines a code reference always gets an id."
@@ -6303,7 +6345,8 @@ COUNTER, a cons cell, has its car incremented on every call."
         (t-fontify-unknown-language 'warn)
         (t-fontify-reuse-buffer nil))
     (let ((org-export-babel-evaluate nil))
-      (let ((out (org-export-string-as "src_emacs-lisp{(setq a \"b\")}" 'w3ctr t)))
+      (let ((out (org-export-string-as
+                  "src_emacs-lisp{(setq a \"b\")}" 'w3ctr t)))
         ($s (string-match-p "<code class=\"language-emacs-lisp\">" out))
         ($s (string-match-p "tok-s" out))
         ;; Single wrapper: no nested <code>.
@@ -6333,8 +6376,9 @@ COUNTER, a cons cell, has its car incremented on every call."
                               (t-test-fontify-info))
           "<code>&lt;x&gt;</code>")
       ;; LANG is escaped: it comes from the inline header.
-      (let ((out (org-export-string-as "src_\"><img/src=x>{y}" 'w3ctr t
-                                       '(:html-fontify-unknown-language plain))))
+      (let ((out (org-export-string-as
+                  "src_\"><img/src=x>{y}" 'w3ctr t
+                  '(:html-fontify-unknown-language plain))))
         ($s (string-match-p "language-&quot;&gt;&lt;img/src=x&gt;" out))
         ($n (string-match-p "<img" out))))))
 
