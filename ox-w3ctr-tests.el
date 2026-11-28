@@ -3724,9 +3724,11 @@ cookie-less column is remembered as the `none' marker."
               (list :tex "\\begin{equation}\nx=1\n\\end{equation}" :display t))))
   ;; a delimiter-less inline fragment (such as a bare `\Users' from
   ;; `C:\Users\foo') is HTML-escaped as plain text without calling the
-  ;; RPC or incrementing `:html-math-count'
-  (let ((info (list :with-latex 'mathjax))
-        called)
+  ;; RPC, the custom renderer, or incrementing `:html-math-count'
+  (let* (called
+         (info (list :with-latex 'mathjax
+                     :html-math-custom-format-function
+                     (lambda (_f _i) (setq called t) "<C>"))))
     (cl-letf (((symbol-function 't--jcall)
                (lambda (&rest _) (setq called t) "<M>")))
       ($l (t--format-latex "\\Users" 'mathjax info) "\\Users")
@@ -3734,10 +3736,14 @@ cookie-less column is remembered as the `none' marker."
           "\\cmd{a &lt; b}")
       ($l (t--format-latex "\\cmd{a & b}" 'svg-by-mathjax info)
           "\\cmd{a &amp; b}")
+      ($l (t--format-latex "\\cmd{a < b}" 'custom info)
+          "\\cmd{a &lt; b}")
       ;; empty or blank-body delimiters are not treated as math either
       ($l (t--format-latex "\\(\\)" 'mathjax info) "\\(\\)")
       ($l (t--format-latex "\\[  \\]" 'mathml-by-mathjax info) "\\[  \\]")
       ($l (t--format-latex "$$$$" 'svg-by-mathjax info) "$$$$")
+      ($l (t--format-latex "\\(\\)" 'custom info) "\\(\\)")
+      ($l (t--format-latex "  " 'custom info t) "  ")
       ($n called)
       ($n (t--pget info :html-math-count))
       ;; real math fragments and environments increment `:html-math-count'
@@ -3746,7 +3752,13 @@ cookie-less column is remembered as the `none' marker."
       ($l (t--format-latex "\\begin{equation}\nx=1\n\\end{equation}"
                            'svg-by-mathjax info t)
           "<M>")
-      ($l (t--pget info :html-math-count) 2)))
+      ($l (t--pget info :html-math-count) 2)
+      ($l (t--format-latex "$x$" 'custom info) "<C>")
+      ($l (t--pget info :html-math-count) 3)
+      ($l (t--format-latex "\\begin{equation}\nx=1\n\\end{equation}"
+                           'custom info t)
+          "<C>")
+      ($l (t--pget info :html-math-count) 4)))
   ;; any other mode signals org-w3ctr-error
   ($e!l (t--format-latex "$x$" 'bogus nil)
         '(org-w3ctr-error "Unknown LaTeX mode: bogus")))

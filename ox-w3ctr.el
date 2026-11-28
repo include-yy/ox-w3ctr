@@ -3620,11 +3620,11 @@ INFO is the info plist.  Non-nil DEFAULT-DISPLAY treats a
 delimiter-less FRAG (such as an environment) as display math.
 
 MODE is `:with-latex' (nil, `verbatim', `mathjax'/t,
-`mathml-by-mathjax', `svg-by-mathjax', or `custom').  Built-in modes
-HTML-escape blank bodies and delimiter-less fragments with nil
-DEFAULT-DISPLAY as plain text; emitted math increments
-`:html-math-count' in INFO.  Signal `org-w3ctr-error' on an unknown
-MODE or a custom result that is neither a string nor nil."
+`mathml-by-mathjax', `svg-by-mathjax', or `custom').  Blank bodies
+and delimiter-less fragments with nil DEFAULT-DISPLAY are
+HTML-escaped as plain text without invoking any renderer; emitted
+math increments `:html-math-count' in INFO.  Signal `org-w3ctr-error'
+on an unknown MODE or a custom result that is neither a string nor nil."
   (declare (ftype (function (string t list &optional boolean)
                             (or null string)))
            (important-return-value t))
@@ -3635,25 +3635,21 @@ MODE or a custom result that is neither a string nor nil."
    ;; transcoders run.  Returning nil here is only reachable from a
    ;; direct call.
    ((memq mode '(nil verbatim)) nil)
+   ((not (memq mode '(mathjax t mathml-by-mathjax svg-by-mathjax custom)))
+    (t-error "Unknown LaTeX mode: %S" mode))
+   ((pcase-let ((`(,tex . ,kind) (t--split-latex frag)))
+      (not (and (or kind default-display) (t--nw-p tex))))
+    (t--encode-plain-text frag))
    ((eq mode 'custom)
     (let ((out (funcall (or (t--pget info :html-math-custom-format-function)
                             #'t-math-custom-default-format-function)
                         frag info)))
       (unless (string-or-null-p out)
         (t-error "Custom LaTeX renderer returned a non-string: %S" out))
-      ;; FIXME: `custom' bypasses the math-p filter, so any non-blank
-      ;; result (including a pass-through bare `\cmd') increments
-      ;; `:html-math-count'.  Revisit if a custom head function ever
-      ;; gets falsely triggered.
       (when (and info (t--nw-p out))
         (t--pput info :html-math-count
                  (1+ (or (t--pget info :html-math-count) 0))))
       out))
-   ((not (memq mode '(mathjax t mathml-by-mathjax svg-by-mathjax)))
-    (t-error "Unknown LaTeX mode: %S" mode))
-   ((pcase-let ((`(,tex . ,kind) (t--split-latex frag)))
-      (not (and (or kind default-display) (t--nw-p tex))))
-    (t--encode-plain-text frag))
    (t
     (prog1 (pcase mode
              ((or `mathjax `t)
