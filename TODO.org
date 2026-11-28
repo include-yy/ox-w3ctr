@@ -209,6 +209,31 @@ line-number switch control presentation.  Placement is the
 block; do not use =.marker=, because the automatic =.example::before=
 counter would duplicate the example number.
 
+*** Heading wrapper and self-link markup (ReSpec vs Bikeshed)    :html:css:
+
+=org-w3ctr-heading-default-format-function= currently wraps every
+normal heading in =<div class="header-wrapper">= with =<a
+class="self-link">= as a sibling after =<hN>=, which is the *ReSpec*
+pattern (as in =rdf12-concepts=): flex + =order: -1= places =§= to the
+left aligned to the heading baseline without putting =<a>= inside
+=<hN>= (cleaner accessible name), at the cost of an extra wrapper
+=<div>= around every heading -- even when =:html-self-link-headlines=
+is nil.
+
+The alternative is the *Bikeshed* pattern (as in =CSP3=): no wrapper
+=<div>=; emit =<hN class="heading">...<a class="self-link"></a></hN>=
+and position =§= to the left with =position: relative= / =absolute=.
+Bikeshed's static-compiler model is closer to =ox-w3ctr='s overall
+architecture, and =assets/style.css= (L1714--1779) currently carries
+spliced rules from both patterns.  When revisiting =assets/style.css=
+cleanup, decide between:
+
+- Keeping the ReSpec =.header-wrapper= (optionally omitting the =<div>=
+  when =self-link= is nil, scoping =left: -.5em= to
+  =.header-wrapper > :is(h2,h3,h4,h5,h6)=); or
+- Switching to the Bikeshed wrapper-less =<hN class="heading">= markup
+  and dropping the ReSpec =.header-wrapper= CSS rules.
+
 *** Src-block feature gaps vs ox-html                                 :src:
 
 Dropped when forking (judged low-value for W3C TR output).  Revisit

@@ -978,7 +978,7 @@ name.  For example, if a tag is \"a\", its class will be
 This function will be called with six arguments:
 - TODO      the todo keyword (string or nil).
 - TODO-TYPE the type of todo (symbol: `todo', `done', nil).
-- PRIORITY  the priority of the headline (integer or nil)
+- PRIORITY  the priority of the headline (integer or nil).
 - TEXT      the main headline text (string).
 - TAGS      the tags (list of string).
 - INFO      the export options (plist).
@@ -6098,11 +6098,16 @@ TODO is the keyword string.  INFO is the info plist.  Return a
 <span> element with class=\"status prefix+keyword\"."
   (declare (ftype (function (string list) string))
            (important-return-value t))
-  (format "<span class=\"%s %s%s\">%s</span>"
-          (if (member todo org-done-keywords) "done" "todo")
-          (or (t--pget info :html-todo-kwd-class-prefix) "")
-          (t--fix-class-name todo)
-          todo))
+  (let ((donep (or (member todo org-done-keywords)
+                   (catch 'done
+                     (dolist (k org-done-keywords)
+                       (when (equal todo (t--encode-plain-text k))
+                         (throw 'done t)))))))
+    (format "<span class=\"%s %s%s\">%s</span>"
+            (if donep "done" "todo")
+            (or (t--pget info :html-todo-kwd-class-prefix) "")
+            (t--fix-class-name todo)
+            todo)))
 
 (defun t--todo (todo info)
   "Format TODO keyword into HTML.
@@ -6223,10 +6228,10 @@ arguments."
   "Build the inner HTML content of HEADLINE from TEXT and INFO.
 
 HEADLINE is the headline element and TEXT its already-exported title.
-Extract the TODO keyword, its type, priority and tags from HEADLINE,
-then call the function in `:html-headline-format-function' with those
-values followed by TEXT and INFO: (TODO TODO-TYPE PRIORITY TEXT TAGS
-INFO).  Return the formatted HTML string that function returns."
+Extract the TODO keyword, its type, priority, and tags from HEADLINE,
+then call the function in `:html-headline-format-function' with
+`(TODO TODO-TYPE PRIORITY TEXT TAGS INFO)'.  Return the formatted HTML
+string that function returns."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
   (let* ((todo (and-let* (((t--pget info :with-todo-keywords))
@@ -6255,7 +6260,7 @@ like TODO keywords and tags."
     (t--build-bare-headline headline text info)))
 
 (defun t--get-headline-hlevel (headline info)
-  "Calculate the absolute HTML heading level for a headline.
+  "Calculate the absolute HTML heading level for HEADLINE.
 
 HEADLINE is the headline element and INFO is the info plist.  Compute
 the final HTML heading level based on HEADLINE's relative level within
@@ -6270,19 +6275,18 @@ integer between 2 and 6."
   (let ((top-level (t--pget info :html-toplevel-hlevel))
         (relative (org-export-get-relative-level headline info)))
     (unless (and (integerp top-level) (<= 2 top-level 6))
-      (t-error "Invalid HTML top level: %s" top-level))
+      (t-error "Invalid HTML top level: %S" top-level))
     (+ relative top-level -1)))
 
 (defun t--low-level-headline-p (headline info)
-  "Check if HEADLINE should be rendered as a low-level list item.
+  "Return t if HEADLINE should be rendered as a low-level list item.
 
 HEADLINE is the headline element and INFO is the info plist.  A
 headline is low-level when its h-level exceeds 6, keeping the output
 within <h2>-<h6>.  When `:html-honor-ox-headline-levels' is non-nil,
 `org-export-low-level-p' also applies, so a headline whose relative
 level exceeds `:headline-levels' is low-level too: that option can move
-the cutoff earlier but never past h6.  Return t when HEADLINE is
-low-level."
+the cutoff earlier but never past h6.  Return nil otherwise."
   (declare (ftype (function (t list) boolean))
            (important-return-value t))
   (let ((hlevel (t--get-headline-hlevel headline info)))
@@ -6357,7 +6361,7 @@ the headline text is wrapped in a `<span>' with that class."
   "Return the HTML container tag name for HEADLINE.
 
 HEADLINE is the headline element, INFO the export plist.  Return
-HEADLINE's `:HTML_CONTAINER' property when set, else the
+HEADLINE's `:HTML_CONTAINER:' property when set, else the
 `:html-container' option from INFO, else \"div\".  Signal
 `org-w3ctr-error' when the tag name is not a valid HTML element
 name."

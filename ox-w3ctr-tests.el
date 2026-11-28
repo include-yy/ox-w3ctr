@@ -7692,10 +7692,13 @@ COUNTER, a cons cell, has its car incremented on every call."
       "<span class=\"todo TODO\">TODO</span>")
   ($l (t-todo-default-format-function "WAIT-1" nil)
       "<span class=\"todo WAIT_1\">WAIT-1</span>")
-  (let ((org-done-keywords '("DONE")))
+  (let ((org-done-keywords '("DONE" "DONE<X")))
     ($l (t-todo-default-format-function
          "DONE" '(:html-todo-kwd-class-prefix "p-"))
-        "<span class=\"done p-DONE\">DONE</span>")))
+        "<span class=\"done p-DONE\">DONE</span>")
+    ;; HTML-escaped DONE keyword still matches `org-done-keywords'.
+    ($l (t-todo-default-format-function "DONE&lt;X" nil)
+        "<span class=\"done DONE_lt_X\">DONE&lt;X</span>")))
 
 (ert-deftest t--todo ()
   "Tests for `org-w3ctr--todo'."
@@ -7856,12 +7859,16 @@ COUNTER, a cons cell, has its car incremented on every call."
             (mapcar #'1+ '(1 1 4 5 1 4)))
         ($l (mapcar g (f "* a\n** b\n*** c\n**** d\n***** e\n****** f"))
             '(2 3 4 5 6 7)))
-      ;; Boundary: 6 is the last valid value; 1 and 7 are rejected.
+      ;; Boundary: 6 is the last valid value; 1, 7, and non-integers fail.
       ($l (it (car (f "* a")) '(:html-toplevel-hlevel 6)) 6)
       ($e!l (it (car (f "* a")) '(:html-toplevel-hlevel 1))
             '(org-w3ctr-error "Invalid HTML top level: 1"))
       ($e!l (it (car (f "* a")) '(:html-toplevel-hlevel 7))
             '(org-w3ctr-error "Invalid HTML top level: 7"))
+      ($e!l (it (car (f "* a")) '(:html-toplevel-hlevel "2"))
+            '(org-w3ctr-error "Invalid HTML top level: \"2\""))
+      ($e!l (it (car (f "* a")) '(:html-toplevel-hlevel nil))
+            '(org-w3ctr-error "Invalid HTML top level: nil"))
       (t-check-element-values
        't--get-headline-hlevel
        '(("** a\n** b\n" 2 2 2 2)
@@ -7935,9 +7942,16 @@ COUNTER, a cons cell, has its car incremented on every call."
       ;; Bare item: id on the <li>, text unwrapped.
       ($l (it nil nil nil)
           "<ol>\n<li id=\"0\">test</li>\n</ol>\n")
-      ;; With contents: trimmed, after a <br>, </li> on its own line.
+      ;; With contents: trimmed, after a <br>, </li> on its own line;
+      ;; whitespace-only contents are omitted.
       ($l (it nil "a" nil)
           "<ol>\n<li id=\"0\">test<br>\na\n</li>\n</ol>\n")
+      ($l (it nil "  \n\t " nil)
+          "<ol>\n<li id=\"0\">test</li>\n</ol>\n")
+      ;; Special characters in id are attribute-escaped.
+      (cl-letf (((symbol-function 't--reference) (lambda (_h _i) "a\"b")))
+        ($l (it nil nil nil)
+            "<ol>\n<li id=\"a&quot;b\">test</li>\n</ol>\n"))
       ;; Classes: :HTML_CONTAINER_CLASS: on the <li>, :HTML_HEADLINE_CLASS:
       ;; wrapping the text in a <span>.
       (cl-flet ((hl (props)
@@ -7974,11 +7988,23 @@ COUNTER, a cons cell, has its car incremented on every call."
              "*** e\n")
         "<ol>\n<li id=\"e\">e</li>\n</ol>\n"
         "<ul>\n<li id=\"d\">d</li>\n</ul>\n"
-        "<ol>\n<li id=\"c\">c</li>\n</ol>\n"))
+        "<ol>\n<li id=\"c\">c</li>\n</ol>\n")
+       ;; Nested low-level headlines produce a nested list.
+       ("* a\n** b\n*** c\n**** d\n"
+        ,($c "<ol>\n<li id=\"c\">c<br>\n"
+             "<ol>\n<li id=\"d\">d</li>\n</ol>\n</li>\n</ol>\n")
+        "<ol>\n<li id=\"d\">d</li>\n</ol>\n"))
      t '( :html-honor-ox-headline-levels t
           :headline-levels 2
           :html-headline-format-function
-          t-headline-default-format-function))))
+          t-headline-default-format-function)))
+  ;; Invalid CSS class on a low-level headline signals org-w3ctr-error.
+  ($e! (org-export-string-as
+        ($c "* a\n** b\n*** c\n:PROPERTIES:\n"
+            ":HTML_CONTAINER_CLASS: 1bad\n:END:\n")
+        'w3ctr t '(:with-toc nil :html-honor-ox-headline-levels t
+                             :headline-levels 2))
+       'org-w3ctr-error))
 
 (ert-deftest t--headline-container ()
   "Tests for `org-w3ctr--headline-container'."
@@ -8000,11 +8026,16 @@ COUNTER, a cons cell, has its car incremented on every call."
    #'t--headline-container
    '(("* abc\n:PROPERTIES:\n:HTML_CONTAINER: aside\n:END:\n" "aside"))
    t '(:html-container "section"))
-  ;; Invalid tag names signal org-w3ctr-error.
+  ;; Invalid tag names and non-strings signal org-w3ctr-error.
   (let ((hl (t-get-element "* abc" 'headline)))
-    (dolist (bad '("" "  " "123" "-div" "div>x" "div onclick=x"))
+    (dolist (bad '("" "  " "123" "-div" "div>x" "div onclick=x" div 42))
       ($e! (t--headline-container hl (list :html-container bad))
-           'org-w3ctr-error))))
+           'org-w3ctr-error)))
+  (let ((hl (t-get-element
+             "* abc\n:PROPERTIES:\n:HTML_CONTAINER: 1bad\n:END:\n"
+             'headline)))
+    ($e! (t--headline-container hl '(:html-container "section"))
+         'org-w3ctr-error)))
 
 (ert-deftest t--headline-self-link ()
   "Tests for `org-w3ctr--headline-self-link'."
@@ -8101,6 +8132,13 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($l (t--build-normal-headline nil nil nil)
           ($c "<section id=\"pid\">\n<div class=\"header-wrapper\">\n"
               "<h6>1. text</h6>\n<a href=\"#x\"></a>\n"
+              "</div>\n</section>\n")))
+    ;; Special characters in id are attribute-escaped.
+    (cl-letf (((symbol-function 't--reference)
+               (lambda (_h _i &optional _n) "a\"b")))
+      ($l (t--build-normal-headline nil nil nil)
+          ($c "<section id=\"a&quot;b\">\n<div class=\"header-wrapper\">\n"
+              "<h2>1. text</h2>\n<a href=\"#x\"></a>\n"
               "</div>\n</section>\n"))))
   ;; :PROPERTIES:\n:UNNUMBERED:t\n:CUSTOM_ID:1\n:END:\n
   (t-check-element-values
