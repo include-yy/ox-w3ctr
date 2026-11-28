@@ -339,12 +339,14 @@ It should return the complete HTML for the drawer.  The default is
 \"%s\" is replaced by the footnote link in references, or by the
 label in the footnotes section."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-footnote-separator ", "
   "Text used to separate consecutive footnote references."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-footnote-section-format-function
   #'t-footnote-section-default-format-function
@@ -506,6 +508,7 @@ and must return the HTML/MathML/SVG string, or nil to emit nothing."
     (css-property . "f")
     (css-selector . "k"))
   "Alist of (FACE . SLUG) pairs used to highlight code.
+
 A run of code in FACE becomes <span class=\"tok-SLUG\">; the colours
 of the slugs live in the stylesheet (see `org-w3ctr-fontify-palette').
 A SLUG is a lowercase letter followed by lowercase letters, digits
@@ -519,6 +522,7 @@ text gets no span.  Add your own pairs to
 
 (defcustom t-fontify-extra-faces nil
   "Alist of (FACE . SLUG) pairs consulted before `org-w3ctr-fontify-faces'.
+
 Use it to map a mode's own faces to existing slugs, or to new ones
 that your own stylesheet colours."
   :group 'org-export-w3ctr
@@ -527,6 +531,7 @@ that your own stylesheet colours."
 (defcustom t-fontify-lang-alist
   '(("json" :font-lock js-json-mode))
   "Alist of (LANG . PLIST) choosing how each engine handles LANG.
+
 LANG is a source block language as written in the Org file.  The
 PLIST key `:font-lock' names the major mode the `font-lock' engine uses
 for LANG, overriding `org-src-get-lang-mode'; `:shiki' names the
@@ -562,6 +567,7 @@ built-in `js-json-mode'."
     ("n" :light "#0550ae" :dark "#79c0ff")
     ("op" :light "#a0361c" :dark "#ff9b80"))
   "Colours of the highlighting slugs, for the light and dark themes.
+
 Each entry is (SLUG :light COLOR :dark COLOR [:style STYLES]): SLUG
 is a slug of `org-w3ctr-fontify-faces', each COLOR a \"#rrggbb\"
 string, and STYLES a list of `bold' and `italic'.  The stylesheet
@@ -573,7 +579,7 @@ every code background of assets/style.css, in both themes."
   :group 'org-export-w3ctr
   :type '(alist :key-type string :value-type plist))
 
-;;;; Fontify: font-lock engine
+;;;; Fontify font-lock engine
 (defcustom t-fontify-face-fallback 'inherit
   "What to do with a face that has no slug of its own.
 
@@ -593,6 +599,7 @@ Faces left without a slug are listed by
 
 (defcustom t-fontify-run-mode-hooks nil
   "Non-nil means run the major mode's hooks when fontifying code.
+
 By default the mode's hooks are delayed (see the function
 `delay-mode-hooks'), so personal hooks (LSP clients, linters, minor
 modes that add faces) can neither slow the export nor make its
@@ -603,6 +610,7 @@ output depend on the machine."
 
 (defcustom t-fontify-reuse-buffer nil
   "Non-nil means reuse one buffer per major mode when fontifying code.
+
 By default each source block gets a fresh temporary buffer, so
 buffer-local state and overlays cannot leak across blocks.  When
 non-nil, `org-w3ctr--font-lock-tokens' keeps one buffer per major mode
@@ -619,6 +627,7 @@ highlighting setup."
 ;;;; Fontify shiki engine
 (defcustom t-fontify-shiki-timeout 10
   "Seconds the `shiki' engine waits for the helper's answer.
+
 Must be a positive number, or nil to use the helper's default timeout.
 A request that takes longer counts as a failure of the engine (see
 `org-w3ctr-fontify-on-error'), which is then not used again in that
@@ -629,7 +638,8 @@ process and loads Shiki."
                  (restricted-sexp
                   :tag "Positive number"
                   :match-alternatives
-                  ((lambda (v) (and (numberp v) (> v 0)))))))
+                  ((lambda (v) (and (numberp v) (> v 0))))))
+  :safe (lambda (v) (or (null v) (and (numberp v) (> v 0)))))
 
 ;;;; Fontify dispatcher
 (defcustom t-fontify-method 'font-lock
@@ -653,7 +663,10 @@ example `#+begin_src python :fontify nil'."
   :type '(choice (const :tag "Emacs font-lock" font-lock)
                  (const :tag "No highlighting" nil)
                  (symbol :tag "Engine")
-                 (repeat :tag "Engines, in order" symbol)))
+                 (repeat :tag "Engines, in order" symbol))
+  :safe (lambda (v)
+          (or (symbolp v)
+              (and (proper-list-p v) (seq-every-p #'symbolp v)))))
 
 (defcustom t-fontify-engines
   '((font-lock :fontify t--font-lock-tokens :available always)
@@ -661,6 +674,7 @@ example `#+begin_src python :fontify nil'."
            :hint "it needs node on `exec-path' and \"npm ci\" in jstools/")
     (plain :fontify t--plain-tokens :available always))
   "Alist of (NAME . PLIST): the highlighting engines.
+
 NAME is the symbol used in `org-w3ctr-fontify-method'.  PLIST holds:
 - `:fontify', a function called with CODE, LANG and INFO that
   returns a list of (CLASS . TEXT) tokens covering CODE (see
@@ -678,6 +692,7 @@ The `plain' engine is the last resort and must stay registered."
 
 (defcustom t-fontify-on-error 'warn
   "What to do when a highlighting engine fails on a block.
+
 A failure is the engine signaling an error, or returning tokens
 that do not match the code.  Either way the engine is not used
 again for the rest of the export, and the block goes to the next
@@ -692,6 +707,7 @@ engine of the method (in the end to `plain'), unless the value is:
 
 (defcustom t-fontify-unknown-language 'warn
   "What to do when every engine of the method declines a language.
+
 The block is then exported as plain escaped text, unless the value
 is:
 - `error': signal `org-w3ctr-error' naming the language and block.
@@ -712,20 +728,19 @@ A block without a language never counts."
     (underline . "<u>%s</u>")
     (verbatim . "<code>%s</code>"))
   "Association list mapping Org markup types to HTML format strings.
+
 Each element in the alist should have the form (TYPE . FORMAT).
 
-TYPE is a symbol representing the markup, which must be one of
-symbol `bold', symbol `code', symbol `italic',
-symbol `strike-through', symbol `underline', or symbol `verbatim'.
+TYPE is a markup symbol: `bold', `code', `italic',
+`strike-through', `underline', or `verbatim'.
 
-FORMAT is a string used to wrap the text, where \"%s\" is
-replaced by the text content itself.
-
-If no entry exists for a given markup type, the text is exported
-without any special HTML tags."
+FORMAT is a string used to wrap the text (where \"%s\" is replaced
+by the text content), or nil to emit the text without a tag.  A
+missing entry also emits the text without a tag."
   :group 'org-export-w3ctr
   :type '(alist :key-type (symbol :tag "Markup type")
-                :value-type (string :tag "Format string"))
+                :value-type (choice (const :tag "Plain text" nil)
+                                    (string :tag "Format string")))
   :options '(bold code italic strike-through underline verbatim))
 
 ;;;; Timestamp
@@ -750,6 +765,18 @@ without any special HTML tags."
       string-end)
   "Regular expression for matching supported time zone designators.")
 
+(defun t--timezone-string-p (value)
+  "Return non-nil if VALUE is a valid time zone designator string.
+
+Leading and trailing white space is ignored and matching is
+case-insensitive against `org-w3ctr-timezone-regex'."
+  (declare (ftype (function (t) boolean))
+           (side-effect-free t) (important-return-value t))
+  (and (stringp value)
+       (let ((case-fold-search t))
+         (string-match-p t-timezone-regex (string-trim value)))
+       t))
+
 (defcustom t-timezone "local"
   "Specify the assumed time zone for timestamps in the source Org file.
 
@@ -766,16 +793,11 @@ For more details on numeric offset formats, see IETF RFC 2822
 \(URL `https://datatracker.ietf.org/doc/html/rfc2822')."
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
-         (let ((case-fold-search t))
-           (unless (and (stringp value)
-                        (string-match-p t-timezone-regex (string-trim value)))
-             (error "Invalid time zone designator: %s" value))
-           (set-default symbol value)))
+         (unless (t--timezone-string-p value)
+           (error "Invalid time zone designator: %s" value))
+         (set-default symbol value))
   :type 'string
-  :safe (lambda (v)
-          (and (stringp v)
-               (let ((case-fold-search t))
-                 (string-match-p t-timezone-regex (string-trim v))))))
+  :safe #'t--timezone-string-p)
 
 (defcustom t-export-timezone nil
   "Specify the target time zone for timestamps in the exported file.
@@ -791,19 +813,11 @@ specified by this variable for the final output.  The string must
 follow the same format rules as the option `org-w3ctr-timezone'."
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
-         (when value
-           (let ((case-fold-search t))
-             (unless (and (stringp value)
-                          (string-match-p t-timezone-regex
-                                          (string-trim value)))
-               (error "Invalid time zone designator: %s" value))))
+         (when (and value (not (t--timezone-string-p value)))
+           (error "Invalid time zone designator: %s" value))
          (set-default symbol value))
   :type '(choice (const nil) string)
-  :safe (lambda (v)
-          (or (null v)
-              (and (stringp v)
-                   (let ((case-fold-search t))
-                     (string-match-p t-timezone-regex (string-trim v)))))))
+  :safe (lambda (v) (or (null v) (t--timezone-string-p v))))
 
 (defcustom t-timestamp-formats 'raw
   "Control how timestamp text is formatted inside <time> elements.
@@ -839,6 +853,7 @@ plain text)."
 ;;;; Link and Images
 (defcustom t-link-org-files-as-html t
   "Non-nil means make file links to \"file.org\" point to \"file.html\".
+
 When nil, the links still point to the plain \".org\" file.
 
 See `org-html-link-org-files-as-html' for more information."
@@ -848,6 +863,7 @@ See `org-html-link-org-files-as-html' for more information."
 
 (defcustom t-inline-images t
   "Non-nil means inline images into exported HTML pages.
+
 When nil, an anchor with href is used to link to the image."
   :group 'org-export-w3ctr
   :type 'boolean
@@ -859,7 +875,7 @@ When nil, an anchor with href is used to link to the image."
   "Image file extensions that can be inlined into HTML.
 
 These are the formats modern browsers render natively in an
-`<img>' element.")
+<img> element.")
 
 (defconst t-inline-image-path-regexp
   (concat (regexp-opt t-inline-image-extensions)
@@ -887,28 +903,16 @@ See `org-html-inline-image-rules' for more information."
   :safe #'stringp)
 
 (defcustom t-honor-ox-external-links t
-  "Non-nil means resolve cross-file links through org-publish, as ox-html does.
+  "Non-nil means resolve cross-file links via org-publish, like ox-html.
 
-When non-nil (the default), cross-file file: links with a search option
-are resolved via `org-publish-resolve-external-link', which requires an
-org-publish project with a populated :crossrefs cache.  This matches
-ox-html behavior.
+When non-nil (the default), cross-file `file:' links with a search
+option are resolved through `org-publish-resolve-external-link'
+\(requiring an org-publish project with a populated `:crossrefs'
+cache).
 
-When nil, only the #custom-id form is preserved as a fragment for
-cross-file file: links (other search options such as *heading or
-untyped fuzzy are ignored, linking to the file without a fragment),
-and cross-file id: links signal an error.  This removes the dependency
-on org-publish and favors explicit CUSTOM_ID properties.
-
-In compatibility mode a cross-file link to an *unnamed* element resolves
-only when the target file is published before the linking file: the
-reference fallback does not read :crossrefs, so re-publishing the target
-re-mints its fallback ids.  Give the target a CUSTOM_ID and link with
-the #custom-id form for stable, order-independent links.
-
-The default is non-nil so that existing org-publish projects continue to
-work without changes.  The plan is to flip the default to nil in 1.0.0
-with a NEWS entry."
+When nil, only the `#custom-id' search option is kept as a fragment
+\(other search options are ignored), and cross-file `id:' links
+signal `org-w3ctr-error'."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
