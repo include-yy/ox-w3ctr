@@ -1051,11 +1051,10 @@ and `org-w3ctr--headline-self-link'."
 (defcustom t-file-timestamp-function #'t-file-timestamp-default-function
   "Function to generate the file timestamp for the HTML head comment.
 
-This function should take INFO as the only argument and return a
-string representing the timestamp.
-
-The default value is `org-w3ctr-file-timestamp-default-function',
-which generates timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
+This function takes INFO as its only argument and returns a timestamp
+string, or nil to omit the comment.  When nil,
+`org-w3ctr-file-timestamp-default-function' is used, which generates
+timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -1110,16 +1109,17 @@ https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
   "Form that is used to produce <meta> tags in the HTML head.
 
 This can be either:
-- A list where each item is a list with the form of (NAME VALUE CONTENT)
-  to be passed to `org-w3ctr--build-meta-entry'.  Any nil items are
-  ignored.
+- A list where each item has the form (LABEL IDENTITY &optional CONTENT)
+  to be passed to `org-w3ctr--build-meta-entry' (CONTENT may be nil or
+  omitted).  Any nil items are ignored.
 - A function that takes the INFO plist as single argument and returns
   such a list of items."
   :group 'org-export-w3ctr
   :type '(choice
           (repeat (list (string :tag "Meta label")
-                        (string :tag "label value")
-                        (string :tag "Content value")))
+                        (string :tag "Label value")
+                        (choice (const :tag "None" nil)
+                                (string :tag "Content value"))))
           function))
 
 ;;;; Math
@@ -1232,16 +1232,15 @@ and not whitespace-only, it takes precedence over
   :type '(choice string (const nil)))
 
 (defcustom t-style-file (file-name-concat t--dir "assets" "style.css")
-  "Path to a CSS file to load styles from.
+  "Absolute file name of a CSS file to load styles from, or nil.
 
-This path must be *absolute*.  This option is used as a fallback when
-`org-w3ctr-style' is empty.
+This option is used as a fallback when `org-w3ctr-style' is empty or
+blank; when nil as well, no default style is loaded.  Setting a new
+file name through Customize clears the cached CSS so the new file is
+loaded on the next export.
 
-When you set a new file path here, the cached CSS is automatically
-cleared to ensure the new file is loaded on the next export.
-
-The default value points to a `style.css' file inside the package's
-`assets' directory."
+The default points to `assets/style.css' inside the package
+directory."
   :group 'org-export-w3ctr
   :initialize #'custom-initialize-default
   :set (lambda (symbol value)
@@ -1249,7 +1248,7 @@ The default value points to a `style.css' file inside the package's
                      (and (stringp value)
                           (file-exists-p value)
                           (file-name-absolute-p value)))
-           (error "Invalid style file: %s" value))
+           (error "Invalid style file: %S" value))
          (set-default symbol value)
          ;; Refresh the cached CSS.
          (setq t--style-cache nil))
@@ -1264,7 +1263,8 @@ no links; see `org-w3ctr-home/up-format' for its format.  When
 this option is empty or blank, the `HOME' anchor falls back to
 `org-w3ctr-link-up', and the reverse also holds."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-link-up ""
   "URL for the `UP' link in the legacy navigation bar.
@@ -1274,7 +1274,8 @@ no links; see `org-w3ctr-home/up-format' for its format.  When
 this option is empty or blank, the `UP' anchor falls back to
 `org-w3ctr-link-home', and the reverse also holds."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-home/up-format
   "<nav id=\"navbar\">\n <a href=\"%s\"> UP </a>
@@ -1386,7 +1387,8 @@ shared SVG sprite or inline <svg>."
 See `format-time-string' for its components.  The default omits
 ox-html's %a weekday abbreviation on purpose."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-validation-link
   "<a href=\"https://validator.w3.org/check?uri=referer\">\
@@ -1463,7 +1465,8 @@ which derives its heading from the translation machinery
 \(`org-export-translate'), this is a plain string to set per
 installation."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-toc-headline-format-function
   #'t-toc-headline-default-format-function
@@ -1491,20 +1494,20 @@ emitted."
   :safe #'booleanp)
 
 (defcustom t-fixup-js ""
-  "JavaScript to inject before the closing </body> tag.
+  "Raw HTML script markup to inject before the closing </body> tag.
 
-When this is a non-blank string it overrides the `assets/fixup.js'
-shipped with the package; when it is empty, the exporter loads that
-file instead.  See `org-w3ctr--load-fixup-js'."
+Write complete elements such as <script>...</script>; the string is
+inserted verbatim without wrapping.  When non-blank, it overrides
+`assets/fixup.js' shipped with the package; when empty or blank, the
+exporter loads that file instead.  See `org-w3ctr--load-fixup-js'."
   :group 'org-export-w3ctr
   :type 'string)
 
 (defcustom t-coding-system 'utf-8-unix
   "Coding system for HTML export.
 
-UTF-8 is the de facto standard for modern web content.  The default
-value `utf-8-unix' is strongly recommended and should not be changed
-unless you have specific legacy system requirements."
+Must have MIME charset `utf-8'; other values signal `org-w3ctr-error'
+during export.  The default `utf-8-unix' is recommended."
   :group 'org-export-w3ctr
   :type '(radio (const utf-8-unix)
                 (const utf-8-dos)
@@ -1513,7 +1516,8 @@ unless you have specific legacy system requirements."
 
 ;;;; Misc
 (defcustom t-indent nil
-  "Non-nil means to indent the generated HTML.
+  "Non-nil means indent the generated HTML.
+
 Warning: non-nil may break indentation of source code blocks."
   :group 'org-export-w3ctr
   :type 'boolean

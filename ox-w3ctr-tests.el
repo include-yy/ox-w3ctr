@@ -9679,7 +9679,7 @@ Static check; see the comments for what it does not catch."
                      (nreverse acc))))
            ;; The same transcoders, in the order the source defines them.
            (expected (seq-filter (lambda (d) (member d short)) defs)))
-      (should (equal expected short)))))
+      ($l expected short))))
 
 (ert-deftest t-check-backend-option-order ()
   "The backend's `:options-alist' variables follow their definition order."
