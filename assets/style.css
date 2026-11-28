@@ -1792,7 +1792,7 @@ aside.example .marker>a.self-link{color:inherit}
     border: none;
 }
 
-pre > code.src {
+pre > code {
     display: block;
     padding: 1em;
     margin: .5em 0;
@@ -1801,13 +1801,8 @@ pre > code.src {
     background: rgba(0, 0, 0, 0.03);
 }
 
-code.src-inline {
-    padding: 0 .2em;
-    background: rgba(0, 0, 0, 0.03);
-}
-
 @media (prefers-color-scheme: dark) {
-    pre > code.src, code.src-inline {
+    pre > code {
         background: rgba(255, 255, 255, 0.05);
     }
 }

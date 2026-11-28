@@ -5093,8 +5093,8 @@ unless the author supplies attributes."
   (let* ((lang (org-element-property :language src-block))
          (body (t-fontify-code (t--code-text src-block) lang info src-block))
          (class (if (not lang) ""
-                    (format " class=\"src src-%s\""
-                            (t--encode-plain-text* lang))))
+                  (format " class=\"language-%s\""
+                          (t--encode-plain-text* lang))))
          (code (format "<code%s>%s</code>" class body))
          (caption (when-let* ((cap (org-export-get-caption src-block)))
                     (t--nw-trim (org-export-data cap info)))))
@@ -5109,9 +5109,9 @@ unless the author supplies attributes."
                   (t--make-attr__id* src-block info)
                   (if has-user-attrs "" " class=\"example\"")
                   (if (not id) ""
-                      (format (concat "<a class=\"self-link\" href=\"#%s\""
-                                      " aria-label=\"source block\"></a>\n")
-                              (t--encode-plain-text* id)))
+                    (format (concat "<a class=\"self-link\" href=\"#%s\""
+                                    " aria-label=\"source block\"></a>\n")
+                            (t--encode-plain-text* id)))
                   caption
                   code))
       (format "<div%s>\n<pre>%s</pre></div>"
@@ -5125,7 +5125,7 @@ unless the author supplies attributes."
   "Transcode an INLINE-SRC-BLOCK object from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return a single <code class=\"src-inline src-LANG\"> element (no
+Return a single <code class=\"language-LANG\"> element (no
 nesting), with the code, a missing `:value' defaulting to \"\",
 fontified bare by `org-w3ctr-fontify-code'."
   (declare (ftype (function (t t list) string))
@@ -5134,7 +5134,7 @@ fontified bare by `org-w3ctr-fontify-code'."
          (code (t-fontify-code
                 (or (org-element-property :value inline-src-block) "")
                 lang info inline-src-block)))
-    (format "<code class=\"src-inline src-%s\">%s</code>"
+    (format "<code class=\"language-%s\">%s</code>"
             (t--encode-plain-text* lang) code)))
 
 ;;; Objects

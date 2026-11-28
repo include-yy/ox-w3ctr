@@ -5765,26 +5765,26 @@ COUNTER, a cons cell, has its car incremented on every call."
                 "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
                 'w3ctr t)))
       (should (string-match-p
-               "<div>\n<pre><code class=\"src src-emacs-lisp\">" out))
+               "<div>\n<pre><code class=\"language-emacs-lisp\">" out))
       (should (string-match-p "tok-k" out)))
     ;; A block without a language gets a bare <code>.
     ($l (org-export-string-as "#+begin_src\n<x>\n#+end_src" 'w3ctr t)
         "<div>\n<pre><code>&lt;x&gt;</code></pre></div>\n<main>\n</main>\n")
     ;; INFO reaches `org-w3ctr-fontify-code'.
     (should (string-match-p
-             "<code class=\"src src-emacs-lisp\">(defun foo () 1)</code>"
+             "<code class=\"language-emacs-lisp\">(defun foo () 1)</code>"
              (org-export-string-as
               "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
               'w3ctr t '(:html-fontify-method nil))))
     ;; The code-reference labels are removed.
     (should (string-match-p
-             "<code class=\"src src-text\">x</code>"
+             "<code class=\"language-text\">x</code>"
              (org-export-string-as
               "#+begin_src text\nx (ref:a)\n#+end_src"
               'w3ctr t '(:html-fontify-method nil))))
     ;; LANG comes from the block header and is escaped in the class.
     (should (string-match-p
-             "<code class=\"src src-a&quot;b&lt;c\">x</code>"
+             "<code class=\"language-a&quot;b&lt;c\">x</code>"
              (org-export-string-as
               "#+begin_src a\"b<c\nx\n#+end_src"
               'w3ctr t '(:html-fontify-method nil))))
@@ -5894,7 +5894,7 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($l (org-export-string-as
              "#+begin_src nosuchlang\n<x>\n#+end_src" 'w3ctr t
              '(:html-fontify-unknown-language warn))
-            (concat "<div>\n<pre><code class=\"src src-nosuchlang\">&lt;x&gt;</code>"
+            (concat "<div>\n<pre><code class=\"language-nosuchlang\">&lt;x&gt;</code>"
                     "</pre></div>\n<main>\n</main>\n")))
       ($l warnings '("No fontify engine handles the nosuchlang code at line 1")))))
 
@@ -5914,9 +5914,9 @@ COUNTER, a cons cell, has its car incremented on every call."
   (let ((t--fontify-last-state nil))
     (let ((org-export-babel-evaluate nil))
       (let ((out (org-export-string-as "src_emacs-lisp{(+ 1 2)}" 'w3ctr t)))
-        (should (string-match-p "<code class=\"src-inline src-emacs-lisp\">" out))
+        (should (string-match-p "<code class=\"language-emacs-lisp\">" out))
         ;; Single wrapper: no nested <code>.
-        ($n (string-match-p "src-inline[^\"]*\"><code" out)))
+        ($n (string-match-p "language-[^\"]*\"><code" out)))
       ;; The per-file option applies to inline code too.
       ($n (string-match-p
            "tok-" (org-export-string-as
@@ -5932,15 +5932,15 @@ COUNTER, a cons cell, has its car incremented on every call."
             '(org-w3ctr-error "Unknown fontify method: bogus at line 2"))
       ;; An empty body, or a missing `:value', gives an empty <code>.
       (should (string-match-p
-               "<code class=\"src-inline src-emacs-lisp\"></code>"
+               "<code class=\"language-emacs-lisp\"></code>"
                (org-export-string-as "src_emacs-lisp{}" 'w3ctr t)))
       ($l (t-inline-src-block '(inline-src-block (:language "text")) nil
                               (t-test-fontify-info))
-          "<code class=\"src-inline src-text\"></code>")
+          "<code class=\"language-text\"></code>")
       ;; LANG is escaped: it comes from the inline header.
       (let ((out (org-export-string-as "src_\"><img/src=x>{y}" 'w3ctr t
                                        '(:html-fontify-unknown-language plain))))
-        (should (string-match-p "src-&quot;&gt;&lt;img/src=x&gt;" out))
+        (should (string-match-p "language-&quot;&gt;&lt;img/src=x&gt;" out))
         ($n (string-match-p "<img" out))))))
 
 ;;; Objects
