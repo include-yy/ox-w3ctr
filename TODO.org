@@ -5,8 +5,33 @@ Grouped by priority and action type (=Next= / =Design= / =Later= /
 
 ** Next
 
-Actionable engineering debt and clear fixes to pick up after the
-manual source walkthrough finishes.
+The next active track: settle the ReSpec vs Bikeshed subset, then
+prune and clean =assets/style.css= to match.
+
+*** Heading wrapper and self-link markup (ReSpec vs Bikeshed)    :html:css:
+
+=org-w3ctr-heading-default-format-function= currently wraps every
+normal heading in =<div class="header-wrapper">= with =<a
+class="self-link">= as a sibling after =<hN>=, which is the *ReSpec*
+pattern (as in =rdf12-concepts=): flex + =order: -1= places =§= to the
+left aligned to the heading baseline without putting =<a>= inside
+=<hN>= (cleaner accessible name), at the cost of an extra wrapper
+=<div>= around every heading -- even when =:html-self-link-headlines=
+is nil.
+
+The alternative is the *Bikeshed* pattern (as in =CSP3=): no wrapper
+=<div>=; emit =<hN class="heading">...<a class="self-link"></a></hN>=
+and position =§= to the left with =position: relative= / =absolute=.
+Bikeshed's static-compiler model is closer to =ox-w3ctr='s overall
+architecture, and =assets/style.css= (L1714--1779) currently carries
+spliced rules from both patterns.  When revisiting =assets/style.css=
+cleanup, decide between:
+
+- Keeping the ReSpec =.header-wrapper= (optionally omitting the =<div>=
+  when =self-link= is nil, scoping =left: -.5em= to
+  =.header-wrapper > :is(h2,h3,h4,h5,h6)=); or
+- Switching to the Bikeshed wrapper-less =<hN class="heading">= markup
+  and dropping the ReSpec =.header-wrapper= CSS rules.
 
 *** CSS cleanup in =assets/style.css=                                 :css:
 
@@ -62,14 +87,26 @@ string options with =*-function= ones.  Known divergences to chart:
   gets =class="example"= only when the author supplies no attributes
   (the class positions the self-link and hosts the caption box).
 
-*** Descriptionless internal links                                   :link:
+** Later
 
-=org-w3ctr--link-to-headline= synthesizes the section number (or
-exported title when unnumbered) for a link without a description,
-while =org-w3ctr--link-target= emits the placeholder ="No description
-for this link"=.  Revisit if explicit descriptions are ever required
-across internal links; also note =org-w3ctr--link-org-files-as-html=
-rewrites =.org= only (not =.org.gpg= as ox-html does).
+Deferred features, architectural cleanups, and low-priority notes;
+pick up when a concrete need shows up.
+
+*** Cross-file link resolution (crossrefs)                           :link:
+
+Resolving =[[file:other.org::*Heading]]= / =::#custom-id= to an anchor
+in the target document, with a project-scoped persistent cache.
+
+*** Drop the =ox-publish= dependency                                 :link:
+
+Replace =org-publish-file-relative-name=,
+=org-publish-resolve-external-link=, and =org-publish-org-to= with
+local implementations.
+
+*** Dependency analysis                                              :arch:
+
+Charting how far ox-w3ctr leans on Org and mapping the internal =t-*=
+call graph.  Final global-optimization and cleanup task.
 
 *** Self-links on literal blocks (deferred)                        :blocks:
 
@@ -84,30 +121,14 @@ line-number switch control presentation.  Placement is the
 block; do not use =.marker=, because the automatic =.example::before=
 counter would duplicate the example number.
 
-*** Heading wrapper and self-link markup (ReSpec vs Bikeshed)    :html:css:
+*** Descriptionless internal links                                   :link:
 
-=org-w3ctr-heading-default-format-function= currently wraps every
-normal heading in =<div class="header-wrapper">= with =<a
-class="self-link">= as a sibling after =<hN>=, which is the *ReSpec*
-pattern (as in =rdf12-concepts=): flex + =order: -1= places =§= to the
-left aligned to the heading baseline without putting =<a>= inside
-=<hN>= (cleaner accessible name), at the cost of an extra wrapper
-=<div>= around every heading -- even when =:html-self-link-headlines=
-is nil.
-
-The alternative is the *Bikeshed* pattern (as in =CSP3=): no wrapper
-=<div>=; emit =<hN class="heading">...<a class="self-link"></a></hN>=
-and position =§= to the left with =position: relative= / =absolute=.
-Bikeshed's static-compiler model is closer to =ox-w3ctr='s overall
-architecture, and =assets/style.css= (L1714--1779) currently carries
-spliced rules from both patterns.  When revisiting =assets/style.css=
-cleanup, decide between:
-
-- Keeping the ReSpec =.header-wrapper= (optionally omitting the =<div>=
-  when =self-link= is nil, scoping =left: -.5em= to
-  =.header-wrapper > :is(h2,h3,h4,h5,h6)=); or
-- Switching to the Bikeshed wrapper-less =<hN class="heading">= markup
-  and dropping the ReSpec =.header-wrapper= CSS rules.
+=org-w3ctr--link-to-headline= synthesizes the section number (or
+exported title when unnumbered) for a link without a description,
+while =org-w3ctr--link-target= emits the placeholder ="No description
+for this link"=.  Revisit if explicit descriptions are ever required
+across internal links; also note =org-w3ctr--link-org-files-as-html=
+rewrites =.org= only (not =.org.gpg= as ox-html does).
 
 *** Src-block feature gaps vs ox-html                                 :src:
 
@@ -138,10 +159,6 @@ output.  If a repeated need appears, the only shape that keeps
 "explicit over implicit" is an opt-in alist (key -> format string or
 function) consulted after the built-in branches, with a test for
 mapped/unmapped/built-in precedence.
-
-** Later
-
-Low-priority notes and ideas; pick up only when a real need shows up.
 
 *** Export entry fast path                                           :perf:
 
@@ -238,33 +255,16 @@ the back-end derives a stable id -- see Non-goals.
 
 ** Non-goals
 
-Explicitly out of scope for now.
-
-*** Dependency analysis
-
-Charting how far ox-w3ctr leans on Org and mapping the internal =t-*=
-call graph.  Final global-optimization and cleanup task.
-
-*** Cross-file link resolution (crossrefs)
-
-Resolving =[[file:other.org::*Heading]]= / =::#custom-id= to an anchor
-in the target document, with a project-scoped persistent cache.  Not
-now.
-
-*** Drop the =ox-publish= dependency
-
-Replace =org-publish-file-relative-name=,
-=org-publish-resolve-external-link=, and =org-publish-org-to= with
-local implementations.  Not now.
+Deliberately out of scope by design.
 
 *** Option validation
 
 Checking user-supplied export options and customization variables for
 well-formedness.  Options are trusted as given; the back-end verifies
 explicit markup only (attributes, block parameters), where malformed
-input fails loudly.  Not now.  Exception: the fontify options (face
-tables, palette, policies, face fallback, language alist) are already
-checked, since a typo there silently changes the highlighting.
+input fails loudly.  Exception: the fontify options (face tables,
+palette, policies, face fallback, language alist) are already checked,
+since a typo there silently changes the highlighting.
 
 *** Own export framework: streaming renderer / half-parser
 
@@ -273,7 +273,7 @@ Replace =org-export-data='s bottom-up string building and
 partial parser.  It means dropping the Org export contract -- filters,
 =:exported-data= memoization, string-returning transcoders, re-entrant
 call sites -- not optimising =org-export-data=.  The ceiling is small:
-the backend is only ~12% of export time (see next item).  Not now.
+the backend is only ~12% of export time (see next item).
 
 *** Backend micro-optimization
 
