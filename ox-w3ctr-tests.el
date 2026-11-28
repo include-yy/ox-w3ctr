@@ -1101,6 +1101,14 @@ decoding returns the input."
     ($e! (t--make-attr__id* el (list :html-prefer-user-labels nil))
          'org-w3ctr-error)))
 
+(ert-deftest t--fix-class-name ()
+  "Tests for `org-w3ctr--fix-class-name'."
+  ($l (t--fix-class-name "TODO") "TODO")
+  ($l (t--fix-class-name "a_1") "a_1")
+  ($l (t--fix-class-name "WAIT-1") "WAIT_1")
+  ($l (t--fix-class-name "a@b%c#d") "a_b_c_d")
+  ($l (t--fix-class-name "") ""))
+
 ;;;; File and regexp
 
 (ert-deftest t--load-file ()
@@ -2612,7 +2620,8 @@ int a = 1;</code></p>\n</details>")
 (ert-deftest t-html5-elements ()
   "Tests for `org-w3ctr-html5-elements'."
   ;; The list is the compatibility target: it must stay identical to
-  ;; ox-html's, which the package already requires.
+  ;; ox-html's.
+  (require 'ox-html)
   ($l t-html5-elements org-html-html5-elements))
 
 (ert-deftest t--special-block-builtin ()
@@ -7652,26 +7661,28 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t-section ()
   "Tests for `org-w3ctr-section'."
-  (cl-letf (((symbol-function 't-section)
-             (lambda (_s c _info) c)))
-    (t-check-element-values
-     #'t-section
-     '(("123" "<p>123</p>\n")
-       ("\n\n123" "<p>123</p>\n")
-       ("#+a:b\n\n123 234\n\n" "<p>123 234</p>\n")
-       ("123\n* test\n\n456" "<p>456</p>\n" "<p>123</p>\n"))))
   (t-check-element-values
    #'t-section
-   '(("* test1\n\n123 234\n\n" "<p>123 234</p>\n")
+   '(("123" nil)
+     ("\n\n123" nil)
+     ("#+a:b\n\n123 234\n\n" nil)
+     ("123\n* test\n\n456" "<p>456</p>\n" nil)
+     ("* test1\n\n123 234\n\n" "<p>123 234</p>\n")
      ("* test2\n\n#+a:b\n\n456\n" "<p>456</p>\n")
      ("* test3\n\n\n\n" . nil)))
   ;; The zeroth section returns nil and stores its output in INFO.
   (let* ((sec (t-get-element "zeroth" 'section))
-         (info '(:html-toc-element ul)))
-    ($n (t-section sec "<p>567</p>
-" info))
-    ($l (t--pget info :zeroth-section-output) "<p>567</p>
-")))
+         (info (list :html-toc-element 'ul)))
+    ($n (t-section sec "<p>567</p>\n" info))
+    ($l (t--pget info :zeroth-section-output) "<p>567</p>\n"))
+  ;; End-to-end: the zeroth section precedes <main>.
+  ($l (org-export-string-as
+       ($c "123\n* test\n:PROPERTIES:\n:CUSTOM_ID: t\n"
+           ":UNNUMBERED: t\n:END:\n456")
+       'w3ctr t '(:with-toc nil :html-self-link-headlines nil))
+      ($c "<p>123</p>\n<main>\n<section id=\"t\">\n"
+          "<div class=\"header-wrapper\">\n<h2>test</h2>\n</div>\n"
+          "<p>456</p>\n</section>\n</main>\n")))
 
 ;;;; Todo
 
@@ -7679,6 +7690,8 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr-todo-default-format-function'."
   ($l (t-todo-default-format-function "TODO" nil)
       "<span class=\"todo TODO\">TODO</span>")
+  ($l (t-todo-default-format-function "WAIT-1" nil)
+      "<span class=\"todo WAIT_1\">WAIT-1</span>")
   (let ((org-done-keywords '("DONE")))
     ($l (t-todo-default-format-function
          "DONE" '(:html-todo-kwd-class-prefix "p-"))
@@ -7686,7 +7699,7 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--todo ()
   "Tests for `org-w3ctr--todo'."
-  ($l (t--todo nil nil) nil)
+  ($n (t--todo nil nil))
   ($l (t--todo "TODO" nil)
       "<span class=\"todo TODO\">TODO</span>")
   ($l (t--todo "TODO" '(:html-todo-kwd-class-prefix "org1-"))
@@ -7715,11 +7728,13 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr-priority-default-format-function'."
   ($n (t-priority-default-format-function nil nil))
   ($l (t-priority-default-format-function 65 nil)
-      "<span class=\"priority\">[A]</span>"))
+      "<span class=\"priority\">[A]</span>")
+  ($l (t-priority-default-format-function 1 nil)
+      "<span class=\"priority\">[1]</span>"))
 
 (ert-deftest t--priority ()
   "Tests for `org-w3ctr--priority'."
-  ($l (t--priority nil nil) nil)
+  ($n (t--priority nil nil))
   ($l (t--priority 66 nil)
       "<span class=\"priority\">[B]</span>")
   ($l (t--priority 65 nil)
@@ -7738,11 +7753,13 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr-tags-default-format-function'."
   ($n (t-tags-default-format-function nil nil))
   ($l (t-tags-default-format-function '("x") '(:html-tag-class-prefix "t-"))
-      "<span class=\"tag\"><span class=\"t-x\">x</span></span>"))
+      "<span class=\"tag\"><span class=\"t-x\">x</span></span>")
+  ($l (t-tags-default-format-function '("a@b") '(:html-tag-class-prefix "t-"))
+      "<span class=\"tag\"><span class=\"t-a_b\">a@b</span></span>"))
 
 (ert-deftest t--tags ()
   "Tests for `org-w3ctr--tags'."
-  ($l (t--tags nil nil) nil)
+  ($n (t--tags nil nil))
   ($l (t--tags '("a") nil)
       "<span class=\"tag\"><span class=\"a\">a</span></span>")
   ($l (t--tags '("a" "b") nil)

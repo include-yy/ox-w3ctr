@@ -79,7 +79,6 @@
 (require 'url-util)
 (require 'ox)
 (require 'ox-publish)
-(require 'ox-html)
 
 ;;;; Fundamental utilities
 (defconst t-version "0.2.25"
@@ -1996,6 +1995,15 @@ syntax."
   (if (org-element-property :attr__ element)
       (t--make-attr__id element info named-only)
     (t--make-attr_html element info named-only)))
+
+(defun t--fix-class-name (kwd)
+  "Turn KWD into a valid CSS class name fragment.
+
+Replace any character outside ASCII letters, digits, and \"_\"
+with \"_\"."
+  (declare (ftype (function (string) string))
+           (pure t) (important-return-value t))
+  (replace-regexp-in-string "[^a-zA-Z0-9_]" "_" kwd nil t))
 
 ;;;; File and regexp
 
@@ -6045,10 +6053,8 @@ LINK's protocol and `:type'."
 
 ;;;; Section
 
-;; Malformed headlines (for example, ** before *) are exported as-is:
-;; the heading level and section numbering reflect the source, not
-;; a normalized hierarchy.  Both ox-html and ox-w3ctr behave the
-;; same way -- this is a feature, not a bug.
+;; Malformed headline levels (e.g., ** before *) are exported as-is,
+;; matching ox-html.
 (defun t-section (section contents info)
   "Transcode a SECTION element from Org to HTML.
 
@@ -6063,9 +6069,10 @@ template can place it before the table of contents."
            (important-return-value t))
   ;; normal section
   (if (org-element-lineage section 'headline) contents
-    ;; The zeroth section holds the file-level property drawer (for
-    ;; example, file `:ID:' for org-id); it is not wrapped in an HTML
-    ;; container and the drawer is dropped from the output.
+    ;; The zeroth section holds the leading content before the first
+    ;; headline (including any file-level property drawer, for example
+    ;; file `:ID:' for org-id); it is not wrapped in an HTML container
+    ;; and the drawer is dropped from the output.
     (prog1 nil (t--pput info :zeroth-section-output contents))))
 
 ;;;; Todo
@@ -6080,14 +6087,13 @@ template can place it before the table of contents."
   "Format TODO keyword as a <span> with status-based CSS class.
 
 TODO is the keyword string.  INFO is the info plist.  Return a
-<span> element matching `org-html--todo' output format:
-class=\"status prefix+keyword\"."
+<span> element with class=\"status prefix+keyword\"."
   (declare (ftype (function (string list) string))
            (important-return-value t))
   (format "<span class=\"%s %s%s\">%s</span>"
           (if (member todo org-done-keywords) "done" "todo")
           (or (t--pget info :html-todo-kwd-class-prefix) "")
-          (org-html-fix-class-name todo)
+          (t--fix-class-name todo)
           todo))
 
 (defun t--todo (todo info)
@@ -6112,10 +6118,11 @@ Return the formatted HTML string, or nil when TODO is nil."
 ;; - :html-priority-format-function (`org-w3ctr-priority-format-function')
 
 (defun t-priority-default-format-function (priority _info)
-  "Format PRIORITY as a <span> matching `org-html--priority' output.
+  "Format PRIORITY as a <span> element.
 
 PRIORITY is the priority number or character, or nil.  INFO is the
-info plist (unused).  Return a <span> element with class=\"priority\"."
+info plist (unused).  Return a <span> element with
+class=\"priority\", or nil when PRIORITY is nil."
   (declare (ftype (function ((or null fixnum) list) (or null string)))
            (important-return-value t))
   (and priority
@@ -6143,11 +6150,12 @@ is nil."
 ;; - :html-tag-class-prefix (`org-w3ctr-tag-class-prefix')
 
 (defun t-tags-default-format-function (tags info)
-  "Format TAGS matching `org-html--tags' output.
+  "Format TAGS as a <span> element.
 
 TAGS is a list of tag strings.  INFO is the info plist.  Return a
 <span> element with class=\"tag\", wrapping each tag in a <span>
-with a class based on `:html-tag-class-prefix' and the tag name."
+with a class based on `:html-tag-class-prefix' and the tag name,
+or nil when TAGS is empty."
   (declare (ftype (function (list list) (or null string)))
            (important-return-value t))
   (when tags
@@ -6156,7 +6164,7 @@ with a class based on `:html-tag-class-prefix' and the tag name."
               (mapconcat
                (lambda (tag)
                  (format "<span class=\"%s\">%s</span>"
-                         (concat prefix (org-html-fix-class-name tag)) tag))
+                         (concat prefix (t--fix-class-name tag)) tag))
                tags "&#xa0;")))))
 
 (defun t--tags (tags info)
