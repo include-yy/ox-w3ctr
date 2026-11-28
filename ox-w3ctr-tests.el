@@ -6973,40 +6973,27 @@ COUNTER, a cons cell, has its car incremented on every call."
 (ert-deftest t--format-ts-datetime ()
   "Tests for `org-w3ctr--format-ts-datetime'."
   (let* ((info '(:html-timezone 28800 :html-export-timezone 0))
-         (ts0 (t-get-parsed-elements "[1900-01-01]" 'timestamp))
-         (ts1 (t-get-parsed-elements "[2025-06-17 16:49]" 'timestamp))
-         (ts2 (t-get-parsed-elements "[2038-01-01]" 'timestamp))
-         (ts3 (t-get-parsed-elements
-               "[2025-06-17]--[2035-06-17]" 'timestamp))
-         (ts4 (t-get-parsed-elements
+         (ts0 (t-get-element "[1900-01-01]" 'timestamp))
+         (ts1 (t-get-element "[2025-06-17 16:49]" 'timestamp))
+         (ts2 (t-get-element "[2038-01-01]" 'timestamp))
+         (ts3 (t-get-element "[2025-06-17]--[2035-06-17]" 'timestamp))
+         (ts4 (t-get-element
                "[2025-01-01 18:00]--[2026-01-01 15:00]" 'timestamp))
-         (ts5 (t-get-parsed-elements
-               "<2022-06-07>--<2022-06-08 21:00>" 'timestamp))
-         (ts6 (t-get-parsed-elements
-               "[2022-06-07 09:00]--[2022-06-08]" 'timestamp)))
+         (ts5 (t-get-element "<2022-06-07>--<2022-06-08 21:00>" 'timestamp))
+         (ts6 (t-get-element "[2022-06-07 09:00]--[2022-06-08]" 'timestamp)))
     (when (eq system-type 'windows-nt)
-      ($e!l (t--format-ts-datetime (nth 0 ts0) info)
+      ($e!l (t--format-ts-datetime ts0 info)
             '(org-w3ctr-error "Invalid timestamp: [1900-01-01]")))
-    ($l (t--format-ts-datetime (nth 0 ts1) info)
-        " datetime=\"2025-06-17T08:49Z\"")
-    ($l (t--format-ts-datetime (nth 0 ts2) info)
-        " datetime=\"2038-01-01\"")
-    ($l (t--format-ts-datetime (nth 0 ts3) info)
-        " datetime=\"2025-06-17\"")
-    ($l (t--format-ts-datetime (nth 0 ts3) info t)
-        " datetime=\"2035-06-17\"")
-    ($l (t--format-ts-datetime (nth 0 ts4) info)
-        " datetime=\"2025-01-01T10:00Z\"")
-    ($l (t--format-ts-datetime (nth 0 ts4) info t)
-        " datetime=\"2026-01-01T07:00Z\"")
-    ($l (t--format-ts-datetime (nth 0 ts5) info)
-        " datetime=\"2022-06-07\"")
-    ($l (t--format-ts-datetime (nth 0 ts5) info t)
-        " datetime=\"2022-06-08T13:00Z\"")
-    ($l (t--format-ts-datetime (nth 0 ts6) info)
-        " datetime=\"2022-06-07T01:00Z\"")
-    ($l (t--format-ts-datetime (nth 0 ts6) info t)
-        " datetime=\"2022-06-08T01:00Z\"")))
+    ($l (t--format-ts-datetime ts1 info) " datetime=\"2025-06-17T08:49Z\"")
+    ($l (t--format-ts-datetime ts2 info) " datetime=\"2038-01-01\"")
+    ($l (t--format-ts-datetime ts3 info) " datetime=\"2025-06-17\"")
+    ($l (t--format-ts-datetime ts3 info t) " datetime=\"2035-06-17\"")
+    ($l (t--format-ts-datetime ts4 info) " datetime=\"2025-01-01T10:00Z\"")
+    ($l (t--format-ts-datetime ts4 info t) " datetime=\"2026-01-01T07:00Z\"")
+    ($l (t--format-ts-datetime ts5 info) " datetime=\"2022-06-07\"")
+    ($l (t--format-ts-datetime ts5 info t) " datetime=\"2022-06-08T13:00Z\"")
+    ($l (t--format-ts-datetime ts6 info) " datetime=\"2022-06-07T01:00Z\"")
+    ($l (t--format-ts-datetime ts6 info t) " datetime=\"2022-06-08T01:00Z\"")))
 
 (ert-deftest t--interpret-timestamp ()
   "Tests for `org-w3ctr--interpret-timestamp'."
@@ -7293,13 +7280,7 @@ COUNTER, a cons cell, has its car incremented on every call."
 (ert-deftest t-inline-image-p ()
   "Tests for `org-w3ctr-inline-image-p'."
   (let* ((info '(:html-inline-image-rules (("file" . "\\.png\\'"))))
-         (p (lambda (s)
-              (with-temp-buffer
-                (org-mode)
-                (insert s)
-                (t-inline-image-p
-                 (t-parse1 'link)
-                 info)))))
+         (p (lambda (s) (t-inline-image-p (t-get-element s 'link) info))))
     ($s (funcall p "[[file:img.png]]"))
     ($n (funcall p "[[https://example.com][ ]]"))
     ($n (funcall p "[[https://example.com][  x  ]]"))
@@ -7390,44 +7371,34 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--link-path ()
   "Tests for `org-w3ctr--link-path'."
-  ;; No search option: the path is returned unchanged.
-  (let* ((link (with-temp-buffer
-                 (org-mode) (insert "[[file:other.org]]") (t-parse1 'link)))
-         (info (list :html-link-org-files-as-html t :html-extension "html")))
-    ($l (t--link-path link info) "other.html"))
-  ;; Strict mode: #custom-id -> direct fragment.
-  (let* ((link (with-temp-buffer
-                 (org-mode) (insert "[[file:other.org::#cid]]")
-                 (t-parse1 'link)))
-         (info (list :html-honor-ox-external-links nil
-                     :html-link-org-files-as-html t :html-extension "html")))
-    ($l (t--link-path link info) "other.html#cid"))
-  ;; Non-`#' search options (*heading, fuzzy, etc.) are ignored when
-  ;; `:html-honor-ox-external-links' is nil.
-  (dolist (opt '("*heading" "fuzzy"))
-    (let* ((link (with-temp-buffer
-                   (org-mode) (insert (format "[[file:other.org::%s]]" opt))
-                   (t-parse1 'link)))
-           (info (list :html-honor-ox-external-links nil
-                       :html-link-org-files-as-html t :html-extension "html")))
-      ($l (t--link-path link info) "other.html")))
-  ;; Compatibility mode resolves through org-publish.
-  (let* ((link (with-temp-buffer
-                 (org-mode) (insert "[[file:other.org::*heading]]")
-                 (t-parse1 'link)))
-         (info (list :html-honor-ox-external-links t
-                     :html-link-org-files-as-html t :html-extension "html")))
+  (let ((strict (list :html-honor-ox-external-links nil
+                      :html-link-org-files-as-html t :html-extension "html"))
+        (compat (list :html-honor-ox-external-links t
+                      :html-link-org-files-as-html t :html-extension "html")))
+    ;; No search option: the path is returned unchanged.
+    ($l (t--link-path (t-get-element "[[file:other.org]]" 'link) strict)
+        "other.html")
+    ;; Strict mode: #custom-id -> direct fragment.
+    ($l (t--link-path (t-get-element "[[file:other.org::#cid]]" 'link) strict)
+        "other.html#cid")
+    ;; Non-`#' search options (*heading, fuzzy, etc.) are ignored when
+    ;; `:html-honor-ox-external-links' is nil.
+    (dolist (opt '("*heading" "fuzzy"))
+      ($l (t--link-path
+           (t-get-element (format "[[file:other.org::%s]]" opt) 'link) strict)
+          "other.html"))
+    ;; Compatibility mode resolves through org-publish.
     (cl-letf (((symbol-function 'org-publish-resolve-external-link)
                (lambda (option path &optional _prefer)
                  ($l option "*heading")
                  ($l path "other.org")
                  "FRAG")))
-      ($l (t--link-path link info) "other.html#FRAG")))
+      ($l (t--link-path (t-get-element "[[file:other.org::*heading]]" 'link)
+                        compat)
+          "other.html#FRAG")))
   ;; Non-file links get their protocol prefix and URL encoding.
-  (let ((link (with-temp-buffer
-                (org-mode) (insert "[[https://example.com/a b]]")
-                (t-parse1 'link))))
-    ($l (t--link-path link nil) "https://example.com/a%20b")))
+  ($l (t--link-path (t-get-element "[[https://example.com/a b]]" 'link) nil)
+      "https://example.com/a%20b"))
 
 (ert-deftest t--link-radio ()
   "Tests for `org-w3ctr--link-radio'."
@@ -7513,19 +7484,18 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--link-dispatch ()
   "Tests for `org-w3ctr--link-dispatch'."
-  ;; Strict mode rejects a cross-file id: link.
-  (let* ((link (with-temp-buffer
-                 (org-mode) (insert "[[id:xyz]]") (t-parse1 'link)))
-         (info (list :html-honor-ox-external-links nil
-                     :id-alist '(("xyz" . "other.org")))))
-    ($e! (t--link-dispatch link nil info) 'org-w3ctr-error))
-  ;; Compatibility mode builds the ID- fragment via org-w3ctr--link-to-file.
-  (let* ((link (with-temp-buffer
-                 (org-mode) (insert "[[id:xyz]]") (t-parse1 'link)))
-         (info (list :html-honor-ox-external-links t
-                     :html-link-org-files-as-html t :html-extension "html"
-                     :id-alist '(("xyz" . "other.org")))))
-    ($l (t--link-dispatch link "desc" info)
+  (let ((link (t-get-element "[[id:xyz]]" 'link)))
+    ;; Strict mode rejects a cross-file id: link.
+    ($e! (t--link-dispatch link nil
+                           (list :html-honor-ox-external-links nil
+                                 :id-alist '(("xyz" . "other.org"))))
+         'org-w3ctr-error)
+    ;; Compatibility mode builds the ID- fragment via org-w3ctr--link-to-file.
+    ($l (t--link-dispatch link "desc"
+                          (list :html-honor-ox-external-links t
+                                :html-link-org-files-as-html t
+                                :html-extension "html"
+                                :id-alist '(("xyz" . "other.org"))))
         "<a href=\"other.html#ID-xyz\">desc</a>"))
   ;; Unresolved nil destination emits italicized text (matching ox-html).
   (cl-letf (((symbol-function 'org-export-resolve-fuzzy-link)
