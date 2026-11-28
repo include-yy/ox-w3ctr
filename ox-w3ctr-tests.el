@@ -6366,6 +6366,7 @@ COUNTER, a cons cell, has its car incremented on every call."
       "&jmath;" "&imath;" "&image;" "&real;")
      ("\\quot \\acute \\bdquo \\raquo"
       "&raquo;" "&bdquo;" "&acute;" "&quot;")
+     ;; `\**' is not a valid Org entity, so only five entities are matched.
      ("\\Dagger \\ddag \\** \\dollar \\copy \\reg"
       "&reg;" "&copy;" "$" "&Dagger;" "&Dagger;")
      ("\\frac12 \\frac14 \\frac34 \\radic \\prop \\sim"
@@ -6388,10 +6389,13 @@ COUNTER, a cons cell, has its car incremented on every call."
   ;; their name, others fall back to a generated reference in INFO.
   (t-check-element-values
    #'t-target
-   '(("<<th1>> <<th2>>" "<span id=\"th2\"></span>" "<span id=\"th1\"></span>")))
+   '(("<<th1>> <<th2>>"
+      "<span id=\"th2\"></span>"
+      "<span id=\"th1\"></span>")))
   (let ((out (org-export-string-as "<<1bad>> [[1bad]]" 'w3ctr t)))
-    (should (string-match
-             "<span id=\"\\(org[0-9a-f]+\\)\"></span> <a href=\"#\\1\">" out)))
+    ($s (string-match
+         "<span id=\"\\(org[0-9a-f]+\\)\"></span> <a href=\"#\\1\">"
+         out)))
   ;; Direct call: forwards TARGET and INFO to `org-w3ctr--reference',
   ;; and escapes the id for an HTML attribute.
   (let ((seen nil))
@@ -6414,11 +6418,12 @@ COUNTER, a cons cell, has its car incremented on every call."
       "<span id=\"th2\">th2</span>"
       "<span id=\"th1\">th1</span>")))
   (let ((out (org-export-string-as "<<<*th1*>>> *th1*" 'w3ctr t)))
-    (should (string-match
-             "<span id=\"\\(org[0-9a-f]+\\)\"><b>th1</b></span> <a href=\"#\\1\"><b>th1</b></a>"
-             out)))
+    ($s (string-match
+         (concat "<span id=\"\\(org[0-9a-f]+\\)\"><b>th1</b></span> "
+                 "<a href=\"#\\1\"><b>th1</b></a>")
+         out)))
   (let ((out (org-export-string-as "<<<$x$>>>" 'w3ctr t '(:with-latex nil))))
-    (should (string-match-p "<span id=\"org[0-9a-f]+\"></span>" out)))
+    ($s (string-match-p "<span id=\"org[0-9a-f]+\"></span>" out)))
   ;; Direct call: forwards RADIO-TARGET and INFO to `org-w3ctr--reference',
   ;; and escapes the id for an HTML attribute.
   (let ((seen nil))
@@ -6445,7 +6450,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   (t-check-element-values
    #'t-statistics-cookie
    '(("- hello [/]" "<code>[/]</code>")
-     ("- hello [0/1]\n  - [ ] helllo" "<code>[0/1]</code>")
+     ("- hello [0/1]\n  - [ ] hello" "<code>[0/1]</code>")
      ("- hello [33%]\n  - [X] hello" "<code>[33%]</code>")
      ("- hello :: abc [0/1]\n  - [ ] this is what"
       "<code>[0/1]</code>")
