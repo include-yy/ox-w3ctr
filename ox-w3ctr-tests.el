@@ -855,251 +855,138 @@ decoding returns the input."
 
 ;;;; HTML attributes
 
-(ert-deftest t--read-attr ()
-  "Tests for `org-w3ctr--read-attr'."
-  (let ((el (lambda (vals &optional prop)
-              (list 'paragraph (list (or prop :attr__) vals)))))
-    ($l (t--read-attr :attr__ (funcall el '("123"))) '(123))
-    ($l (t--read-attr :attr__ (funcall el '("1 2 3" "4 5 6")))
-        '(1 2 3 4 5 6))
-    ;; a form split across lines reassembles: the join is a space
-    ($l (t--read-attr :attr__ (funcall el '("(a" "b)"))) '((a b)))
-    ($l (t--read-attr :attr__ (funcall el '("(class data) [hello] (id ui)")))
-        '((class data) [hello] (id ui)))
-    ($l (t--read-attr :attr__ (funcall el '("\"123\""))) '("123"))
-    ;; attribute name routing: reads the requested property, not always :attr__
-    ($l (t--read-attr :attr_custom (funcall el '("foo") :attr_custom)) '(foo))
-    ($n (t--read-attr :attr__ (funcall el '("foo") :attr_custom)))
-    ;; whitespace-only: the docstring's third nil case
-    ($n (t--read-attr :attr__ (funcall el '("   "))))
-    ($e!l (t--read-attr :attr__ (funcall el '("(invalid")))
-          '(org-w3ctr-error "Invalid attribute #+:attr__: (invalid"))
-    ($e!l (t--read-attr :attr_custom (funcall el '("(invalid") :attr_custom))
-          '(org-w3ctr-error "Invalid attribute #+:attr_custom: (invalid"))
-    ;; extra closing paren must not silently drop trailing forms
-    ($e!l (t--read-attr :attr__ (funcall el '("(a 1)) (b 2)")))
-          '(org-w3ctr-error "Invalid attribute #+:attr__: (a 1)) (b 2)"))
-    ;; top-level dotted syntax must not leak an improper list
-    ($e!l (t--read-attr :attr__ (funcall el '("a . b")))
-          '(org-w3ctr-error "Invalid attribute #+:attr__: a . b")))
-  ($n (t--read-attr :attr__ (t-get-element "nothing but text" 'paragraph)))
+(ert-deftest t--check-attr-name ()
+  "Tests for `org-w3ctr--check-attr-name'."
+  ($l (t--check-attr-name 'id) "id")
+  ($l (t--check-attr-name 'DATA-Foo) "data-foo")
+  ($l (t--check-attr-name "aria-label") "aria-label")
+  ($l (t--check-attr-name "xml:lang") "xml:lang")
+  ($l (t--check-attr-name "_x.1") "_x.1")
+  (dolist (bad '(nil "" "  " 123 "1abc" "<x>" "a b" "a=b" [x] (a)))
+    ($e! (t--check-attr-name bad) 'org-w3ctr-error)))
+
+(ert-deftest t--parse-attr-sexps ()
+  "Tests for `org-w3ctr--parse-attr-sexps'."
+  ($n (t--parse-attr-sexps nil))
+  ($n (t--parse-attr-sexps '([] [])))
+  ($l (t--parse-attr-sexps '([nim zig] (id yy 123) open))
+      '(("class" . "nim zig") ("id" . "yy123") ("open" . t)))
+  ($l (t--parse-attr-sexps '(("disabled") (FOO) (data-A "v")))
+      '(("disabled" . t) ("foo" . t) ("data-a" . "v")))
+  ($l (t--parse-attr-sexps '((open "") (test this th&t <=>)))
+      '(("open" . "") ("test" . "thisth&t<=>")))
+  ($l (t--parse-attr-sexps '([1 2])) '(("class" . "1 2")))
+  ;; Invalid structure, names, values, and duplicates signal `org-w3ctr-error'.
+  ($e! (t--parse-attr-sexps 'not-a-list) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '(a . b)) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '((a . b))) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '(nil)) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '(123)) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '((nil 1))) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '(("<x>" v))) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '([a nil b])) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '([[]])) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '((open nil))) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '((foo [bar] baz))) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '([a] (class b))) 'org-w3ctr-error)
+  ($e! (t--parse-attr-sexps '((id 1) (ID 2))) 'org-w3ctr-error))
+
+(ert-deftest t--parse-attr-plist ()
+  "Tests for `org-w3ctr--parse-attr-plist'."
+  ($n (t--parse-attr-plist nil))
+  ($l (t--parse-attr-plist '(:a nil)) '(("a" . nil)))
+  ($l (t--parse-attr-plist '(:a "1" :B "2"))
+      '(("a" . "1") ("b" . "2")))
+  ($l (t--parse-attr-plist '(open "open" :null nil :class "x"))
+      '(("open" . "open") ("null" . nil) ("class" . "x")))
+  ;; Malformed plists, invalid names/values, and duplicates signal.
+  ($e! (t--parse-attr-plist 'not-a-list) 'org-w3ctr-error)
+  ($e! (t--parse-attr-plist '(:a "1" :b)) 'org-w3ctr-error)
+  ($e! (t--parse-attr-plist '("orphan" "v")) 'org-w3ctr-error)
+  ($e! (t--parse-attr-plist '(:<x> "v")) 'org-w3ctr-error)
+  ($e! (t--parse-attr-plist '(:a 1)) 'org-w3ctr-error)
+  ($e! (t--parse-attr-plist '(:class "a" :class "b")) 'org-w3ctr-error)
+  ($e! (t--parse-attr-plist '(:class "a" :CLASS "b")) 'org-w3ctr-error))
+
+(ert-deftest t--parse-element-attrs ()
+  "Tests for `org-w3ctr--parse-element-attrs'."
+  ($n (t--parse-element-attrs (t-get-element "plain" 'paragraph)))
+  ;; Multiple #+attr__: lines join with spaces.
+  ($l (t--parse-element-attrs
+       (t-get-element "#+attr__: [a b]\n#+attr__: (id x)\np" 'paragraph))
+      '(("class" . "a b") ("id" . "x")))
+  ;; Empty or whitespace-only #+attr__: shadows #+attr_html:.
+  ($n (t--parse-element-attrs
+       (t-get-element "#+attr__:\n#+attr_html: :class a\np" 'paragraph)))
+  ($n (t--parse-element-attrs
+       (t-get-element "#+attr__:   \n#+attr_html: :class a\np" 'paragraph)))
+  ;; Without #+attr__:, falls back to #+attr_html:.
+  ($l (t--parse-element-attrs
+       (t-get-element "#+attr_html: :class a :id 1\np" 'paragraph))
+      '(("class" . "a") ("id" . "1")))
+  ;; Malformed Lisp syntax signals with #+attr__: (no extra colon).
+  ($e!l (t--parse-element-attrs
+         (t-get-element "#+attr__: (unclosed\np" 'paragraph))
+        '(org-w3ctr-error "Invalid attribute #+attr__: (unclosed"))
+  ($e!l (t--parse-element-attrs
+         (t-get-element "#+attr__: (a 1)) (b 2)\np" 'paragraph))
+        '(org-w3ctr-error "Invalid attribute #+attr__: (a 1)) (b 2)"))
+  ($e!l (t--parse-element-attrs
+         (t-get-element "#+attr__: a . b\np" 'paragraph))
+        '(org-w3ctr-error "Invalid attribute #+attr__: a . b")))
+
+(ert-deftest t--format-attrs ()
+  "Tests for `org-w3ctr--format-attrs'."
+  ($l (t--format-attrs nil) "")
+  ($l (t--format-attrs '(("open" . t) ("id" . "x"))) " open id=\"x\"")
+  ($l (t--format-attrs '(("data-tt" . "a < b & c > \"'")))
+      " data-tt=\"a &lt; b &amp; c &gt; &quot;&apos;\"")
+  ($l (t--format-attrs '(("empty" . ""))) " empty=\"\""))
+
+(ert-deftest t--element-attrs ()
+  "Tests for `org-w3ctr--element-attrs'."
   (t-check-element-values
-   #'t--read-attr
-   '(("#+attr__: 1 2 3\n#+attr__: 4 5 6\nhello world"
-      (1 2 3 4 5 6))
-     ("#+attr__: [hello world] (id no1)\nhello"
-      ([hello world] (id no1)))
-     ("#+attr__: \"str\"\nstring" ("str"))
-     ("#+attr__:\nempty" nil))))
-
-(ert-deftest t--read-attr__ ()
-  "Tests for `org-w3ctr--read-attr__'."
-  (let ((el (lambda (vals) (list 'paragraph (list :attr__ vals)))))
-    ($l (t--read-attr__ (funcall el '("1 2 3"))) '(1 2 3))
-    ($l (t--read-attr__ (funcall el '("(class data) open")))
-        '((class data) open))
-    ($l (t--read-attr__ (funcall el '("(class hello world)" "foo")))
-        '((class hello world) foo))
-    ($l (t--read-attr__ (funcall el '("[nim zig]"))) '(("class" "nim zig")))
-    ;; numbers in a vector are stringified too
-    ($l (t--read-attr__ (funcall el '("[1 2]"))) '(("class" "1 2")))
-    ;; a nil in a vector contributes nothing but its separator:
-    ;; `mapconcat' over `org-w3ctr--2str' with " " turns [a nil b] into
-    ;; "a  b", not "a b" -- current behavior, pinned
-    ($l (t--read-attr__ (funcall el '("[a nil b]"))) '(("class" "a  b")))
-    ($l (t--read-attr__ (funcall el '("[]"))) '(nil))
-    ($l (t--read-attr__ (funcall el '("[][][]"))) '(nil nil nil))
-    ($e! (t--read-attr__ (funcall el '("(unclosed"))) 'org-w3ctr-error))
-  ($n (t--read-attr__ (t-get-element "test" 'paragraph)))
-  (t-check-element-values
-   #'t--read-attr__
-   '(("#+attr__: 1 2 3\n#+attr__: 4\ntest" (1 2 3 4))
-     ("#+attr__: [hello world] (id no1)\ntest"
-      (("class" "hello world") (id no1)))
-     ("#+attr__:\n#+attr__:\ntest" nil)
-     ("#+attr__: []\ntest" (nil))
-     ("#+attr__: [][][]\ntest" (nil nil nil)))))
-
-(ert-deftest t--make-attr ()
-  "Tests for `org-w3ctr--make-attr'."
-  ($n (t--make-attr nil))
-  ($n (t--make-attr '(nil 1)))
-  ($n (t--make-attr '([x])))
-  ($l (t--make-attr '(open)) " open")
-  ($l (t--make-attr '("disabled")) " disabled")
-  ($l (t--make-attr '(FOO)) " foo")
-  ($l (t--make-attr '(a b)) " a=\"b\"")
-  ;; values concatenate without separator: the docstring's VAL1VAL2
-  ($l (t--make-attr '(id yy 123)) " id=\"yy123\"")
-  ;; (open) is the boolean form, (open nil) the empty-valued one
-  ($l (t--make-attr '(open nil)) " open=\"\"")
-  ($l (t--make-attr '(class "example two")) " class=\"example two\"")
-  ($l (t--make-attr '(foo [bar] baz)) " foo=\"baz\"")
-  ($l (t--make-attr '(data-A "base64...")) " data-a=\"base64...\"")
-  ;; names are downcased but neither escaped nor validated
-  ($l (t--make-attr '("<x>" v)) " <x>=\"v\"")
-  ($l (t--make-attr '(data-tt "a < b && c"))
-      " data-tt=\"a &lt; b &amp;&amp; c\"")
-  ($l (t--make-attr '(data-he "\"hello world\""))
-      " data-he=\"&quot;hello world&quot;\"")
-  ($l (t--make-attr '(sig "''")) " sig=\"&apos;&apos;\"")
-  ($l (t--make-attr '(test ">'\""))
-      " test=\"&gt;&apos;&quot;\""))
-
-(ert-deftest t--make-attr__ ()
-  "Tests for `org-w3ctr--make-attr__'."
-  ($l (t--make-attr__ nil) "")
-  ($l (t--make-attr__ '(nil)) "")
-  ($l (t--make-attr__ '(nil nil [])) "")
-  ;; a nil element vanishes cleanly: no separator is left behind,
-  ;; unlike the value-level mapconcat in `org-w3ctr--read-attr__'
-  ($l (t--make-attr__ '((a) nil (b c))) " a b=\"c\"")
-  ($l (t--make-attr__ '(a)) " a")
-  ;; a string element takes the atom path too
-  ($l (t--make-attr__ '("disabled")) " disabled")
-  ($l (t--make-attr__ '((id yy 123) (class a\ b) test))
-      " id=\"yy123\" class=\"a b\" test")
-  ($l (t--make-attr__ '((test this th&t <=>)))
-      " test=\"thisth&amp;t&lt;=&gt;\"")
-  ;; a dotted element signals a primitive error, not
-  ;; `org-w3ctr-error' -- reachable as #+attr__: (a . b), which then
-  ;; aborts the export
-  ($e! (t--make-attr__ '((a . b))) 'wrong-type-argument))
-
-(ert-deftest t--make-attribute-string ()
-  "Tests for `org-w3ctr--make-attribute-string'."
-  ($l (t--make-attribute-string '(:a "1" :b "2"))
-      "a=\"1\" b=\"2\"")
-  ($l (t--make-attribute-string nil) "")
-  ($l (t--make-attribute-string '(:a nil)) "")
-  ;; a dangling key stays bare: only a nil *value* pops it
-  ($l (t--make-attribute-string '(:a "1" :b)) "a=\"1\" b")
-  ($l (t--make-attribute-string '(:a "\"a\""))
-      "a=\"&quot;a&quot;\"")
-  ($l (t--make-attribute-string '(:open "open"))
-      "open=\"open\"")
-  ($l (t--make-attribute-string '(:test "'\"'"))
-      "test=\"&apos;&quot;&apos;\"")
-  ($l (t--make-attribute-string '(:data "a < b & c > d"))
-      "data=\"a &lt; b &amp; c &gt; d\"")
-  ;; A plain symbol key is accepted too (there is no colon to strip).
-  ($l (t--make-attribute-string '(open "open"))
-      "open=\"open\"")
-  ;; Current unvalidated / malformed plist behavior (pinned; see TODO.org).
-  ($l (t--make-attribute-string '(:<x> "v")) "<x>=\"v\"")
-  ($l (t--make-attribute-string '(:a "1" "2")) "a=\"1\"=\"2\"")
-  ($e! (t--make-attribute-string '("orphan")) 'wrong-type-argument)
-  ($e! (t--make-attribute-string '(:a nil "orphan")) 'wrong-type-argument)
-  ($e! (t--make-attribute-string '(:a 1)) 'wrong-type-argument)
-  (t-check-element-values
-   #'t--make-attribute-string
-   '(("#+attr_html: :open open :class a\ntest"
-      "open=\"open\" class=\"a\"")
-     ("#+attr_html: :id wo-1 :two\ntest" "id=\"wo-1\"")
-     ("#+attr_html: :id :idd hhh\ntest" "idd=\"hhh\"")
-     ("#+attr_html: :null nil :this test\ntest" "this=\"test\""))))
-
-(ert-deftest t--make-attr__id ()
-  "Tests for `org-w3ctr--make-attr__id'."
-  (t-check-element-values
-   #'t--make-attr__id
-   '(("#+attr__:\ntest" "")
-     ;; no reference (unnamed element): attributes come out as is
-     ("#+attr__: hello\ntest" " hello")
-     ("#+name:test\n#+attr__: hello\ntest" " id=\"test\" hello")
-     ("#+name:1\n#+attr__:[data] (style {a:b})\ntest"
-      " id=\"1\" class=\"data\" style=\"{a:b}\"")
-     ("#+name:1\n#+attr__:[hello world]\ntest"
-      " id=\"1\" class=\"hello world\"")
-     ("#+name:1\n#+attr__:[]\ntest" " id=\"1\"")
-     ("#+name:1\n#+attr__:(data-test \"test double quote\")\nh"
-      " id=\"1\" data-test=\"test double quote\"")
-     ("#+name:1\n#+attr__:(something <=>)\nt"
-      " id=\"1\" something=\"&lt;=&gt;\"")
-     ;; explicit id in attr__ overrides auto-generated reference
-     ("#+name:auto\n#+attr__:(id \"custom\")\ntest" " id=\"custom\"")
-     ("#+name:auto\n#+attr__:(\"id\" \"custom\")\ntest" " id=\"custom\"")
-     ("#+name:auto\n#+attr__:(ID \"custom\")\ntest" " id=\"custom\"")
-     ;; explicit id after other attributes still suppresses the auto id
-     ("#+name:auto\n#+attr__:[foo] (id \"custom\")\ntest"
-      " class=\"foo\" id=\"custom\"")
-     ;; an id as a bare atom is NOT recognized as explicit: the
-     ;; reference id is prepended and the atom emitted too -- double id
-     ("#+name:1\n#+attr__: id\ntest" " id=\"1\" id"))
-   nil '(:html-prefer-user-labels t))
-  ;; named-only = nil mints an id on an unnamed element; an explicit id
-  ;; skips `t--reference' and leaves `:internal-references' untouched.
-  (let* ((el (t-get-element "test" 'paragraph))
-         (info (list :html-prefer-user-labels nil)))
-    ($s (string-match-p "\\` id=\"org[0-9a-f]\\{7\\}\"\\'"
-                        (t--make-attr__id el info))))
-  (let* ((el (t-get-element "#+attr__: (id \"x\")\ntest" 'paragraph))
-         (info (list :html-prefer-user-labels nil)))
-    ($l (t--make-attr__id el info) " id=\"x\"")
-    ($n (plist-get info :internal-references)))
-  ;; Invalid `:attr__' syntax signals `org-w3ctr-error'.
-  (let ((el (t-get-element "#+attr__: (unclosed\ntest" 'paragraph)))
-    ($e! (t--make-attr__id el (list :html-prefer-user-labels nil))
-         'org-w3ctr-error)))
-
-(ert-deftest t--make-attr_html ()
-  "Tests for `org-w3ctr--make-attr_html'."
-  (t-check-element-values
-   #'t--make-attr_html
-   '(("#+attr_html:\ntest" "")
-     ("#+attr_html: :hello hello\ntest" " hello=\"hello\"")
-     ("#+name: 1\n#+attr_html: :class data\ntest"
-      " class=\"data\" id=\"1\"")
-     ("#+attr_html: :id 1 :class data\ntest"
-      " id=\"1\" class=\"data\"")
-     ("#+name: 1\n#+attr_html: :id 2 :class data two\ntest"
-      " id=\"2\" class=\"data two\"")
-     ;; an explicit :id entry suppresses the auto id even when its
-     ;; value is nil -- the id is then simply gone
-     ("#+name: 1\n#+attr_html: :id nil :class data\ntest"
-      " class=\"data\"")
-     ("#+attr_html: :data-id < > ? 2 =\ntest"
-      " data-id=\"&lt; &gt; ? 2 =\"")
-     ;; duplicate keys are both emitted
-     ("#+attr_html: :class a :class b\ntest"
-      " class=\"a\" class=\"b\""))
-   nil '(:html-prefer-user-labels t))
-  ;; named-only = nil mints an id; explicit :id skips `t--reference'.
-  (let* ((el (t-get-element "test" 'paragraph))
-         (info (list :html-prefer-user-labels nil)))
-    ($s (string-match-p "\\` id=\"org[0-9a-f]\\{7\\}\"\\'"
-                        (t--make-attr_html el info))))
-  (let* ((el (t-get-element "#+attr_html: :id x\ntest" 'paragraph))
-         (info (list :html-prefer-user-labels nil)))
-    ($l (t--make-attr_html el info) " id=\"x\"")
-    ($n (plist-get info :internal-references))))
-
-(ert-deftest t--make-attr__id* ()
-  "Tests for `org-w3ctr--make-attr__id*'."
-  (t-check-element-values
-   #'t--make-attr__id*
+   #'t--element-attrs
    '(("#+attr__:\n#+attr_html: :class a\ntest" "")
-     ;; a whitespace-only #+attr__: wins just the same
      ("#+attr__:  \n#+attr_html: :class a\ntest" "")
      ("#+attr_html: :class a\ntest" " class=\"a\"")
-     ;; auto id on the attr__ branch with no attributes at all
      ("#+name: 1\n#+attr__:\ntest" " id=\"1\"")
+     ("#+name: 1\n#+attr__: [data] (style {a:b})\ntest"
+      " id=\"1\" class=\"data\" style=\"{a:b}\"")
+     ("#+name: 1\n#+attr__: []\ntest" " id=\"1\"")
+     ("#+name: auto\n#+attr__: [foo] (id \"custom\")\ntest"
+      " class=\"foo\" id=\"custom\"")
+     ("#+name: auto\n#+attr__: (ID \"custom\")\ntest" " id=\"custom\"")
+     ;; Bare `id' atom is recognized as explicit: no duplicate auto id.
+     ("#+name: 1\n#+attr__: id\ntest" " id")
+     ;; #+attr_html: gets id prepended symmetrically with #+attr__:.
+     ("#+name: 1\n#+attr_html: :class data\ntest"
+      " id=\"1\" class=\"data\"")
+     ;; `:id nil' explicitly suppresses the auto id.
+     ("#+name: 1\n#+attr_html: :id nil :class data\ntest"
+      " class=\"data\"")
+     ("#+name: 1\n#+attr_html: :id 2 :class data two\ntest"
+      " id=\"2\" class=\"data two\"")
      ("#+name: 1\n#+attr__: (id 2)\n#+attr_html: :id 3\ntest"
-      " id=\"2\"")
-     ("#+name: 1\n#+attr_html: :id 3\ntest" " id=\"3\""))
+      " id=\"2\""))
    nil '(:html-prefer-user-labels t))
-  ;; named-only = nil forwards to both branches and mints an id
+  ;; named-only = nil mints an id on both branches; explicit id skips it.
   (let ((el-__ (t-get-element "#+attr__: [foo]\ntest" 'paragraph))
         (el-html (t-get-element "#+attr_html: :class foo\ntest" 'paragraph))
         (info (list :html-prefer-user-labels nil)))
     ($s (string-match-p "\\` id=\"org[0-9a-f]\\{7\\}\" class=\"foo\"\\'"
-                        (t--make-attr__id* el-__ info)))
-    ($s (string-match-p "\\` class=\"foo\" id=\"org[0-9a-f]\\{7\\}\"\\'"
-                        (t--make-attr__id* el-html info))))
-  ;; invalid :attr__ propagates `org-w3ctr-error'
-  (let ((el (t-get-element "#+attr__: (unclosed\ntest" 'paragraph)))
-    ($e! (t--make-attr__id* el (list :html-prefer-user-labels nil))
-         'org-w3ctr-error)))
+                        (t--element-attrs el-__ info)))
+    ($s (string-match-p "\\` id=\"org[0-9a-f]\\{7\\}\" class=\"foo\"\\'"
+                        (t--element-attrs el-html info))))
+  (let* ((el (t-get-element "#+attr__: (id \"x\")\ntest" 'paragraph))
+         (info (list :html-prefer-user-labels nil)))
+    ($l (t--element-attrs el info) " id=\"x\"")
+    ($n (plist-get info :internal-references)))
+  ;; Duplicate attributes signal `org-w3ctr-error'.
+  ($e! (t--element-attrs
+        (t-get-element "#+attr_html: :class a :class b\ntest" 'paragraph)
+        nil)
+       'org-w3ctr-error))
 
 (ert-deftest t--fix-class-name ()
   "Tests for `org-w3ctr--fix-class-name'."
@@ -6251,7 +6138,7 @@ COUNTER, a cons cell, has its car incremented on every call."
                   ($c "#+name: nm\n#+caption: C\n#+attr_html: :class foo\n"
                       "#+begin_src emacs-lisp\nx\n#+end_src")
                   'w3ctr t)))
-        ($s (string-match-p "<div class=\"foo\" id=\"nm\">" out))
+        ($s (string-match-p "<div id=\"nm\" class=\"foo\">" out))
         ($s (string-match-p "<a class=\"self-link\" href=\"#nm\"" out)))
       ;; Explicitly suppressing `:id' suppresses the self-link too.
       (let ((out (org-export-string-as

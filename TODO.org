@@ -58,59 +58,6 @@ Not urgent (~50 KB, inlined into every exported document by
   =.amendment=, =.correction=, =.addition=, =.codepoint=, =.uname=,
   =#toc-theme-toggle=, =.toc-sidebar=).
 
-*** Attribute reading machinery and input validation                 :attr:
-
-The attribute helpers have grown several layers (=t--read-attr__=,
-=t--make-attr__=, =t--make-attr__id=, =t--make-attr__id*=,
-=t--make-attr_html=, =t--make-attribute-string=, =t--src-block-attrs=).
-Two syntaxes coexist (Lisp s-exprs for =#+attr__=, plists for
-=#+attr_html=); candidates are a single intermediate representation or
-one canonical syntax.  Specific defects pinned by tests today:
-
-- *Error message spelling in =org-w3ctr--read-attr=.*  =Invalid
-  attribute #+%s= interpolates the keyword, so the production message
-  reads =Invalid attribute #+:attr__: ...= while the Org keyword is
-  spelled =#+attr__:= (the colon sits differently).  A test pins the
-  current message; if the formatting is fixed, flip that expectation.
-- *Bare =id= atom and =:id nil= asymmetry.*
-  =org-w3ctr--make-attr__id= recognizes an explicit id only as a list
-  (=(id …)=).  A bare =id= atom in =#+attr__:= is not detected, so the
-  reference id is prepended and the atom emitted as well: =#+name:1=
-  with =#+attr__: id= gives ~ id="1" id~, a malformed attribute
-  string.  A test pins it; recognizing the atom form too would flip
-  the expectation.  The mirror problem on the =:attr_html= side:
-  =org-w3ctr--make-attr_html= keys its suppression off =plist-member=,
-  which sees the key regardless of value, so an explicit =:id nil=
-  suppresses the auto id and emits no id at all.
-- *Unvalidated attribute input.*  In =org-w3ctr--make-attr= only the
-  values go through =org-w3ctr--encode-plain-text*=; a name is just
-  downcased, so =("<x>" v)= gives ~ <x>="v"~ and =(1)= gives ~ 1~.
-  =org-w3ctr--make-attribute-string= has the same asymmetry: keys go
-  out as is (=(:<x> "v")= gives ~<x>="v"~), and malformed plist shapes
-  (=("orphan")=, =(:a nil "orphan")=, or non-string values like
-  =(:a 1)=) signal a primitive =wrong-type-argument= while consecutive
-  strings (=(:a "1" "2")=) emit ~a="1"="2"~.  A dotted element in
-  =org-w3ctr--make-attr__= also falls through to a primitive
-  =wrong-type-argument= (reachable as =#+attr__: (a . b)=, which
-  aborts the export) instead of =org-w3ctr-error= with context.
-  Duplicate keys are not merged either: =:class a :class b= gives
-  ~ class="a" class="b"~.  Tests pin the current behavior; a checker
-  that accepts only HTML attribute names and proper lists (and signals
-  =org-w3ctr-error= otherwise) would flip them.
-- *Silent drops in S-exp rendering and attribute formatting.*
-  =org-w3ctr--sexp2html= renders a non symbol/string/number child as
-  nothing, =org-w3ctr--make-attr= returns nil for an attribute whose
-  name is not convertible (=(nil 1)=), and =org-w3ctr--read-attr__=
-  maps a non-convertible element of a =[...]= vector to an empty
-  contribution that keeps its separator (=[a nil b]= gives
-  =("class" "a  b")=, via =mapconcat= over =org-w3ctr--2str= with
-  =" "=; and since only =[]= is skipped via =(equal x [])=, =[nil]= or
-  =[[]]= produces =("class" "")= and emits ~ class=""~).  Tests pin
-  all three.  They are the =;;; Basic utilities= exceptions to
-  fail-loudly: either keep them documented as deliberate (the
-  docstrings say so now) or signal =org-w3ctr-error= and flip the
-  tests.
-
 ** Design
 
 Open design and compatibility decisions to weigh before writing code.

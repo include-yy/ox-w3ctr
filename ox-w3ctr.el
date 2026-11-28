@@ -1875,150 +1875,153 @@ The result is safe to use inside an HTML attribute value."
 
 ;;;; HTML attributes
 
-(defun t--read-attr (attribute element)
-  "Read the property ATTRIBUTE from ELEMENT as a list of Lisp objects.
+(defun t--check-attr-name (name)
+  "Validate and normalize HTML attribute NAME.
 
-Return nil if the property does not exist, is empty, or whitespace-only.
-Signal `org-w3ctr-error' if the value is not a valid Lisp s-expression."
-  (declare (ftype (function (symbol t) list))
+NAME must be a non-nil symbol or string matching a valid HTML
+attribute name.  Return the lowercased name string, or signal
+`org-w3ctr-error'."
+  (declare (ftype (function (t) string))
            (important-return-value t))
-  (when-let* ((value (org-element-property attribute element))
-              (str (t--nw-p (mapconcat #'identity value " "))))
-    (let* ((sstr (concat "(" str ")"))
-           (res (condition-case nil (read-from-string sstr)
-                  (error (t-error "Invalid attribute #+%s: %s"
-                                  attribute str)))))
-      (unless (and (= (cdr res) (length sstr))
-                   (proper-list-p (car res)))
-        (t-error "Invalid attribute #+%s: %s" attribute str))
-      (car res))))
+  (let ((str (cond ((stringp name) (downcase name))
+                   ((and name (symbolp name)) (downcase (symbol-name name))))))
+    (unless (and str
+                 (string-match-p "\\`[a-zA-Z_:][a-zA-Z0-9_.:-]*\\'" str))
+      (t-error "Invalid HTML attribute name: %S" name))
+    str))
 
-(defun t--read-attr__ (element)
-  "Parse the `:attr__' (`#+attr__:') property from ELEMENT.
+(defun t--parse-attr-sexps (forms)
+  "Parse S-expression attribute list FORMS into an IR alist.
 
-A vector such as [class1 class2] becomes the attribute form
-\(\"class\" \"class1 class2\"); an empty vector [] becomes a nil
-element.  Return nil if the property is absent or blank.  Signal
-`org-w3ctr-error' on invalid Lisp syntax (via `org-w3ctr--read-attr')."
+FORMS is a proper list of attribute specs:
+- A vector [c1 c2 ...] becomes (\"class\" . \"c1 c2 ...\"); [] is
+  skipped.
+- A symbol or string atom becomes a boolean attribute (NAME . t).
+- A proper list (NAME) becomes (NAME . t).
+- A proper list (NAME VAL1 VAL2 ...) concatenates its values into
+  (NAME . \"VAL1VAL2...\").
+
+Return an alist of (NAME . VALUE) pairs with lowercased attribute
+names, where VALUE is a string or t.  Signal `org-w3ctr-error' on
+invalid syntax, invalid names or values, or duplicate attributes."
   (declare (ftype (function (t) list))
            (important-return-value t))
-  (when-let* ((attrs (t--read-attr :attr__ element)))
-    (mapcar (lambda (x)
-              ;; [] means "no class" -- skip rather than emit class=""
-              (cond ((not (vectorp x)) x)
-                    ((equal x []) nil)
-                    (t (list "class" (mapconcat #'t--2str x " ")))))
-            attrs)))
+  (unless (proper-list-p forms)
+    (t-error "Invalid attribute list: %S" forms))
+  (let ((join (lambda (seq sep what)
+                (mapconcat (lambda (x)
+                             (or (t--2str x)
+                                 (t-error "Invalid %s: %S" what x)))
+                           seq sep)))
+        acc)
+    (dolist (item forms (nreverse acc))
+      (unless (equal item [])
+        (let ((pair
+               (cond
+                ((vectorp item)
+                 (cons "class" (funcall join item " " "class token")))
+                ((atom item)
+                 (cons (t--check-attr-name item) t))
+                ((proper-list-p item)
+                 (let ((name (t--check-attr-name (car item)))
+                       (vals (cdr item)))
+                   (cons name
+                         (if (null vals) t
+                           (funcall join vals ""
+                                    (concat "attribute value for " name))))))
+                (t (t-error "Invalid attribute entry: %S" item)))))
+          (when (assoc (car pair) acc)
+            (t-error "Duplicate HTML attribute: %s" (car pair)))
+          (push pair acc))))))
 
-(defun t--make-attr (list)
-  "Format a single Lisp LIST into an HTML attribute string, or nil.
+(defun t--parse-attr-plist (plist)
+  "Parse `:attr_html' PLIST into an IR alist of (NAME . VALUE) pairs.
 
-Handle two formats:
-- Boolean attribute: (ATTR) becomes \" attr\".
-- Valued attribute: (ATTR VAL1 VAL2) becomes \" attr=\\\"VAL1VAL2...\\\"\".
-
-The name is lowercased, values are concatenated without spaces and
-escaped via `org-w3ctr--encode-plain-text*', and the result starts
-with a leading space.  Return nil when LIST is nil or its car cannot
-be converted by `org-w3ctr--2str'."
-  (declare (ftype (function (list) (or null string)))
-           (pure t) (important-return-value t))
-  (when-let* ((_ (not (null list)))
-              (name (t--2str (car list))))
-    (if-let* ((rest (cdr list)))
-        ;; use lowercase prop name; leading space for HTML tag separator.
-        (concat
-         " " (downcase name) "=\""
-         (t--encode-plain-text* (mapconcat #'t--2str rest)) "\"")
-      (concat " " (downcase name)))))
-
-(defun t--make-attr__ (attributes)
-  "Format attribute list ATTRIBUTES into an HTML attribute string.
-
-Each element is either an atom for a boolean attribute (for example
-`disabled') or a list for a valued attribute (for example (id \"foo\")).
-Each entry is formatted by `org-w3ctr--make-attr' and concatenated."
-  (declare (ftype (function (list) string))
-           (pure t) (important-return-value t))
-  (mapconcat (lambda (x) (t--make-attr (if (atom x) (list x) x)))
-             attributes))
-
-(defun t--make-attribute-string (attributes)
-  "Format plist ATTRIBUTES into an HTML attribute string.
-
-Local copy of `org-html--make-attribute-string'.  Keys are keywords
-or symbols and values are strings, producing strings such as
-\"id=\\\"foo\\\" class=\\\"bar\\\"\".  Keys with nil values are omitted;
-values are escaped via `org-w3ctr--encode-plain-text*'."
-  (declare (ftype (function (list) string))
-           (pure t) (important-return-value t))
-  (let (output)
-    (dolist (item attributes (mapconcat #'identity (nreverse output) " "))
-      (cond
-       ((null item) (pop output))
-       ((keywordp item) (push (substring (symbol-name item) 1) output))
-       ((symbolp item) (push (symbol-name item) output))
-       (t (let ((key (car output))
-                (value (t--encode-plain-text* item)))
-            (setcar output (format "%s=\"%s\"" key value))))))))
-
-(defun t--make-attr__id (element info &optional named-only)
-  "Format `:attr__' attributes for ELEMENT, adding an `id' if needed.
-INFO is the info plist.  When NAMED-ONLY is non-nil, only named
-elements receive an id (see `org-w3ctr--reference').
-
-Read `:attr__' via `org-w3ctr--read-attr__', prepend an `id' from
-`org-w3ctr--reference' unless an explicit `(id ...)' entry is present,
-and format with `org-w3ctr--make-attr__'.  Return a string with a
-leading space, or \"\" when empty.  Signal `org-w3ctr-error' on
-invalid `:attr__' syntax."
-  (declare (ftype (function (t list &optional boolean) string))
+PLIST is a proper even-length property list of symbol or keyword keys
+and string or nil values.  A nil value records an explicitly omitted
+attribute (for example `:id nil' suppresses an auto-generated id).
+Signal `org-w3ctr-error' on malformed plists, invalid attribute names,
+non-string values, or duplicate attributes."
+  (declare (ftype (function (t) list))
            (important-return-value t))
-  (let* ((attributes (t--read-attr__ element))
-         (has-id (seq-find (lambda (x)
-                             (when-let* ((k (t--2str (car-safe x))))
-                               (string-equal-ignore-case k "id")))
-                           attributes))
-         (reference (unless has-id (t--reference element info named-only)))
-         (a (t--make-attr__
-             (if reference (cons `("id" ,reference) attributes) attributes))))
-    (if (t--nw-p a) a "")))
+  (unless (proper-list-p plist)
+    (t-error "Invalid attribute plist: %S" plist))
+  (let ((rest plist)
+        acc)
+    (while rest
+      (unless (cdr rest)
+        (t-error "Odd-length attribute plist: %S" plist))
+      (let* ((key (car rest))
+             (val (cadr rest))
+             (raw (cond ((keywordp key) (substring (symbol-name key) 1))
+                        ((and key (symbolp key)) (symbol-name key))
+                        (t (t-error "Invalid HTML attribute name: %S" key))))
+             (name (t--check-attr-name raw)))
+        (setq rest (cddr rest))
+        (unless (string-or-null-p val)
+          (t-error "Invalid attribute value for %s: %S" name val))
+        (when (assoc name acc)
+          (t-error "Duplicate HTML attribute: %s" name))
+        (push (cons name val) acc)))
+    (nreverse acc)))
 
-(defun t--make-attr_html (element info &optional named-only)
-  "Format `:attr_html' attributes for ELEMENT, adding an `id' if needed.
-INFO is the info plist.  When NAMED-ONLY is non-nil, only named
-elements receive an id (see `org-w3ctr--reference').
+(defun t--parse-element-attrs (element)
+  "Parse HTML attributes from ELEMENT into an IR alist.
 
-Read `:attr_html' via `org-export-read-attribute', add `:id' unless
-`:id' is already a member of the plist, and format with
-`org-w3ctr--make-attribute-string'.  Return a string with a leading
-space, or \"\" when empty."
-  (declare (ftype (function (t list &optional boolean) string))
-           (important-return-value t))
-  (let* ((attrs (org-export-read-attribute :attr_html element))
-         (reference (unless (plist-member attrs :id)
-                      (t--reference element info named-only)))
-         (a (t--make-attribute-string
-             (if reference (plist-put attrs :id reference) attrs))))
-    (if (t--nw-p a) (concat " " a) "")))
-
-(defun t--make-attr__id* (element info &optional named-only)
-  "Format ELEMENT's attributes via `:attr__', or fall back to `:attr_html'.
-INFO is the info plist.  NAMED-ONLY is passed through to the chosen
-helper.
-
-If ELEMENT has `:attr__' (even empty), delegate to
-`org-w3ctr--make-attr__id' and ignore `:attr_html'; otherwise delegate
-to `org-w3ctr--make-attr_html'.  Return a string with a leading space,
-or \"\" when empty.  Signal `org-w3ctr-error' on invalid `:attr__'
-syntax."
-  (declare (ftype (function (t list &optional boolean) string))
+When ELEMENT has `:attr__' (even empty), parse it as Lisp
+S-expressions via `org-w3ctr--parse-attr-sexps' and ignore
+`:attr_html'.  Otherwise parse `:attr_html' via
+`org-w3ctr--parse-attr-plist'.  Return an alist of (NAME . VALUE)
+pairs, or nil when empty.  Signal `org-w3ctr-error' on invalid input."
+  (declare (ftype (function (t) list))
            (important-return-value t))
   ;; `#+attr__:' takes priority even when empty -- its presence alone
   ;; means "use ox-w3ctr syntax", so `#+attr_html:' is ignored.
-  (if (org-element-property :attr__ element)
-      (t--make-attr__id element info named-only)
-    (t--make-attr_html element info named-only)))
+  (if-let* ((raw (org-element-property :attr__ element)))
+      (when-let* ((str (t--nw-p (mapconcat #'identity raw " "))))
+        (let* ((sstr (concat "(" str ")"))
+               (res (condition-case nil (read-from-string sstr)
+                      (error (t-error "Invalid attribute #+attr__: %s" str)))))
+          (unless (and (= (cdr res) (length sstr))
+                       (proper-list-p (car res)))
+            (t-error "Invalid attribute #+attr__: %s" str))
+          (t--parse-attr-sexps (car res))))
+    (t--parse-attr-plist (org-export-read-attribute :attr_html element))))
+
+(defun t--format-attrs (attrs)
+  "Format IR attribute alist ATTRS into an HTML attribute string.
+
+Each entry in ATTRS is (NAME . VALUE), where VALUE is nil to omit the
+attribute, t for a boolean attribute (\" name\"), or a string
+\(\" name=\\\"escaped\\\"\").  Return a string starting with a leading
+space, or \"\" when nothing is emitted."
+  (declare (ftype (function (list) string))
+           (pure t) (important-return-value t))
+  (mapconcat
+   (pcase-lambda (`(,name . ,val))
+     (cond ((null val) "")
+           ((eq val t) (concat " " name))
+           (t (format " %s=\"%s\"" name (t--encode-plain-text* val)))))
+   attrs))
+
+(defun t--element-attrs (element info &optional named-only)
+  "Return the formatted HTML attributes string for ELEMENT.
+
+INFO is the export options plist.  When NAMED-ONLY is non-nil, only
+named elements receive an auto-generated id (see
+`org-w3ctr--reference').
+
+Parse ELEMENT's attributes via `org-w3ctr--parse-element-attrs',
+prepend an `id' from `org-w3ctr--reference' unless an explicit `id'
+attribute is already present, and format with
+`org-w3ctr--format-attrs'.  Return a string with a leading space, or
+\"\" when empty."
+  (declare (ftype (function (t list &optional boolean) string))
+           (important-return-value t))
+  (let* ((attrs (t--parse-element-attrs element))
+         (ref (unless (assoc "id" attrs)
+                (t--reference element info named-only))))
+    (t--format-attrs (if ref (cons (cons "id" ref) attrs) attrs))))
 
 (defun t--fix-class-name (kwd)
   "Turn KWD into a valid CSS class name fragment.
@@ -2118,16 +2121,15 @@ TAG must be a non-nil symbol; anything else signals
 
 (defun t--sexp2html-attrs (attr-ls)
   "Return the HTML attribute string for ATTR-LS.
+
 ATTR-LS is nil or t for no attributes, or a proper list of attribute
-specifications (atoms or proper lists) for `org-w3ctr--make-attr__';
-anything else signals `org-w3ctr-error'."
+specifications for `org-w3ctr--parse-attr-sexps'; anything else
+signals `org-w3ctr-error'."
   (declare (ftype (function (t) string))
            (important-return-value t))
   (cond ((booleanp attr-ls) "")
-        ((and (proper-list-p attr-ls)
-              (seq-every-p (lambda (x) (or (atom x) (proper-list-p x)))
-                           attr-ls))
-         (t--make-attr__ attr-ls))
+        ((proper-list-p attr-ls)
+         (t--format-attrs (t--parse-attr-sexps attr-ls)))
         (t (t-error "Invalid S-expression attribute list: %S" attr-ls))))
 
 (defun t--sexp2html (data)
@@ -2139,7 +2141,7 @@ DATA may be:
   escape via `org-w3ctr--encode-plain-text'.
 - A proper list (TAG ATTRS . CHILDREN): TAG is a non-nil symbol
   (lowercased; void tags omit the closing tag and ignore children),
-  ATTRS is nil, t, or an attribute list for `org-w3ctr--make-attr__',
+  ATTRS is nil, t, or an attribute list for `org-w3ctr--parse-attr-sexps',
   and CHILDREN are converted recursively.  For example,
   (p ((class \"foo\")) \"Hi\") becomes \"<p class=\\\"foo\\\">Hi</p>\".
 - Anything else (for example a vector): dropped as \"\".
@@ -2291,13 +2293,14 @@ Signal `org-w3ctr-error' if `CUSTOM_ID', `NAME', or `ID' fails
 
 (defun t--element-id (element info &optional named-only)
   "Return the HTML id emitted for ELEMENT, or nil if it has none.
+
 ELEMENT is an element or target/radio-target object, INFO is the
 info plist, and NAMED-ONLY is passed to `org-w3ctr--reference'.
 
 Unlike `org-w3ctr--reference', this accounts for explicit id
-overrides in `:attr__' or `:attr_html' (mirroring
-`org-w3ctr--make-attr__id*') and returns nil for elements whose
-transcoders emit no id."
+overrides in `:attr__' or `:attr_html' (sharing
+`org-w3ctr--parse-element-attrs' with `org-w3ctr--element-attrs') and
+returns nil for elements whose transcoders emit no id."
   (declare (ftype (function (t list &optional boolean) (or null string)))
            (important-return-value t))
   (let ((type (org-element-type element)))
@@ -2310,20 +2313,10 @@ transcoders emit no id."
      ;; Headlines and targets do not read `:attr__' / `:attr_html' for id.
      ((memq type '(headline target radio-target))
       (t--reference element info named-only))
-     ;; Mirror `org-w3ctr--make-attr__id*': `:attr__' shadows `:attr_html'.
-     ((org-element-property :attr__ element)
-      (if-let* ((explicit (seq-find
-                           (lambda (x)
-                             (when-let* ((k (t--2str (car-safe x))))
-                               (string-equal-ignore-case k "id")))
-                           (t--read-attr__ element))))
-          (t--nw-p (mapconcat #'t--2str (cdr explicit) ""))
-        (t--reference element info named-only)))
      (t
-      (let ((attrs (org-export-read-attribute :attr_html element)))
-        (if (plist-member attrs :id)
-            (t--nw-p (plist-get attrs :id))
-          (t--reference element info named-only)))))))
+      (if-let* ((explicit (assoc "id" (t--parse-element-attrs element))))
+          (and (stringp (cdr explicit)) (t--nw-p (cdr explicit)))
+        (t--reference element info named-only))))))
 
 ;;;; Filter Functions
 
@@ -2535,7 +2528,7 @@ get an automatic id; captions are dropped."
            (important-return-value t))
   (let* ((has-user-attrs (or (org-element-property :attr__ center-block)
                              (org-element-property :attr_html center-block)))
-         (attrs (t--make-attr__id* center-block info t)))
+         (attrs (t--element-attrs center-block info t)))
     (format "<div%s%s>%s</div>" attrs
             (if has-user-attrs "" " style=\"text-align:center;\"")
             (t--prepend-newline contents))))
@@ -2571,7 +2564,7 @@ named drawers get an automatic id."
          (caption (org-export-get-caption drawer))
          (summary (or (and caption (t--nw-p (org-export-data caption info)))
                       name))
-         (attrs (t--make-attr__id* drawer info t)))
+         (attrs (t--element-attrs drawer info t)))
     (funcall (or (t--pget info :html-drawer-format-function)
                  #'t-drawer-default-format-function)
              name summary attrs contents info)))
@@ -2852,7 +2845,7 @@ automatic id.  Signal `org-w3ctr-error' on an unknown list type."
   (let* ((type (pcase (org-element-property :type plain-list)
                  ('ordered "ol") ('unordered "ul") ('descriptive "dl")
                  (other (t-error "Unknown HTML list type: %s" other))))
-         (attributes (t--make-attr__id* plain-list info t)))
+         (attributes (t--element-attrs plain-list info t)))
     (format "<%s%s>\n%s</%s>" type attributes (or contents "") type)))
 
 ;;;; Quote Block
@@ -2868,7 +2861,7 @@ automatic id.  Captions are dropped."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (format "<blockquote%s>%s</blockquote>"
-          (t--make-attr__id* quote-block info t)
+          (t--element-attrs quote-block info t)
           (t--prepend-newline contents)))
 
 ;;;; Special Block
@@ -2907,7 +2900,7 @@ user control attributes.  Only named blocks get an automatic id."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let* ((type (org-element-property :type special-block))
-         (attrs (t--make-attr__id* special-block info t))
+         (attrs (t--element-attrs special-block info t))
          (body (t--prepend-newline contents)))
     (if (member type t-html5-elements)
         (format "<%s%s>%s</%s>" type attrs body type)
@@ -3013,7 +3006,7 @@ blocks get an automatic id."
          (tpl (and (t--nw-p template)
                    (org-element-normalize-string template))))
     (format "<%s%s>%s</%s>" type
-            (t--make-attr__id* special-block info t)
+            (t--element-attrs special-block info t)
             (t--prepend-newline (concat tpl contents))
             type)))
 
@@ -3315,7 +3308,7 @@ tables get an automatic id."
     (let ((caption (t--table-caption table info))
           (specs (t--table-column-specs table info)))
       (format "<table%s>%s%s%s</table>"
-              (t--make-attr__id* table info t)
+              (t--element-attrs table info t)
               (if (string-empty-p caption) "" (concat "\n" caption))
               specs
               (t--prepend-newline contents)))))
@@ -3459,7 +3452,7 @@ automatic id.  Captions are dropped."
            (important-return-value t))
   (let ((value (or (org-element-property :value fixed-width) "")))
     (format "<pre%s>%s</pre>"
-            (t--make-attr__id* fixed-width info t)
+            (t--element-attrs fixed-width info t)
             (if (not (t--nw-p value)) value
               (concat "\n" (t--encode-plain-text value) "\n")))))
 
@@ -3476,7 +3469,7 @@ Return a void <hr> element as a string.  Accept `#+attr__:' and
 automatic id.  Captions are dropped."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
-  (format "<hr%s>" (t--make-attr__id* horizontal-rule info t)))
+  (format "<hr%s>" (t--element-attrs horizontal-rule info t)))
 
 ;;;; Keyword
 
@@ -3529,7 +3522,7 @@ named blocks get an automatic id.  Captions are dropped."
   (let ((case-fold-search nil))
     (format
      "<p%s>%s</p>"
-     (t--make-attr__id* verse-block info t)
+     (t--element-attrs verse-block info t)
      (t--prepend-newline
       (replace-regexp-in-string
        "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
@@ -3707,7 +3700,7 @@ an invalid custom or RPC result."
 ;; "Figure N" label is the W3C stylesheet's counter on figcaption; do not
 ;; compute it in Elisp (see the caption item in TODO.org).  `#+attr__'
 ;; and `#+attr_html' apply to the <figure> through
-;; `org-w3ctr--make-attr__id*', just like every other block.
+;; `org-w3ctr--element-attrs', just like every other block.
 
 (defun t--wrap-image (contents caption attrs)
   "Wrap CONTENTS in a <figure> element for standalone images.
@@ -3746,7 +3739,7 @@ for custom attributes; only named paragraphs get an automatic id."
      ((t-standalone-image-p paragraph info)
       (let* ((caption (org-export-get-caption paragraph))
              (cap (if caption (org-export-data caption info) "")))
-        (t--wrap-image contents cap (t--make-attr__id* paragraph info t))))
+        (t--wrap-image contents cap (t--element-attrs paragraph info t))))
      ;; First paragraph in a list item, alone or followed at most by a
      ;; sub-list (matches ox-html; multi-block items keep <p> so
      ;; `li > p:first-child' / `dd > p:first-child' spacing works).
@@ -3757,7 +3750,7 @@ for custom attributes; only named paragraphs get an automatic id."
                   (org-element-type-p (car followers) '(nil plain-list)))))
       (let ((c (t--trim contents)))
         (if (string-empty-p c) ""
-          (let ((attrs (t--make-attr__id* paragraph info t)))
+          (let ((attrs (t--element-attrs paragraph info t)))
             (if (string-empty-p attrs) c
               (format "<span%s>%s</span>" attrs c))))))
      ;; Regular paragraph.
@@ -3765,7 +3758,7 @@ for custom attributes; only named paragraphs get an automatic id."
       (let ((c (t--trim contents)))
         (if (string-empty-p c) ""
           (format "<p%s>%s</p>"
-                  (t--make-attr__id* paragraph info t) c)))))))
+                  (t--element-attrs paragraph info t) c)))))))
 
 ;;;; Code references
 
@@ -3904,7 +3897,7 @@ A non-blank caption becomes an unstyled <span> before <pre>."
            (important-return-value t))
   (let* ((has-user-attrs (or (org-element-property :attr__ example-block)
                              (org-element-property :attr_html example-block)))
-         (attrs (t--make-attr__id*
+         (attrs (t--element-attrs
                  example-block info
                  (not (t--coderef-labels example-block))))
          ;; `org-w3ctr--code-text' drops the labels and the final newline;
@@ -5139,7 +5132,7 @@ unless the author supplies attributes."
           (format "<div%s%s>\n%s<span>%s</span>\n<pre>%s</pre></div>"
                   ;; A captioned block gets an id unless the author
                   ;; suppresses it: the self-link needs one.
-                  (t--make-attr__id* src-block info)
+                  (t--element-attrs src-block info)
                   (if has-user-attrs "" " class=\"example\"")
                   (if (not id) ""
                     (format (concat "<a class=\"self-link\" href=\"#%s\""
@@ -5150,8 +5143,8 @@ unless the author supplies attributes."
       (format "<div%s>\n<pre>%s</pre></div>"
               ;; A block that defines a code reference is a
               ;; `[[(LABEL)]]' target, so it always gets an id.
-              (t--make-attr__id* src-block info
-                                 (not (t--coderef-labels src-block)))
+              (t--element-attrs src-block info
+                                (not (t--coderef-labels src-block)))
               code))))
 
 (defun t-inline-src-block (inline-src-block _contents info)
@@ -5843,8 +5836,9 @@ both `src' and `alt' are attribute-escaped."
            (important-return-value t))
   (t--void-element
    "img"
-   (t--make-attribute-string
-    (list :src source :alt (file-name-nondirectory source)))))
+   (t--format-attrs
+    (list (cons "src" source)
+          (cons "alt" (file-name-nondirectory source))))))
 
 (defun t--link-org-files-as-html (raw-path info)
   "Rewrite a \".org\" extension in RAW-PATH to INFO's `:html-extension'.
