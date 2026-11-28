@@ -4,18 +4,47 @@
 // never pays for its start-up.
 
 let mathjaxPromise = null
+let lastError = null
+let queue = Promise.resolve()
 
 // `ui/safe` filters the HTML attributes that TeX macros can inject.  Without
 // it, the `html` extension (auto-loaded on demand) lets `\href{javascript:...}`
 // and friends through unfiltered.
 // `output/svg` is what creates `tex2svg' / `tex2svgPromise'; `tex2mml' is
 // available regardless of the output jax.
+// Drop `noundefined' so unknown macros reach `formatError' instead of
+// rendering silently as red text.  Record the error and let MathJax finish
+// formatting rather than throwing inside `formatError' -- throwing there
+// poisons MathJax 4's internal startup promise for all subsequent calls.
 const mathjax = () => mathjaxPromise ??= (async () => {
     const Mathjax = await import('mathjax')
     return Mathjax.init({
-        loader: { load: ['input/tex', 'output/svg', 'ui/safe', 'adaptors/liteDOM'] }
+        loader: { load: ['input/tex', 'output/svg', 'ui/safe', 'adaptors/liteDOM'] },
+        tex: {
+            packages: { '[-]': ['noundefined'] },
+            formatError: (texJax, err) => {
+                lastError = err
+                return texJax.formatError(err)
+            },
+        },
     })
 })()
+
+// Serialize conversions so `lastError' always belongs to the active call.
+const runSerialized = (fn) => {
+    const next = queue.then(async () => {
+        lastError = null
+        const result = await fn(await mathjax())
+        if (lastError) {
+            const err = lastError
+            lastError = null
+            throw new Error(err.message || String(err))
+        }
+        return result
+    })
+    queue = next.catch(() => {})
+    return next
+}
 
 // MathJax 4 tags every node with `data-latex`, declares the namespace, and
 // pretty-prints.  None of that is wanted in the exported HTML, so strip it and
@@ -31,12 +60,12 @@ export const stripNoise = (mml) => mml
 // Use the promise-based conversion: the synchronous `tex2mml` throws
 // "MathJax retry" as soon as the input needs an extension or extra font data,
 // which v4 loads lazily.
-export const tex2mml = async ({ tex, display = true }) => {
-    const mml = await (await mathjax()).tex2mmlPromise(tex, {
+export const tex2mml = ({ tex, display = true }) => runSerialized(async (jax) => {
+    const mml = await jax.tex2mmlPromise(tex, {
         display: Boolean(display),
     })
     return stripNoise(mml)
-}
+})
 
 export const escapeAttr = (s) => s
     .replace(/&/g, '&amp;')
@@ -47,9 +76,8 @@ export const escapeAttr = (s) => s
 // validation, so keep only the <svg>.  Drop the `data-latex` annotations and
 // give the image an accessible name.  Display math gets a phrasing wrapper
 // (`.math-display'), so it stays valid inside a <p>.
-export const tex2svg = async ({ tex, display = true }) => {
+export const tex2svg = ({ tex, display = true }) => runSerialized(async (jax) => {
     const isDisplay = Boolean(display)
-    const jax = await mathjax()
     const node = await jax.tex2svgPromise(tex, { display: isDisplay })
     const label = escapeAttr(tex.replace(/\s+/g, ' ').trim())
     const svg = jax.startup.adaptor.outerHTML(node)
@@ -58,4 +86,4 @@ export const tex2svg = async ({ tex, display = true }) => {
         .replace(/\s+data-latex(?:-item)?="[^"]*"/g, '')
         .replace(/^<svg /, `<svg aria-label="${label}" `)
     return isDisplay ? `<span class="math-display">${svg}</span>` : svg
-}
+})

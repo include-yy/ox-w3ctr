@@ -3580,9 +3580,19 @@ cookie-less column is remembered as the `none' marker."
 
 (ert-deftest t--latex-rpc ()
   "Tests for `org-w3ctr--latex-rpc'."
+  ;; unavailable node/mathjax signals before attempting RPC
+  (let (called)
+    (cl-letf (((symbol-function 't--jstools-available-p) (lambda (_) nil))
+              ((symbol-function 't--jcall)
+               (lambda (&rest _) (setq called t) "<M>")))
+      ($e!l (t--latex-rpc 'tex2mml "$x$")
+            '(org-w3ctr-error
+              "Server-side MathJax is unavailable (need `node' and `npm ci' in jstools/)"))
+      ($n called)))
   ;; split the delimiters, send explicit :tex and :display, return the result
   (let (got)
-    (cl-letf (((symbol-function 't--jcall)
+    (cl-letf (((symbol-function 't--jstools-available-p) (lambda (_) t))
+              ((symbol-function 't--jcall)
                (lambda (client method params)
                  (setq got (list client method params))
                  "<M>")))
@@ -3600,9 +3610,20 @@ cookie-less column is remembered as the `none' marker."
       ($l got (list t--jstools 'tex2mml
                     '(:tex "\\begin{equation}\nx=1\n\\end{equation}"
                            :display t)))))
+  ;; jsonrpc-error (e.g. TeX error) surfaces as org-w3ctr-error with context
+  (cl-letf (((symbol-function 't--jstools-available-p) (lambda (_) t))
+            ((symbol-function 't--jcall)
+             (lambda (&rest _)
+               (signal 'jsonrpc-error
+                       '((jsonrpc-error-code . -32000)
+                         (jsonrpc-error-message . "Undefined control sequence \\bad"))))))
+    ($e!l (t--latex-rpc 'tex2mml "$\\bad$")
+          '(org-w3ctr-error
+            "MathJax tex2mml failed for \"$\\\\bad$\": Undefined control sequence \\bad")))
   ;; a non-string result (including nil) signals
   (dolist (bad '(42 nil))
-    (cl-letf (((symbol-function 't--jcall) (lambda (&rest _) bad)))
+    (cl-letf (((symbol-function 't--jstools-available-p) (lambda (_) t))
+              ((symbol-function 't--jcall) (lambda (&rest _) bad)))
       ($e!l (t--latex-rpc 'tex2svg "$x$")
             (list 'org-w3ctr-error
                   (format "RPC method tex2svg returned a non-string: %S"
@@ -3652,7 +3673,9 @@ cookie-less column is remembered as the `none' marker."
   ;; and :display (un-escaped TeX)
   (cl-flet ((rpc (mode frag &optional disp)
               (let (got)
-                (cl-letf (((symbol-function 't--jcall)
+                (cl-letf (((symbol-function 't--jstools-available-p)
+                           (lambda (_) t))
+                          ((symbol-function 't--jcall)
                            (lambda (client method params)
                              (setq got (list client method params))
                              "<M>")))
@@ -3677,7 +3700,8 @@ cookie-less column is remembered as the `none' marker."
          (info (list :with-latex 'mathjax
                      :html-math-custom-format-function
                      (lambda (_f _i) (setq called t) "<C>"))))
-    (cl-letf (((symbol-function 't--jcall)
+    (cl-letf (((symbol-function 't--jstools-available-p) (lambda (_) t))
+              ((symbol-function 't--jcall)
                (lambda (&rest _) (setq called t) "<M>")))
       ($l (t--format-latex "\\Users" 'mathjax info) "\\Users")
       ($l (t--format-latex "\\cmd{a < b}" 'mathml-by-mathjax info)
@@ -3710,7 +3734,8 @@ cookie-less column is remembered as the `none' marker."
       ($l (t--pget info :html-math-count) 5)))
   ;; An RPC error does not increment `:html-math-count'.
   (let ((info (list :with-latex 'svg-by-mathjax)))
-    (cl-letf (((symbol-function 't--jcall) (lambda (&rest _) 42)))
+    (cl-letf (((symbol-function 't--jstools-available-p) (lambda (_) t))
+              ((symbol-function 't--jcall) (lambda (&rest _) 42)))
       ($e!l (t--format-latex "$x$" 'svg-by-mathjax info)
             '(org-w3ctr-error "RPC method tex2svg returned a non-string: 42"))
       ($n (t--pget info :html-math-count)))))

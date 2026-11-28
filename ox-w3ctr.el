@@ -3597,19 +3597,31 @@ unchanged, so this never signals and never drops text."
   "Convert LaTeX FRAG through the jstools RPC METHOD.
 
 METHOD is `tex2mml' or `tex2svg' (see `org-w3ctr--jstools-methods').
-Split FRAG with `org-w3ctr--split-latex' (using DEFAULT-DISPLAY when
+Verify that `mathjax' is available via `org-w3ctr--jstools-available-p',
+split FRAG with `org-w3ctr--split-latex' (using DEFAULT-DISPLAY when
 FRAG has no outer math delimiters), send `(:tex ... :display ...)' to
 the RPC, and return the string result.  Signal `org-w3ctr-error' when
-the result is not a string."
+server-side MathJax is unavailable, when the RPC signals `jsonrpc-error'
+\(such as a TeX error), or when the result is not a string."
   (declare (ftype (function (symbol string &optional boolean) string))
            (important-return-value t))
+  (unless (t--jstools-available-p "mathjax")
+    (t-error (concat "Server-side MathJax is unavailable"
+                     " (need `node' and `npm ci' in jstools/)")))
   (pcase-let* ((`(,tex . ,kind) (t--split-latex frag))
                (display (pcase kind
                           ('display t)
                           ('inline :json-false)
                           (_ (if default-display t :json-false))))
-               (out (t--jcall t--jstools method
-                              (list :tex tex :display display))))
+               (out (condition-case err
+                        (t--jcall t--jstools method
+                                  (list :tex tex :display display))
+                      (jsonrpc-error
+                       (t-error "MathJax %s failed for %S: %s"
+                                method frag
+                                (or (alist-get 'jsonrpc-error-message
+                                               (cdr err))
+                                    (error-message-string err)))))))
     (unless (stringp out)
       (t-error "RPC method %s returned a non-string: %S" method out))
     out))

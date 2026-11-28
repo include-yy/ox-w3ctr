@@ -14,7 +14,7 @@ test('tex2mml and tex2svg convert explicit { tex, display }', async () => {
     assert.match(await tex2mml({ tex: 'x^2', display: true }),
                  /^<math display="block"><msup>/)
     // Inner \(...\) inside an environment must not truncate the environment.
-    const env = '\\begin{equation}\\text{if } \\(x\\) \\text{ then } y\\end{equation}'
+    const env = '\\begin{equation}\\text{if \\(x\\) then } y\\end{equation}'
     const envMml = await tex2mml({ tex: env, display: true })
     assert.match(envMml, /<math display="block">/)
     assert.match(envMml, /then/)
@@ -22,4 +22,19 @@ test('tex2mml and tex2svg convert explicit { tex, display }', async () => {
                  /^<svg aria-label="x" /)
     const svg = await tex2svg({ tex: 'x', display: true })
     assert.match(svg, /^<span class="math-display"><svg aria-label="x" /)
+})
+
+test('tex2mml and tex2svg reject invalid TeX without breaking subsequent calls', async () => {
+    await assert.rejects(
+        () => tex2mml({ tex: '\\undefinedmacro', display: false }),
+        /Undefined control sequence \\undefinedmacro/)
+    await assert.rejects(
+        () => tex2svg({ tex: '\\frac{1', display: true }),
+        /Missing close brace/)
+    await assert.rejects(
+        () => tex2mml({ tex: 'x^2^3', display: false }),
+        /Double exponent/)
+    // A valid call right after errors must still succeed.
+    assert.match(await tex2mml({ tex: 'x^2', display: false }), /^<math><msup>/)
+    assert.match(await tex2svg({ tex: 'x^2', display: false }), /^<svg aria-label="x\^2" /)
 })

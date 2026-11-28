@@ -8,26 +8,6 @@ Grouped by priority and action type (=Next= / =Design= / =Later= /
 Actionable engineering debt and clear fixes to pick up after the
 manual source walkthrough finishes.
 
-*** Server-side MathJax pre-check for =node= / =mathjax=             :math:
-
-=org-w3ctr--jstools-available-p= already checks =node=,
-=jstools/index.js=, and an optional package under
-=jstools/node_modules/=, whereas =org-w3ctr--latex-rpc= calls
-=org-w3ctr--jcall= directly and fails with a raw process/RPC error
-when =node= or =npm ci= is missing.  Call
-=(org-w3ctr--jstools-available-p "mathjax")= first and signal
-=org-w3ctr-error= with setup context.
-
-*** Server-side MathJax renders TeX errors silently as =<merror>=    :math:
-
-Under =mathml-by-mathjax= and =svg-by-mathjax=, =jstools/lib/math.js=
-leaves MathJax's default error handling on, so invalid TeX (such as an
-undefined macro or malformed braces) silently produces an =<merror>=
-node (or SVG error group) instead of failing loudly with
-=org-w3ctr-error=.  Decide whether =tex2mml= / =tex2svg= should reject
-TeX errors (or report them like the fontify report) when revisiting
-MathJax configuration.
-
 *** Upgrade MathJax in =jstools= (=@xmldom/xmldom= audit)    :math:jstools:
 
 =npm audit= flags =@xmldom/xmldom= in =jstools=.  It comes with
