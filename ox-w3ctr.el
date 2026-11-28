@@ -1158,8 +1158,10 @@ This can be either:
   id='MathJax-script'
   async
   src='https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js'>
-</script>"
+</script>
+"
   "Configuration for MathJax rendering in HTML export.
+
 Used for MathJax rendering (`:with-latex' is set to `mathjax', or
 its legacy alias t).
 
@@ -1170,6 +1172,7 @@ https://docs.mathjax.org/en/latest/options/index.html"
 
 (defcustom t-math-head-function #'t-math-head-default-function
   "Function returning the math setup to insert into <head>.
+
 Called with the INFO plist; return a string (or nil)."
   :group 'org-export-w3ctr
   :type 'function)
