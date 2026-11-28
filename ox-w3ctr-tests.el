@@ -7818,6 +7818,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   (t-check-element-values
    #'t--build-base-headline
    `(("* test" "test")
+     ("* *bold* title" "<b>bold</b> title")
      ("* TODO test1" ,($c "<span class=\"todo org-status-TODO\">"
                           "TODO</span> test1"))
      ("* DONE test2" ,($c "<span class=\"done org-status-DONE\">"
@@ -7876,7 +7877,10 @@ COUNTER, a cons cell, has its car incremented on every call."
                  :html-honor-ox-headline-levels nil))
           (i2 '( :html-toplevel-hlevel 2
                  :html-honor-ox-headline-levels t
-                 :headline-levels 4)))
+                 :headline-levels 4))
+          (i3 '( :html-toplevel-hlevel 2
+                 :html-honor-ox-headline-levels t
+                 :headline-levels 10)))
       (cl-flet ((f (str) (t-get-element str 'headline)))
         ;; i1
         ($l (it (f "* a") i1) nil)
@@ -7891,7 +7895,10 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($l (it (f "*** a") i2) nil)
         ($l (it (f "**** a") i2) nil)
         ($l (it (f "***** a") i2) t)
-        ($l (it (f "****** a") i2) t))))
+        ($l (it (f "****** a") i2) t)
+        ;; i3: :headline-levels never pushes the cutoff past h6.
+        ($l (it (f "***** a") i3) nil)
+        ($l (it (f "****** a") i3) t))))
   (t-check-element-values
    #'t--low-level-headline-p
    '(("* a\n** b\n*** c\n**** d\n***** e\n" nil nil nil t t)

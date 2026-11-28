@@ -6111,8 +6111,8 @@ Return the formatted HTML string, or nil when TODO is nil."
 ;;;; Priority
 
 ;; Options:
-;; - `org-priority-highest'(65)
-;; - `org-priority-default'(66)
+;; - `org-priority-highest' (65)
+;; - `org-priority-default' (66)
 ;; - `org-priority-lowest' (67)
 ;; - :with-priority (`org-export-with-priority')
 ;; - :html-priority-format-function (`org-w3ctr-priority-format-function')
@@ -6182,9 +6182,6 @@ Return the formatted HTML string, or nil when TAGS is empty."
 ;;;; Headline
 
 ;; Options:
-;; - :with-todo-keywords (`org-export-with-todo-keywords')
-;; - :with-priority (`org-export-with-priority')
-;; - :with-tags (`org-export-with-tags')
 ;; - :html-format-headline-function (`org-w3ctr-format-headline-function')
 ;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
 ;; - :html-honor-ox-headline-levels (`org-w3ctr-honor-ox-headline-levels')
