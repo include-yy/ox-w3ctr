@@ -3673,15 +3673,23 @@ cookie-less column is remembered as the `none' marker."
       ($l got (list t--jstools 'tex2mml '(:tex "a < b" :display :json-false)))
       ($l (t--latex-rpc 'tex2svg "$$x$$") "<M>")
       ($l got (list t--jstools 'tex2svg '(:tex "x" :display t)))
+      ($l (t--latex-rpc 'tex2mml "\\foo{bar}") "<M>")
+      ($l got (list t--jstools 'tex2mml
+                    '(:tex "\\foo{bar}" :display :json-false)))
+      ($l (t--latex-rpc 'tex2mml "$x$" t) "<M>")
+      ($l got (list t--jstools 'tex2mml '(:tex "x" :display :json-false)))
       ($l (t--latex-rpc 'tex2mml "\\begin{equation}\nx=1\n\\end{equation}" t)
           "<M>")
       ($l got (list t--jstools 'tex2mml
                     '(:tex "\\begin{equation}\nx=1\n\\end{equation}"
                            :display t)))))
-  ;; a non-string result signals
-  (cl-letf (((symbol-function 't--jcall) (lambda (&rest _) 42)))
-    ($e!l (t--latex-rpc 'tex2svg "$x$")
-          '(org-w3ctr-error "RPC method tex2svg returned a non-string: 42"))))
+  ;; a non-string result (including nil) signals
+  (dolist (bad '(42 nil))
+    (cl-letf (((symbol-function 't--jcall) (lambda (&rest _) bad)))
+      ($e!l (t--latex-rpc 'tex2svg "$x$")
+            (list 'org-w3ctr-error
+                  (format "RPC method tex2svg returned a non-string: %S"
+                          bad))))))
 
 (ert-deftest t--format-latex ()
   "Tests for `org-w3ctr--format-latex'."
@@ -3801,11 +3809,12 @@ cookie-less column is remembered as the `none' marker."
    '(("$x^2$" "\\(x^2\\)"))
    t '(:with-latex t))
   ;; `custom' reaches the renderer with the fragment and INFO, pinning
-  ;; both the MODE and the INFO passthrough, which every other case
-  ;; leaves unobserved
+  ;; both the MODE and the INFO passthrough, while a delimiter-less
+  ;; fragment passes default-display = nil and stays plain escaped text
   (t-check-element-values
    #'t-latex-fragment
-   '(("$x^2$" "<C>$x^2$</C>"))
+   '(("$x^2$" "<C>$x^2$</C>")
+     ("\\foo{a < b}" "\\foo{a &lt; b}"))
    t (list :with-latex 'custom :html-math-custom-format-function
            (lambda (f _i) (format "<C>%s</C>" f))))
   ;; a nil :value (not parser-reachable) degrades to the empty string
@@ -4312,11 +4321,14 @@ fresh: the code under test may store its state in it."
             "Fontify language alist must be a list: ((\"c\") . x)")))
   ;; Cached by `eq' in an existing fontify state and invalidated on replacement.
   (let* ((t--fontify-last-state nil)
-         (alist '(("c" :font-lock c-mode)))
+         (alist (copy-tree '(("c" :font-lock c-mode))))
          (info (t-test-fontify-info :html-fontify-lang-alist alist))
          (state (t--fontify-state info)))
     ($l (t--fontify-lang-entry "c" info) '(:font-lock c-mode))
     ($q (car (gethash '(cache . lang-alist) state)) alist)
+    ;; Mutating ALIST in place keeps `eq', proving the cache skips re-validation.
+    (setcar (car alist) "")
+    ($n (t--fontify-lang-entry "c" info))
     (t--pput info :html-fontify-lang-alist '(("" :font-lock c-mode)))
     ($e!l (t--fontify-lang-entry "c" info)
           '(org-w3ctr-error
@@ -4840,7 +4852,11 @@ fresh: the code under test may store its state in it."
     ($l (t--font-lock-face-class '(font-lock-string-face font-lock-keyword-face)
                                  table 'inherit)
         "s")
-    ;; A face with no slug gets an inline style only under `inline'.
+    ;; A face with no slug gets an inline style only under `inline',
+    ;; while direct slugs and `:inherit' still win over inline styles.
+    ($l (t--font-lock-face-class 'font-lock-keyword-face table 'inline) "k")
+    ($l (t--font-lock-face-class 'font-lock-function-call-face table 'inline)
+        "f")
     ($n (t--font-lock-face-class '(:foreground "red") table 'inherit))
     ($l (t--font-lock-face-class '(:foreground "red") table 'inline)
         '(style . "color: #ff0000;"))
@@ -4864,7 +4880,7 @@ fresh: the code under test may store its state in it."
       (put-text-property 2 4 'face 'css-selector)
       ($l (t--font-lock-collect table 'inherit)
           '(("k" . "a") ("k" . "bc") (nil . " def") ("c" . ";x")))
-      ;; Faces without a slug are counted in STATE, `default' is not.
+      ;; Faces without a slug are counted in STATE; slug hits and `default' are not.
       (put-text-property 4 5 'face '(bold default))
       (put-text-property 5 6 'face '(:foreground "red"))
       (let ((state (make-hash-table :test #'equal)))
@@ -4873,12 +4889,22 @@ fresh: the code under test may store its state in it."
               ("c" . ";x")))
         ($l (gethash '(missed-face . bold) state) 1)
         ($l (gethash '(missed-face . "(anonymous face)") state) 1)
-        ($n (gethash '(missed-face . default) state)))
+        ($n (gethash '(missed-face . default) state))
+        ($l (hash-table-count state) 2))
       ;; Under `inline' such a face gets a style, and is still counted.
       (let ((state (make-hash-table :test #'equal)))
         ($s (member '((style . "color: #ff0000;") . "d")
                     (t--font-lock-collect table 'inline state)))
-        ($l (gethash '(missed-face . "(anonymous face)") state) 1)))))
+        ($l (gethash '(missed-face . bold) state) 1)
+        ($l (gethash '(missed-face . "(anonymous face)") state) 1)
+        ($l (hash-table-count state) 2))
+      ;; A face list that resolves to a slug does not record a missed face.
+      (erase-buffer)
+      (insert "x")
+      (put-text-property 1 2 'face '(bold font-lock-keyword-face))
+      (let ((state (make-hash-table :test #'equal)))
+        ($l (t--font-lock-collect table 'inherit state) '(("k" . "x")))
+        ($l (hash-table-count state) 0)))))
 
 (ert-deftest t--font-lock-lang-mode ()
   "Tests for `org-w3ctr--font-lock-lang-mode'."
@@ -5231,17 +5257,20 @@ fresh: the code under test may store its state in it."
               '(org-w3ctr-error "Malformed highlight reply: (:other 1)"))
         ($e!l (t--shiki-tokens "x" "num" info)
               '(org-w3ctr-error "Malformed highlight reply: 42"))
-        ;; Any other error propagates.
-        (let ((t--fontify-last-state nil)
-              (info (t-test-fontify-info
-                     :html-fontify-lang-alist '(("python" :shiki "python")))))
-          (cl-letf (((symbol-function 't--jcall)
-                     (lambda (_client method &rest _)
-                       (if (eq method 'highlightLanguages)
-                           '(:languages ["python"])
-                         (signal 'jsonrpc-error
-                                 '((jsonrpc-error-message . "Timed out")))))))
-            ($e! (t--shiki-tokens "x" "python" info) 'jsonrpc-error)))))))
+        ;; Any other error propagates verbatim, including numeric error codes.
+        (dolist (err '(((jsonrpc-error-message . "Timed out"))
+                       ((jsonrpc-error-code . -32603)
+                        (jsonrpc-error-message . "Internal error"))))
+          (let ((t--fontify-last-state nil)
+                (info (t-test-fontify-info
+                       :html-fontify-lang-alist '(("python" :shiki "python")))))
+            (cl-letf (((symbol-function 't--jcall)
+                       (lambda (_client method &rest _)
+                         (if (eq method 'highlightLanguages)
+                             '(:languages ["python"])
+                           (signal 'jsonrpc-error err)))))
+              ($e!l (t--shiki-tokens "x" "python" info)
+                    (cons 'jsonrpc-error err)))))))))
 
 (ert-deftest t--shiki-tokens-live ()
   "The shiki engine against the real Node helper."
@@ -5606,6 +5635,7 @@ COUNTER, a cons cell, has its car incremented on every call."
           (list (concat "Fontify engine boom failed on the l code: Engine boom"
                         " returned tokens that do not add up to the code")
                 "No fontify engine handles the m code"))
+      ($l (gethash '(decline . nope) (t--fontify-state info)) 2)
       ($l (gethash '(unknown-language . "m") (t--fontify-state info)) 2))
     ;; The `error' policies signal, with the block's line.
     (let ((t-fontify-engines
@@ -5632,6 +5662,7 @@ COUNTER, a cons cell, has its car incremented on every call."
              (plain :fontify t--plain-tokens :available always)))
           (info (t-test-fontify-info :html-fontify-unknown-language 'plain)))
       ($l (t--fontify-dispatch "x" "l" '(nope) info nil) '(plain (nil . "x")))
+      ($l (gethash '(decline . nope) (t--fontify-state info)) 1)
       ($l (gethash '(unknown-language . "l") (t--fontify-state info)) 1))
     ;; An `:available' function that signals is a failure of its engine:
     ;; it counts as tried, so a later decline does not make the language
@@ -5734,7 +5765,15 @@ COUNTER, a cons cell, has its car incremented on every call."
 (ert-deftest t--fontify-default-info ()
   "Tests for `org-w3ctr--fontify-default-info'."
   (let* ((info (t--fontify-default-info))
-         (keys (seq-filter #'keywordp info)))
+         (other (t--fontify-default-info))
+         keys)
+    ($s (plistp info))
+    ;; Each call returns a fresh plist so callers can attach state safely.
+    ($nq info other)
+    (let ((p info))
+      (while p
+        (push (car p) keys)
+        (setq p (cddr p))))
     ;; Exactly the back-end's `:html-fontify-' options.
     ($l (sort (mapcar #'symbol-name keys) #'string<)
         (sort (seq-filter
@@ -5856,8 +5895,12 @@ COUNTER, a cons cell, has its car incremented on every call."
     (let ((out (org-export-string-as
                 "#+caption: C\n#+begin_src emacs-lisp\nx\n#+end_src"
                 'w3ctr t)))
-      ($s (string-match-p "<div id=\"org[^\"]*\" class=\"example\">" out))
-      ($s (string-match-p "self-link" out))
+      ($s (string-match "<div id=\"\\(org[^\"]*\\)\" class=\"example\">" out))
+      ($s (string-match-p
+           (regexp-quote
+            (format "<a class=\"self-link\" href=\"#%s\" aria-label=\"source block\"></a>"
+                    (match-string 1 out)))
+           out))
       ($s (string-match-p "<span>C</span>" out)))
     ;; Attributes come from `#+attr__', or `#+attr_html' when that is
     ;; absent; `#+attr__' wins over `#+attr_html'.
@@ -5883,7 +5926,10 @@ COUNTER, a cons cell, has its car incremented on every call."
                   (concat "#+name: nm\n#+caption: C\n"
                           "#+begin_src emacs-lisp\nx\n#+end_src")
                   'w3ctr t)))
-        ($s (string-match-p "<div id=\"nm\" class=\"example\">" out)))
+        ($s (string-match-p "<div id=\"nm\" class=\"example\">" out))
+        ($s (string-match-p
+             "<a class=\"self-link\" href=\"#nm\" aria-label=\"source block\"></a>"
+             out)))
       ;; The caption is transcoded, and the id is escaped in the self-link.
       (let ((out (org-export-string-as
                   (concat "#+name: nm\n#+caption: *Bold*\n"
