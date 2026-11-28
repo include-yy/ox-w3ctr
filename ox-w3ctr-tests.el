@@ -4169,7 +4169,7 @@ cookie-less column is remembered as the `none' marker."
   (let ((out (org-export-string-as "#+begin_example\nx\n#+end_example"
                                    'w3ctr t)))
     ($n (string-match-p "<div id=" out))))
-
+
 ;;;; Fontify token IR
 
 (defun t-test-fontify-info (&rest plist)
@@ -6012,7 +6012,7 @@ COUNTER, a cons cell, has its car incremented on every call."
                                        '(:html-fontify-unknown-language plain))))
         ($s (string-match-p "language-&quot;&gt;&lt;img/src=x&gt;" out))
         ($n (string-match-p "<img" out))))))
-
+
 ;;; Objects
 
 ;;;; Entity
