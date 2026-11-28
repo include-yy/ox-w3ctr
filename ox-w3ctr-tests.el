@@ -104,8 +104,8 @@ mismatch, and removes the advice in either case."
     ;; push-accumulated, so two blocks come back as (SECOND FIRST).
     ($q (t-check-element-values
          #'t-quote-block
-         (list (cons (concat "#+begin_quote\n1\n#+end_quote\n\n"
-                             "#+begin_quote\n2\n#+end_quote")
+         (list (cons ($c "#+begin_quote\n1\n#+end_quote\n\n"
+                         "#+begin_quote\n2\n#+end_quote")
                      (list "<blockquote>\n<p>2</p>\n</blockquote>"
                            "<blockquote>\n<p>1</p>\n</blockquote>"))))
         t)
@@ -146,7 +146,7 @@ Return nil when PROP has no entry in `org-w3ctr--oinfo-cache-alist'."
 
 It is deliberately distinct from `org-w3ctr--oinfo-oclosure', so that
 the closures these tests install can never replace a real one."
-  (intern (concat "org-w3ctr--oinfo-test" (symbol-name key))))
+  (intern ($c "org-w3ctr--oinfo-test" (symbol-name key))))
 
 (defmacro t-test-oinfo-cache (keys &rest body)
   "Run BODY with a throwaway OINFO cache for the property keys KEYS.
@@ -272,7 +272,7 @@ same mechanism the byte compiler uses."
 Every `org-w3ctr--oinfo-cache-props' key must appear as a literal
 second argument to `org-w3ctr--pget' in the source file."
   (let* ((build (symbol-file 'org-w3ctr--pget 'defun))
-         (source (and build (concat (file-name-sans-extension build) ".el"))))
+         (source (and build ($c (file-name-sans-extension build) ".el"))))
     (skip-unless (and source (file-readable-p source)))
     (with-temp-buffer
       (insert-file-contents source)
@@ -290,7 +290,7 @@ literal `plist-get', `plist-put' or `setf (plist-get ...)' in the
 source file.  Only literal keys are checked: a computed key cannot be
 seen here."
   (let* ((build (symbol-file 'org-w3ctr--pget 'defun))
-         (source (and build (concat (file-name-sans-extension build) ".el"))))
+         (source (and build ($c (file-name-sans-extension build) ".el"))))
     (skip-unless (and source (file-readable-p source)))
     (with-temp-buffer
       (insert-file-contents source)
@@ -325,9 +325,9 @@ seen here."
 a test that uses it must also `skip-unless' `org-w3ctr--oinfo-cache-p';
 otherwise its cached assertions fail in the nil build."
   (let* ((build (symbol-file 'org-w3ctr-test-oinfo-cache 'defun))
-         (source (and build (concat (file-name-sans-extension build) ".el")))
+         (source (and build ($c (file-name-sans-extension build) ".el")))
          ;; Built so this file does not itself match the pattern below.
-         (use (concat "(t-test-oinfo" "-cache\\_>"))
+         (use ($c "(t-test-oinfo" "-cache\\_>"))
          (guard "skip-unless t--oinfo-cache-p"))
     (skip-unless (and source (file-readable-p source)))
     (with-temp-buffer
@@ -358,7 +358,7 @@ otherwise its cached assertions fail in the nil build."
   ($q (t--oinfo-oclosure :title) 'org-w3ctr--oinfo:title)
   (dolist (key t--oinfo-cache-props)
     ($l (t--oinfo-oclosure key)
-        (intern (concat "org-w3ctr--oinfo" (symbol-name key))))))
+        (intern ($c "org-w3ctr--oinfo" (symbol-name key))))))
 
 (ert-deftest t--oinfo-cache-alist-matches-props ()
   "Structural check: OINFO cache alist matches cached property keys.
@@ -3326,8 +3326,8 @@ cookie-less column is remembered as the `none' marker."
     (cl-letf (((symbol-function 'eval-probe)
                (lambda () (setq ran t) "")))
       (let* ((doc "#+begin_export emacs-lisp\n(eval-probe)\n#+end_export")
-             (tail (concat " at line 1: Lisp evaluation is disabled; "
-                           "set `org-w3ctr-allow-eval' to enable it"))
+             (tail ($c " at line 1: Lisp evaluation is disabled; "
+                       "set `org-w3ctr-allow-eval' to enable it"))
              (cases (list (cons "#+E: (eval-probe)" "#+E keyword")
                           (cons "x @@e:(eval-probe)@@" "@@e snippet")
                           (cons doc "EMACS-LISP block"))))
@@ -3335,7 +3335,7 @@ cookie-less column is remembered as the `none' marker."
         ;; line context, and none runs the code.
         (pcase-dolist (`(,org . ,ctx) cases)
           ($e!l (org-export-string-as org 'w3ctr t)
-                (list 'org-w3ctr-error (concat ctx tail))))
+                (list 'org-w3ctr-error ($c ctx tail))))
         ($n ran)
         ;; With the option on, each document exports and runs the probe.
         (let ((t-allow-eval t))
@@ -3354,8 +3354,8 @@ cookie-less column is remembered as the `none' marker."
         ($l (t--eval-lisp el "   " 'eval "CTX") "")
         ($e!l (t--eval-lisp el "(broken" 'eval "CTX")
               (list 'org-w3ctr-error
-                    (concat "CTX at line 2: Lisp evaluation is disabled; "
-                            "set `org-w3ctr-allow-eval' to enable it")))))))
+                    ($c "CTX at line 2: Lisp evaluation is disabled; "
+                        "set `org-w3ctr-allow-eval' to enable it")))))))
 
 (ert-deftest t-export-block ()
   "Tests for `org-w3ctr-export-block'."
@@ -4506,7 +4506,7 @@ fresh: the code under test may store its state in it."
          (longest alphabet))
     ;; Extend the strings of the previous length by one character.
     (dotimes (_ 2)
-      (setq longest (mapcan (lambda (s) (mapcar (lambda (c) (concat s c))
+      (setq longest (mapcan (lambda (s) (mapcar (lambda (c) ($c s c))
                                                 alphabet))
                             longest)
             strings (append strings longest)))
@@ -4585,16 +4585,16 @@ fresh: the code under test may store its state in it."
     (puthash '(cache . shiki-languages) '("py" "js") state)
     ;; Sections in their fixed order, rows by count then by name.
     ($l (t--fontify-report-text state)
-        (concat "Blocks fontified, by engine\n"
-                "     3  font-lock\n"
-                "\n"
-                "Faces without a slug (runs)\n"
-                "     5  foo\n"
-                "     2  bold\n"
-                "     2  sh-quoted-exec\n"
-                "\n"
-                "Slugs an engine sent but no table knows\n"
-                "     1  zz\n"))))
+        ($c "Blocks fontified, by engine\n"
+            "     3  font-lock\n"
+            "\n"
+            "Faces without a slug (runs)\n"
+            "     5  foo\n"
+            "     2  bold\n"
+            "     2  sh-quoted-exec\n"
+            "\n"
+            "Slugs an engine sent but no table knows\n"
+            "     1  zz\n"))))
 
 (ert-deftest t-show-fontify-report ()
   "Tests for `org-w3ctr-show-fontify-report'."
@@ -4625,21 +4625,21 @@ fresh: the code under test may store its state in it."
   ($l (t--fontify-stylesheet
        '(("k" :light "#111111" :dark "#eeeeee")
          ("c" :light "#222222" :dark "#dddddd" :style (italic bold))))
-      (concat t--fontify-css-begin "\n"
-              ":root {\n"
-              "  --tok-k: #111111;\n"
-              "  --tok-c: #222222;\n"
-              "}\n"
-              "@media (prefers-color-scheme: dark) {\n"
-              "  :root {\n"
-              "    --tok-k: #eeeeee;\n"
-              "    --tok-c: #dddddd;\n"
-              "  }\n"
-              "}\n"
-              ".tok-k { color: var(--tok-k); }\n"
-              ".tok-c { color: var(--tok-c);"
-              " font-weight: 700; font-style: italic; }\n"
-              t--fontify-css-end "\n"))
+      ($c t--fontify-css-begin "\n"
+          ":root {\n"
+          "  --tok-k: #111111;\n"
+          "  --tok-c: #222222;\n"
+          "}\n"
+          "@media (prefers-color-scheme: dark) {\n"
+          "  :root {\n"
+          "    --tok-k: #eeeeee;\n"
+          "    --tok-c: #dddddd;\n"
+          "  }\n"
+          "}\n"
+          ".tok-k { color: var(--tok-k); }\n"
+          ".tok-c { color: var(--tok-c);"
+          " font-weight: 700; font-style: italic; }\n"
+          t--fontify-css-end "\n"))
   ;; Malformed entries fail loudly, also under `case-fold-search'.
   (let ((case-fold-search t))
     (dolist (bad '(("K" :light "#111111" :dark "#eeeeee")
@@ -4670,23 +4670,23 @@ fresh: the code under test may store its state in it."
                                 :style (italic))
                                ("n" :light "#333333" :dark "#cccccc"
                                 :style nil)))
-      (concat t--fontify-css-begin "\n"
-              ":root {\n"
-              "  --tok-k2-a: #111111;\n"
-              "  --tok-i: #222222;\n"
-              "  --tok-n: #333333;\n"
-              "}\n"
-              "@media (prefers-color-scheme: dark) {\n"
-              "  :root {\n"
-              "    --tok-k2-a: #eeeeee;\n"
-              "    --tok-i: #dddddd;\n"
-              "    --tok-n: #cccccc;\n"
-              "  }\n"
-              "}\n"
-              ".tok-k2-a { color: var(--tok-k2-a); font-weight: 700; }\n"
-              ".tok-i { color: var(--tok-i); font-style: italic; }\n"
-              ".tok-n { color: var(--tok-n); }\n"
-              t--fontify-css-end "\n"))
+      ($c t--fontify-css-begin "\n"
+          ":root {\n"
+          "  --tok-k2-a: #111111;\n"
+          "  --tok-i: #222222;\n"
+          "  --tok-n: #333333;\n"
+          "}\n"
+          "@media (prefers-color-scheme: dark) {\n"
+          "  :root {\n"
+          "    --tok-k2-a: #eeeeee;\n"
+          "    --tok-i: #dddddd;\n"
+          "    --tok-n: #cccccc;\n"
+          "  }\n"
+          "}\n"
+          ".tok-k2-a { color: var(--tok-k2-a); font-weight: 700; }\n"
+          ".tok-i { color: var(--tok-i); font-style: italic; }\n"
+          ".tok-n { color: var(--tok-n); }\n"
+          t--fontify-css-end "\n"))
   ;; A slug defined twice is rejected, not emitted twice.
   ($e!l (t--fontify-stylesheet '(("k" :light "#111111" :dark "#eeeeee")
                                  ("c" :light "#222222" :dark "#dddddd")
@@ -4756,7 +4756,7 @@ fresh: the code under test may store its state in it."
     (goto-char 3)
     (let ((bounds (t--fontify-stylesheet-bounds)))
       ($l (buffer-substring (car bounds) (cdr bounds))
-          (concat t--fontify-css-begin "\nold\n" t--fontify-css-end "\n"))
+          ($c t--fontify-css-begin "\nold\n" t--fontify-css-end "\n"))
       ($l (point) 3)))
   (with-temp-buffer
     (insert "a {}\n")
@@ -4770,8 +4770,8 @@ fresh: the code under test may store its state in it."
           (list 'org-w3ctr-error
                 (format "Expected one line %S, found 2" t--fontify-css-begin))))
   ;; The closing marker is checked the same way.
-  (dolist (tail (list "" (concat t--fontify-css-end "\n"
-                                 t--fontify-css-end "\n")))
+  (dolist (tail (list "" ($c t--fontify-css-end "\n"
+                             t--fontify-css-end "\n")))
     (with-temp-buffer
       (insert t--fontify-css-begin "\n" tail)
       ($e!l (t--fontify-stylesheet-bounds)
@@ -4781,8 +4781,8 @@ fresh: the code under test may store its state in it."
   ;; A marker must fill its line, in its own case, even under
   ;; `case-fold-search'.
   (dolist (begin (list (downcase t--fontify-css-begin)
-                       (concat " " t--fontify-css-begin)
-                       (concat t--fontify-css-begin " x")))
+                       ($c " " t--fontify-css-begin)
+                       ($c t--fontify-css-begin " x")))
     (with-temp-buffer
       (setq-local case-fold-search t)
       (insert begin "\n" t--fontify-css-end "\n")
@@ -4813,9 +4813,9 @@ fresh: the code under test may store its state in it."
                     (insert-file-contents-literally f)
                     (buffer-string))))
          (expected (encode-coding-string
-                    (concat "a {} /* \u00a7 */\n"
-                            (t--fontify-stylesheet t-fontify-palette)
-                            "b {}\n")
+                    ($c "a {} /* \u00a7 */\n"
+                        (t--fontify-stylesheet t-fontify-palette)
+                        "b {}\n")
                     'utf-8-unix)))
     (unwind-protect
         (progn
@@ -4973,8 +4973,8 @@ fresh: the code under test may store its state in it."
   ($l (t--font-lock-inline-style
        '((:foreground "#ff0000" :background "white" :weight bold
                       :slant italic :underline t :strike-through t)))
-      (concat "color: #ff0000; background-color: #ffffff; font-weight: 700;"
-              " font-style: italic; text-decoration: underline line-through;"))
+      ($c "color: #ff0000; background-color: #ffffff; font-weight: 700;"
+          " font-style: italic; text-decoration: underline line-through;"))
   ($l (t--font-lock-inline-style '((:weight semi-bold) (:slant oblique)))
       "font-weight: 600; font-style: italic;")
   ($l (t--font-lock-inline-style '((:underline t)))
@@ -5759,8 +5759,8 @@ COUNTER, a cons cell, has its car incremented on every call."
                     :html-fontify-shiki-timeout "10")
                    ("Malformed fontify face entry: (foo . \"K\")"
                     :html-fontify-extra-faces ((foo . "K")))
-                   (,(concat "Malformed fontify language entry: "
-                             "(\"x\" :font-lock \"x-mode\")")
+                   (,($c "Malformed fontify language entry: "
+                         "(\"x\" :font-lock \"x-mode\")")
                     :html-fontify-lang-alist (("x" :font-lock "x-mode")))))
     ($e!l (t--fontify-check-options (t-test-fontify-info key value))
           (list 'org-w3ctr-error message))))
@@ -5794,8 +5794,8 @@ COUNTER, a cons cell, has its car incremented on every call."
            'eng '(org-w3ctr-error "Engine eng returned a non-list: 1") "c" nil
            (t-test-fontify-info :html-fontify-on-error 'error))
           (list 'org-w3ctr-error
-                (concat "Fontify engine eng failed on the c code:"
-                        " Engine eng returned a non-list: 1")))))
+                ($c "Fontify engine eng failed on the c code:"
+                    " Engine eng returned a non-list: 1")))))
 
 (ert-deftest t--fontify-unavailable ()
   "Tests for `org-w3ctr--fontify-unavailable'."
@@ -5884,8 +5884,8 @@ COUNTER, a cons cell, has its car incremented on every call."
           (ignore (t--fontify-dispatch "x" "m" '(nope plain) info nil))))
       ($l (nreverse warnings)
           (list "Fontify engine off is unavailable: needs a thing"
-                (concat "Fontify engine boom failed on the l code: Engine boom"
-                        " returned tokens that do not add up to the code")
+                ($c "Fontify engine boom failed on the l code: Engine boom"
+                    " returned tokens that do not add up to the code")
                 "No fontify engine handles the m code"))
       ($l (t-test-fontify-count info 'unavailable 'off) 1)
       ($l (t-test-fontify-count info 'decline 'nope) 2)
@@ -6259,9 +6259,9 @@ COUNTER, a cons cell, has its car incremented on every call."
     ;; Per-file `#+OPTIONS: fontify:...' reaches the transcoder through INFO.
     ($s (string-match-p "tok-k" (org-export-string-as src 'w3ctr t)))
     ($n (string-match-p
-         "tok-k" (org-export-string-as (concat "#+OPTIONS: fontify:nil\n" src)
+         "tok-k" (org-export-string-as ($c "#+OPTIONS: fontify:nil\n" src)
                                        'w3ctr t)))
-    ($e!l (org-export-string-as (concat "#+OPTIONS: fontify:bogus\n" src)
+    ($e!l (org-export-string-as ($c "#+OPTIONS: fontify:bogus\n" src)
                                 'w3ctr t)
           '(org-w3ctr-error "Unknown fontify method: bogus"))
     ;; Block-level `:fontify' wins over file-level method and reports line.
@@ -6419,8 +6419,8 @@ COUNTER, a cons cell, has its car incremented on every call."
       "<span id=\"th1\">th1</span>")))
   (let ((out (org-export-string-as "<<<*th1*>>> *th1*" 'w3ctr t)))
     ($s (string-match
-         (concat "<span id=\"\\(org[0-9a-f]+\\)\"><b>th1</b></span> "
-                 "<a href=\"#\\1\"><b>th1</b></a>")
+         ($c "<span id=\"\\(org[0-9a-f]+\\)\"><b>th1</b></span> "
+             "<a href=\"#\\1\"><b>th1</b></a>")
          out)))
   (let ((out (org-export-string-as "<<<$x$>>>" 'w3ctr t '(:with-latex nil))))
     ($s (string-match-p "<span id=\"org[0-9a-f]+\"></span>" out)))
@@ -7232,12 +7232,12 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (t--format-ts-time ts1 '("[2024-05-01 %s 100%]") info)
         "<time datetime=\"2024-05-01\">[2024-05-01 %s 100%]</time>")
     ($l (t--format-ts-time ts2 '("[2024-05-01]" "[2024-05-02]") info)
-        (concat "<time datetime=\"2024-05-01\">[2024-05-01]</time>--"
-                "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
+        ($c "<time datetime=\"2024-05-01\">[2024-05-01]</time>--"
+            "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
     ($l (t--format-ts-time ts2 '("[2024-05-01]" "[2024-05-02]")
                            (cons :with-special-strings (cons t info)))
-        (concat "<time datetime=\"2024-05-01\">[2024-05-01]</time>&#x2013;"
-                "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
+        ($c "<time datetime=\"2024-05-01\">[2024-05-01]</time>&#x2013;"
+            "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
     ($e!l (t--format-ts-time ts1 nil info)
           '(org-w3ctr-error "Invalid timestamp range: nil"))
     ($e!l (t--format-ts-time ts1 '("a" "b" "c") info)
@@ -7815,12 +7815,12 @@ COUNTER, a cons cell, has its car incremented on every call."
                        :html-link-org-files-as-html t :html-extension "html")))
       ($e!l (t--link-path link info)
             (list 'org-w3ctr-error
-                  (format (concat "Cross-file link %S uses search option %S, "
-                                  "which requires org-publish in compatibility "
-                                  "mode.  Add a CUSTOM_ID to the target and "
-                                  "use the #custom-id form, or set "
-                                  "`org-w3ctr-honor-ox-external-links' to "
-                                  "non-nil.")
+                  (format ($c "Cross-file link %S uses search option %S, "
+                              "which requires org-publish in compatibility "
+                              "mode.  Add a CUSTOM_ID to the target and "
+                              "use the #custom-id form, or set "
+                              "`org-w3ctr-honor-ox-external-links' to "
+                              "non-nil.")
                           "other.org" opt)))))
   ;; Compatibility mode resolves through org-publish.
   (let* ((link (with-temp-buffer
@@ -7952,8 +7952,8 @@ COUNTER, a cons cell, has its car incremented on every call."
         "<a href=\"#ex\" class=\"coderef\">line 3</a>"))
   ;; Special characters in the defining block's id are attribute-escaped.
   (let ((out (org-export-string-as
-              (concat "#+attr__: (id \"a&b\")\n#+begin_example\nx (ref:sc)\n"
-                      "#+end_example\n\nSee [[(sc)]].")
+              ($c "#+attr__: (id \"a&b\")\n#+begin_example\nx (ref:sc)\n"
+                  "#+end_example\n\nSee [[(sc)]].")
               'w3ctr t)))
     (should (string-match-p
              "<a href=\"#a&amp;b\" class=\"coderef\">sc</a>" out)))
@@ -7965,8 +7965,8 @@ COUNTER, a cons cell, has its car incremented on every call."
         '(org-w3ctr-error "Invalid code reference label: a b"))
   ;; A block whose id is explicitly suppressed cannot be a target.
   ($e!l (org-export-string-as
-         (concat "#+attr_html: :id\n#+begin_example\nx (ref:sc)\n"
-                 "#+end_example\n\nSee [[(sc)]].")
+         ($c "#+attr_html: :id\n#+begin_example\nx (ref:sc)\n"
+             "#+end_example\n\nSee [[(sc)]].")
          'w3ctr t)
         '(org-w3ctr-error
           "Code reference sc is in a block with no id"))
@@ -7979,8 +7979,8 @@ COUNTER, a cons cell, has its car incremented on every call."
                   (match-string 1 out))))
     (should id)
     (should (string-match-p
-             (concat "<a href=\"#" (regexp-quote id)
-                     "\" class=\"coderef\">sc</a>")
+             ($c "<a href=\"#" (regexp-quote id)
+                 "\" class=\"coderef\">sc</a>")
              out))))
 
 (ert-deftest t--link-external ()
@@ -8336,7 +8336,7 @@ COUNTER, a cons cell, has its car incremented on every call."
       ;; wrapping the text in a <span>.
       (cl-flet ((hl (props)
                   (t-get-element
-                   (concat "* x\n:PROPERTIES:\n" props ":END:\n")
+                   ($c "* x\n:PROPERTIES:\n" props ":END:\n")
                    'headline)))
         ($l (it (hl ":HTML_CONTAINER_CLASS: cc\n") nil nil)
             "<ol>\n<li id=\"0\" class=\"cc\">test</li>\n</ol>\n")
@@ -9098,7 +9098,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   ;; Each name is read once; repeat calls come from the cache.
   (let ((reads 0))
     (cl-letf (((symbol-function 't--load-cc-svg)
-               (lambda (name) (setq reads (1+ reads)) (concat "b64:" name)))
+               (lambda (name) (setq reads (1+ reads)) ($c "b64:" name)))
               (t--cc-svg-cache (make-hash-table :test 'equal)))
       ($l (t--load-cc-svg-once "by") "b64:by")
       ($l (t--load-cc-svg-once "by") "b64:by")
@@ -9877,7 +9877,7 @@ Static check; see the comments for what it does not catch."
   ;; moves to another section while keeping the file order.  Skipped
   ;; when the source file is not next to the loaded build.
   (let* ((build (symbol-file 't--pget 'defun))
-         (source (and build (concat (file-name-sans-extension build) ".el"))))
+         (source (and build ($c (file-name-sans-extension build) ".el"))))
     (skip-unless (and source (file-readable-p source)))
     (let* ((alist (org-export-backend-transcoders
                    (org-export-get-backend 'w3ctr)))
@@ -9885,7 +9885,7 @@ Static check; see the comments for what it does not catch."
            ;; The source spells `org-w3ctr-foo' as `t-foo'; every def
            ;; head in the file uses the shorthand.
            (short (mapcar (lambda (fn)
-                            (concat "t-" (substring (symbol-name fn) 10)))
+                            ($c "t-" (substring (symbol-name fn) 10)))
                           fns))
            ;; A def head at the start of a line: (defun NAME ...
            (def-re (rx line-start (zero-or-more blank)
@@ -9907,7 +9907,7 @@ Static check; see the comments for what it does not catch."
 (ert-deftest t-check-backend-option-order ()
   "The backend's `:options-alist' variables follow their definition order."
   (let* ((build (symbol-file 't--pget 'defun))
-         (source (and build (concat (file-name-sans-extension build) ".el"))))
+         (source (and build ($c (file-name-sans-extension build) ".el"))))
     (skip-unless (and source (file-readable-p source)))
     (let* ((opts (org-export-backend-options
                   (org-export-get-backend 'w3ctr)))
@@ -9917,9 +9917,9 @@ Static check; see the comments for what it does not catch."
                                    (and (symbolp v)
                                         (string-prefix-p "org-w3ctr-"
                                                          (symbol-name v))
-                                        (concat "t-"
-                                                (substring (symbol-name v)
-                                                           10)))))
+                                        ($c "t-"
+                                            (substring (symbol-name v)
+                                                       10)))))
                                opts)))
            (var-re (rx line-start (zero-or-more blank)
                        "(" (or "defcustom" "defvar" "defconst")
