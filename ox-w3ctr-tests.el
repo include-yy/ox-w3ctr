@@ -8576,10 +8576,8 @@ COUNTER, a cons cell, has its car incremented on every call."
         '(org-w3ctr-error "Invalid :html-home/up-format: foo"))
   ;; `format' rejections are wrapped in `org-w3ctr-error' too.  Assert
   ;; the symbol only: the message text is `format''s own and may drift.
-  ($q (car (should-error (t--format-home/up "100%" "u" "h")))
-      'org-w3ctr-error)
-  ($q (car (should-error (t--format-home/up "%q%s" "u" "h")))
-      'org-w3ctr-error))
+  ($e! (t--format-home/up "100%" "u" "h") 'org-w3ctr-error)
+  ($e! (t--format-home/up "%q%s" "u" "h") 'org-w3ctr-error))
 
 (ert-deftest t--format-legacy-navbar ()
   "Tests for `org-w3ctr--format-legacy-navbar'."
@@ -8614,10 +8612,9 @@ COUNTER, a cons cell, has its car incremented on every call."
       "<u h>\n")
   ;; A bad format string errors when the bar is built, and goes
   ;; unnoticed when it is not.
-  ($q (car (should-error
-            (t--format-legacy-navbar
-             '(:html-link-up "u" :html-home/up-format "100%"))))
-      'org-w3ctr-error)
+  ($e! (t--format-legacy-navbar
+        '(:html-link-up "u" :html-home/up-format "100%"))
+       'org-w3ctr-error)
   ($n (t--format-legacy-navbar '(:html-home/up-format nil)))
   (t-check-element-values
    #'t--format-legacy-navbar
@@ -8679,10 +8676,8 @@ COUNTER, a cons cell, has its car incremented on every call."
   ($l (t--format-navbar-vector [("<u>" . "N")])
       "<nav id=\"navbar\">\n<a href=\"<u>\">N</a>\n</nav>\n")
   ;; An entry that is not a (URL . NAME) cons of strings is an error.
-  ($q (car (should-error (t--format-navbar-vector [(a . "b")])))
-      'org-w3ctr-error)
-  ($q (car (should-error (t--format-navbar-vector [("a" . b)])))
-      'org-w3ctr-error))
+  ($e! (t--format-navbar-vector [(a . "b")]) 'org-w3ctr-error)
+  ($e! (t--format-navbar-vector [("a" . b)]) 'org-w3ctr-error))
 
 (ert-deftest t--format-navbar-list ()
   "Tests for `org-w3ctr--format-navbar-list'."
@@ -8707,15 +8702,11 @@ COUNTER, a cons cell, has its car incremented on every call."
           ($c "<nav id=\"navbar\">\n<a href=\"a\">b</a>\n"
               "<a href=\"c\">d</a>\n</nav>\n")))
     ;; An entry that is not a (URL . NAME) cons of strings is an error.
-    ($q (car (should-error (it '(:html-link-navbar [(a . "b")]))))
-        'org-w3ctr-error)
-    ($q (car (should-error (it '(:html-link-navbar [("a" . b)]))))
-        'org-w3ctr-error)
-    ($q (car (should-error (it '(:html-link-navbar [(a . b)]))))
-        'org-w3ctr-error)
+    ($e! (it '(:html-link-navbar [(a . "b")])) 'org-w3ctr-error)
+    ($e! (it '(:html-link-navbar [("a" . b)])) 'org-w3ctr-error)
+    ($e! (it '(:html-link-navbar [(a . b)])) 'org-w3ctr-error)
     ;; Neither a vector nor a list is an error.
-    ($q (car (should-error (it '(:html-link-navbar "str"))))
-        'org-w3ctr-error)
+    ($e! (it '(:html-link-navbar "str")) 'org-w3ctr-error)
     ;; No links anywhere is "".
     ($l (it '(:html-link-navbar [])) "")
     ;; An empty vector and a blank link list fall back to the legacy bar.

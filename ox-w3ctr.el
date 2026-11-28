@@ -1294,7 +1294,9 @@ normalizes the result to end in a newline."
   :type 'string)
 
 (defcustom t-link-navbar nil
-  "Navigation bar links.  Can be:
+  "Navigation bar links.
+
+Can be:
 - A vector of (URL . NAME) pairs, for example
   [(\"../index.html\" . \"Up\")],
 - A list of Org elements (from the HTML_LINK_NAVBAR keyword),
@@ -6802,24 +6804,13 @@ the math configuration, the user's `:html-head' and
 ;; - :html-home/up-format (`org-w3ctr-home/up-format')
 
 ;; The legacy home/up bar fills in when the navbar yields no links.
-;; FIXME: It is only half of ox-html's home/up feature: ox-html also
-;; prepends `:html-link-home' to relative file links when
-;; `:html-link-use-abs-url' is set (see `org-html-link-file-path').
-;; ox-w3ctr has never implemented that half; see the FIXME in
-;; `org-w3ctr--link-path'.
 
 (defun t--format-home/up (fmt up home)
-  "Apply the home/up format string FMT to the link URLs UP and HOME.
+  "Apply the home/up format string FMT to link URLs UP and HOME.
 
-FMT is a `format' control string as in `org-w3ctr-home/up-format':
-its first %s receives UP and its second HOME.  Insert both URLs
-verbatim, without HTML escaping.  Return the filled string,
-exactly what `format' produces: `org-w3ctr--format-legacy-navbar'
-normalizes the trailing newline.
-
-Signal `org-w3ctr-error' when FMT is not a string, or when `format'
-rejects it, for example for a literal %, an invalid format
-operation, or more %s specifications than the two links can fill."
+Insert UP and HOME verbatim (no HTML escaping) as the first and
+second arguments to `format'.  Signal `org-w3ctr-error' when FMT is
+not a string or `format' rejects it."
   (declare (ftype (function (t string string) string))
            (important-return-value t))
   (unless (stringp fmt)
@@ -6830,21 +6821,12 @@ operation, or more %s specifications than the two links can fill."
                     (error-message-string err)))))
 
 (defun t--format-legacy-navbar (info)
-  "Format the legacy Home/Up navigation bar from the export INFO.
+  "Format the legacy Home/Up navigation bar from INFO.
 
-INFO is the export options plist.  Read the link targets from the
-`:html-link-up' and `:html-link-home' options, and the format
-string from `:html-home/up-format'; its first %s receives UP and
-its second HOME.  When only one of the two links is set, both
-anchors use it.  The links go into the format string verbatim,
-without HTML escaping.
-
-Return the bar as a string, normalized to end in a newline.
-Return nil when both links are empty, whitespace-only, or
-missing.  Signal `org-w3ctr-error' when `:html-home/up-format' is
-not a string or `format' rejects it; the format string is checked
-only when the bar is built, so with both links absent a bad one
-goes unnoticed."
+INFO is the export options plist.  Read `:html-link-up',
+`:html-link-home', and `:html-home/up-format'; when only one link is
+set, both slots use it.  Return the formatted bar ending in a
+newline, or nil when both links are missing or blank."
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (let ((link-up (t--nw-trim (t--pget info :html-link-up)))
@@ -6856,35 +6838,28 @@ goes unnoticed."
                           (or link-home link-up))))))
 
 (defun t--wrap-navbar (links)
-  "Wrap the navbar links HTML in the <nav> element.
+  "Wrap LINKS in a <nav id=\"navbar\"> element ending in a newline.
 
-LINKS is the rendered anchor HTML.  Surrounding whitespace and
-newlines are trimmed before wrapping, so the block shape does not
-depend on how the caller formats its input; internal newlines are
-kept.  Return the navbar block, a <nav> element with id
-\"navbar\", ending in a newline.  A blank LINKS gives an empty
-<nav> shell."
+Trim surrounding whitespace from LINKS while preserving internal
+newlines."
   (declare (ftype (function (string) string))
            (pure t) (important-return-value t))
   (concat "<nav id=\"navbar\">" (t--prepend-newline (t--trim links))
           "\n</nav>\n"))
 
 (defun t--format-navbar-vector (pairs)
-  "Build the navbar from the (URL . NAME) pairs in vector PAIRS.
+  "Build the navbar HTML from vector PAIRS of (URL . NAME) conses.
 
-PAIRS is a vector of conses as in `org-w3ctr-link-navbar'.  Return
-the navbar block, one anchor per pair: link and name go in
-verbatim, without HTML escaping.  Return \"\" for an empty PAIRS,
-which `org-w3ctr-navbar-default-format-function' reads as \"no links\"
-and answers with the legacy home/up bar.  Signal `org-w3ctr-error'
-when an entry is not a (URL . NAME) cons of strings."
+Insert URL and NAME verbatim, without HTML escaping.  Return \"\"
+when PAIRS is empty.  Signal `org-w3ctr-error' when any entry is not
+a cons of two strings."
   (declare (ftype (function (vector) string))
            (important-return-value t))
   (if (equal pairs []) ""
     (let ((valid-p (lambda (x) (and (stringp (car-safe x))
                                     (stringp (cdr-safe x))))))
       (unless (seq-every-p valid-p pairs)
-        (t-error "Invalid navbar vector: %s" pairs))
+        (t-error "Invalid navbar vector: %S" pairs))
       (t--wrap-navbar
        (mapconcat
         (pcase-lambda (`(,link . ,name))
@@ -6892,16 +6867,10 @@ when an entry is not a (URL . NAME) cons of strings."
         pairs "\n")))))
 
 (defun t--format-navbar-list (elements info)
-  "Build the navbar from the Org link elements ELEMENTS.
+  "Build the navbar HTML from Org ELEMENTS using INFO.
 
-ELEMENTS is a list of Org elements as parsed from the
-HTML_LINK_NAVBAR keyword, and INFO is the export options plist
-used to transcode them with `org-export-data'.  Return the navbar
-block, one line per element that transcodes to a non-blank string;
-the strings go in verbatim, without HTML escaping.  Return \"\"
-when ELEMENTS is nil or nothing survives, which
-`org-w3ctr-navbar-default-format-function' reads as \"no links\"
-and answers with the legacy home/up bar."
+Transcode each element with `org-export-data' and keep non-blank
+results.  Return the wrapped navbar, or \"\" when nothing remains."
   (declare (ftype (function (list list) string))
            (important-return-value t))
   (if (null elements) ""
@@ -6912,28 +6881,19 @@ and answers with the legacy home/up bar."
 (defun t-navbar-default-format-function (info)
   "Generate the navbar HTML from the export options INFO.
 
-INFO is the export options plist.  Read the links from
-`:html-link-navbar' and render them: a vector of (URL . NAME)
-conses becomes one anchor per entry, and a list of Org elements
-from the HTML_LINK_NAVBAR keyword is transcoded with
-`org-export-data'.  The anchors are wrapped in a <nav> element
-with id \"navbar\".
-
-When the option yields no links at all (nil, an empty vector, or
-a list that transcoded to nothing), fall back to the legacy
-home/up bar, `org-w3ctr--format-legacy-navbar'.  Return the
-navbar HTML as a string: \"\" when neither the navbar option nor
-the legacy home/up bar yields any links.  Signal `org-w3ctr-error'
-when the option is neither a vector nor a list, and when a vector
-entry is not a (URL . NAME) cons of strings (checked in
-`org-w3ctr--format-navbar-vector')."
+INFO is the export options plist.  Render `:html-link-navbar' (a
+vector of (URL . NAME) string conses, or a list of Org elements from
+HTML_LINK_NAVBAR) wrapped in <nav id=\"navbar\">.  When it yields no
+links, fall back to `org-w3ctr--format-legacy-navbar', or return \"\"
+if that is empty too.  Signal `org-w3ctr-error' on invalid option
+types or malformed vector entries."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (let* ((links (t--pget info :html-link-navbar))
          (nav (pcase links
                 ((pred vectorp) (t--format-navbar-vector links))
                 ((pred listp) (t--format-navbar-list links info))
-                (other (t-error "Invalid navbar type: %s" other)))))
+                (other (t-error "Invalid navbar type: %S" other)))))
     ;; Empty result, whatever the reason: the legacy home/up bar.
     (if (string-empty-p nav) (or (t--format-legacy-navbar info) "") nav)))
 
