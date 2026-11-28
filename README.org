@@ -4,10 +4,10 @@ Based on Org-mode's ox-html.el and CSS of W3C Technical Report [[https://github.
 
 ** Status
 
-| Emacs Version   |         30.1 |         31.1 |  32.1 |
-|-----------------+--------------+--------------+-------|
-| Package Version |          0.2 |          0.3 |   0.4 |
-| Date            | [2025-02-23] | [2026-08-24] | 2027? |
+| Emacs Version   |       30.1 |       31.1 |  32.1 |
+|-----------------+------------+------------+-------|
+| Package Version |        0.2 |        0.3 |   0.4 |
+| Date            | 2025-02-23 | 2026-08-24 | 2027? |
 
 The mainline refactoring from ox-html is complete and the package is
 already largely usable; remaining work is incremental refinement toward
@@ -38,44 +38,12 @@ the =shiki= engine.  It needs =node= on =exec-path= and its packages:
 cd jstools && npm ci
 #+end_src
 
-*** Code highlighting
-
-Source blocks are coloured by an engine named in
-=org-w3ctr-fontify-method=:
-
-- =font-lock= (default): Emacs font-lock, through the language's major
-  mode.
-- =shiki=: Shiki (TextMate grammars, ~350 languages) in the Node
-  helper.
-- =plain= or nil: no colour.
-
-A list tries engines in order, e.g. =(shiki font-lock)=; =plain= always
-ends it.  Override the method per file with =#+OPTIONS:
-fontify:(shiki font-lock)= and per block with a header argument:
-=#+begin_src python :fontify nil=.
-
-The output is =<span class="tok-SLUG">= runs; faces map to slugs through
-=org-w3ctr-fontify-faces= (and =org-w3ctr-fontify-extra-faces=),
-following =:inherit=.  The colours, light and dark, come from
-=org-w3ctr-fontify-palette=; after changing it, run =M-x
-org-w3ctr-fontify-update-stylesheet= to rewrite the generated block of
-=assets/style.css=.  A block can recolour a slug locally with
-=#+attr__: (style "--tok-k: red")=.
-
-A language no engine knows, or an engine that fails, is warned about
-once per export and the block exported as plain text (see
-=org-w3ctr-fontify-unknown-language= and =org-w3ctr-fontify-on-error=).
-=M-x org-w3ctr-show-fontify-report= lists, for the last export, which
-engine took how many blocks, the languages no engine took, and the
-faces that found no slug.  See [[file:doc/fontify.org][doc/fontify.org]] for the details: the
-face table, colours, the Node engine, writing an engine of your own,
-and how the pipeline works.
-
 ** =TODO= list [1/4]
 
 1. [X] Totally Refactor from ox-html.
 2. [ ] Fully detailed documentation.
-3. [ ] A friendly introductive video.
+3. [ ] A friendly introductory video.
 4. [ ] CI/CD support.
 
-For the detailed backlog and design notes, see [[file:TODO.org][TODO.org]] and [[file:doc/design-notes.md][doc/design-notes.md]].
+For the detailed backlog, highlighting pipeline, and design notes, see
+[[file:TODO.org][TODO.org]], [[file:doc/fontify.org][doc/fontify.org]], and [[file:doc/design-notes.md][doc/design-notes.md]].
