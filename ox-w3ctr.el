@@ -759,11 +759,11 @@ must be a string in one of the following formats:
 
 - The keyword \"local\" for the system's local time zone.
 - A four-digit offset from UTC, for example, \"+0800\" or \"-0500\".
-- A UTC/GMT-based designator, for example, \"UTC+8\" or \"GMT-5\".
+- A UTC/GMT-based designator, for example, \"UTC\", \"UTC+8\", or
+  \"GMT-5\".
 
-For more details on time zone formats, see IETF RFC 2822
-\(URL `https://datatracker.ietf.org/doc/html/rfc2822') or
-RFC 3339 (URL `https://datatracker.ietf.org/doc/html/rfc3339')."
+For more details on numeric offset formats, see IETF RFC 2822
+\(URL `https://datatracker.ietf.org/doc/html/rfc2822')."
   :group 'org-export-w3ctr
   :set (lambda (symbol value)
          (let ((case-fold-search t))
@@ -771,7 +771,11 @@ RFC 3339 (URL `https://datatracker.ietf.org/doc/html/rfc3339')."
                         (string-match-p t-timezone-regex (string-trim value)))
              (error "Invalid time zone designator: %s" value))
            (set-default symbol value)))
-  :type 'string)
+  :type 'string
+  :safe (lambda (v)
+          (and (stringp v)
+               (let ((case-fold-search t))
+                 (string-match-p t-timezone-regex (string-trim v))))))
 
 (defcustom t-export-timezone nil
   "Specify the target time zone for timestamps in the exported file.
@@ -794,7 +798,12 @@ follow the same format rules as the option `org-w3ctr-timezone'."
                                           (string-trim value)))
                (error "Invalid time zone designator: %s" value))))
          (set-default symbol value))
-  :type '(choice (const nil) string))
+  :type '(choice (const nil) string)
+  :safe (lambda (v)
+          (or (null v)
+              (and (stringp v)
+                   (let ((case-fold-search t))
+                     (string-match-p t-timezone-regex (string-trim v)))))))
 
 (defcustom t-timestamp-formats 'raw
   "Control how timestamp text is formatted inside <time> elements.
@@ -874,7 +883,8 @@ See `org-html-inline-image-rules' for more information."
 (defcustom t-extension "html"
   "The extension for exported HTML files."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-honor-ox-external-links t
   "Non-nil means resolve cross-file links through org-publish, as ox-html does.
@@ -5365,7 +5375,7 @@ Return the transcoded string."
       (setq output
             (replace-regexp-in-string
              "\\(\\\\\\\\\\)?[ \t]*\n"
-             "<br>\n" output)))
+             "<br>\n" output t t)))
     ;; Return value.
     output))
 
@@ -5423,21 +5433,23 @@ either timezone is malformed (even when `:html-timezone' is
   (declare (ftype (function (list) cons))
            (important-return-value t))
   (let* ((parse
-          (lambda (prop val label)
+          (lambda (val label)
             (cond
              ((fixnump val) val)
              ((eq val 'local) 'local)
-             ((and (stringp val)
-                   (when-let* ((off (t--timezone-to-offset val)))
-                     (t--pput info prop off))))
+             ((and (stringp val) (t--timezone-to-offset val)))
              (t (t-error "Invalid %s format: %s" label val)))))
          (z1-raw (or (t--pget info :html-timezone)
                      (t-error "Invalid timezone: nil")))
-         (z1 (funcall parse :html-timezone z1-raw "timezone"))
+         (z1 (let ((v (funcall parse z1-raw "timezone")))
+               (when (stringp z1-raw) (t--pput info :html-timezone v))
+               v))
          (z2-raw (t--pget info :html-export-timezone))
          (z2 (if z2-raw
-                 (funcall parse :html-export-timezone z2-raw
-                          "export timezone")
+                 (let ((v (funcall parse z2-raw "export timezone")))
+                   (when (stringp z2-raw)
+                     (t--pput info :html-export-timezone v))
+                   v)
                z1))
          (eff (if (eq z1 'local) 'local z2))
          (delta (if (or (eq z1 'local) (eq eff 'local)) 0 (- eff z1))))
@@ -5829,7 +5841,7 @@ requested, and any search option appended.  Other link types get their
                   (org-publish-resolve-external-link
                    option (org-element-property :path link) t)))
          ((string-prefix-p "#" option)
-          (concat path "#" (substring option 1)))
+          (concat path option))
          (t path))))))
 
 (defun t--link-radio (link desc info)

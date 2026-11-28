@@ -6513,13 +6513,17 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (t--get-markup-format 'underline info) "%s"))
   ($l (t--get-markup-format 'anything nil) "%s")
   ;; Malformed alist or non-string value signals `org-w3ctr-error'.
-  ($e! (t--get-markup-format 'bold '(:html-text-markup-alist "bad"))
-       'org-w3ctr-error)
-  ($e! (t--get-markup-format 'bold '(:html-text-markup-alist
-                                     ((bold . "<b>%s</b>") . bad)))
-       'org-w3ctr-error)
-  ($e! (t--get-markup-format 'bold '(:html-text-markup-alist ((bold . 42))))
-       'org-w3ctr-error))
+  ($e!l (t--get-markup-format 'bold '(:html-text-markup-alist "bad"))
+        '(org-w3ctr-error
+          "Invalid :html-text-markup-alist (expected a list): \"bad\""))
+  ($e!l (t--get-markup-format 'bold '(:html-text-markup-alist
+                                      ((bold . "<b>%s</b>") . bad)))
+        (list 'org-w3ctr-error
+              ($c "Invalid :html-text-markup-alist (expected a list): "
+                  "((bold . \"<b>%s</b>\") . bad)")))
+  ($e!l (t--get-markup-format 'bold '(:html-text-markup-alist ((bold . 42))))
+        '(org-w3ctr-error
+          "Invalid markup format for bold (expected a string): 42")))
 
 (ert-deftest t-bold ()
   "Tests for `org-w3ctr-bold'."
@@ -6725,11 +6729,15 @@ COUNTER, a cons cell, has its car incremented on every call."
       "a &#x2013; b")
   ($l (t-plain-text "line1\nline2" '(:preserve-breaks nil))
       "line1\nline2")
+  ($l (t-plain-text "line1\\\\\nline2" '(:preserve-breaks nil))
+      "line1\\\\\nline2")
   ($l (t-plain-text "line1\nline2" '(:preserve-breaks t))
       "line1<br>\nline2")
   ($l (t-plain-text "line1  \t\nline2" '(:preserve-breaks t))
       "line1<br>\nline2")
   ($l (t-plain-text "line1\\\\\nline2" '(:preserve-breaks t))
+      "line1<br>\nline2")
+  ($l (t-plain-text "line1\\\\  \t\nline2" '(:preserve-breaks t))
       "line1<br>\nline2")
   ;; Smart quotes require the full export environment for language and
   ;; parse-tree context; test via `org-w3ctr-check-element-values'.
@@ -6803,6 +6811,13 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (it "-0830") (+ (* -8 3600) (* -30 60)))
     ($l (it "+1400") (* 14 3600))
     ($l (it "-1200") (* -12 3600))
+    ($l (it "-0030") (* -30 60))
+    ($l (it "+0030") (* 30 60))
+    ($l (it "+0000") 0)
+    ($l (it "-0000") 0)
+    ($l (it "UTC+0") 0)
+    ($l (it "UTC-0") 0)
+    ($n (it ""))
     ($n (it "+10"))
     ($n (it "-11"))
     ($n (it "INVALID"))
@@ -6835,7 +6850,9 @@ COUNTER, a cons cell, has its car incremented on every call."
     (let ((info (list :html-timezone "UTC+8" :html-export-timezone "-0500")))
       ($l (it info) '(-18000 . -46800))
       ($l (t--pget info :html-timezone) 28800)
-      ($l (t--pget info :html-export-timezone) -18000))
+      ($l (t--pget info :html-export-timezone) -18000)
+      ;; Subsequent call hits the cached numeric offsets.
+      ($l (it info) '(-18000 . -46800)))
     (let ((info (list :html-timezone 28800 :html-export-timezone 0)))
       ($l (it info) '(0 . -28800)))
     ;; Either timezone `local' yields (local . 0).
@@ -6919,8 +6936,9 @@ COUNTER, a cons cell, has its car incremented on every call."
          'org-w3ctr-error))
   ($e!l (t--format-datetime 'invalid '(:html-timezone 0))
         '(org-w3ctr-error "Invalid time value: invalid"))
-  ($e!l (t--format-datetime -65536 '(:html-timezone 0))
-        '(org-w3ctr-error "Invalid time value: -65536")))
+  (when (eq system-type 'windows-nt)
+    ($e!l (t--format-datetime -65536 '(:html-timezone 0))
+          '(org-w3ctr-error "Invalid time value: -65536"))))
 
 (ert-deftest t--call-with-invalid-time-spec-handler ()
   "Tests for `org-w3ctr--call-with-invalid-time-spec-handler'."
@@ -6931,12 +6949,14 @@ COUNTER, a cons cell, has its car incremented on every call."
            (lambda (_ts) (error "Invalid time specification"))
            (nth 0 ts))
           '(org-w3ctr-error "Invalid timestamp: [2000-01-01]"))
-    ($e!l (t--call-with-invalid-time-spec-handler
-           #'org-timestamp-to-time (nth 1 ts))
-          '(org-w3ctr-error "Invalid timestamp: [1945-08-15]"))
-    ($e!l (t--call-with-invalid-time-spec-handler
-           #'org-element-timestamp-interpreter (nth 2 ts) nil)
-          '(org-w3ctr-error "Invalid timestamp: [1145-05-14]--[1919-08-10]")))
+    (when (eq system-type 'windows-nt)
+      ($e!l (t--call-with-invalid-time-spec-handler
+             #'org-timestamp-to-time (nth 1 ts))
+            '(org-w3ctr-error "Invalid timestamp: [1945-08-15]"))
+      ($e!l (t--call-with-invalid-time-spec-handler
+             #'org-element-timestamp-interpreter (nth 2 ts) nil)
+            '(org-w3ctr-error
+              "Invalid timestamp: [1145-05-14]--[1919-08-10]"))))
   (let ((ts (t-get-parsed-elements
              "[2038-01-19 03:14:07] [2025-06-17 16:40]" 'timestamp)))
     ($s (t--call-with-invalid-time-spec-handler
@@ -6964,8 +6984,9 @@ COUNTER, a cons cell, has its car incremented on every call."
                "<2022-06-07>--<2022-06-08 21:00>" 'timestamp))
          (ts6 (t-get-parsed-elements
                "[2022-06-07 09:00]--[2022-06-08]" 'timestamp)))
-    ($e!l (t--format-ts-datetime (nth 0 ts0) info)
-          '(org-w3ctr-error "Invalid timestamp: [1900-01-01]"))
+    (when (eq system-type 'windows-nt)
+      ($e!l (t--format-ts-datetime (nth 0 ts0) info)
+            '(org-w3ctr-error "Invalid timestamp: [1900-01-01]")))
     ($l (t--format-ts-datetime (nth 0 ts1) info)
         " datetime=\"2025-06-17T08:49Z\"")
     ($l (t--format-ts-datetime (nth 0 ts2) info)
@@ -7035,17 +7056,14 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (g "[1999-01-01]--[1999-01-02 12:00]")
         "[1999-01-01 Fri]--[1999-01-02 Sat 12:00]")
     ($l (g "[1999-01-01 12:00-13:00]--[2000-01-01 13:00-14:00]")
-        "[1999-01-01 Fri 12:00]--[2000-01-01 Sat 13:00]"))
-  (cl-flet ((f (s) (t-get-element s 'timestamp))
-            (g (x) (t--interpret-timestamp x)))
-    ($e!l (g (f "[1949-10-01]"))
-          '(org-w3ctr-error "Invalid timestamp: [1949-10-01]"))
+        "[1999-01-01 Fri 12:00]--[2000-01-01 Sat 13:00]")
+    (when (eq system-type 'windows-nt)
+      ($e!l (g "[1949-10-01]")
+            '(org-w3ctr-error "Invalid timestamp: [1949-10-01]")))
     ($e! (let ((ts (f "[2000-01-01]")))
            (setf (org-element-property :year-start ts) nil)
-           (g ts))
-         'org-w3ctr-error))
-  (cl-flet* ((f (s) (t-get-element s 'timestamp))
-             (g (x) (t--interpret-timestamp (f x))))
+           (t--interpret-timestamp ts))
+         'org-w3ctr-error)
     ($l (g "<2007-05-16 12:30 +1h>") "<2007-05-16 Wed 12:30 +1h>")
     ($l (g "<2007-05-16 12:30 +1d>") "<2007-05-16 Wed 12:30 +1d>")
     ($l (g "<2007-05-16 12:30 +1w>") "<2007-05-16 Wed 12:30 +1w>")
@@ -7215,6 +7233,15 @@ COUNTER, a cons cell, has its car incremented on every call."
                              (lambda (_a _b) 42)))
           '(org-w3ctr-error
             "Timestamp format function returned a non-string: 42")))
+  ;; `#+HTML_TIMEZONE:' and `#+HTML_EXPORT_TIMEZONE:' document keywords.
+  (t-check-element-values
+   #'t-timestamp
+   `((,($c "#+HTML_TIMEZONE: UTC+8\n"
+           "#+HTML_EXPORT_TIMEZONE: UTC\n"
+           "[2006-01-02 15:04]")
+      ,($c "<time datetime=\"2006-01-02T07:04Z\">"
+           "[2006-01-02 15:04]</time>")))
+   t)
   ;; `:html-timestamp-format-function' is not exposed via `#+OPTIONS:'.
   (t-check-element-values
    #'t-timestamp
@@ -7270,7 +7297,7 @@ COUNTER, a cons cell, has its car incremented on every call."
               (with-temp-buffer
                 (org-mode)
                 (insert s)
-                (org-w3ctr-inline-image-p
+                (t-inline-image-p
                  (t-parse1 'link)
                  info)))))
     ($s (funcall p "[[file:img.png]]"))
@@ -7283,11 +7310,11 @@ COUNTER, a cons cell, has its car incremented on every call."
           (insert "[[https://example.com][file:img.png]]")
           (let ((tree (org-element-parse-buffer)))
             (org-export-insert-image-links
-             tree info org-w3ctr-inline-image-rules)
+             tree info (t--pget info :html-inline-image-rules))
             (let ((link (car (org-element-map tree 'link #'identity))))
               (org-element-set-contents
                link (cons " " (org-element-contents link)))
-              (org-w3ctr-inline-image-p link info)))))))
+              (t-inline-image-p link info)))))))
 
 (ert-deftest t-standalone-image-p ()
   "Tests for `org-w3ctr-standalone-image-p'."
@@ -7295,15 +7322,23 @@ COUNTER, a cons cell, has its car incremented on every call."
                  :html-inline-image-rules (("file" . "\\.png\\'")))))
     (with-temp-buffer
       (org-mode)
-      (insert "[[file:a.png]]\n\ntext [[file:b.png]]\n")
+      (insert "[[file:a.png]]\n\ntext [[file:b.png]]\n\n"
+              "[[https://example.com][file:c.png]]\n")
       (let* ((tree (org-element-parse-buffer))
+             (_ (org-export-insert-image-links
+                 tree info (t--pget info :html-inline-image-rules)))
              (ps (org-element-map tree 'paragraph #'identity))
-             (ls (org-element-map tree 'link #'identity)))
+             (ls (org-element-map tree 'link #'identity nil nil 'link))
+             (inner (car (org-element-contents (nth 2 ls)))))
         ;; Both the paragraph and its sole link qualify.
         ($s (t-standalone-image-p (nth 0 ps) info))
         ($s (t-standalone-image-p (nth 0 ls) info))
         ($n (t-standalone-image-p (nth 1 ps) info))
         ($n (t-standalone-image-p (nth 1 ls) info))
+        ;; Clickable image: paragraph and outer link qualify, inner does not.
+        ($s (t-standalone-image-p (nth 2 ps) info))
+        ($s (t-standalone-image-p (nth 2 ls) info))
+        ($n (t-standalone-image-p inner info))
         ;; PREDICATE receives the containing paragraph and gates the result.
         ($s (t-standalone-image-p (nth 0 ls) info
                                   (lambda (p) (eq p (nth 0 ps)))))
@@ -7531,7 +7566,7 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($s (string-match-p
          "<a href=\"#a&amp;b\" class=\"coderef\">sc</a>" out)))
   ;; A dangling label signals with its name.
-  ($e!l (t--link-coderef "nope" nil '(:parse-tree nil))
+  ($e!l (t--link-coderef "nope" nil (list :parse-tree nil))
         '(org-w3ctr-error "No example or source block defines (ref:nope)"))
   ;; White space cannot be part of an id.
   ($e!l (t--link-coderef "a b" nil nil)
@@ -7582,14 +7617,19 @@ COUNTER, a cons cell, has its car incremented on every call."
         "<a href=\"a&quot;b.html\">go</a>")
        ("[[file:img.png]]"
         "<img src=\"img.png\" alt=\"img.png\">")
+       ;; SVG uses <img> (unlike ox-html's <object>).
+       ("[[file:diag.svg]]"
+        "<img src=\"diag.svg\" alt=\"diag.svg\">")
        ;; Clickable image (nested image link in description).
        ("[[https://example.com][file:img.png]]"
         ,($c "<a href=\"https://example.com\">"
              "<img src=\"img.png\" alt=\"img.png\"></a>")
         "<img src=\"img.png\" alt=\"img.png\">")
-       ;; Custom ID link to a headline.
+       ;; Custom ID and same-file ID links to a headline.
        ("* Head\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n\nSee [[#custom]]."
         "<a href=\"#custom\">1</a>")
+       ("* Head\n:PROPERTIES:\n:ID: my-id\n:END:\n\nSee [[id:my-id]]."
+        "<a href=\"#ID-my-id\">1</a>")
        ;; Fuzzy link to a target.
        ("A <<foo>> target. See [[foo]]."
         "<a href=\"#foo\">No description for this link</a>")
@@ -7611,7 +7651,30 @@ COUNTER, a cons cell, has its car incremented on every call."
        (,($c "#+name: ex\n#+begin_src text\nx (ref:sc)\n#+end_src\n\n"
              "See [[(sc)]].")
         "<a href=\"#ex\" class=\"coderef\">sc</a>"))
-     t '(:with-latex verbatim :html-prefer-user-labels t))))
+     t '(:with-latex verbatim :html-prefer-user-labels t))
+    ;; Disabled `:html-inline-images' turns image links into <a>.
+    (t-check-element-values
+     #'t-link
+     '(("[[file:img.png]]" "<a href=\"img.png\">img.png</a>"))
+     t '(:html-inline-images nil))
+    ;; Custom link protocol (match vs fall-through when export returns nil).
+    (let ((org-link-parameters
+           (cons `("myproto"
+                   :export ,(lambda (path desc _backend _info)
+                              (unless (string= path "fall")
+                                (format "<span data-p=\"%s\">%s</span>"
+                                        path (or desc path)))))
+                 org-link-parameters)))
+      (unwind-protect
+          (progn
+            (org-link-make-regexps)
+            (t-check-element-values
+             #'t-link
+             '(("[[myproto:foo][bar]]" "<span data-p=\"foo\">bar</span>")
+               ("[[myproto:fall][bar]]" "<a href=\"myproto:fall\">bar</a>"))
+             t))
+        (let ((org-link-parameters (cdr org-link-parameters)))
+          (org-link-make-regexps))))))
 
 ;;; Headline and Section
 
