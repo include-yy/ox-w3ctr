@@ -8949,8 +8949,12 @@ COUNTER, a cons cell, has its car incremented on every call."
     (test "#+DATE: [2000-01-01]--[2020-01-01]"
           (i "%d" '(:html-metadata-timestamp-format "%Y-%m-%d"))
           "2000-01-01\n")
-    (test "" (i "%T" '(:html-metadata-timestamp-format "%F %R"))
-          (format-time-string "%F %R\n"))
+    (let ((ts (org-export-string-as
+               "" 'w3ctr nil
+               (i "%T" '(:html-metadata-timestamp-format "%F %R")))))
+      ($s (string-match-p
+           "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [0-9]\\{2\\}:[0-9]\\{2\\}\n"
+           ts)))
     (test "" (i "%a") "")
     (test "#+AUTHOR: " (i "%a") "")
     (test "#+AUTHOR: eXkeq" (i "%a") "eXkeq\n")
@@ -8958,7 +8962,7 @@ COUNTER, a cons cell, has its car incremented on every call."
     (let ((user-mail-address "hello@world.com"))
       (test "" (i "%e")
             "<a href=\"mailto:hello@world.com\">hello@world.com</a>\n"))
-    (test "#+email: a@b.c, d@e.f" (i "%e")
+    (test "#+email:  a@b.c , d@e.f " (i "%e")
           ($c "<a href=\"mailto:a@b.c\">a@b.c</a>, "
               "<a href=\"mailto:d@e.f\">d@e.f</a>\n"))
     (test "" (i "%e" '(:email "test"))
@@ -9035,6 +9039,15 @@ COUNTER, a cons cell, has its car incremented on every call."
    #'t--build-pre/postamble
    '(("" "" "")) nil
    '(:html-preamble (lambda (info) nil) :html-postamble nil))
+  ;; Nil and function values do not compute `t--pre/postamble-format-spec'.
+  (cl-letf (((symbol-function 't--pre/postamble-format-spec)
+             (lambda (&rest _) (error "unexpected"))))
+    ($l (t--build-pre/postamble 'preamble '(:html-preamble nil)) "")
+    ($l (t--build-pre/postamble
+         'preamble '(:html-preamble (lambda (_i) "ok")))
+        "ok\n"))
+  ($e!l (t--build-pre/postamble 'other nil)
+        '(org-w3ctr-error "Invalid pre/postamble type: other"))
   ;; With no :html-postamble in the plist, the export environment
   ;; fills the default: the back-to-top arrow.
   (t-check-element-values
@@ -9071,20 +9084,22 @@ COUNTER, a cons cell, has its car incremented on every call."
                                    t--dir "ox-w3ctr-tests.el")))
        t)))
 
-(ert-deftest t--preamble-default-function ()
+(ert-deftest t-preamble-default-function ()
   "Tests for `org-w3ctr-preamble-default-function'."
   (cl-letf (((symbol-function 't--get-info-date) #'ignore)
             ((symbol-function 't--get-info-mtime) #'ignore)
             ((symbol-function 't-format-public-license) #'ignore))
-    (let ((expected ($c "<details open>\n"
-                        "<summary>More details about this document</summary>\n"
-                        "<dl>\n"
-                        "<dt>Drafting to Completion / Publication:</dt> "
-                        "<dd>[Not Specified]</dd>\n"
-                        "<dt>Date of last modification:</dt> <dd>[Not Specified]</dd>\n"
-                        "<dt>Creation Tools:</dt> <dd>[Not Specified]</dd>\n"
-                        "<dt>Public License:</dt> <dd></dd>\n"
-                        "</dl>\n</details>\n<hr>")))
+    (let ((expected
+           ($c "<details open>\n"
+               "<summary>More details about this document</summary>\n"
+               "<dl>\n"
+               "<dt>Drafting to Completion / Publication:</dt> "
+               "<dd>[Not Specified]</dd>\n"
+               "<dt>Date of last modification:</dt> "
+               "<dd>[Not Specified]</dd>\n"
+               "<dt>Creation Tools:</dt> <dd>[Not Specified]</dd>\n"
+               "<dt>Public License:</dt> <dd></dd>\n"
+               "</dl>\n</details>\n<hr>")))
       ;; Every row falls back to the placeholder.
       ($l (t-preamble-default-function nil) expected)
       ;; A blank creator is missing too.

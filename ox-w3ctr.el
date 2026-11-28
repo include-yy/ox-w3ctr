@@ -7122,15 +7122,16 @@ and which receives INFO.  Return its result as a string."
 
 ;; Options:
 ;; - :html-metadata-timestamp-format (`org-w3ctr-metadata-timestamp-format')
-;; - :email (`user-mail-address')
-;; - :with-email (`org-export-with-email')
-;; - `org-export-date-timestamp-format'
-;; - :creator (`org-w3ctr-creator-string')
 ;; - :html-validation-link (`org-w3ctr-validation-link')
 ;; - :html-preamble (`org-w3ctr-preamble')
 ;; - :html-postamble (`org-w3ctr-postamble')
-;; - :with-date (`org-export-with-date')
-;; - :with-creator (`org-export-with-creator')
+;; - :title #+TITLE:
+;; - :subtitle #+SUBTITLE:
+;; - :date #+DATE:
+;; - :author #+AUTHOR: (`user-full-name')
+;; - :email #+EMAIL: (`user-mail-address')
+;; - :creator (`org-w3ctr-creator-string')
+;; - :input-file (internal)
 
 ;; Compared with `org-html-format-spec', rename to make the name more
 ;; specific, and add some helpful docstring.
@@ -7158,11 +7159,10 @@ each maps a format character to its replacement string:
       (?d . ,(org-export-data (org-export-get-date info fmt) info))
       (?T . ,(format-time-string fmt))
       (?a . ,(org-export-data (t--pget info :author) info))
-      (?e . ,(if-let* ((email (t--pget info :email))
-                       ((t--nw-p email)))
+      (?e . ,(if-let* ((email (t--nw-trim (t--pget info :email))))
                  (mapconcat
                   (lambda (e) (format "<a href=\"mailto:%s\">%s</a>" e e))
-                  (split-string email ",+ *" t)
+                  (split-string email "[ \t]*,+[ \t]*" t)
                   ", ")
                ""))
       (?c . ,(or (t--pget info :creator) ""))
@@ -7193,12 +7193,15 @@ when it is blank.  Signal `org-w3ctr-error' when a symbol has no
 usable string value, or when the value is of any other type."
   (declare (ftype (function (symbol list) string))
            (important-return-value t))
-  (let* ((section (t--pget info (intern (format ":html-%s" type))))
-         (spec (t--pre/postamble-format-spec info))
+  (let* ((section (pcase type
+                    ('preamble (t--pget info :html-preamble))
+                    ('postamble (t--pget info :html-postamble))
+                    (_ (t-error "Invalid pre/postamble type: %S" type))))
          (it (cond
               ((null section) "")
               ;; string formatted with `format-spec'.
-              ((stringp section) (format-spec section spec))
+              ((stringp section)
+               (format-spec section (t--pre/postamble-format-spec info)))
               ;; function.
               ((functionp section) (funcall section info))
               ;; symbol: call it if it has a function, or else format
@@ -7208,7 +7211,7 @@ usable string value, or when the value is of any other type."
                  (t-error "Invalid %s symbol: %s" type section))
                (if-let* ((value (symbol-value section))
                          ((t--nw-p value)))
-                   (format-spec value spec)
+                   (format-spec value (t--pre/postamble-format-spec info))
                  (t-error "Invalid %s symbol value: %s"
                           type (symbol-value section))))
               (t (t-error "Invalid %s: %s" type section)))))
