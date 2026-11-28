@@ -6,7 +6,7 @@
 ;; Maintainer: include-yy <yy@egh0bww1.com>
 ;; Created: 2024-03-18 04:51:00+0900
 
-;; Package-Version: 0.2.26
+;; Package-Version: 0.3.0
 ;; Package-Requires: ((emacs "31"))
 ;; Keywords: tools, html
 ;; URL: https://github.com/include-yy/ox-w3ctr
@@ -81,7 +81,7 @@
 (require 'ox-publish)
 
 ;;;; Fundamental utilities
-(defconst t-version "0.2.26"
+(defconst t-version "0.3.0"
   "Version string of the ox-w3ctr package.")
 
 (defconst t--dir
