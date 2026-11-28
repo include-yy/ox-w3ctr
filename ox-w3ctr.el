@@ -4106,10 +4106,13 @@ unwrapped.  The result has no wrapper element."
 ;; Per-export fontify state (`:html-fontify-state' in INFO), an `equal'
 ;; hash table created lazily on the first fontified block and saved to
 ;; `org-w3ctr--fontify-last-state' (as body-only exports and
-;; `org-w3ctr-fontify-code' bypass `template').  Kept out of
-;; `org-w3ctr--oinfo-cache-props': OINFO's single-slot `org-w3ctr--pput'
-;; does not write back to INFO, so nested or interleaved exports would
-;; evict the outer state (counters, `broken', `warned').  Key shapes:
+;; `org-w3ctr-fontify-code' bypass `template').
+
+;; Kept out of `org-w3ctr--oinfo-cache-props': OINFO's single-slot
+;; `org-w3ctr--pput' does not write back to INFO, so nested or
+;; interleaved exports would evict the outer state
+
+;; Key shapes:
 ;; - (KIND . KEY)              -> count; KIND in
 ;;                                `org-w3ctr--fontify-report-sections'
 ;; - (broken . ENGINE)         -> t; engine disabled for this export
