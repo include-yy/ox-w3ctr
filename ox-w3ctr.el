@@ -5460,18 +5460,19 @@ non-nil, return \"%F\".  Otherwise return \"%FT%R\" for `local',
                 (if (plusp offset) "+" "-") hours minutes)))))
 
 (defun t--format-datetime (time info &optional notime)
-  "Format TIME into an RFC 3339 datetime string.
+  "Format UTC-encoded TIME into an RFC 3339 datetime string.
 
-TIME is an Emacs time value.  INFO is the info plist.  NOTIME, when
-non-nil, returns only the date (\"%F\") without timezone conversion.
-Signal `org-w3ctr-error' when TIME cannot be formatted."
+TIME is an Emacs time value encoded in UTC (see `encode-time').
+INFO is the info plist.  NOTIME, when non-nil, returns only the
+date (\"%F\") without timezone conversion.  Signal
+`org-w3ctr-error' when TIME cannot be formatted."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
   (let* ((tz (t--resolve-timezones info))
-         (fmt (t--get-datetime-format (car tz) notime))
-         (time (if notime time (time-add time (cdr tz)))))
+         (fmt (t--get-datetime-format (car tz) notime)))
     (condition-case nil
-        (format-time-string fmt time)
+        (let ((time (if notime time (time-add time (cdr tz)))))
+          (format-time-string fmt time t))
       (error (t-error "Invalid time value: %s" time)))))
 
 (defun t--call-with-invalid-time-spec-handler (fn timestamp &rest args)
@@ -5498,11 +5499,24 @@ END, when non-nil, format the end of a range.  Return a string
 suitable for an HTML <time> datetime attribute."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
-  (format " datetime=\"%s\""
-          (t--format-datetime
-           (t--call-with-invalid-time-spec-handler
-            #'org-timestamp-to-time timestamp end)
-           info (not (org-timestamp-has-time-p timestamp)))))
+  ;; Encode the wall-clock fields in UTC so timezone-delta arithmetic
+  ;; is independent of the host timezone and its DST transitions.
+  (let* ((props (if end
+                    '(:minute-end :hour-end :day-end :month-end :year-end)
+                  '(:minute-start :hour-start :day-start :month-start
+                                  :year-start)))
+         (time (t--call-with-invalid-time-spec-handler
+                (lambda (ts)
+                  (encode-time
+                   (append '(0)
+                           (mapcar (lambda (p)
+                                     (or (org-element-property p ts) 0))
+                                   props)
+                           '(nil -1 t))))
+                timestamp)))
+    (format " datetime=\"%s\""
+            (t--format-datetime
+             time info (not (org-timestamp-has-time-p timestamp))))))
 
 (defun t--interpret-timestamp (timestamp)
   "Interpret an Org TIMESTAMP object with improved error reporting.

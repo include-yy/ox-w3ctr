@@ -6877,40 +6877,46 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--format-datetime ()
   "Tests for `org-w3ctr--format-datetime'."
-  ;; Positive and negative offsets.
-  (let ((test-time (encode-time 0 0 12 1 1 2023))
+  ;; Positive and negative offsets (times encoded in UTC).
+  (let ((test-time (encode-time 0 0 12 1 1 2023 t))
         (info1 '(:html-timezone 28800 :html-export-timezone 28800)))
     ($l (t--format-datetime test-time info1)
         "2023-01-01T12:00+08:00"))
-  (let ((test-time (encode-time 0 30 9 15 6 2023))
+  (let ((test-time (encode-time 0 30 9 15 6 2023 t))
         (info2 '(:html-timezone -14400 :html-export-timezone -14400)))
     ($l (t--format-datetime test-time info2)
         "2023-06-15T09:30-04:00"))
   ;; UTC uses Zulu suffix.
-  (let ((test-time (encode-time 0 0 0 1 1 2023))
+  (let ((test-time (encode-time 0 0 0 1 1 2023 t))
         (info3 '(:html-timezone 0 :html-export-timezone 0)))
     ($l (t--format-datetime test-time info3)
         "2023-01-01T00:00Z"))
-  (let ((test-time (encode-time 0 45 18 31 12 2023))
+  (let ((test-time (encode-time 0 45 18 31 12 2023 t))
         (info4 '(:html-timezone 19800 :html-export-timezone 19800)))
     ($l (t--format-datetime test-time info4)
         "2023-12-31T18:45+05:30"))
-  ;; Timezone conversion (non-zero delta) and notime.
-  (let ((test-time (encode-time 0 0 12 1 1 2023))
+  ;; Timezone conversion (non-zero delta, including across midnight) and notime.
+  (let ((test-time (encode-time 0 0 12 1 1 2023 t))
         (info-conv '(:html-timezone 28800 :html-export-timezone 0)))
     ($l (t--format-datetime test-time info-conv)
         "2023-01-01T04:00Z")
     ($l (t--format-datetime test-time info-conv t)
         "2023-01-01"))
+  (let ((test-time (encode-time 0 0 2 1 1 2023 t))
+        (info-conv '(:html-timezone 28800 :html-export-timezone 0)))
+    ($l (t--format-datetime test-time info-conv)
+        "2022-12-31T18:00Z"))
   ;; Local timezone omits offset suffix.
-  (let ((test-time (encode-time 0 0 12 1 1 2023))
+  (let ((test-time (encode-time 0 0 12 1 1 2023 t))
         (info6 (list :html-timezone "local" :html-export-timezone "local")))
     ($l (t--format-datetime test-time info6)
         "2023-01-01T12:00"))
-  ;; Invalid timezone and out-of-range time.
-  (let ((test-time (encode-time 0 0 12 1 1 2023)))
+  ;; Invalid timezone, invalid time spec, and out-of-range time.
+  (let ((test-time (encode-time 0 0 12 1 1 2023 t)))
     ($e! (t--format-datetime test-time '(:html-timezone "Invalid"))
          'org-w3ctr-error))
+  ($e!l (t--format-datetime 'invalid '(:html-timezone 0))
+        '(org-w3ctr-error "Invalid time value: invalid"))
   ($e!l (t--format-datetime -65536 '(:html-timezone 0))
         '(org-w3ctr-error "Invalid time value: -65536")))
 
