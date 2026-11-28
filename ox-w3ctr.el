@@ -3997,19 +3997,14 @@ also be one of KEYS."
          ok)))
 
 (defun t--fontify-lang-entry (lang info)
-  "Return the PLIST of LANG's entry in INFO's `:html-fontify-lang-alist'.
+  "Return the plist for LANG in INFO's `:html-fontify-lang-alist', or nil.
 
-LANG is a language name as a string (or nil to validate the alist only
-and return nil), and INFO is the info plist.  Return nil when LANG has
-no entry.  Signal `org-w3ctr-error' unless the alist is a list of
-\(LANG . PLIST) entries, each LANG a non-blank string and each PLIST a
-property list with distinct keyword keys (see
-`org-w3ctr--fontify-plist-p'), where `:font-lock', if present, is a
-non-keyword symbol other than t and `:shiki' is nil or a non-blank
-string.  Any other keyword is allowed, so that an engine of one's own
-can read its key.  The whole alist is checked, not only LANG's entry;
-when INFO already has a fontify state, cache the validated alist there
-by `eq'."
+LANG is a language name string (or nil to validate only); INFO is the
+info plist.  Validate the whole alist (caching it in INFO's fontify
+state when present) and signal `org-w3ctr-error' if any (NAME . PLIST)
+entry is malformed: NAME a non-blank string, PLIST passing
+`org-w3ctr--fontify-plist-p', `:font-lock' a non-keyword symbol other
+than t, `:shiki' nil or a non-blank string; other keys are allowed."
   (declare (ftype (function ((or null string) list) list))
            (important-return-value t))
   (let* ((state (t--pget info :html-fontify-state))
@@ -4111,7 +4106,10 @@ unwrapped.  The result has no wrapper element."
 ;; Per-export fontify state (`:html-fontify-state' in INFO), an `equal'
 ;; hash table created lazily on the first fontified block and saved to
 ;; `org-w3ctr--fontify-last-state' (as body-only exports and
-;; `org-w3ctr-fontify-code' bypass `template').  Key shapes:
+;; `org-w3ctr-fontify-code' bypass `template').  Kept out of
+;; `org-w3ctr--oinfo-cache-props': OINFO's single-slot `org-w3ctr--pput'
+;; does not write back to INFO, so nested or interleaved exports would
+;; evict the outer state (counters, `broken', `warned').  Key shapes:
 ;; - (KIND . KEY)              -> count; KIND in
 ;;                                `org-w3ctr--fontify-report-sections'
 ;; - (broken . ENGINE)         -> t; engine disabled for this export
