@@ -3880,15 +3880,16 @@ A non-blank caption becomes an unstyled <span> before <pre>."
                  example-block info
                  (not (t--coderef-labels example-block))))
          ;; `org-w3ctr--code-text' drops the labels and the final newline;
-         ;; a non-empty value keeps one newline inside <pre>.
+         ;; a non-empty value is wrapped in newlines inside <pre>.
          (value (or (org-element-property :value example-block) ""))
          (content (if (string-empty-p value) ""
-                    (concat (t--encode-plain-text
+                    (concat "\n"
+                            (t--encode-plain-text
                              (t--code-text example-block))
                             "\n")))
          (caption (when-let* ((cap (org-export-get-caption example-block)))
                     (t--nw-trim (org-export-data cap info)))))
-    (format "<div%s%s>\n%s<pre>\n%s</pre>\n</div>"
+    (format "<div%s%s>\n%s<pre>%s</pre>\n</div>"
             attrs
             (if has-user-attrs "" " class=\"example\"")
             (if caption (format "<span>%s</span>\n" caption) "")

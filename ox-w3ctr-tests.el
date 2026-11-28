@@ -4069,7 +4069,7 @@ cookie-less column is remembered as the `none' marker."
   (t-check-element-values
    #'t-example-block
    '(("#+name: t\n#+begin_example\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\n</pre>\n</div>")
+      "<div id=\"t\" class=\"example\">\n<pre></pre>\n</div>")
      ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
       "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
      ;; content is HTML-escaped via `org-w3ctr--encode-plain-text'
@@ -4123,7 +4123,7 @@ cookie-less column is remembered as the `none' marker."
    t '(:html-prefer-user-labels t))
   ;; A synthetic element with nil `:value' falls back to "".
   ($l (t-example-block '(example-block nil) nil nil)
-      "<div class=\"example\">\n<pre>\n</pre>\n</div>"))
+      "<div class=\"example\">\n<pre></pre>\n</div>"))
 
 (ert-deftest t-example-block-coderef-id ()
   "An example block that defines a code reference always gets an id."
