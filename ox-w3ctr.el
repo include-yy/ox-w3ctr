@@ -1207,7 +1207,7 @@ or for publication projects using the :html-head-extra property."
   "Control whether to include CSS styles in the exported HTML.
 
 When non-nil, the styles defined by `org-w3ctr-style' or loaded from
-`org-w3ctr-style-file' will be embedded within a <style> tag in the HTML <head>."
+`org-w3ctr-style-file' are included in the HTML <head>."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
@@ -6729,6 +6729,8 @@ head function may return nil; any other non-string result signals
 ;; - :html-head (`org-w3ctr-head')
 ;; - :html-head-extra (`org-w3ctr-head-extra')
 ;; - :html-head-include-style (`org-w3ctr-head-include-style')
+;; - :with-latex (`org-w3ctr-with-latex')
+;; - :html-math-count (internal)
 
 (defun t--use-default-style-p (info)
   "Return non-nil if the export includes the default CSS style.
@@ -6740,10 +6742,10 @@ INFO is the info plist."
 
 (defun t--has-math-p (info)
   "Return non-nil if the export emitted any LaTeX math in INFO.
-INFO is the info plist.
 
-Check that `:with-latex' is non-nil and `:html-math-count'
-\(incremented by `org-w3ctr--format-latex') is positive."
+INFO is the info plist.  Check that `:with-latex' is non-nil and
+`:html-math-count' (incremented by `org-w3ctr--format-latex') is
+positive."
   (declare (ftype (function (list) boolean))
            (important-return-value t))
   (and (t--pget info :with-latex)
@@ -6765,13 +6767,13 @@ nil."
              input)))
     (org-element-normalize-string s)))
 
-;; FIXME: Consider adding code highlighting (such as highlight.js).
 (defun t--build-head (info)
   "Return the <head>...</head> block of the HTML output.
 
-INFO is the info plist.  Return the <meta> block, the default style, the
-math configuration, and the user's `:html-head' and `:html-head-extra'
-contents, wrapped in a <head> element."
+INFO is the info plist.  Return the <meta> block, the default style,
+the math configuration, the user's `:html-head' and
+`:html-head-extra' contents, and any custom-element scripts from
+`org-w3ctr--special-block-head', wrapped in a <head> element."
   (declare (ftype (function (list) string))
            (important-return-value t))
   (concat
