@@ -1123,42 +1123,16 @@ This can be either:
           function))
 
 ;;;; Math
-;; FIXME: Revisit the default client-side MathJax configuration (for
-;; example `tags: 'ams'' equation numbering and `\label'/`\eqref'
-;; behavior, which differ from the per-fragment server-side `jstools'
-;; `mathml-by-mathjax' and `svg-by-mathjax' modes).
 (defcustom t-mathjax-config "\
 <script>
   window.MathJax = {
     tex: {
-      ams: {
-        multlineWidth: '85%'
-      },
-      tags: 'ams',
-      tagSide: 'right',
-      tagIndent: '.8em'
-    },
-    chtml: {
-      scale: 1.0,
-      displayAlign: 'center',
-      displayIndent: '0em'
-    },
-    svg: {
-      scale: 1.0,
-      displayAlign: 'center',
-      displayIndent: '0em'
-    },
-    output: {
-      font: 'mathjax-modern',
-      displayOverflow: 'overflow'
+      tags: 'ams'
     }
   };
 </script>
-
-<script
-  id='MathJax-script'
-  async
-  src='https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js'>
+<script id=\"MathJax-script\" async
+  src=\"https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js\">
 </script>
 "
   "Configuration for MathJax rendering in HTML export.
