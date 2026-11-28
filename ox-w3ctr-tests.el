@@ -8271,7 +8271,7 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--ensure-charset-utf8 ()
   "Tests for `org-w3ctr--ensure-charset-utf8'."
-  (cl-labels ((test (x) (let ((org-w3ctr-coding-system x))
+  (cl-labels ((test (x) (let ((t-coding-system x))
                           (t--ensure-charset-utf8))))
     ($e!l (test nil) '(t-error "Invalid coding system: nil"))
     ($l (test 'utf-8-unix) "utf-8")
@@ -8436,7 +8436,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   ;; user CSS takes precedence over the cache
   (let ((t-style "user") (t--style-cache "cached"))
     ($l (t--load-css nil) "user"))
-  ;; a non-whitespace cache is returned without touching t--load-file
+  ;; a non-whitespace cache is returned without touching `org-w3ctr--load-file'
   (let ((t-style nil) (t--style-cache "<style>cached</style>"))
     ($l (t--load-css nil) "<style>cached</style>"))
   (cl-letf (((symbol-function 't--load-file)
@@ -8446,6 +8446,12 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (t--load-css nil)
         (format "<style>\n%s\n</style>\n" t-style-file))
     ($l t--style-cache (format "<style>\n%s\n</style>\n" t-style-file))))
+
+(ert-deftest t-clear-css ()
+  "Tests for `org-w3ctr-clear-css'."
+  (let ((t--style-cache "<style>x</style>"))
+    (t-clear-css)
+    ($q t--style-cache nil)))
 
 ;;;; Math config
 
@@ -8522,10 +8528,15 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr--normalize-string-or-function'."
   ($l (t--normalize-string-or-function "abc") "abc\n")
   ($l (t--normalize-string-or-function "abc\n") "abc\n")
+  ($l (t--normalize-string-or-function "") "")
   ($n (t--normalize-string-or-function nil))
   ($l (t--normalize-string-or-function (lambda () "fn")) "fn\n")
+  ($l (t--normalize-string-or-function (lambda (a b) (format "%s:%s" a b))
+                                       "x" "y")
+      "x:y\n")
   ($n (t--normalize-string-or-function (lambda () nil)))
-  ($l (t--normalize-string-or-function (lambda () 42)) "42\n"))
+  ($l (t--normalize-string-or-function (lambda () 42)) "42\n")
+  ($e! (t--normalize-string-or-function 42) 'org-w3ctr-error))
 
 (ert-deftest t--build-head ()
   "Tests for `org-w3ctr--build-head'."
@@ -8538,9 +8549,12 @@ COUNTER, a cons cell, has its car incremented on every call."
             ((symbol-function 't--has-math-p)
              (lambda (_info) t))
             ((symbol-function 't--build-math-config)
-             (lambda (_info) "MATH\n")))
+             (lambda (_info) "MATH\n"))
+            ((symbol-function 't--special-block-head)
+             (lambda (_info) "CUSTOM\n")))
     ($l (t--build-head '(:html-head "H\n" :html-head-extra "E\n"))
-        ($c "<head>\n" "META\n" "CSS\n" "MATH\n" "H\n" "E\n" "</head>\n")))
+        ($c "<head>\n" "META\n" "CSS\n" "MATH\n" "H\n" "E\n"
+            "CUSTOM\n" "</head>\n")))
   (cl-letf (((symbol-function 't--build-meta-info)
              (lambda (_info) "META\n"))
             ((symbol-function 't--use-default-style-p)
@@ -8705,8 +8719,9 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($e! (it '(:html-link-navbar [(a . "b")])) 'org-w3ctr-error)
     ($e! (it '(:html-link-navbar [("a" . b)])) 'org-w3ctr-error)
     ($e! (it '(:html-link-navbar [(a . b)])) 'org-w3ctr-error)
-    ;; Neither a vector nor a list is an error.
+    ;; Neither a vector nor a proper list is an error.
     ($e! (it '(:html-link-navbar "str")) 'org-w3ctr-error)
+    ($e! (it '(:html-link-navbar ("a" . "b"))) 'org-w3ctr-error)
     ;; No links anywhere is "".
     ($l (it '(:html-link-navbar [])) "")
     ;; An empty vector and a blank link list fall back to the legacy bar.
@@ -8902,14 +8917,14 @@ COUNTER, a cons cell, has its car incremented on every call."
         (setq info (plist-put info :html-license 'cc0))
         ($l (test info)
             ($c "This work by test is dedicated to the public domain under "
-                "<a href=\"https://creativecommons.org/publicdomain/zero/1.0/\">"
-                "CC0 1.0 Universal</a>"
+                "<a href=\"https://creativecommons.org/publicdomain/"
+                "zero/1.0/\">CC0 1.0 Universal</a>"
                 " " (t-cc-badges-default-format-function 'cc0 nil)))
         (setq info (plist-put info :html-license 'public-domain-mark))
         ($l (test info)
             ($c "This work by test is marked as being in the public domain ("
-                "<a href=\"https://creativecommons.org/publicdomain/mark/1.0/\">"
-                "Public Domain Mark 1.0</a>)"
+                "<a href=\"https://creativecommons.org/publicdomain/"
+                "mark/1.0/\">Public Domain Mark 1.0</a>)"
                 " " (t-cc-badges-default-format-function
                      'public-domain-mark nil)))
         ;; An unknown license is an error.
@@ -8955,7 +8970,8 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($s (string-match-p
            "[0-9]\\{4\\}-[0-9]\\{2\\}-[0-9]\\{2\\} [0-9]\\{2\\}:[0-9]\\{2\\}\n"
            ts)))
-    (test "" (i "%a") "")
+    (let ((user-full-name nil))
+      (test "" (i "%a") ""))
     (test "#+AUTHOR: " (i "%a") "")
     (test "#+AUTHOR: eXkeq" (i "%a") "eXkeq\n")
     (test "" (i "%a" '(:author "test")) "test\n")
@@ -8965,6 +8981,9 @@ COUNTER, a cons cell, has its car incremented on every call."
     (test "#+email:  a@b.c , d@e.f " (i "%e")
           ($c "<a href=\"mailto:a@b.c\">a@b.c</a>, "
               "<a href=\"mailto:d@e.f\">d@e.f</a>\n"))
+    (test "" (i "%e" '(:email "a&b<c>@d"))
+          ($c "<a href=\"mailto:a&amp;b&lt;c&gt;@d\">"
+              "a&amp;b&lt;c&gt;@d</a>\n"))
     (test "" (i "%e" '(:email "test"))
           "<a href=\"mailto:test\">test</a>\n")
     (test "" (i "%c" '(:creator "foo")) "foo\n")
@@ -9039,7 +9058,7 @@ COUNTER, a cons cell, has its car incremented on every call."
    #'t--build-pre/postamble
    '(("" "" "")) nil
    '(:html-preamble (lambda (info) nil) :html-postamble nil))
-  ;; Nil and function values do not compute `t--pre/postamble-format-spec'.
+  ;; Nil and function values do not call `org-w3ctr--pre/postamble-format-spec'.
   (cl-letf (((symbol-function 't--pre/postamble-format-spec)
              (lambda (&rest _) (error "unexpected"))))
     ($l (t--build-pre/postamble 'preamble '(:html-preamble nil)) "")
@@ -9048,6 +9067,9 @@ COUNTER, a cons cell, has its car incremented on every call."
         "ok\n"))
   ($e!l (t--build-pre/postamble 'other nil)
         '(org-w3ctr-error "Invalid pre/postamble type: other"))
+  ;; Unknown format-spec codes signal `org-w3ctr-error'.
+  ($e! (t--build-pre/postamble 'preamble '(:html-preamble "%z"))
+       'org-w3ctr-error)
   ;; With no :html-postamble in the plist, the export environment
   ;; fills the default: the back-to-top arrow.
   (t-check-element-values
@@ -9205,9 +9227,13 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($c "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n<li>1\n"
             "<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n</ul>\n"
             "</li>\n<li>2</li>\n</ul>\n"))
-    ;; Without top, the first entry's level sets the depth.
+    ;; Without top, the shallowest entry's level sets the base depth.
     ($l (t--toc-alist-to-text '(("a" . 3)) info)
-        "\n<ul class=\"toc\">\n<li>a</li>\n</ul>\n")))
+        "\n<ul class=\"toc\">\n<li>a</li>\n</ul>\n")
+    ;; A later entry shallower than the first stays balanced.
+    ($l (t--toc-alist-to-text '(("Deep" . 3) ("Shallow" . 2)) info)
+        ($c "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n"
+            "<li>Deep</li>\n</ul>\n</li>\n<li>Shallow</li>\n</ul>\n"))))
 
 (ert-deftest t--build-toc ()
   "Tests for `org-w3ctr--build-toc'."
@@ -9217,13 +9243,13 @@ COUNTER, a cons cell, has its car incremented on every call."
              (lambda (h _i) (symbol-name h)))
             ((symbol-function 'org-export-get-relative-level)
              (lambda (h _i) (if (eq h 'h1) 1 2))))
-    ($l (t--build-toc 2 '(:html-toc-element ul))
+    ($l (t--build-toc 2 (list :html-toc-element 'ul))
         ($c "\n<ul class=\"toc\">\n<li>h1\n<ul class=\"toc\">\n<li>h2"
             "</li>\n</ul>\n</li>\n</ul>\n")))
   ;; No headline in range, no table.
   (cl-letf (((symbol-function 'org-export-collect-headlines)
              (lambda (_i _d &optional _s) nil)))
-    ($n (t--build-toc 2 '(:html-toc-element ul))))
+    ($n (t--build-toc 2 (list :html-toc-element 'ul))))
   ;; The hook formats the entry; without one, the default is used.
   (cl-letf (((symbol-function 'org-export-collect-headlines)
              (lambda (_i _d &optional _s) '(h1)))
@@ -9231,7 +9257,7 @@ COUNTER, a cons cell, has its car incremented on every call."
              (lambda (_h _i) 1))
             ((symbol-function 't-toc-headline-default-format-function)
              (lambda (h _i) (format "DEFAULT %s" h))))
-    ($l (t--build-toc 2 '(:html-toc-element ul))
+    ($l (t--build-toc 2 (list :html-toc-element 'ul))
         "\n<ul class=\"toc\">\n<li>DEFAULT h1</li>\n</ul>\n")
     ($l (t--build-toc 2 (list :html-toc-element 'ul
                               :html-toc-headline-format-function
@@ -9245,10 +9271,10 @@ COUNTER, a cons cell, has its car incremented on every call."
              (lambda (_h _i) 2))
             ((symbol-function 't-toc-headline-default-format-function)
              (lambda (h _i) (symbol-name h))))
-    ($l (t--build-toc 2 '(:html-toc-element ul))
+    ($l (t--build-toc 2 (list :html-toc-element 'ul))
         ($c "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n"
             "<li>h1</li>\n</ul>\n</li>\n</ul>\n"))
-    ($l (t--build-toc 2 '(:html-toc-element ul) 'scope-el)
+    ($l (t--build-toc 2 (list :html-toc-element 'ul) 'scope-el)
         "\n<ul class=\"toc\">\n<li>h1</li>\n</ul>\n")))
 
 (ert-deftest t--build-toc-restores-channel-slots ()
@@ -9342,12 +9368,20 @@ that changes them fails here instead of corrupting a TOC silently."
   (let (seen)
     (cl-letf (((symbol-function 't--build-toc)
                (lambda (d _i &optional _s) (setq seen d) "TOC")))
-      ;; The depth comes from :with-toc.
+      ;; The depth comes from :with-toc; t passes nil (unlimited).
       ($l (t--build-table-of-contents
            '( :with-toc 2 :html-toplevel-hlevel 3
               :html-toc-title "Table of Contents"))
           "<nav id=\"toc\">\n<h3>Table of Contents</h3>TOC</nav>\n")
-      ($l seen 2)))
+      ($l seen 2)
+      ($l (t--build-table-of-contents
+           '(:with-toc t :html-toplevel-hlevel 2 :html-toc-title "TOC"))
+          "<nav id=\"toc\">\n<h2>TOC</h2>TOC</nav>\n")
+      ($n seen)
+      ;; Invalid :html-toplevel-hlevel signals org-w3ctr-error.
+      ($e! (t--build-table-of-contents
+            '(:with-toc 2 :html-toplevel-hlevel 1))
+           'org-w3ctr-error)))
   ;; A missing title falls back to `org-w3ctr-toc-title'.
   (cl-letf (((symbol-function 't--build-toc)
              (lambda (_d _i &optional _s) "TOC")))
@@ -9443,6 +9477,8 @@ that changes them fails here instead of corrupting a TOC silently."
                (lambda (l _i) (format "RESOLVED %s" l))))
       ($l (t--keyword-toc 'kw "headlines 2 :target \"file:foo.org\"" nil)
           "TOC 2 \"RESOLVED file:foo.org\"")
+      ($l (t--keyword-toc 'kw "headlines :target file:foo.org" nil)
+          "TOC nil \"RESOLVED file:foo.org\"")
       ($l (t--keyword-toc 'kw "headlines local" nil) "TOC nil kw")
       ;; The depth is the number right after "headlines", not any
       ;; number in the value (a :target path may carry some).
@@ -9451,13 +9487,21 @@ that changes them fails here instead of corrupting a TOC silently."
       ;; A :target takes precedence over local.
       ($l (t--keyword-toc 'kw "headlines local :target \"x\"" nil)
           "TOC nil \"RESOLVED x\""))
-    ;; No match, no output.
+    ;; No match (including prefix-only "headlinesfoo"), no output.
+    ($n (t--keyword-toc nil "headlinesfoo" nil))
     ($n (t--keyword-toc nil "nothing" nil))))
 
 ;;;; Template
 
 (ert-deftest t-inner-template ()
   "Tests for `org-w3ctr-inner-template'."
+  ;; Assembly order: zeroth section, TOC, <main>, footnote section.
+  (cl-letf (((symbol-function 't--build-table-of-contents)
+             (lambda (_i) "TOC\n"))
+            ((symbol-function 't-footnote-section)
+             (lambda (_i) "FN\n")))
+    ($l (t-inner-template "BODY\n" '(:zeroth-section-output "Z\n"))
+        "Z\nTOC\n<main>\nBODY\n</main>\nFN\n"))
   ;; The zeroth section lands before the table of contents, and a
   ;; document without one does not inherit the previous export's.
   (let ((with (org-export-string-as "ZEROTH\n\n* H\nbody" 'w3ctr nil))
@@ -9466,7 +9510,8 @@ that changes them fails here instead of corrupting a TOC silently."
     ($n (string-match-p "ZEROTH" without)))
   ;; The zeroth section's property drawer is dropped, not rendered.
   (let ((out (org-export-string-as
-              ":PROPERTIES:\n:HTML_CONTAINER: aside\n:END:\n\nzeroth\n\n* H\nbody"
+              ($c ":PROPERTIES:\n:HTML_CONTAINER: aside\n:END:\n\n"
+                  "zeroth\n\n* H\nbody")
               'w3ctr nil)))
     ($s (string-match-p "zeroth" out))
     ($n (string-match-p "HTML_CONTAINER" out))))
@@ -9486,7 +9531,7 @@ that changes them fails here instead of corrupting a TOC silently."
 
 (ert-deftest t--load-fixup-js ()
   "Tests for `org-w3ctr--load-fixup-js'."
-  ;; A non-whitespace cache is returned without touching t--load-file.
+  ;; A non-whitespace cache is returned without touching `org-w3ctr--load-file'.
   (let ((t--fixup-js-cache "<script>cached</script>"))
     ($l (t--load-fixup-js) "<script>cached</script>"))
   ;; An empty cache is refilled from the asset and stored.
@@ -9538,13 +9583,25 @@ that changes them fails here instead of corrupting a TOC silently."
         ($c "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\n"
             "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
             "POSTAMBLE</body>\n</html>"))
-    ;; A nil title keeps the #title anchor with an invisible mark.
+    ;; A nil title keeps the #title anchor with an invisible mark, and
+    ;; whitespace-only :html-fixup-js falls back to the shipped default.
     (cl-letf (((symbol-function 't--build-title) (lambda (_i) nil)))
-      ($l (t-template-1 "BODY" '(:language "en\"x" :html-include-fixup-js nil))
+      ($l (t-template-1 "BODY" '(:language "en\"x" :html-include-fixup-js t
+                                           :html-fixup-js "   "))
           ($c "<!DOCTYPE html>\n<html lang=\"en&quot;x\">\nHEAD<body>\n"
               "<div class=\"head\">\n<h1 id=\"title\">&lrm;</h1>\n"
               "PREAMBLE</div>\nBODY"
-              "POSTAMBLE</body>\n</html>")))))
+              "POSTAMBLEDEFAULT-JS\n</body>\n</html>"))))
+  ;; Body components run before `org-w3ctr--build-head'.
+  (let (order)
+    (cl-letf (((symbol-function 't--build-title)
+               (lambda (_i) (push 'title order) "T"))
+              ((symbol-function 't--build-pre/postamble)
+               (lambda (_t _i) ""))
+              ((symbol-function 't--build-head)
+               (lambda (_i) (push 'head order) "H")))
+      (t-template-1 "" '(:language "en" :html-include-fixup-js nil))
+      ($l (nreverse order) '(title head)))))
 
 (ert-deftest t-template ()
   "Tests for `org-w3ctr-template'."
@@ -9554,7 +9611,15 @@ that changes them fails here instead of corrupting a TOC silently."
               ((symbol-function 't--oinfo-cleanup)
                (lambda () (setq cleaned t))))
       ($l (t-template "X" nil) "<X>")
-      ($s cleaned))))
+      (if t--oinfo-cache-p ($s cleaned) ($n cleaned))))
+  ;; OINFO cleanup still runs when `org-w3ctr-template-1' signals.
+  (let (cleaned)
+    (cl-letf (((symbol-function 't-template-1)
+               (lambda (_c _i) (t-error "boom")))
+              ((symbol-function 't--oinfo-cleanup)
+               (lambda () (setq cleaned t))))
+      ($e! (t-template "X" nil) 'org-w3ctr-error)
+      (if t--oinfo-cache-p ($s cleaned) ($n cleaned)))))
 
 
 ;;; End-user functions

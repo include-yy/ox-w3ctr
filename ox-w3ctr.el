@@ -1066,7 +1066,7 @@ which generates timestamps in ISO 8601 format (YYYY-MM-DDThh:mmZ)."
                         (user-scalable ""))
   "Viewport options for mobile-optimized sites.
 
-The following values are recognized
+The following values are recognized:
 
 width          Size of the viewport.
 initial-scale  Zoom level when the page is first loaded.
@@ -1074,7 +1074,8 @@ minimum-scale  Minimum allowed zoom level.
 maximum-scale  Maximum allowed zoom level.
 user-scalable  Whether zoom can be changed.
 
-The viewport meta tag is inserted if this variable is non-nil.
+The viewport meta tag is inserted when this variable has at least one
+non-blank entry.
 
 See the following site for a reference:
 https://developer.mozilla.org/en-US/docs/Mozilla/Mobile/Viewport_meta_tag"
@@ -1188,7 +1189,7 @@ option simply gets inserted into the HTML <head> header, you can use it
 to add any arbitrary text to the header.
 
 You can set this on a per-file basis using #+HTML_HEAD:,
-or for publication projects using the :html-head property."
+or for publication projects using the `:html-head' property."
   :group 'org-export-w3ctr
   :type '(choice string function))
 
@@ -1199,15 +1200,16 @@ It can be a string, or a function that accepts the INFO plist and
 returns a string.
 
 You can set this on a per-file basis using #+HTML_HEAD_EXTRA:,
-or for publication projects using the :html-head-extra property."
+or for publication projects using the `:html-head-extra' property."
   :group 'org-export-w3ctr
   :type '(choice string function))
 
 (defcustom t-head-include-style t
-  "Control whether to include CSS styles in the exported HTML.
+  "Non-nil means include CSS styles in the exported HTML.
 
 When non-nil, the styles defined by `org-w3ctr-style' or loaded from
-`org-w3ctr-style-file' are included in the HTML <head>."
+`org-w3ctr-style-file' are included in the HTML <head>.  When nil,
+no default style is emitted."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
@@ -1310,11 +1312,12 @@ entirely, set `org-w3ctr-navbar-format-function' to nil."
   :type 'sexp)
 
 (defcustom t-navbar-format-function #'t-navbar-default-format-function
-  "The function used to generate the HTML for the navbar.
+  "Function used to generate the HTML for the navbar, or nil.
 
-This function is called with one argument: INFO plist.  It should
-return a string containing the complete HTML for the navigation bar,
-for example inside `<nav>' tags.
+When nil, no navbar is emitted.  Otherwise, the function is called
+with one argument, the INFO plist, and should return a string
+containing the complete HTML for the navigation bar, for example
+inside <nav> tags.
 
 See `org-w3ctr-navbar-default-format-function' for an example."
   :group 'org-export-w3ctr
@@ -1477,7 +1480,7 @@ entry markup."
 
 ;;;; Template
 (defcustom t-include-fixup-js t
-  "Control whether to include the fixup JavaScript in the exported HTML.
+  "Non-nil means include the fixup JavaScript in the exported HTML.
 
 When non-nil, the fixup script is embedded before the closing </body>
 tag: the document's own `:html-fixup-js' when set, otherwise the
@@ -6405,7 +6408,7 @@ HEADLINE is the headline element, INFO the export plist.  When the
 headline is numbered, return `<span class=\"secno\">' holding its
 dotted section number (for example, \"1.1. \"), else nil."
   (declare (ftype (function (t list) (or null string)))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (when-let* (((org-export-numbered-headline-p headline info))
               (numbers (org-export-get-headline-number headline info)))
     (format "<span class=\"secno\">%s. </span>"
@@ -6468,7 +6471,7 @@ low-level list item or a normal section."
         (t--build-low-level-headline headline contents info)
       ;; Normal headline.  Export it as a section.
       (t--build-normal-headline headline contents info))))
-
+
 ;;; Template and Inner Template
 
 ;;;; <meta> tags export.
@@ -6758,16 +6761,18 @@ positive."
 (defun t--normalize-string-or-function (input &rest args)
   "Normalize INPUT, whether a string or a function.
 
-INPUT is a string, or a function called with ARGS.  Apply INPUT when it
-is a function, then normalize the result with
-`org-element-normalize-string'.  Return nil when the function returns
-nil."
+INPUT is a string, nil, or a function called with ARGS.  Apply INPUT
+when it is a function, then normalize the result with
+`org-element-normalize-string'.  Return nil when INPUT is nil or the
+function returns nil.  Signal `org-w3ctr-error' when INPUT is neither
+nil, a string, nor a function."
   (declare (ftype (function (t &rest t) (or null string)))
            (important-return-value t))
-  (let ((s (if (functionp input)
-               (let ((r (apply input args)))
-                 (and r (format "%s" r)))
-             input)))
+  (let ((s (cond ((functionp input)
+                  (let ((r (apply input args)))
+                    (and r (format "%s" r))))
+                 ((string-or-null-p input) input)
+                 (t (t-error "Invalid head content: %S" input)))))
     (org-element-normalize-string s)))
 
 (defun t--build-head (info)
@@ -6893,7 +6898,7 @@ types or malformed vector entries."
   (let* ((links (t--pget info :html-link-navbar))
          (nav (pcase links
                 ((pred vectorp) (t--format-navbar-vector links))
-                ((pred listp) (t--format-navbar-list links info))
+                ((pred proper-list-p) (t--format-navbar-list links info))
                 (other (t-error "Invalid navbar type: %S" other)))))
     ;; Empty result, whatever the reason: the legacy home/up bar.
     (if (string-empty-p nav) (or (t--format-legacy-navbar info) "") nav)))
@@ -7161,7 +7166,10 @@ each maps a format character to its replacement string:
       (?a . ,(org-export-data (t--pget info :author) info))
       (?e . ,(if-let* ((email (t--nw-trim (t--pget info :email))))
                  (mapconcat
-                  (lambda (e) (format "<a href=\"mailto:%s\">%s</a>" e e))
+                  (lambda (e)
+                    (format "<a href=\"mailto:%s\">%s</a>"
+                            (t--encode-plain-text* e)
+                            (t--encode-plain-text e)))
                   (split-string email "[ \t]*,+[ \t]*" t)
                   ", ")
                ""))
@@ -7179,7 +7187,7 @@ each maps a format character to its replacement string:
 ;;   `org-w3ctr-postamble'.
 ;; - Drop the 'auto option for postamble.
 (defun t--build-pre/postamble (type info)
-  "Build the preamble or postamble string for export INFO.
+  "Build the preamble or postamble of TYPE for export INFO.
 
 TYPE is the symbol `preamble' or `postamble', selecting the
 `:html-preamble' or `:html-postamble' option.  Both accept the
@@ -7189,19 +7197,25 @@ formatted with `format-spec' against
 INFO, and a symbol with a function is called like a function, or
 else its value cell is formatted as a string.  Return the result
 as a string, normalized to end in a newline, or the empty string
-when it is blank.  Signal `org-w3ctr-error' when a symbol has no
-usable string value, or when the value is of any other type."
+when it is blank.  Signal `org-w3ctr-error' when TYPE is invalid,
+when `format-spec' rejects a format string, when a symbol has no
+usable string value, or when the option value is of any other type."
   (declare (ftype (function (symbol list) string))
            (important-return-value t))
   (let* ((section (pcase type
                     ('preamble (t--pget info :html-preamble))
                     ('postamble (t--pget info :html-postamble))
                     (_ (t-error "Invalid pre/postamble type: %S" type))))
+         (fmt-str
+          (lambda (s)
+            (condition-case err
+                (format-spec s (t--pre/postamble-format-spec info))
+              (error (t-error "Invalid %s format: %s"
+                              type (error-message-string err))))))
          (it (cond
               ((null section) "")
               ;; string formatted with `format-spec'.
-              ((stringp section)
-               (format-spec section (t--pre/postamble-format-spec info)))
+              ((stringp section) (funcall fmt-str section))
               ;; function.
               ((functionp section) (funcall section info))
               ;; symbol: call it if it has a function, or else format
@@ -7211,7 +7225,7 @@ usable string value, or when the value is of any other type."
                  (t-error "Invalid %s symbol: %s" type section))
                (if-let* ((value (symbol-value section))
                          ((t--nw-p value)))
-                   (format-spec value (t--pre/postamble-format-spec info))
+                   (funcall fmt-str value)
                  (t-error "Invalid %s symbol value: %s"
                           type (symbol-value section))))
               (t (t-error "Invalid %s: %s" type section)))))
@@ -7299,7 +7313,7 @@ HEADLINE is a headline element and INFO the export options plist.
 The span holds the headline number, dotted between levels.  Return
 nil when HEADLINE is unnumbered."
   (declare (ftype (function (t list) (or null string)))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (when-let* (((org-export-numbered-headline-p headline info))
               (numbers (org-export-get-headline-number headline info)))
     (format "<span class=\"secno\">%s</span>"
@@ -7374,8 +7388,8 @@ wrapper."
   (let* ((tag (t--get-info-toc-element info))
          (open (format "\n<%s class=\"toc\">\n<li>" tag))
          (close (format "</li>\n</%s>\n" tag))
-         (base (if top 0 (1- (cdar toc-entries))))
          (levels (mapcar #'cdr toc-entries))
+         (base (if top 0 (1- (apply #'min levels))))
          ;; Each entry deepens or climbs from its predecessor; the
          ;; first compares against the base level.
          (deltas (seq-mapn #'- levels (cons base levels)))
@@ -7479,18 +7493,20 @@ table at all, distinct from the unlimited depth
   (declare (ftype (function (list) (or null string)))
            (important-return-value t))
   (when-let* ((depth (t--pget info :with-toc))
-              (toc (t--build-toc depth info)))
-    (concat
-     "<nav id=\"toc\">\n"
-     (let ((top-level (t--pget info :html-toplevel-hlevel)))
+              (toc (t--build-toc (and (wholenump depth) depth) info)))
+    (let ((top-level (t--pget info :html-toplevel-hlevel)))
+      (unless (and (integerp top-level) (<= 2 top-level 6))
+        (t-error "Invalid HTML top level: %S" top-level))
+      (concat
+       "<nav id=\"toc\">\n"
        (format "<h%d>%s</h%d>"
                top-level (or (t--pget info :html-toc-title) t-toc-title)
-               top-level))
-     toc
-     "</nav>\n")))
+               top-level)
+       toc
+       "</nav>\n"))))
 
 (defun t--list-of-elements (collect-fn info)
-  "Return an HTML list of elements collected by COLLECT-FN.
+  "Return an HTML list of elements from COLLECT-FN and INFO, or nil.
 
 COLLECT-FN is a function that takes INFO and returns a list of Org
 elements; each must carry a caption, as
@@ -7500,7 +7516,8 @@ guarantee.  INFO is the export options plist.
 Each list item displays the element's caption -- the short one
 when it has one, else the full one -- and links to the element
 when `org-w3ctr--element-id' returns an id (named-only).  Elements
-without an id are rendered as plain text."
+without an id are rendered as plain text.  Return nil when
+COLLECT-FN returns no elements."
   (declare (ftype (function (function list) (or null string)))
            (important-return-value t))
   (when-let* ((entries (funcall collect-fn info)))
@@ -7544,7 +7561,7 @@ return nil when there is no table."
 ;; blanks, and the depth is the number right after "headlines", not
 ;; the first number anywhere in the value.
 (defun t--keyword-toc (keyword value info)
-  "Transcode the TOC keyword VALUE.
+  "Transcode TOC KEYWORD with VALUE using INFO.
 
 KEYWORD is the keyword element holding VALUE; it serves as the
 scope when VALUE asks for a \"local\" table.  VALUE, matched
@@ -7557,7 +7574,7 @@ without regard to case, determines the list to generate:
   takes precedence over \"local\".
 
 INFO is the export options plist.  Return the list as a string,
-or nil when VALUE selects none of the three."
+or nil when VALUE selects none of the three or the list is empty."
   (declare (ftype (function (t string list) (or null string)))
            (important-return-value t))
   (let ((case-fold-search t))
@@ -7566,7 +7583,7 @@ or nil when VALUE selects none of the three."
       (t--list-of-listings info))
      ((string-match-p "\\`\\s-*tables\\s-*\\'" value)
       (t--list-of-tables info))
-     ((string-match "\\`\\s-*headlines\\(?:\\s-+\\([0-9]+\\)\\)?" value)
+     ((string-match "\\`\\s-*headlines\\>\\(?:\\s-+\\([0-9]+\\)\\)?" value)
       (let ((depth (and (match-string 1 value)
                         (string-to-number (match-string 1 value))))
             (scope
@@ -7666,16 +7683,17 @@ next export re-reads it."
   (setq t--fixup-js-cache nil))
 
 (defun t-template-1 (contents info)
-  "Assemble the full HTML document around CONTENTS.
+  "Assemble the full HTML document around CONTENTS for INFO.
 
 INFO is the export options plist.  Return the document as a
 string: the doctype, an <html> element in the `:language'
 language, the <head> from `org-w3ctr--build-head', and a <body>
 holding, in order, the navbar from `:html-navbar-format-function',
 a <div class=\"head\"> with the title and the preamble, CONTENTS,
-the postamble, and the `:html-fixup-js' script.
+the postamble, and (when `:html-include-fixup-js' is non-nil) the
+fixup script.
 
-Build the <body> components before `<head>' so that LaTeX math in
+Build the <body> components before <head> so that LaTeX math in
 the title, subtitle, or navbar increments `:html-math-count' before
 `org-w3ctr--build-head' checks `org-w3ctr--has-math-p'."
   (declare (ftype (function ((or null string) list) string))
@@ -7722,9 +7740,9 @@ the export left in them.  CONTENTS is the transcoded body string
 and INFO the export options plist."
   (declare (ftype (function ((or null string) list) string))
            (important-return-value t))
-  (prog1 (t-template-1 contents info)
+  (unwind-protect (t-template-1 contents info)
     (static-when t--oinfo-cache-p (t--oinfo-cleanup))))
-
+
 ;;; End-user functions
 
 ;;;###autoload
@@ -7754,12 +7772,14 @@ to convert it."
     (org-export-replace-region-by 'w3ctr)))
 
 (defun t--file-extension (plist)
-  "Return the HTML file extension to export to, dot included.
+  "Return the HTML file extension for PLIST, with a leading dot.
 
 PLIST is the caller's override plist (the export ext-plist or a
 publish project plist), not the export INFO; its `:html-extension'
-wins over `org-w3ctr-extension', and \"html\" is the last resort."
-  (declare (ftype (function (t) string))
+wins over `org-w3ctr-extension', and \"html\" is the last resort.
+Return the empty string (no dot) when the resolved extension is
+empty."
+  (declare (ftype (function (list) string))
            (important-return-value t))
   (let ((ext (or (plist-get plist :html-extension)
                  t-extension
@@ -7792,7 +7812,8 @@ Like `org-html-publish-to-html', with `org-export-use-babel' bound
 to `org-w3ctr-use-babel'.  FILENAME is the Org file to publish,
 PLIST the project's property list, and PUB-DIR the publishing
 directory.  Return the output file name."
-  (let ((org-export-use-babel t-use-babel))
+  (let ((org-export-coding-system t-coding-system)
+        (org-export-use-babel t-use-babel))
     (org-publish-org-to 'w3ctr filename
                         (t--file-extension plist)
                         plist pub-dir)))
