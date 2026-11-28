@@ -1332,6 +1332,7 @@ the icons for a license come from `org-w3ctr--cc-icon-names'."
 
 (defcustom t-public-license nil
   "Default license for exported content.
+
 Value should be one of the supported Creative Commons licenses
 or variants."
   :group 'org-export-w3ctr
@@ -6904,6 +6905,8 @@ types or malformed vector entries."
 ;; - :html-license (`org-w3ctr-public-license')
 ;; - :html-license-format-function (`org-w3ctr-license-format-function')
 ;; - :html-cc-badges-format-function (`org-w3ctr-cc-badges-format-function')
+;; - :with-author (`org-export-with-author')
+;; - :author #+AUTHOR: (`user-full-name')
 
 (defconst t-public-license-alist
   '((nil "Not Specified")
@@ -7051,8 +7054,8 @@ string when LICENSE has no icons."
 (defun t--get-info-author (info)
   "Return the exported author string from INFO, or nil.
 
-INFO is the export options plist.  Return nil when :with-author or
-:author is nil, or when the author transcodes to a blank string.
+INFO is the export options plist.  Return nil when `:with-author' or
+`:author' is nil, or when the author transcodes to a blank string.
 Unlike `org-w3ctr--get-info-author-raw', the author goes through
 `org-export-data': markup in the author name becomes HTML."
   (declare (ftype (function (list) (or null string)))
@@ -7080,7 +7083,7 @@ Signal `org-w3ctr-error' for an unknown license."
          (use-badges (t--pget info :html-use-cc-badges))
          (author (t--get-info-author info)))
     (unless details
-      (t-error "Unknown license: %s" license))
+      (t-error "Unknown license: %S" license))
     (pcase (cdr details)
       (`(,name) name)
       (`(,name ,link)

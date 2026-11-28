@@ -8769,8 +8769,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   (dolist (a '("by" "cc" "nc" "nd" "pdm" "sa" "zero"))
     ($s (t--load-cc-svg a)))
   ;; A missing icon is an error.
-  ($q (car (should-error (t--load-cc-svg "no-such-icon")))
-      'org-w3ctr-error))
+  ($e! (t--load-cc-svg "no-such-icon") 'org-w3ctr-error))
 
 (ert-deftest t--load-cc-svg-utf8 ()
   "Non-ASCII SVG bytes survive the base64 step."
@@ -8860,52 +8859,45 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($l (test info) "All Rights Reserved")
         (setq info (plist-put info :html-license 'all-rights-reversed))
         ($l (test info) "All Rights Reversed")
-        (setq info (plist-put info :html-license 'cc-by-4.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-nc-4.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-nc/4.0/\">CC BY-NC 4.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-nc-nd-4.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-nc-nd/4.0/\">CC BY-NC-ND 4.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-nc-sa-4.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-nc-sa/4.0/\">CC BY-NC-SA 4.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-nd-4.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-nd/4.0/\">CC BY-ND 4.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-sa-4.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-sa/4.0/\">CC BY-SA 4.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-3.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by/3.0/\">CC BY 3.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-nc-3.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-nc/3.0/\">CC BY-NC 3.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-nc-nd-3.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-nc-nd/3.0/\">CC BY-NC-ND 3.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-nc-sa-3.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-nc-sa/3.0/\">CC BY-NC-SA 3.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-nd-3.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-nd/3.0/\">CC BY-ND 3.0</a>")
-        (setq info (plist-put info :html-license 'cc-by-sa-3.0))
-        ($l (test info)
-            "This work is licensed under <a href=\"https://creativecommons.org/licenses/by-sa/3.0/\">CC BY-SA 3.0</a>")
+        (dolist (spec
+                 '((cc-by-4.0 "by/4.0/" "CC BY 4.0")
+                   (cc-by-nc-4.0 "by-nc/4.0/" "CC BY-NC 4.0")
+                   (cc-by-nc-nd-4.0 "by-nc-nd/4.0/" "CC BY-NC-ND 4.0")
+                   (cc-by-nc-sa-4.0 "by-nc-sa/4.0/" "CC BY-NC-SA 4.0")
+                   (cc-by-nd-4.0 "by-nd/4.0/" "CC BY-ND 4.0")
+                   (cc-by-sa-4.0 "by-sa/4.0/" "CC BY-SA 4.0")
+                   (cc-by-3.0 "by/3.0/" "CC BY 3.0")
+                   (cc-by-nc-3.0 "by-nc/3.0/" "CC BY-NC 3.0")
+                   (cc-by-nc-nd-3.0 "by-nc-nd/3.0/" "CC BY-NC-ND 3.0")
+                   (cc-by-nc-sa-3.0 "by-nc-sa/3.0/" "CC BY-NC-SA 3.0")
+                   (cc-by-nd-3.0 "by-nd/3.0/" "CC BY-ND 3.0")
+                   (cc-by-sa-3.0 "by-sa/3.0/" "CC BY-SA 3.0")))
+          (pcase-let ((`(,sym ,path ,label) spec))
+            (setq info (plist-put info :html-license sym))
+            ($l (test info)
+                (format ($c "This work is licensed under "
+                            "<a href=\"https://creativecommons.org/"
+                            "licenses/%s\">%s</a>")
+                        path label))))
         (setq info (plist-put info :html-license 'cc-by-4.0))
         (setq info (plist-put info :author "test"))
         ($l (test info)
-            "This work by test is licensed under <a href=\"https://creativecommons.org/licenses/by/4.0/\">CC BY 4.0</a>")
+            ($c "This work by test is licensed under "
+                "<a href=\"https://creativecommons.org/licenses/by/4.0/\">"
+                "CC BY 4.0</a>"))
         (setq info (plist-put info :html-use-cc-badges t))
         ($l (test info)
             ($c "This work by test is licensed under "
                 "<a href=\"https://creativecommons.org/licenses/by/4.0/\">"
                 "CC BY 4.0</a>"
                 " " (t-cc-badges-default-format-function 'cc-by-4.0 nil)))
+        ;; Custom :html-cc-badges-format-function hook.
+        ($l (test (append (list :html-cc-badges-format-function
+                                (lambda (lic _i) (format "[%s]" lic)))
+                          info))
+            ($c "This work by test is licensed under "
+                "<a href=\"https://creativecommons.org/licenses/by/4.0/\">"
+                "CC BY 4.0</a> [cc-by-4.0]"))
         ;; The public-domain tools get their own sentences.
         (setq info (plist-put info :html-license 'cc0))
         ($l (test info)
@@ -8918,10 +8910,11 @@ COUNTER, a cons cell, has its car incremented on every call."
             ($c "This work by test is marked as being in the public domain ("
                 "<a href=\"https://creativecommons.org/publicdomain/mark/1.0/\">"
                 "Public Domain Mark 1.0</a>)"
-                " " (t-cc-badges-default-format-function 'public-domain-mark nil)))
+                " " (t-cc-badges-default-format-function
+                     'public-domain-mark nil)))
         ;; An unknown license is an error.
         (setq info (plist-put info :html-license 'nope))
-        ($q (car (should-error (test info))) 'org-w3ctr-error)))))
+        ($e! (test info) 'org-w3ctr-error)))))
 
 (ert-deftest t-format-public-license ()
   "Tests for `org-w3ctr-format-public-license'."
