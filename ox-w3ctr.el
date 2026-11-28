@@ -7582,9 +7582,14 @@ or nil when VALUE selects none of the three."
 ;;;; Template
 
 ;; Options:
-;; :language (`org-export-default-language')
-;; :html-include-fixup-js (`org-w3ctr-include-fixup-js')
-;; :html-fixup-js (`org-w3ctr-fixup-js')
+;; - :language (`org-export-default-language')
+;; - :with-title (`org-export-with-title')
+;; - :title #+TITLE:
+;; - :subtitle #+SUBTITLE:
+;; - :html-navbar-format-function (`org-w3ctr-navbar-format-function')
+;; - :html-include-fixup-js (`org-w3ctr-include-fixup-js')
+;; - :html-fixup-js (`org-w3ctr-fixup-js')
+;; - :zeroth-section-output (internal)
 
 (defun t-inner-template (contents info)
   "Build the document body from the transcoded CONTENTS and INFO.
@@ -7683,9 +7688,11 @@ the title, subtitle, or navbar increments `:html-math-count' before
           ;; which fall back to their defaults.
           (when-let* ((fun (t--pget info :html-navbar-format-function)))
             (funcall fun info))
-          ;; Title and preamble in the head block.
+          ;; Title and preamble in the head block.  When `:with-title'
+          ;; is nil, keep an invisible `#title' heading so the
+          ;; back-to-top anchor still resolves.
           (format "<div class=\"head\">\n%s%s</div>\n"
-                  (t--build-title info)
+                  (or (t--build-title info) "<h1 id=\"title\">&lrm;</h1>\n")
                   (t--build-pre/postamble 'preamble info))
           contents
           ;; Postamble.
@@ -7701,7 +7708,8 @@ the title, subtitle, or navbar increments `:html-math-count' before
 </html>")))
     (concat
      "<!DOCTYPE html>\n"
-     (format "<html lang=\"%s\">\n" (t--pget info :language))
+     (format "<html lang=\"%s\">\n"
+             (t--encode-plain-text* (or (t--pget info :language) "")))
      (t--build-head info)
      body)))
 
@@ -7737,6 +7745,7 @@ VISIBLE-ONLY, BODY-ONLY, and EXT-PLIST are passed through to
 ;;;###autoload
 (defun t-convert-region-to-html ()
   "Assume the current region has Org syntax, and convert it to HTML.
+
 This can be used in any buffer.  For example, you can write an
 itemized list in Org syntax in an HTML buffer and use this command
 to convert it."

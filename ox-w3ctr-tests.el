@@ -9537,7 +9537,14 @@ that changes them fails here instead of corrupting a TOC silently."
     ($l (t-template-1 "BODY" '(:language "en" :html-include-fixup-js nil))
         ($c "<!DOCTYPE html>\n<html lang=\"en\">\nHEAD<body>\n"
             "<div class=\"head\">\nTITLEPREAMBLE</div>\nBODY"
-            "POSTAMBLE</body>\n</html>"))))
+            "POSTAMBLE</body>\n</html>"))
+    ;; A nil title keeps the #title anchor with an invisible mark.
+    (cl-letf (((symbol-function 't--build-title) (lambda (_i) nil)))
+      ($l (t-template-1 "BODY" '(:language "en\"x" :html-include-fixup-js nil))
+          ($c "<!DOCTYPE html>\n<html lang=\"en&quot;x\">\nHEAD<body>\n"
+              "<div class=\"head\">\n<h1 id=\"title\">&lrm;</h1>\n"
+              "PREAMBLE</div>\nBODY"
+              "POSTAMBLE</body>\n</html>")))))
 
 (ert-deftest t-template ()
   "Tests for `org-w3ctr-template'."
@@ -9548,6 +9555,9 @@ that changes them fails here instead of corrupting a TOC silently."
                (lambda () (setq cleaned t))))
       ($l (t-template "X" nil) "<X>")
       ($s cleaned))))
+
+
+;;; End-user functions
 
 (ert-deftest t--file-extension ()
   "Tests for `org-w3ctr--file-extension'."
