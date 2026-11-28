@@ -6814,232 +6814,102 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (it "UTC+8") 28800)
     ($l (match-string 1 "foo") "foo")))
 
-(ert-deftest t--get-info-timezone-offset ()
-  "Tests for `org-w3ctr--get-info-timezone-offset'."
-  ($it t--get-info-timezone-offset
-    (let ((info0 (list :html-timezone "local")))
-      ($l (it info0) 'local)
-      ($q (t--pget info0 :html-timezone) 'local))
-    (let ((info1 (list :html-timezone 28800)))
-      ($l (it info1) 28800))
-    (let ((info2 (list :html-timezone -18000)))
-      ($l (it info2) -18000))
-    (let ((info3 (list :html-timezone "UTC+8")))
-      ($l (it info3) 28800)
-      ($s (numberp (t--pget info3 :html-timezone)))
-      ($l (t--pget info3 :html-timezone) 28800))
-    (let ((info4 (list :html-timezone "-0500")))
-      ($l (it info4) -18000)
-      ($s (numberp (t--pget info4 :html-timezone)))
-      ($l (t--pget info4 :html-timezone) -18000))
-    (let ((info5 (list :html-timezone "UTC+0")))
-      ($l (it info5) 0)
-      ($l (t--pget info5 :html-timezone) 0))
-    (let ((info6 (list :html-timezone "+0530")))
-      ($l (it info6) 19800)
-      ($l (t--pget info6 :html-timezone) 19800))
-    (let ((info7 (list :html-timezone "Invalid")))
-      ($e!l (it info7) '(org-w3ctr-error "Invalid timezone format: Invalid")))
-    (dolist (bad '(t :foo (1)))
-      ($e!l (it (list :html-timezone bad))
-            (list 'org-w3ctr-error (format "Invalid timezone format: %s" bad))))
+(ert-deftest t--resolve-timezones ()
+  "Tests for `org-w3ctr--resolve-timezones'."
+  ($it t--resolve-timezones
+    ;; No export timezone: delta is 0, string is cached into INFO.
+    (let ((info (list :html-timezone "UTC+8")))
+      ($l (it info) '(28800 . 0))
+      ($l (t--pget info :html-timezone) 28800))
+    (let ((info (list :html-timezone "local")))
+      ($l (it info) '(local . 0))
+      ($q (t--pget info :html-timezone) 'local))
+    (let ((info (list :html-timezone 0)))
+      ($l (it info) '(0 . 0)))
+    ;; Both timezones set: returns (EXPORT . (- EXPORT SOURCE)) and caches.
+    (let ((info (list :html-timezone "UTC+8" :html-export-timezone "-0500")))
+      ($l (it info) '(-18000 . -46800))
+      ($l (t--pget info :html-timezone) 28800)
+      ($l (t--pget info :html-export-timezone) -18000))
+    (let ((info (list :html-timezone 28800 :html-export-timezone 0)))
+      ($l (it info) '(0 . -28800)))
+    ;; Either timezone `local' yields (local . 0).
+    (let ((info (list :html-timezone "local" :html-export-timezone "UTC+5")))
+      ($l (it info) '(local . 0)))
+    (let ((info (list :html-timezone 3600 :html-export-timezone "local")))
+      ($l (it info) '(local . 0)))
+    ;; Invalid or missing timezones signal `org-w3ctr-error'.
     ($e!l (it nil) '(org-w3ctr-error "Invalid timezone: nil"))
-    (let ((info8 (list :html-timezone 3600 :other "value")))
-      ($l (it info8) 3600)
-      ($l info8 '(:html-timezone 3600 :other "value")))))
-
-(ert-deftest t--get-info-export-timezone-offset ()
-  "Tests for `org-w3ctr--get-info-export-timezone-offset'."
-  ($it t--get-info-export-timezone-offset
-    ;; When :html-export-timezone is nil, use :html-timezone
-    (let ((info1 (list :html-timezone 28800)))
-      ($l (it info1) 28800))
-    (let ((info2 (list :html-timezone "UTC+8"
-                       :html-export-timezone nil)))
-      ($l (it info2) 28800))
-    ;; When :html-timezone is "local", always use 'local
-    (let ((info3 (list :html-timezone "local"
-                       :html-export-timezone 3600)))
-      ($q (it info3) 'local))
-    (let ((info4 (list :html-timezone "local"
-                       :html-export-timezone "UTC+5")))
-      ($q (it info4) 'local))
-    (let ((info41 (list :html-timezone 'local
-                        :html-export-timezone "+0100")))
-      ($q (it info41) 'local))
-    ;; :html-export-timezone is local
-    (let ((info42 (list :html-timezone 0
-                        :html-export-timezone "local")))
-      ($q (it info42) 'local))
-    (let ((info43 (list :html-timezone 0
-                        :html-export-timezone 'local)))
-      ($q (it info43) 'local))
-    ;; When :html-export-timezone is number, use directly
-    (let ((info5 (list :html-timezone 28800
-                       :html-export-timezone -18000)))
-      ($l (it info5) -18000))
-    ;; When :html-export-timezone is string, convert and cache
-    (let ((info6 (list :html-timezone 28800
-                       :html-export-timezone "-0500")))
-      ($l (it info6) -18000)
-      ($s (fixnump (t--pget info6 :html-export-timezone)))
-      ($l (t--pget info6 :html-export-timezone) -18000))
-    (let ((info7 (list :html-timezone 28800
-                       :html-export-timezone "+0530")))
-      ($l (it info7) 19800)
-      ($l (t--pget info7 :html-export-timezone) 19800))
-    (let ((info8 (list :html-timezone 0
-                       :html-export-timezone "UTC+0")))
-      ($l (it info8) 0))
-    ;; Invalid
-    (let ((info9 (list :html-timezone 3600
-                       :html-export-timezone "Invalid")))
-      ($e!l (it info9)
-            '(org-w3ctr-error "Invalid export timezone format: Invalid")))
-    ;; Invalid export timezone still errors even when :html-timezone is local.
-    (let ((info9b (list :html-timezone "local"
-                        :html-export-timezone "Invalid")))
-      ($e!l (it info9b)
-            '(org-w3ctr-error "Invalid export timezone format: Invalid")))
-    (dolist (bad '(t :foo (1)))
+    (dolist (bad '("Invalid" t :foo (1)))
+      ($e!l (it (list :html-timezone bad))
+            (list 'org-w3ctr-error
+                  (format "Invalid timezone format: %s" bad))))
+    (dolist (bad '("Invalid" t :foo (1)))
       ($e!l (it (list :html-timezone 0 :html-export-timezone bad))
             (list 'org-w3ctr-error
                   (format "Invalid export timezone format: %s" bad))))
-    (let ((info9 (list :html-timezone "WTF"
-                       :html-export-timezone "+0000")))
-      ($e!l (it info9) '(org-w3ctr-error "Invalid timezone format: WTF")))
-    ;; Test optional argument
-    (let ((info10 (list :html-export-timezone "+0000")))
-      ($q (it info10 'local) 'local))
-    (let ((info11 (list :html-export-timezone "UTC+8")))
-      ($q (it info11 10) 28800))))
-
-(ert-deftest t--get-info-timezone-delta ()
-  "Tests for `org-w3ctr--get-info-timezone-delta'."
-  ($it t--get-info-timezone-delta
-    (let ((info '(:html-timezone 2 :html-export-timezone 1)))
-      ($l (it info) -1))
-    (let ((info '(:html-timezone 28800 :html-export-timezone 0)))
-      ($l (it info) -28800))
-    (let ((info '(:html-timezone local :html-export-timezone 3600)))
-      ($l (it info) 0))
-    (let ((info '(:html-timezone 3600 :html-export-timezone local)))
-      ($l (it info) 0))
-    (let ((info '(:html-timezone 114514 :html-export-timezone 191981)))
-      ($l (it info) 77467))
-    (let ((info '(:html-timezone "WTF" :html-export-timezone "INVALID")))
-      ($e! (it info) 'org-w3ctr-error))
-    (let ((info '(:html-timezone 0 :html-export-timezone "INVALID")))
-      ($e! (it info) 'org-w3ctr-error))
-    ($e! (it nil) 'org-w3ctr-error)
-    (let ((info '(:html-timezone 114514 :html-export-timezone 191981)))
-      ($l (it info 1 2) 1)
-      ($l (it info nil 114515) 1)
-      ($l (it info 191980) 1)
-      ($l (it nil 114514 191981) 77467))))
+    ;; Invalid export timezone still errors when :html-timezone is local.
+    ($e!l (it (list :html-timezone "local" :html-export-timezone "Invalid"))
+          '(org-w3ctr-error "Invalid export timezone format: Invalid"))))
 
 (ert-deftest t--get-datetime-format ()
   "Tests for `org-w3ctr--get-datetime-format'."
   ($it t--get-datetime-format
-    ($l (it 28800 's-none) "%F %R+0800")
-    ($l (it 18000 's-none) "%F %R+0500")
-    ($l (it -28800 's-none) "%F %R-0800")
-    ($l (it -18000 's-none) "%F %R-0500")
-    ($l (it 0 's-none) "%F %R+0000")
-    ($l (it 0 's-none-zulu) "%F %RZ")
-    ($l (it 0 's-colon) "%F %R+00:00")
-    ($l (it 0 's-colon-zulu) "%F %RZ")
-    ($l (it 4800 's-colon-zulu) "%F %R+01:20")
-    ($l (it 0 'T-none-zulu) "%FT%RZ")
-    ($l (it 0 'T-none) "%FT%R+0000")
-    ($l (it 0 'T-colon) "%FT%R+00:00")
-    ($l (it 0 'T-colon-zulu) "%FT%RZ")
-    ($l (it 3600 's-colon) "%F %R+01:00")
-    ($l (it -900 's-colon) "%F %R-00:15")
-    ($l (it 19800 'T-colon) "%FT%R+05:30")
-    ($l (it -16200 'T-colon) "%FT%R-04:30")
-    ($l (it 50400 's-none) "%F %R+1400")
-    ($l (it -43200 's-none) "%F %R-1200")
-    ($l (it 37800 'T-colon-zulu) "%FT%R+10:30")
-    ($n (it 0 nil))
-    ($l (it 'local nil t) "%F")
-    ($l (it 'local 's-none) "%F %R")
-    ($l (it 'local 's-none-zulu) "%F %R")
-    ($l (it 'local 's-colon) "%F %R")
-    ($l (it 'local 's-colon-zulu) "%F %R")
-    ($l (it 'local 'T-none) "%FT%R")
-    ($l (it 'local 'T-none-zulu) "%FT%R")
-    ($l (it 'local 'T-colon) "%FT%R")
-    ($l (it 'local 'T-colon-zulu) "%FT%R")))
+    ($l (it 28800) "%FT%R+08:00")
+    ($l (it 18000) "%FT%R+05:00")
+    ($l (it -28800) "%FT%R-08:00")
+    ($l (it -18000) "%FT%R-05:00")
+    ($l (it 0) "%FT%RZ")
+    ($l (it 3600) "%FT%R+01:00")
+    ($l (it -900) "%FT%R-00:15")
+    ($l (it 19800) "%FT%R+05:30")
+    ($l (it -16200) "%FT%R-04:30")
+    ($l (it 50400) "%FT%R+14:00")
+    ($l (it -43200) "%FT%R-12:00")
+    ($l (it 37800) "%FT%R+10:30")
+    ($l (it 'local) "%FT%R")
+    ($l (it 'local t) "%F")
+    ($l (it 28800 t) "%F")
+    ($l (it 0 t) "%F")))
 
 (ert-deftest t--format-datetime ()
   "Tests for `org-w3ctr--format-datetime'."
-  ;; Basic test with space separator and +HHMM timezone
+  ;; Positive and negative offsets.
   (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info1 '( :html-timezone 28800
-                  :html-export-timezone 28800
-                  :html-datetime-option s-none)))
+        (info1 '(:html-timezone 28800 :html-export-timezone 28800)))
     ($l (t--format-datetime test-time info1)
-        "2023-01-01 12:00+0800"))
-  ;; Test with colon in time and -HHMM timezone
+        "2023-01-01T12:00+08:00"))
   (let ((test-time (encode-time 0 30 9 15 6 2023))
-        (info2 '( :html-timezone -14400
-                  :html-export-timezone -14400
-                  :html-datetime-option s-colon)))
+        (info2 '(:html-timezone -14400 :html-export-timezone -14400)))
     ($l (t--format-datetime test-time info2)
-        "2023-06-15 09:30-04:00"))
-  ;; Test UTC with Zulu timezone
+        "2023-06-15T09:30-04:00"))
+  ;; UTC uses Zulu suffix.
   (let ((test-time (encode-time 0 0 0 1 1 2023))
-        (info3 '( :html-timezone 0
-                  :html-export-timezone 0
-                  :html-datetime-option s-none-zulu)))
+        (info3 '(:html-timezone 0 :html-export-timezone 0)))
     ($l (t--format-datetime test-time info3)
-        "2023-01-01 00:00Z"))
-  ;; Test with T separator and +HH:MM timezone
+        "2023-01-01T00:00Z"))
   (let ((test-time (encode-time 0 45 18 31 12 2023))
-        (info4 '( :html-timezone 19800
-                  :html-export-timezone 19800
-                  :html-datetime-option T-colon)))
+        (info4 '(:html-timezone 19800 :html-export-timezone 19800)))
     ($l (t--format-datetime test-time info4)
         "2023-12-31T18:45+05:30"))
-  ;; Test with T separator and Zulu timezone for UTC
+  ;; Timezone conversion (non-zero delta) and notime.
   (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info5 '( :html-timezone 0
-                  :html-export-timezone 0
-                  :html-datetime-option T-colon-zulu)))
-    ($l (t--format-datetime test-time info5)
-        "2023-01-01T12:00Z"))
-  ;; Test timezone conversion (non-zero delta) and notime.
-  (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info-conv '(:html-timezone 28800
-                     :html-export-timezone 0
-                     :html-datetime-option T-none-zulu)))
+        (info-conv '(:html-timezone 28800 :html-export-timezone 0)))
     ($l (t--format-datetime test-time info-conv)
         "2023-01-01T04:00Z")
     ($l (t--format-datetime test-time info-conv t)
         "2023-01-01"))
-  ;; Test local timezone
+  ;; Local timezone omits offset suffix.
   (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info6 (list :html-timezone "local"
-                     :html-export-timezone "local"
-                     :html-datetime-option 's-none)))
-    ($l "2023-01-01 12:00"
-        (t--format-datetime test-time info6)))
-  ;; Test invalid timezone
-  (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info7 '(:html-timezone "Invalid")))
-    ($e! (t--format-datetime test-time info7) 'org-w3ctr-error))
-  ;; Test invalid datetime option
+        (info6 (list :html-timezone "local" :html-export-timezone "local")))
+    ($l (t--format-datetime test-time info6)
+        "2023-01-01T12:00"))
+  ;; Invalid timezone and out-of-range time.
   (let ((test-time (encode-time 0 0 12 1 1 2023)))
-    ($e!l (t--format-datetime test-time '(:html-timezone 0))
-          '(org-w3ctr-error "Invalid datetime option: nil"))
-    ($e!l (t--format-datetime
-           test-time '(:html-timezone 0 :html-datetime-option bogus))
-          '(org-w3ctr-error "Invalid datetime option: bogus")))
-  ;; time out of range
-  (let ((info8 '(:html-timezone 0 :html-datetime-option s-none)))
-    ($e!l (t--format-datetime -65536 info8)
-          '(org-w3ctr-error "Invalid time value: -65536"))))
+    ($e! (t--format-datetime test-time '(:html-timezone "Invalid"))
+         'org-w3ctr-error))
+  ($e!l (t--format-datetime -65536 '(:html-timezone 0))
+        '(org-w3ctr-error "Invalid time value: -65536")))
 
 (ert-deftest t--call-with-invalid-time-spec-handler ()
   "Tests for `org-w3ctr--call-with-invalid-time-spec-handler'."
@@ -7071,8 +6941,7 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--format-ts-datetime ()
   "Tests for `org-w3ctr--format-ts-datetime'."
-  (let* ((info '( :html-timezone 28800 :html-export-timezone 0
-                  :html-datetime-option T-none-zulu))
+  (let* ((info '(:html-timezone 28800 :html-export-timezone 0))
          (ts0 (t-get-parsed-elements "[1900-01-01]" 'timestamp))
          (ts1 (t-get-parsed-elements "[2025-06-17 16:49]" 'timestamp))
          (ts2 (t-get-parsed-elements "[2038-01-01]" 'timestamp))
@@ -7172,509 +7041,167 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (g "<2007-05-16 12:30 +1m>") "<2007-05-16 Wed 12:30 +1m>")
     ($l (g "<2007-05-16 12:30 +1y>") "<2007-05-16 Wed 12:30 +1y>")))
 
-(ert-deftest t--format-timestamp-diary ()
-  "Tests for `org-w3ctr--format-timestamp-diary'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp))
-             (g (x info) (t--format-timestamp-diary (f x) info))
-             (mk (w o) `( :html-timestamp-wrapper ,w
-                          :html-timestamp-option ,o)))
-    ($l (g "<%%(diary-float t 42)>" (mk 'none 'raw))
-        "&lt;%%(diary-float t 42)&gt;")
-    ($l (g "<%%(diary-float t 42)>" (mk 'span 'raw))
-        "&lt;%%(diary-float t 42)&gt;")
-    ($l (g "<%%(diary-float t 42)>" (mk 'time 'raw))
-        "&lt;%%(diary-float t 42)&gt;")
-    ($l (g "<%%(diary-float t 42)>" (mk 'none 'org))
-        "&lt;%%(diary-float t 42)&gt;")
-    ($l (g "<%%(diary-float t 42)>" (mk 'none 'fmt))
-        "&lt;%%(diary-float t 42)&gt;")
-    ($l (g "<%%(diary-float t 42)>" (mk 'none 'cus))
-        "&lt;%%(diary-float t 42)&gt;")
-    ($l (g "<%%(diary-float t 42)>" (mk 'none 'fun))
-        "&lt;%%(diary-float t 42)&gt;")
-    ($l (g "<%%(diary-float t 42)>" (mk 'none 'wtf))
-        "&lt;%%(diary-float t 42)&gt;")
-    ($l (g "<%%(diary-float t 4 2) 22:00-23:00>" (mk 'none 'org))
-        "&lt;%%(diary-float t 4 2) 22:00-23:00&gt;")
-    ($l (g "<%%(diary-float t 4 2) 22:00>--<2222-02-22 23:00>"
-           (mk 'none 'org))
-        "&lt;%%(diary-float t 4 2) 22:00&gt;")))
-
-(ert-deftest t--format-ts-span-time ()
-  "Tests for `org-w3ctr--format-ts-span-time'."
-  ;; <span> branch (datetime = nil)
-  ($l (t--format-ts-span-time "hello" nil)
-      ($c "<span class=\"timestamp-wrapper\">"
-          "<span class=\"timestamp\">hello</span></span>"))
-  ($l (t--format-ts-span-time "a < b" nil)
-      ($c "<span class=\"timestamp-wrapper\">"
-          "<span class=\"timestamp\">a &lt; b</span></span>"))
-  ;; <time> branch (datetime string supplied)
-  ($l (t--format-ts-span-time "hello" nil "") "<time>hello</time>")
-  ($l (t--format-ts-span-time "2024" nil " datetime=\"2024\"")
-      "<time datetime=\"2024\">2024</time>")
-  ($l (t--format-ts-span-time "100% %s" nil " datetime=\"2024\"")
-      "<time datetime=\"2024\">100% %s</time>")
-  ;; special strings via t-plain-text
-  ($l (t--format-ts-span-time "a -- b" '(:with-special-strings t))
-      ($c "<span class=\"timestamp-wrapper\">"
-          "<span class=\"timestamp\">a &#x2013; b</span></span>"))
-  ;; preserve breaks via t-plain-text
-  ($l (t--format-ts-span-time "a\nb" '(:preserve-breaks t))
-      ($c "<span class=\"timestamp-wrapper\">"
-          "<span class=\"timestamp\">a<br>\nb</span></span>")))
-
-(ert-deftest t--format-ts-time ()
-  "Tests for `org-w3ctr--format-ts-time'."
-  (let ((ts1 (t-get-element "[2024-05-01]" 'timestamp))
-        (ts2 (t-get-element "[2024-05-01]--[2024-05-02]" 'timestamp))
-        (info '(:html-timezone 0 :html-datetime-option T-none-zulu)))
-    ($l (t--format-ts-time ts1 '("[2024-05-01]") info)
-        "<time datetime=\"2024-05-01\">[2024-05-01]</time>")
-    ;; Percent signs in the display text are not format specifiers.
-    ($l (t--format-ts-time ts1 '("[2024-05-01 %s 100%]") info)
-        "<time datetime=\"2024-05-01\">[2024-05-01 %s 100%]</time>")
-    ($l (t--format-ts-time ts2 '("[2024-05-01]" "[2024-05-02]") info)
-        ($c "<time datetime=\"2024-05-01\">[2024-05-01]</time>--"
-            "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
-    ($l (t--format-ts-time ts2 '("[2024-05-01]" "[2024-05-02]")
-                           (cons :with-special-strings (cons t info)))
-        ($c "<time datetime=\"2024-05-01\">[2024-05-01]</time>&#x2013;"
-            "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
-    ($e!l (t--format-ts-time ts1 nil info)
-          '(org-w3ctr-error "Invalid timestamp range: nil"))
-    ($e!l (t--format-ts-time ts1 '("a" "b" "c") info)
-          '(org-w3ctr-error "Invalid timestamp range: (a b c)"))))
-
-(ert-deftest t--format-timestamp-raw-1 ()
-  "Tests for `org-w3ctr--format-timestamp-raw-1'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp))
-             (g (x y info) (t--format-timestamp-raw-1 (f x) y info))
-             (p (w) `( :html-timestamp-wrapper ,w)))
-    ($e!l (g "[2000-01-01]" "[0000-00-00]" (p 'wtf))
-          '(org-w3ctr-error "Unknown timestamp wrapper: wtf"))
-    ;; test none
-    (let ((ts "[2000-01-01]"))
-      ($l (g ts "[2000-01-01 test]" (p 'none)) "[2000-01-01 test]")
-      ($l (g ts "test" (p 'none)) "test")
-      ($l (g ts "<time>123</time>" (p 'none))
-          "&lt;time&gt;123&lt;/time&gt;")
-      ($l (g ts "&&&&&" (p 'none)) "&amp;&amp;&amp;&amp;&amp;"))
-    ;; test span
-    (let ((ts "[2000-01-01]"))
-      ($l (g ts "[2000-01-01 test]" (p 'span))
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "[2000-01-01 test]" "</span></span>"))
-      ($l (g ts "test" (p 'span))
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "test" "</span></span>"))
-      ($l (g ts "<time>123</time>" (p 'span))
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "&lt;time&gt;123&lt;/time&gt;"
-              "</span></span>"))
-      ($l (g ts "&" (p 'span))
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "&amp;" "</span></span>")))
-    ;; test time
-    (let ((info (list :html-timestamp-wrapper 'time
-                      :html-datetime-option 'T-none
-                      :html-timezone 28800))
-          (t1 "[1970-01-02]")
-          (t2 "[1970-01-02 08:00]")
-          (t3 "[1970-01-02 08:00-13:00]")
-          (t4 "[1970-01-02 08:00]--[2000-01-02 09:00]")
-          (b1 "[0000-00-00]")
-          (b2 "[0000-00-00]--[0000-00-00]"))
-      ($l (g t1 b1 info)
-          "<time datetime=\"1970-01-02\">[0000-00-00]</time>")
-      ($l (g t1 b2 info)
-          ($c "<time datetime=\"1970-01-02\">[0000-00-00]</time>--"
-              "<time datetime=\"1970-01-02\">[0000-00-00]</time>"))
-      ($l (g t2 b1 info)
-          "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]</time>")
-      ($l (g t2 b2 info)
-          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
-              "</time>--<time datetime=\"1970-01-02T08:00+0800\">"
-              "[0000-00-00]</time>"))
-      ($l (g t3 b1 info)
-          "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]</time>")
-      ($l (g t3 b2 info)
-          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
-              "</time>--<time datetime=\"1970-01-02T13:00+0800\">"
-              "[0000-00-00]</time>"))
-      ($l (g t4 b1 info)
-          "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]</time>")
-      ($l (g t4 b2 info)
-          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
-              "</time>--<time datetime=\"2000-01-02T09:00+0800\">"
-              "[0000-00-00]</time>"))
-      (t--pput info :with-special-strings t)
-      ($l (g t1 b2 info)
-          ($c "<time datetime=\"1970-01-02\">[0000-00-00]</time>&#x2013;"
-              "<time datetime=\"1970-01-02\">[0000-00-00]</time>"))
-      ($l (g t2 b2 info)
-          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
-              "</time>&#x2013;<time datetime=\"1970-01-02T08:00+0800\">"
-              "[0000-00-00]</time>"))
-      ($l (g t3 b2 info)
-          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
-              "</time>&#x2013;<time datetime=\"1970-01-02T13:00+0800\">"
-              "[0000-00-00]</time>"))
-      ($l (g t4 b2 info)
-          ($c "<time datetime=\"1970-01-02T08:00+0800\">[0000-00-00]"
-              "</time>&#x2013;<time datetime=\"2000-01-02T09:00+0800\">"
-              "[0000-00-00]</time>")))))
-
-(ert-deftest t--format-timestamp-raw ()
-  "Tests for `org-w3ctr--format-timestamp-raw'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp))
-             (g (x info) (t--format-timestamp-raw (f x) info))
-             (p (w) `( :html-timestamp-wrapper ,w
-                       :html-datetime-option T-none-zulu
-                       :html-timezone local)))
-    (let ((t1 "[2011-11-18]")
-          (t2 "<2011-11-18 14:54>")
-          (t3 "[2011-11-18 06:54-14:54]")
-          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
-      ($l (g t1 (p 'none)) "[2011-11-18]")
-      ($l (g t1 (p 'span))
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "[2011-11-18]" "</span></span>"))
-      ($l (g t1 (p 'time))
-          "<time datetime=\"2011-11-18\">[2011-11-18]</time>")
-      ($l (g t2 (p 'none)) "&lt;2011-11-18 14:54&gt;")
-      ($l (g t2 (p 'span))
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "&lt;2011-11-18 14:54&gt;" "</span></span>"))
-      ($l (g t2 (p 'time))
-          ($c "<time datetime=\"2011-11-18T14:54\">"
-              "&lt;2011-11-18 14:54&gt;</time>"))
-      ($l (g t3 (p 'none)) "[2011-11-18 06:54-14:54]")
-      ($l (g t3 (p 'span))
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "[2011-11-18 06:54-14:54]" "</span></span>"))
-      ($l (g t3 (p 'time))
-          ($c "<time datetime=\"2011-11-18T06:54\">"
-              "[2011-11-18 06:54-14:54]</time>"))
-      ($l (g t4 (p 'none))
-          "&lt;2011-11-18 06:54&gt;--[2011-11-18 14:54]")
-      ($l (g t4 (p 'span))
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "&lt;2011-11-18 06:54&gt;--[2011-11-18 14:54]"
-              "</span></span>"))
-      ($l (g t4 (p 'time))
-          ($c "<time datetime=\"2011-11-18T06:54\">&lt;"
-              "2011-11-18 06:54&gt;</time>--"
-              "<time datetime=\"2011-11-18T14:54\">"
-              "[2011-11-18 14:54]</time>"))
-      ($l (g "[2000-01-01 <> 13:13]" (p 'time))
-          ($c "<time datetime=\"2000-01-01\">"
-              "[2000-01-01 &lt;&gt;</time>")))))
-
-(ert-deftest t--format-timestamp-int ()
-  "Tests for `org-w3ctr--format-timestamp-int'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp))
-             (p (w) `( :html-timestamp-wrapper ,w
-                       :html-datetime-option T-none-zulu
-                       :html-timezone 0))
-             (g (x opt) (t--format-timestamp-int (f x) (p opt))))
-    (let ((t1 "[2011-11-18]")
-          (t2 "<2011-11-18 14:54>")
-          (t3 "[2011-11-18 06:54-14:54]")
-          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
-      ($l (g t1 'none) "[2011-11-18 Fri]")
-      ($l (g t1 'time)
-          "<time datetime=\"2011-11-18\">[2011-11-18 Fri]</time>")
-      ($l (g t2 'none) "&lt;2011-11-18 Fri 14:54&gt;")
-      ($l (g t2 'time)
-          ($c "<time datetime=\"2011-11-18T14:54Z\">"
-              "&lt;2011-11-18 Fri 14:54&gt;</time>"))
-      ($l (g t3 'none) "[2011-11-18 Fri 06:54-14:54]")
-      ($l (g t3 'time)
-          ($c "<time datetime=\"2011-11-18T06:54Z\">"
-              "[2011-11-18 Fri 06:54-14:54]</time>"))
-      ($l (g t4 'none)
-          "&lt;2011-11-18 Fri 06:54&gt;--&lt;2011-11-18 Fri 14:54&gt;")
-      ($l (g t4 'time)
-          ($c "<time datetime=\"2011-11-18T06:54Z\">&lt;"
-              "2011-11-18 Fri 06:54&gt;</time>--"
-              "<time datetime=\"2011-11-18T14:54Z\">&lt;"
-              "2011-11-18 Fri 14:54&gt;</time>"))
-      ($l (g "[2000-01-01]--[2000-02-02 13:00]" 'time)
-          ($c "<time datetime=\"2000-01-01\">[2000-01-01 Sat]"
-              "</time>--<time datetime=\"2000-02-02\">"
-              "[2000-02-02 Wed 13:00]</time>"))
-      ($l (g "[2000-01-01 11:00]--[2000-01-02]" 'time)
-          ($c "<time datetime=\"2000-01-01T11:00Z\">"
-              "[2000-01-01 Sat 11:00]</time>--"
-              "<time datetime=\"2000-01-02T11:00Z\">"
-              "[2000-01-02 Sun 11:00]</time>")))))
-
-(ert-deftest t--format-timestamp-fmt ()
-  "Tests for `org-w3ctr--format-timestamp-fmt'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp))
-             (p (m) `( :html-timestamp-wrapper none
-                       :html-datetime-option T-none-zulu
-                       :html-timezone 0
-                       :html-timestamp-formats ,m))
-             (g (x opt) (t--format-timestamp-fmt (f x) (p opt))))
-    (let ((t1 "[2011-11-18]")
-          (t2 "<2011-11-18 14:54>")
-          (t3 "[2011-11-18 06:54-14:54]")
-          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
-      ($l (g t1 '("%y" . "%y %m")) "[11]")
-      ($l (g t1 '("%C" . "")) "[20]")
-      ($l (g t1 '("%F %m" . "%F %R")) "[2011-11-18 11]")
-      ($l (g t1 '("[%F]")) "[2011-11-18]")
-      ($l (g t1 '("<%F>")) "[2011-11-18]")
-      ($l (g t2 '(nil . "%F %R")) "&lt;2011-11-18 14:54&gt;")
-      ($l (g t2 '(nil . "%j")) "&lt;322&gt;")
-      ($l (g t3 '(nil . "%F %R")) "[2011-11-18 06:54-14:54]")
-      ($l (g t3 '(nil . "%D %U %W %V")) "[11/18/11 46 46 46-14:54]")
-      ($l (g t4 '(nil . "%F %R"))
-          "&lt;2011-11-18 06:54&gt;--&lt;2011-11-18 14:54&gt;")
-      ($l (g t4 '(nil . "%M")) "&lt;54&gt;--&lt;54&gt;"))
-    ($e!l (t--format-timestamp-fmt (f "[2000-01-01]") nil)
-          '(org-w3ctr-error "Invalid timestamp formats: nil"))
-    ($e!l (g "[2000-01-01]" 'bad)
-          '(org-w3ctr-error "Invalid timestamp formats: bad"))))
-
-(ert-deftest t--format-timestamp-fix ()
-  "Tests for `org-w3ctr--format-timestamp-fix'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp))
-             (p (w) `( :html-timestamp-wrapper ,w
-                       :html-datetime-option T-none-zulu
-                       :html-timezone 0))
-             (g (x y opt) (t--format-timestamp-fix (f x) y (p opt))))
-    (let ((t1 "[2011-11-18]")
-          (t2 "<2011-11-18 14:54>")
-          (t3 "[2011-11-18 06:54-14:54]")
-          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
-      ($l (g t1 "%F%R" 'none) "2011-11-1800:00")
-      ($l (g t1 "<%F%R>" 'none) "&lt;2011-11-1800:00&gt;")
-      ($l (g t2 "%F" 'span)
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "2011-11-18</span></span>"))
-      ($l (g t2 "%F %a" 'time)
-          ($c "<time datetime=\"2011-11-18T14:54Z\">"
-              "2011-11-18 Fri</time>"))
-      ($e!l (g t2 "%F" 'wtf)
-            '(org-w3ctr-error "Unknown timestamp wrapper: wtf"))
-      ($l (g t3 "{%F%a%R}" 'none)
-          "{2011-11-18Fri06:54}--{2011-11-18Fri14:54}")
-      ($e!l (g t3 "%a" 'abc)
-            '(org-w3ctr-error "Unknown timestamp wrapper: abc"))
-      ($l (g t3 "[%F%R]" 'span)
-          ($c "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              "[2011-11-1806:54]--[2011-11-1814:54]</span></span>"))
-      ($l (g t3 "<%F %R>" 'time)
-          ($c "<time datetime=\"2011-11-18T06:54Z\">"
-              "&lt;2011-11-18 06:54&gt;</time>--"
-              "<time datetime=\"2011-11-18T14:54Z\">"
-              "&lt;2011-11-18 14:54&gt;</time>"))
-      ($l (g t3 "%F %R" 'none) (g t4 "%F %R" 'none))
-      ($l (g t3 "<%F %R" 'span) (g t4 "<%F %R" 'span))
-      ($l (g t3 "[%F%a%R]" 'time) (g t4 "[%F%a%R]" 'time)))
-    ($e!l (t--format-timestamp-fix '(timestamp (:type diary)) "%F" (p 'none))
+(ert-deftest t--timestamp-format-parts ()
+  "Tests for `org-w3ctr--timestamp-format-parts'."
+  (cl-flet ((f (s) (t-get-element s 'timestamp)))
+    ($l (t--timestamp-format-parts (f "[2011-11-18]") "%F")
+        '("2011-11-18"))
+    ($l (t--timestamp-format-parts (f "<2011-11-18 14:54>") "<%F %R>")
+        '("<2011-11-18 14:54>"))
+    ($l (t--timestamp-format-parts
+         (f "[2011-11-18 06:54-14:54]") "%F %R")
+        '("2011-11-18 06:54" "2011-11-18 14:54"))
+    ($l (t--timestamp-format-parts
+         (f "<2011-11-18 06:54>--[2011-11-18 14:54]") "%F %R")
+        '("2011-11-18 06:54" "2011-11-18 14:54"))
+    ($e!l (t--timestamp-format-parts
+           '(timestamp (:type diary)) "%F")
           '(org-w3ctr-error "Unknown timestamp type: diary"))))
 
-(ert-deftest t--format-timestamp-org ()
-  "Tests for `org-w3ctr--format-timestamp-org'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp))
-             (p (w) `( :html-timestamp-wrapper ,w
-                       :html-datetime-option T-none-zulu
-                       :html-timezone 0))
-             (g (x opt) (t--format-timestamp-org (f x) (p opt))))
-    (let ((t1 "[2011-11-18]")
-          (t2 "<2011-11-18 14:54>")
-          (t3 "[2011-11-18 06:54-14:54]")
-          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
+(ert-deftest t--timestamp-split-range ()
+  "Tests for `org-w3ctr--timestamp-split-range'."
+  (cl-flet ((f (s) (t-get-element s 'timestamp)))
+    ($l (t--timestamp-split-range (f "[2024-05-01]") "[2024-05-01]")
+        '("[2024-05-01]"))
+    ;; Non-range timestamps are never split even if text contains "--".
+    ($l (t--timestamp-split-range (f "[2024-05-01]") "a--b")
+        '("a--b"))
+    ;; Same-day time range has no "--", so it stays one part.
+    ($l (t--timestamp-split-range
+         (f "[2024-05-01 09:00-11:00]") "[2024-05-01 09:00-11:00]")
+        '("[2024-05-01 09:00-11:00]"))
+    ;; Two-date ranges split at "--".
+    ($l (t--timestamp-split-range
+         (f "[2024-05-01]--[2024-05-02]") "[2024-05-01]--[2024-05-02]")
+        '("[2024-05-01]" "[2024-05-02]"))
+    ($l (t--timestamp-split-range
+         (f "<2024-05-01>--<2024-05-02>") "<2024-05-01>--<2024-05-02>")
+        '("<2024-05-01>" "<2024-05-02>"))))
+
+(ert-deftest t--timestamp-parts ()
+  "Tests for `org-w3ctr--timestamp-parts'."
+  (cl-flet ((f (s) (t-get-element s 'timestamp)))
+    ;; `raw': keeps raw value, splits two-date ranges at "--".
+    (let ((info '(:html-timestamp-formats raw)))
+      ($l (t--timestamp-parts (f "[2011-11-18]") info) '("[2011-11-18]"))
+      ($l (t--timestamp-parts (f "[2011-11-18 06:54-14:54]") info)
+          '("[2011-11-18 06:54-14:54]"))
+      ($l (t--timestamp-parts
+           (f "<2011-11-18 06:54>--[2011-11-18 14:54]") info)
+          '("<2011-11-18 06:54>" "[2011-11-18 14:54]"))
+      ($l (t--timestamp-parts '(timestamp (:type inactive)) info) '("")))
+    ;; nil: follows Org default and respects `org-display-custom-times'.
+    (let ((info '(:html-timestamp-formats nil)))
       (dlet ((org-display-custom-times nil))
-        ($l (g t1 'none) "[2011-11-18 Fri]")
-        ($l (g t2 'span)
-            ($c "<span class=\"timestamp-wrapper\">"
-                "<span class=\"timestamp\">"
-                "&lt;2011-11-18 Fri 14:54&gt;</span></span>"))
-        ($l (g t3 'time)
-            ($c "<time datetime=\"2011-11-18T06:54Z\">"
-                "[2011-11-18 Fri 06:54-14:54]</time>"))
-        ($l (g t4 'none)
-            ($c "&lt;2011-11-18 Fri 06:54&gt;"
-                "--&lt;2011-11-18 Fri 14:54&gt;"))
-        ($l (g t4 'time)
-            ($c "<time datetime=\"2011-11-18T06:54Z\">"
-                "&lt;2011-11-18 Fri 06:54&gt;</time>--"
-                "<time datetime=\"2011-11-18T14:54Z\">"
-                "&lt;2011-11-18 Fri 14:54&gt;</time>")))
+        ($l (t--timestamp-parts (f "[2011-11-18]") info)
+            '("[2011-11-18 Fri]"))
+        ($l (t--timestamp-parts
+             (f "[2011-11-18]--[2011-11-19]") info)
+            '("[2011-11-18 Fri]" "[2011-11-19 Sat]")))
       (dlet ((org-display-custom-times t)
              (org-timestamp-custom-formats
               '("%m/%d/%y" . "%m/%d/%y %H:%M")))
-        ($l (g t1 'none) "&lt;11/18/11&gt;")
-        ($l (g t2 'span)
-            ($c "<span class=\"timestamp-wrapper\">"
-                "<span class=\"timestamp\">&lt;11/18/11 14:54&gt;"
-                "</span></span>"))
-        ($l (g t3 'time)
-            ($c "<time datetime=\"2011-11-18T06:54Z\">"
-                "&lt;11/18/11 06:54&gt;</time>--"
-                "<time datetime=\"2011-11-18T14:54Z\">"
-                "&lt;11/18/11 14:54&gt;</time>"))
-        ($l (g t3 'time) (g t4 'time))
-        ($l (g t4 'none)
-            "&lt;11/18/11 06:54&gt;--&lt;11/18/11 14:54&gt;")))))
-
-(ert-deftest t--format-timestamp-cus ()
-  "Tests for `org-w3ctr--format-timestamp-cus'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp))
-             (p (w f) `( :html-timestamp-wrapper ,w
-                         :html-datetime-option T-none-zulu
-                         :html-timestamp-formats ,f
-                         :with-special-strings t
-                         :html-timezone 0))
-             (g (x info) (t--format-timestamp-cus (f x) info)))
-    (let ((t1 "[2011-11-18]")
-          (t2 "<2011-11-18 14:54>")
-          (t3 "[2011-11-18 06:54-14:54]")
-          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
-      ($l (g t1 (p 'none '("[%F%a]"))) "[2011-11-18Fri]")
-      ($l (g t1 (p 'none '("<%F%a>"))) "&lt;2011-11-18Fri&gt;")
-      ($l (g t1 (p 'none '("{%F%a}"))) "2011-11-18Fri")
-      ($e!l (g t1 (p 'none '("%F%a")))
-            '(org-w3ctr-error "Invalid custom timestamp format: (%F%a)"))
-      ($e!l (g t1 (p 'none 'bad))
-            '(org-w3ctr-error "Invalid custom timestamp format: bad"))
-      ($l (g t2 (p 'time '(nil . "{[%F %R]}")))
-          ($c "<time datetime=\"2011-11-18T14:54Z\">"
-              "[2011-11-18 14:54]</time>"))
-      ($l (g t2 (p 'none '(nil . "[[[[%R]]]]"))) "[[[[14:54]]]]")
-      ($l (g t3 (p 'none '(nil . "<<<%F%R>")))
-          ($c "&lt;&lt;&lt;2011-11-1806:54&gt;"
-              "&#x2013;&lt;&lt;&lt;2011-11-1814:54&gt;"))
-      ($l (g t3 (p 'none '(nil . "<%F%R>")))
-          (g t4 (p 'none '(nil . "<%F%R>")))))))
+        ($l (t--timestamp-parts (f "[2011-11-18]") info)
+            '("<11/18/11>"))
+        ($l (t--timestamp-parts (f "[2011-11-18 06:54-14:54]") info)
+            '("<11/18/11 06:54>" "<11/18/11 14:54>"))))
+    ;; (DATE . DATETIME): literal format strings, no {} stripping.
+    (let ((info '(:html-timestamp-formats ("%F" . "[%F %R]"))))
+      ($l (t--timestamp-parts (f "[2011-11-18]") info) '("2011-11-18"))
+      ($l (t--timestamp-parts (f "<2011-11-18 14:54>") info)
+          '("[2011-11-18 14:54]"))
+      ($l (t--timestamp-parts (f "[2011-11-18 06:54-14:54]") info)
+          '("[2011-11-18 06:54]" "[2011-11-18 14:54]")))
+    ;; Invalid `:html-timestamp-formats' signals `org-w3ctr-error'.
+    ($e!l (t--timestamp-parts (f "[2011-11-18]")
+                              '(:html-timestamp-formats bogus))
+          '(org-w3ctr-error "Invalid timestamp formats: bogus"))
+    ($e!l (t--timestamp-parts (f "[2011-11-18]")
+                              '(:html-timestamp-formats (123 . "%F %R")))
+          '(org-w3ctr-error "Invalid timestamp formats: (123 . %F %R)"))))
 
 (ert-deftest t-timestamp-default-format-function ()
   "Tests for `org-w3ctr-timestamp-default-format-function'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp)))
-    (let ((t1 "[2011-11-18]")
-          (t2 "<2011-11-18 14:54>")
-          (t3 "[2011-11-18 06:54-14:54]")
-          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]"))
-      ($it t-timestamp-default-format-function
-        ($l (it (f t1) nil) t1)
-        ($l (it (f t2) nil) "&lt;2011-11-18 14:54&gt;")
-        ($l (it (f t3) nil) t3)
-        ($l (it (f t4) nil) "&lt;2011-11-18 06:54&gt;--[2011-11-18 14:54]")
-        ($l (it '(timestamp nil) nil) "")))))
-
-(ert-deftest t--format-timestamp-fun ()
-  "Tests for `org-w3ctr--format-timestamp-fun'."
-  (cl-flet* ((f (s) (t-get-element s 'timestamp)))
-    (let ((t1 "[2011-11-18]")
-          (t2 "<2011-11-18 14:54>")
-          (t3 "[2011-11-18 06:54-14:54]")
-          (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]")
-          (info (list :html-timestamp-format-function
-                      (lambda (_a _b) "hello"))))
-      ($it t--format-timestamp-fun
-        ($l (it (f t1) info) "hello")
-        ($l (it (f t2) info) "hello")
-        ($l (it (f t3) info) "hello")
-        ($l (it (f t4) info) "hello")
-        ($e!l (it (f t1) nil)
-              '(org-w3ctr-error "Invalid timestamp format function: nil"))
-        ($e!l (it (f t1) '(:html-timestamp-format-function not-a-fn))
-              '(org-w3ctr-error
-                "Invalid timestamp format function: not-a-fn"))
-        ($e!l (it (f t1)
-                  (list :html-timestamp-format-function (lambda (_a _b) 42)))
-              '(org-w3ctr-error
-                "Timestamp format function returned a non-string: 42"))))))
+  (cl-flet ((f (s) (t-get-element s 'timestamp)))
+    (let ((info '(:html-timezone 28800 :html-timestamp-formats raw)))
+      ($l (t-timestamp-default-format-function (f "[2011-11-18]") info)
+          "<time datetime=\"2011-11-18\">[2011-11-18]</time>")
+      ($l (t-timestamp-default-format-function
+           (f "<2011-11-18 14:54>") info)
+          ($c "<time datetime=\"2011-11-18T14:54+08:00\">"
+              "&lt;2011-11-18 14:54&gt;</time>"))
+      ;; Percent signs in display text are not format specifiers.
+      ($l (t-timestamp-default-format-function
+           (f "[2011-11-18 %s 100%]") info)
+          "<time datetime=\"2011-11-18\">[2011-11-18 %s 100%]</time>")
+      ;; Range separator respects `:with-special-strings'.
+      ($l (t-timestamp-default-format-function
+           (f "[2024-05-01]--[2024-05-02]") info)
+          ($c "<time datetime=\"2024-05-01\">[2024-05-01]</time>--"
+              "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
+      ($l (t-timestamp-default-format-function
+           (f "[2024-05-01]--[2024-05-02]")
+           (cons :with-special-strings (cons t info)))
+          ($c "<time datetime=\"2024-05-01\">[2024-05-01]</time>&#x2013;"
+              "<time datetime=\"2024-05-02\">[2024-05-02]</time>"))
+      ;; Diary timestamps emit plain text without <time>.
+      ($l (t-timestamp-default-format-function
+           (f "<%%(diary-float t 4 2)>") info)
+          "&lt;%%(diary-float t 4 2)&gt;")
+      ($l (t-timestamp-default-format-function
+           (f "<%%(diary-float t 4 2) 22:00>--<2222-02-22 23:00>")
+           '(:html-timestamp-formats nil))
+          "&lt;%%(diary-float t 4 2) 22:00&gt;"))))
 
 (ert-deftest t-timestamp ()
   "Tests for `org-w3ctr-timestamp'."
+  ;; Default export (`raw' inside <time>, RFC 3339 with colon).
   (t-check-element-values
    #'t-timestamp
-   '(("[2020-02-02]" "<time datetime=\"2020-02-02\">[2020-02-02]</time>")
-     ("<2006-01-02>" "<time datetime=\"2006-01-02\">&lt;2006-01-02&gt;</time>")
-     ("[2006-01-02 15:04:05]"
-      "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>")
-     ("<2006-01-02 15:04:05>"
-      "<time datetime=\"2006-01-02 15:04+0800\">\
-&lt;2006-01-02 15:04&gt;</time>")
+   `(("[2020-02-02]" "<time datetime=\"2020-02-02\">[2020-02-02]</time>")
+     ("<2006-01-02>"
+      "<time datetime=\"2006-01-02\">&lt;2006-01-02&gt;</time>")
+     ("[2006-01-02 15:04]"
+      ,($c "<time datetime=\"2006-01-02T15:04+08:00\">"
+           "[2006-01-02 15:04]</time>"))
      ("[2025-03-30]--[2025-03-31]"
-      "<time datetime=\"2025-03-30\">[2025-03-30]</time>&#x2013;\
-<time datetime=\"2025-03-31\">[2025-03-31]</time>")
-     ("<2025-03-30>--<2025-03-31>"
-      "<time datetime=\"2025-03-30\">&lt;2025-03-30&gt;</time>&#x2013;\
-<time datetime=\"2025-03-31\">&lt;2025-03-31&gt;</time>")
-     ("[2006-01-02 15:04:05]--[2006-01-03 04:05:06]"
-      "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>\
-&#x2013;<time datetime=\"2006-01-03 04:05+0800\">[2006-01-03 04:05]</time>")
-     ("<2006-01-02 15:04:05>--<2006-01-03 04:05:06>"
-      "<time datetime=\"2006-01-02 15:04+0800\">\
-&lt;2006-01-02 15:04&gt;</time>&#x2013;\
-<time datetime=\"2006-01-03 04:05+0800\">\
-&lt;2006-01-03 04:05&gt;</time>")
-     ("[2024-02-02]--<2025-02-02>"
-      "<time datetime=\"2024-02-02\">[2024-02-02]</time>&#x2013;\
-<time datetime=\"2025-02-02\">[2025-02-02]</time>")
-     ("<2024-02-02>--[2025-02-02]"
-      "<time datetime=\"2024-02-02\">&lt;2024-02-02&gt;</time>&#x2013;\
-<time datetime=\"2025-02-02\">&lt;2025-02-02&gt;</time>")
-     ("[2000-01-01]" "<time datetime=\"2000-01-01\">[2000-01-01]</time>"))
-   nil '( :html-timestamp-option fmt :html-timestamp-wrapper time
-          :html-timestamp-formats ("%F" . "%F %R")
-          :html-timezone "UTC+8" :html-datetime-option s-none))
-  ;; Diary and every `:html-timestamp-option' branch, plus unknown option.
+      ,($c "<time datetime=\"2025-03-30\">[2025-03-30]</time>&#x2013;"
+           "<time datetime=\"2025-03-31\">[2025-03-31]</time>"))
+     ("<%%(diary-float t 4 2)>" "&lt;%%(diary-float t 4 2)&gt;"))
+   t '(:html-timezone "UTC+8"))
+  ;; Custom `(DATE . DATETIME)' formats and timezone conversion.
   (t-check-element-values
    #'t-timestamp
-   '(("<%%(diary-float t 4 2)>" "&lt;%%(diary-float t 4 2)&gt;"))
-   t '(:html-timestamp-option raw))
+   `(("[2006-01-02 15:04]"
+      "<time datetime=\"2006-01-02T07:04Z\">2006-01-02 15:04</time>")
+     ("[2006-01-02 15:04-16:04]"
+      ,($c "<time datetime=\"2006-01-02T07:04Z\">2006-01-02 15:04</time>"
+           "&#x2013;<time datetime=\"2006-01-02T08:04Z\">"
+           "2006-01-02 16:04</time>")))
+   t '( :html-timezone "UTC+8"
+        :html-export-timezone "UTC"
+        :html-timestamp-formats ("%F" . "%F %R")))
+  ;; Custom `:html-timestamp-format-function' and validation.
+  (let ((ts (t-get-element "[2011-11-18]" 'timestamp)))
+    ($l (t-timestamp ts nil
+                     (list :html-timestamp-format-function
+                           (lambda (_a _b) "custom")))
+        "custom")
+    ($e!l (t-timestamp ts nil nil)
+          '(org-w3ctr-error "Invalid timestamp format function: nil"))
+    ($e!l (t-timestamp ts nil '(:html-timestamp-format-function not-a-fn))
+          '(org-w3ctr-error "Invalid timestamp format function: not-a-fn"))
+    ($e!l (t-timestamp ts nil
+                       (list :html-timestamp-format-function
+                             (lambda (_a _b) 42)))
+          '(org-w3ctr-error
+            "Timestamp format function returned a non-string: 42")))
+  ;; `:html-timestamp-format-function' is not exposed via `#+OPTIONS:'.
   (t-check-element-values
    #'t-timestamp
-   '(("[2011-11-18 %s]"
-      "<time datetime=\"2011-11-18\">[2011-11-18 %s]</time>"))
-   t '(:html-timestamp-option raw :html-timestamp-wrapper time))
-  (t-check-element-values
-   #'t-timestamp
-   '(("[2011-11-18]" "[2011-11-18 Fri]"))
-   t '(:html-timestamp-option int :html-timestamp-wrapper none))
-  (t-check-element-values
-   #'t-timestamp
-   '(("[2011-11-18]" "2011-11-18"))
-   t '( :html-timestamp-option cus :html-timestamp-wrapper none
-        :html-timestamp-formats ("{%F}" . "{%F %R}")))
-  (dlet ((org-display-custom-times nil))
-    (t-check-element-values
-     #'t-timestamp
-     '(("[2011-11-18]" "[2011-11-18 Fri]"))
-     t '(:html-timestamp-option org :html-timestamp-wrapper none)))
-  (t-check-element-values
-   #'t-timestamp
-   '(("<2011-11-18>" "&lt;2011-11-18&gt;"))
-   t '(:html-timestamp-option fun))
-  ;; `:html-timestamp-format-function' is not exposed via `#+OPTIONS:', so a
-  ;; document cannot supply an inline lambda to run arbitrary Lisp.
-  (t-check-element-values
-   #'t-timestamp
-   '(("#+OPTIONS: ts:fun tsfn:(lambda (&rest _) (error \"pwned\"))\n\
-<2011-11-18>"
-      "&lt;2011-11-18&gt;"))
-   t)
-  ($e!l (org-export-string-as "[2011-11-18]" 'w3ctr t
-                              '(:html-timestamp-option bogus))
-        '(org-w3ctr-error "Unknown timestamp option: bogus")))
+   '(("#+OPTIONS: tsfn:(lambda (&rest _) (error \"pwned\"))\n<2011-11-18>"
+      "<time datetime=\"2011-11-18\">&lt;2011-11-18&gt;</time>"))
+   t))
 
 ;;;; Link
 
@@ -9397,14 +8924,15 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr--get-info-date'."
   (t-check-element-values
    #'t--get-info-date
-   '(("#+date: [2020-01-01]" "[2020-01-01 Wed]")
+   '(("#+date: [2020-01-01]"
+      "<time datetime=\"2020-01-01\">[2020-01-01]</time>")
      ("#+date: [2000-01-01] [2000-01-02]" nil)
      ("#+date: 123" nil)
      ("#+date: " nil)
      ("" nil)
      ("#+date: [2000-01-01]--[2001-01-01]"
-      "[2000-01-01 Sat]&#x2013;[2001-01-01 Mon]"))
-   nil '(:html-timestamp-wrapper none)))
+      "<time datetime=\"2000-01-01\">[2000-01-01]</time>&#x2013;\
+<time datetime=\"2001-01-01\">[2001-01-01]</time>"))))
 
 (ert-deftest t--get-info-mtime ()
   "Tests for `org-w3ctr--get-info-mtime'."

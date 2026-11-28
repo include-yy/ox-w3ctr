@@ -227,10 +227,7 @@
     ;; Timestamp
     (:html-timezone "HTML_TIMEZONE" nil t-timezone)
     (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
-    (:html-datetime-option nil "dt" t-datetime-option)
-    (:html-timestamp-option nil "ts" t-timestamp-option)
-    (:html-timestamp-wrapper nil "tsw" t-timestamp-wrapper)
-    (:html-timestamp-formats nil "tsf" t-timestamp-formats)
+    (:html-timestamp-formats nil nil t-timestamp-formats)
     (:html-timestamp-format-function nil nil t-timestamp-format-function)
     ;; Link and Images
     (:html-link-org-files-as-html nil nil t-link-org-files-as-html)
@@ -798,79 +795,34 @@ follow the same format rules as the option `org-w3ctr-timezone'."
          (set-default symbol value))
   :type '(choice (const nil) string))
 
-(defcustom t-datetime-option 'T-none-zulu
-  "Control the format of datetime attributes for <time> elements.
+(defcustom t-timestamp-formats 'raw
+  "Control how timestamp text is formatted inside <time> elements.
 
-This option controls how timestamps are formatted when exporting
-datetime attributes, with variations in:
-
-Separator : Use a space or `T' between date and time.
-Timezone  : Use `:' in the zone offset or not (`+08:00' and `+0800').
-UTC-Zulu  : Use a trailing `Z' when the timezone is UTC+0, or omit it."
+Possible values:
+- `raw': Keep the timestamp's `:raw-value' string as written in Org.
+- nil: Follow Org's default formatting (`org-element-timestamp-interpreter',
+  or `org-timestamp-custom-formats' when `org-display-custom-times' is
+  non-nil).
+- (DATE . DATE-TIME): A cons cell of `format-time-string' format strings
+  passed directly to `org-format-timestamp' (brackets are included only
+  when written in the format string itself)."
   :group 'org-export-w3ctr
-  :type '(radio (const s-none) (const s-none-zulu)
-                (const s-colon) (const s-colon-zulu)
-                (const T-none) (const T-none-zulu)
-                (const T-colon) (const T-colon-zulu))
+  :type '(choice (const :tag "Raw Org text" raw)
+                 (const :tag "Org default" nil)
+                 (cons (string :tag "Date format")
+                       (string :tag "Date-time format")))
   :safe (lambda (v)
-          (memq v '(s-none s-none-zulu s-colon s-colon-zulu
-                           T-none T-none-zulu T-colon T-colon-zulu))))
-
-(defcustom t-timestamp-option 'org
-  "Control how timestamps are exported.
-
-Possible values:
-
-- `raw': Use the timestamp's `:raw-value' property directly.
-- `int': Use `org-element-timestamp-interpreter' to format the timestamp.
-- `fmt': Like `int', but dynamically bind `org-timestamp-formats' to
-         `org-w3ctr-timestamp-formats'.
-- `org': Behave like `org-html-timestamp', respecting both
-         `org-display-custom-times' and `org-timestamp-custom-formats'.
-- `cus': Like `org', but behave as if `org-display-custom-times' is
-         always non-nil and use `org-w3ctr-timestamp-formats' instead of
-         `org-timestamp-custom-formats' for custom string output.
-- `fun': Use a user-supplied function to handle timestamp formatting."
-  :group 'org-export-w3ctr
-  :type '(choice (const raw) (const int) (const fmt)
-                 (const org) (const cus) (const fun))
-  :safe (lambda (v) (memq v '(raw int fmt org cus fun))))
-
-(defcustom t-timestamp-wrapper 'span
-  "The way to wrap timestamps with HTML tags during export.
-
-Possible values:
-- `none': Export the plain timestamp string.
-- `span': Wrap the timestamp like `org-html-timestamp'.
-- `time': Wrap the timestamp inside a <time> element."
-  :group 'org-export-w3ctr
-  :type '(choice (const none) (const span) (const time))
-  :safe (lambda (v) (memq v '(none span time))))
-
-(defcustom t-timestamp-formats '("%F" . "%F %R")
-  "Format specification used for exporting timestamps.
-
-This option accepts a cons cell (DATE . DATE-TIME), where:
-- DATE: format string for year/month/day (for example, \"%Y-%m-%d\")
-- DATE-TIME: date plus hours and minutes (for example, \"%F %H:%M\")
-
-These format strings follow the conventions of `format-time-string'.
-
-Note: This option only takes effect when
-`org-w3ctr-timestamp-option' is set to `fmt' or `cus'."
-  :group 'org-export-w3ctr
-  :type '(cons string string))
+          (or (memq v '(raw nil))
+              (and (consp v) (stringp (car v)) (stringp (cdr v))))))
 
 (defcustom t-timestamp-format-function #'t-timestamp-default-format-function
-  "Custom function for formatting timestamps.
+  "Function used to format Org timestamps into HTML.
 
-The function must accept two arguments: a TIMESTAMP object and an
-INFO plist.  It must return a string.  The default is
-`org-w3ctr-timestamp-default-format-function', which returns the
-HTML-escaped raw value of TIMESTAMP.
-
-This option only takes effect when `org-w3ctr-timestamp-option'
-is set to `fun'."
+The function is called with two arguments: a TIMESTAMP object and
+an INFO plist, and must return a string.  The default,
+`org-w3ctr-timestamp-default-format-function', wraps timestamps
+in <time datetime=\"...\"> elements (leaving diary timestamps as
+plain text)."
   :group 'org-export-w3ctr
   :type 'function)
 
@@ -1624,8 +1576,7 @@ byte-compiled code."
       ;; LaTeX
       :with-latex :html-math-custom-format-function
       ;; Timestamp
-      :html-timezone :html-export-timezone :html-datetime-option
-      :html-timestamp-option :html-timestamp-wrapper
+      :html-timezone :html-export-timezone
       :html-timestamp-formats :html-timestamp-format-function
       ;; Link and Images
       :html-link-org-files-as-html
@@ -5410,9 +5361,6 @@ Return the transcoded string."
 ;; Options:
 ;; - :html-timezone                  (`org-w3ctr-timezone')
 ;; - :html-export-timezone           (`org-w3ctr-export-timezone')
-;; - :html-datetime-option           (`org-w3ctr-datetime-option')
-;; - :html-timestamp-option          (`org-w3ctr-timestamp-option')
-;; - :html-timestamp-wrapper         (`org-w3ctr-timestamp-wrapper')
 ;; - :html-timestamp-formats         (`org-w3ctr-timestamp-formats')
 ;; - :html-timestamp-format-function (`org-w3ctr-timestamp-format-function')
 
@@ -5446,147 +5394,72 @@ local time zone).  Return nil if ZONE doesn't match
             ;; Bare "UTC" or "GMT".
             0))))))
 
-(defun t--get-info-timezone-offset (info)
-  "Return timezone offset from INFO plist.
+(defun t--resolve-timezones (info)
+  "Resolve source and export timezones from INFO.
 
-If it is a fixnum, return it directly; if it is the symbol `local',
-return `local'; if it is a string, attempt to parse it as a timezone
-offset using `org-w3ctr--timezone-to-offset'.
+Return a cons cell (OFFSET . DELTA), where OFFSET is the effective
+export timezone offset in seconds (or `local') and DELTA is the
+shift in seconds (export - source, or 0 when either is `local').
 
-On successful parsing, the offset is stored back into INFO to avoid
-repeated parsing.  Signal `org-w3ctr-error' if timezone is nil or
-invalid."
-  (declare (ftype (function (list) (or fixnum symbol)))
+String values for `:html-timezone' and `:html-export-timezone' are
+parsed via `org-w3ctr--timezone-to-offset' and cached back into
+INFO.  Signal `org-w3ctr-error' when `:html-timezone' is nil or
+either timezone is malformed (even when `:html-timezone' is
+`local')."
+  (declare (ftype (function (list) cons))
            (important-return-value t))
-  (if-let* ((zone (t--pget info :html-timezone)))
-      (cond
-       ((fixnump zone) zone)
-       ((eq zone 'local) 'local)
-       ((and (stringp zone)
-             (when-let* ((time (t--timezone-to-offset zone)))
-               (t--pput info :html-timezone time))))
-       (t (t-error "Invalid timezone format: %s" zone)))
-    (t-error "Invalid timezone: nil")))
+  (let* ((parse
+          (lambda (prop val label)
+            (cond
+             ((fixnump val) val)
+             ((eq val 'local) 'local)
+             ((and (stringp val)
+                   (when-let* ((off (t--timezone-to-offset val)))
+                     (t--pput info prop off))))
+             (t (t-error "Invalid %s format: %s" label val)))))
+         (z1-raw (or (t--pget info :html-timezone)
+                     (t-error "Invalid timezone: nil")))
+         (z1 (funcall parse :html-timezone z1-raw "timezone"))
+         (z2-raw (t--pget info :html-export-timezone))
+         (z2 (if z2-raw
+                 (funcall parse :html-export-timezone z2-raw
+                          "export timezone")
+               z1))
+         (eff (if (eq z1 'local) 'local z2))
+         (delta (if (or (eq z1 'local) (eq eff 'local)) 0 (- eff z1))))
+    (cons eff delta)))
 
-(defun t--get-info-export-timezone-offset (info &optional zone1-offset)
-  "Return export timezone offset from INFO plist.
+(defun t--get-datetime-format (offset &optional notime)
+  "Return an RFC 3339 datetime format string for HTML <time> tags.
 
-The export timezone is determined by:
-- If `:html-export-timezone' is nil, use `:html-timezone' value.
-- Otherwise validate `:html-export-timezone' first (signaling
-  `org-w3ctr-error' if invalid); if `:html-timezone' is `local',
-  return `local', else return the resolved export timezone offset.
-
-If optional argument ZONE1-OFFSET is non-nil, use it as the default
-timezone offset instead of querying `:html-timezone' via
-`org-w3ctr--get-info-timezone-offset'.  This avoids redundant lookups
-when the caller already knows the default timezone offset."
-  (declare (ftype (function (list &optional (or fixnum symbol))
-                            (or fixnum symbol)))
-           (important-return-value t))
-  (let ((zone1 (or zone1-offset (t--get-info-timezone-offset info)))
-        (zone2 (t--pget info :html-export-timezone)))
-    (if (not zone2)
-        zone1
-      (let ((resolved
-             (cond
-              ((eq zone2 'local) 'local)
-              ((fixnump zone2) zone2)
-              ((and (stringp zone2)
-                    (when-let* ((time (t--timezone-to-offset zone2)))
-                      (t--pput info :html-export-timezone time))))
-              (t (t-error "Invalid export timezone format: %s" zone2)))))
-        (if (eq zone1 'local) 'local resolved)))))
-
-(defun t--get-info-timezone-delta (info &optional z1 z2)
-  "Return the offset difference of export timezone(Z2) and timezone(Z1).
-
-The returned value is (Z2 - Z1), in seconds.  If either timezone is
-`local' or both offsets are equal, returns 0.
-
-If optional argument Z1 or Z2 is provided, use directly; otherwise,
-their values are retrieved from INFO using
-`org-w3ctr--get-info-timezone-offset' and
-`org-w3ctr--get-info-export-timezone-offset'.
-
-This value can be used to convert timestamps between timezones:
-1. Subtract the base timezone offset from a local timestamp to obtain
-   the corresponding UTC time.
-2. Then add the export timezone offset to the UTC time to get the
-   timestamp in the export timezone."
-  (declare (ftype (function ( list &optional
-                              (or fixnum symbol)
-                              (or fixnum symbol))
-                            fixnum))
-           (important-return-value t))
-  (let* ((offset1 (or z1 (t--get-info-timezone-offset info)))
-         (offset2 (or z2 (t--get-info-export-timezone-offset
-                          info offset1))))
-    (cond
-     ((or (eq offset1 'local) (eq offset2 'local)) 0)
-     ((= offset1 offset2) 0)
-     (t (- offset2 offset1)))))
-
-(defconst t--timestamp-datetime-options
-  '((s-none       . (" " ""  "+0000"))
-    (s-none-zulu  . (" " ""  "Z"))
-    (s-colon      . (" " ":" "+00:00"))
-    (s-colon-zulu . (" " ":" "Z"))
-    (T-none       . ("T" ""  "+0000"))
-    (T-none-zulu  . ("T" ""  "Z"))
-    (T-colon      . ("T" ":" "+00:00"))
-    (T-colon-zulu . ("T" ":" "Z")))
-  "HTML <time>'s datetime format options.
-
-See `org-w3ctr-datetime-option' for more details.")
-
-(defun t--get-datetime-format (offset option &optional notime)
-  "Return a datetime format string for HTML <time> tags.
-
-OFFSET is the timezone offset in seconds, or `local'.  OPTION is a
-symbol specifying the format style, as defined in
-`org-w3ctr--timestamp-datetime-options'.
-
-If NOTIME is non-nil, only the date format (\"%F\") will be returned;
-If NOTIME is nil, this function looks up the formatting option and
-builds the timezone string based on OFFSET and the selected formatting
-rule, and returns a full datetime format string suitable for use in HTML
-<time> tag's `datetime' attributes."
-  (declare (ftype (function ((or fixnum symbol) t &optional boolean)
-                            (or null string)))
+OFFSET is the timezone offset in seconds, or `local'.  When NOTIME is
+non-nil, return \"%F\".  Otherwise return \"%FT%R\" for `local',
+\"%FT%RZ\" for UTC (0), or \"%FT%R[+-]HH:MM\" for a non-zero offset."
+  (declare (ftype (function ((or fixnum symbol) &optional boolean) string))
            (pure t) (important-return-value t))
-  (if notime "%F"
-    (when-let* (((symbolp option))
-                (ls (alist-get option t--timestamp-datetime-options)))
-      (if (eq offset 'local)
-          (format "%%F%s%%R" (nth 0 ls))
-        (let* ((hours (/ (abs offset) 3600))
-               (minutes (/ (- (abs offset) (* hours 3600)) 60))
-               (zone (if (= offset 0) (nth 2 ls)
-                       (format "%s%02d%s%02d"
-                               (if (plusp offset) "+" "-")
-                               hours (nth 1 ls) minutes))))
-          (format "%%F%s%%R%s" (nth 0 ls) zone))))))
+  (cond
+   (notime "%F")
+   ((eq offset 'local) "%FT%R")
+   ((= offset 0) "%FT%RZ")
+   (t (let* ((hours (/ (abs offset) 3600))
+             (minutes (/ (- (abs offset) (* hours 3600)) 60)))
+        (format "%%FT%%R%s%02d:%02d"
+                (if (plusp offset) "+" "-") hours minutes)))))
 
 (defun t--format-datetime (time info &optional notime)
-  "Format TIME into a datetime string.
+  "Format TIME into an RFC 3339 datetime string.
 
 TIME is an Emacs time value.  INFO is the info plist.  NOTIME, when
-non-nil, returns only the date format.  Return the formatted datetime
-string."
+non-nil, returns only the date (\"%F\") without timezone conversion.
+Signal `org-w3ctr-error' when TIME cannot be formatted."
   (declare (ftype (function (t list &optional boolean) string))
            (important-return-value t))
-  (let* ((offset0 (t--get-info-timezone-offset info))
-         (offset1 (t--get-info-export-timezone-offset info offset0))
-         (delta (t--get-info-timezone-delta info offset0 offset1))
-         (option (t--pget info :html-datetime-option)))
-    (if-let* (option
-              (fmt (t--get-datetime-format offset1 option notime))
-              (time (if notime time (time-add time delta))))
-        (condition-case nil
-            (format-time-string fmt time)
-          (error (t-error "Invalid time value: %s" time)))
-      (t-error "Invalid datetime option: %s" option))))
+  (let* ((tz (t--resolve-timezones info))
+         (fmt (t--get-datetime-format (car tz) notime))
+         (time (if notime time (time-add time (cdr tz)))))
+    (condition-case nil
+        (format-time-string fmt time)
+      (error (t-error "Invalid time value: %s" time)))))
 
 (defun t--call-with-invalid-time-spec-handler (fn timestamp &rest args)
   "Wrap FN call with clearer error messages for invalid timestamps.
@@ -5633,195 +5506,114 @@ inserts trailing spaces when the timestamp is followed by space."
        #'org-element-timestamp-interpreter timestamp :nothing)
       (t-error "Invalid timestamp start: %s" timestamp)))
 
-(defun t--format-timestamp-diary (timestamp info)
-  "Format a diary TIMESTAMP object.
+(defun t--timestamp-format-parts (timestamp fmt)
+  "Format TIMESTAMP with format string FMT into one or two strings.
 
-TIMESTAMP is an Org timestamp object.  INFO is the info plist.
-If `:html-timestamp-option' is `raw', use the `:raw-value'
-property.  Otherwise, interpret TIMESTAMP via
-`org-w3ctr--interpret-timestamp'.  Return the formatted string."
-  (declare (ftype (function (t list) string))
+Single timestamps (`active', `inactive') return a one-element list;
+range timestamps (`active-range', `inactive-range') return a
+two-element list.  Signal `org-w3ctr-error' on any other type."
+  (declare (ftype (function (t string) list))
            (important-return-value t))
-  (let* ((option (t--pget info :html-timestamp-option))
-         (text (pcase option
-                 (`raw (or (org-element-property :raw-value timestamp) ""))
-                 (_ (t--interpret-timestamp timestamp)))))
-    (t-plain-text text info)))
-
-(defun t--format-ts-span-time (str info &optional datetime)
-  "Format timestamp string STR using <span> or <time>.
-
-STR is the timestamp text.  INFO is the info plist.  DATETIME, when
-non-nil, is a pre-formatted `datetime' attribute string (with its
-leading space) used to wrap STR in a <time> element; otherwise wrap
-STR in the standard <span> elements."
-  (declare (ftype (function (string list &optional (or null string))
-                            string))
-           (important-return-value t))
-  (if (not datetime)
-      ;; taken from `org-html-timestamp'.
-      (concat "<span class=\"timestamp-wrapper\">"
-              "<span class=\"timestamp\">"
-              (t-plain-text str info) "</span></span>")
-    (concat "<time" datetime ">" (t-plain-text str info) "</time>")))
-
-(defun t--format-ts-time (timestamp parts info)
-  "Format TIMESTAMP's PARTS as <time> elements.
-
-PARTS is a list of one or two timestamp strings: the start and,
-for a range, the end.  INFO is the info plist.  Each part is
-wrapped in a <time> element whose datetime attribute comes from
-TIMESTAMP.  Parts are joined with \"--\", or with an en dash when
-`:with-special-strings' is non-nil.  Return the formatted string."
-  (declare (ftype (function (t list list) string))
-           (important-return-value t))
-  (pcase parts
-    (`(,s1)
-     (t--format-ts-span-time
-      s1 info (t--format-ts-datetime timestamp info)))
-    (`(,s1 ,s2)
-     (concat (t--format-ts-span-time
-              s1 info (t--format-ts-datetime timestamp info))
-             (if (t--pget info :with-special-strings) "&#x2013;" "--")
-             (t--format-ts-span-time
-              s2 info (t--format-ts-datetime timestamp info t))))
-    (_ (t-error "Invalid timestamp range: %s" parts))))
-
-(defun t--format-timestamp-raw-1 (timestamp raw info)
-  "Format TIMESTAMP with its RAW string.
-
-TIMESTAMP is an Org timestamp object.  RAW is a string matching
-`org-ts-regexp-both'.  INFO is the info plist.  Return the
-formatted timestamp string."
-  (declare (ftype (function (t string list) string))
-           (important-return-value t))
-  (pcase (t--pget info :html-timestamp-wrapper)
-    (`none (t-plain-text raw info))
-    (`span (t--format-ts-span-time raw info))
-    (`time
-     (t--format-ts-time
-      timestamp (t--find-all org-ts-regexp-both raw) info))
-    (w (t-error "Unknown timestamp wrapper: %s" w))))
-
-(defun t--format-timestamp-raw (timestamp info)
-  "Format TIMESTAMP without altering its string content.
-
-TIMESTAMP is an Org timestamp object.  INFO is the info plist.
-Return the formatted timestamp string."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (let ((raw (or (org-element-property :raw-value timestamp) "")))
-    (t--format-timestamp-raw-1 timestamp raw info)))
-
-(defun t--format-timestamp-int (timestamp info)
-  "Format TIMESTAMP with `org-timestamp-formats'.
-
-TIMESTAMP is an Org timestamp object.  INFO is the info plist.
-Return the formatted timestamp string."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (let ((raw (t--interpret-timestamp timestamp)))
-    (t--format-timestamp-raw-1 timestamp raw info)))
-
-(defun t--format-timestamp-fmt (timestamp info)
-  "Format TIMESTAMP with `org-w3ctr-timestamp-formats'.
-
-TIMESTAMP is an Org timestamp object.  INFO is the info plist.
-Return the formatted timestamp string."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (let ((fmt (t--pget info :html-timestamp-formats)))
-    (unless (consp fmt)
-      (t-error "Invalid timestamp formats: %s" fmt))
-    (let ((org-timestamp-formats fmt))
-      (t--format-timestamp-raw-1
-       timestamp (t--interpret-timestamp timestamp) info))))
-
-(defun t--format-timestamp-fix (timestamp fmt info)
-  "Format TIMESTAMP with a fixed format string FMT.
-
-TIMESTAMP is an Org timestamp object.  FMT is a format string.
-INFO is the info plist.  Used internally for `org' and `cus'
-options.  Return the formatted timestamp string."
-  (declare (ftype (function (t string list) string))
-           (important-return-value t))
-  (let* ((wrap (t--pget info :html-timestamp-wrapper))
-         (type (org-element-property :type timestamp)))
+  (let ((type (org-element-property :type timestamp)))
     (pcase type
       ((or `active `inactive)
-       (let ((time (org-format-timestamp timestamp fmt)))
-         (pcase wrap
-           (`none (t-plain-text time info))
-           (`span (t--format-ts-span-time time info))
-           (`time (t--format-ts-time timestamp (list time) info))
-           (_ (t-error "Unknown timestamp wrapper: %s" wrap)))))
+       (list (t--call-with-invalid-time-spec-handler
+              #'org-format-timestamp timestamp fmt)))
       ((or `active-range `inactive-range)
-       (let* ((t1 (org-format-timestamp timestamp fmt))
-              (t2 (org-format-timestamp timestamp fmt t)))
-         (pcase wrap
-           (`none (t-plain-text (concat t1 "--" t2) info))
-           (`span (t--format-ts-span-time (concat t1 "--" t2) info))
-           (`time (t--format-ts-time timestamp (list t1 t2) info))
-           (_ (t-error "Unknown timestamp wrapper: %s" wrap)))))
+       (list (t--call-with-invalid-time-spec-handler
+              #'org-format-timestamp timestamp fmt)
+             (t--call-with-invalid-time-spec-handler
+              #'org-format-timestamp timestamp fmt t)))
       (_ (t-error "Unknown timestamp type: %s" type)))))
 
-(defun t--format-timestamp-org (timestamp info)
-  "Format TIMESTAMP like `org-timestamp-translate'.
+(defun t--timestamp-split-range (timestamp text)
+  "Split TEXT into one or two parts according to TIMESTAMP's type.
 
-TIMESTAMP is an Org timestamp object.  INFO is the info plist.
-When `org-display-custom-times' is nil, fall back to `int'
-formatting.  Return the formatted timestamp string."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (if (not org-display-custom-times)
-      (t--format-timestamp-int timestamp info)
-    (let ((fmt (org-time-stamp-format
-                (org-timestamp-has-time-p timestamp)
-                nil 'custom)))
-      (t--format-timestamp-fix timestamp fmt info))))
-
-(defun t--format-timestamp-cus (timestamp info)
-  "Format TIMESTAMP according to custom formats.
-
-TIMESTAMP is an Org timestamp object.  INFO is the info plist.
-The format string must be enclosed in [], <>, or {}; curly
-braces indicate no enclosing brackets.  Return the formatted
-timestamp string."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (let* ((re (rx string-start
-                 (or (seq "[" (*? anything) "]")
-                     (seq "{" (*? anything) "}")
-                     (seq "<" (*? anything) ">"))
-                 string-end))
-         (fmts (t--pget info :html-timestamp-formats))
-         (fmt (and (consp fmts)
-                   (if (org-timestamp-has-time-p timestamp)
-                       (cdr fmts) (car fmts)))))
-    (unless (and (stringp fmt) (string-match-p re fmt))
-      (t-error "Invalid custom timestamp format: %s" fmts))
-    (let ((fmt (if (/= (aref fmt 0) ?\{) fmt (substring fmt 1 -1))))
-      (t--format-timestamp-fix timestamp fmt info))))
-
-(defun t-timestamp-default-format-function (timestamp _info)
-  "Return the HTML-escaped raw value of TIMESTAMP.
-
-TIMESTAMP is an Org timestamp object; a missing `:raw-value' defaults
-to \"\".  INFO is unused.  This is the default value of
-`org-w3ctr-timestamp-format-function'."
-  (declare (ftype (function (t t) string))
+When TIMESTAMP is an `active-range' or `inactive-range' and TEXT
+contains \"--\", return the two halves around the first \"--\".
+Otherwise return a one-element list containing TEXT."
+  (declare (ftype (function (t string) list))
            (pure t) (important-return-value t))
-  (t--encode-plain-text
-   (or (org-element-property :raw-value timestamp) "")))
+  (if-let* (((memq (org-element-property :type timestamp)
+                   '(active-range inactive-range)))
+            (pos (string-search "--" text)))
+      (list (substring text 0 pos) (substring text (+ pos 2)))
+    (list text)))
 
-(defun t--format-timestamp-fun (timestamp info)
-  "Format TIMESTAMP using INFO's `:html-timestamp-format-function'.
+(defun t--timestamp-parts (timestamp info)
+  "Return the display text parts for TIMESTAMP under INFO.
 
-TIMESTAMP is an Org timestamp object and INFO the info plist.  Call
-the function with TIMESTAMP and INFO and return its string result;
-signal `org-w3ctr-error' when the option is not a function or does
-not return a string."
+Return a list of one string for a single timestamp (or a same-day
+time range in `raw' or default Org form), or two strings for a
+range.  Formatting follows INFO's `:html-timestamp-formats':
+- `raw': use TIMESTAMP's `:raw-value' property;
+- nil: follow Org's default formatting (respecting
+  `org-display-custom-times');
+- (DATE-FMT . DATETIME-FMT): format via `org-format-timestamp'.
+
+Signal `org-w3ctr-error' on an invalid `:html-timestamp-formats'
+value."
+  (declare (ftype (function (t list) list))
+           (important-return-value t))
+  (let ((fmts (t--pget info :html-timestamp-formats)))
+    (cond
+     ((eq fmts 'raw)
+      (t--timestamp-split-range
+       timestamp (or (org-element-property :raw-value timestamp) "")))
+     ((null fmts)
+      (if org-display-custom-times
+          (t--timestamp-format-parts
+           timestamp
+           (org-time-stamp-format
+            (org-timestamp-has-time-p timestamp) nil 'custom))
+        (t--timestamp-split-range
+         timestamp (t--interpret-timestamp timestamp))))
+     ((consp fmts)
+      (let ((fmt (if (org-timestamp-has-time-p timestamp)
+                     (cdr fmts) (car fmts))))
+        (unless (stringp fmt)
+          (t-error "Invalid timestamp formats: %s" fmts))
+        (t--timestamp-format-parts timestamp fmt)))
+     (t (t-error "Invalid timestamp formats: %s" fmts)))))
+
+(defun t-timestamp-default-format-function (timestamp info)
+  "Format TIMESTAMP into HTML under INFO.
+
+A `diary' timestamp is exported as plain text without a <time>
+wrapper (using `:raw-value' when `:html-timestamp-formats' is
+`raw', else `org-w3ctr--interpret-timestamp').  Any other
+timestamp is wrapped in one or two <time datetime=\"...\">
+elements, joined by \"--\" (or an en dash when
+`:with-special-strings' is non-nil).
+
+This is the default value of `org-w3ctr-timestamp-format-function'."
   (declare (ftype (function (t list) string))
+           (important-return-value t))
+  (if (eq (org-element-property :type timestamp) 'diary)
+      (t-plain-text
+       (if (eq (t--pget info :html-timestamp-formats) 'raw)
+           (or (org-element-property :raw-value timestamp) "")
+         (t--interpret-timestamp timestamp))
+       info)
+    (pcase (t--timestamp-parts timestamp info)
+      (`(,s1)
+       (concat "<time" (t--format-ts-datetime timestamp info) ">"
+               (t-plain-text s1 info) "</time>"))
+      (`(,s1 ,s2)
+       (concat "<time" (t--format-ts-datetime timestamp info) ">"
+               (t-plain-text s1 info) "</time>"
+               (if (t--pget info :with-special-strings) "&#x2013;" "--")
+               "<time" (t--format-ts-datetime timestamp info t) ">"
+               (t-plain-text s2 info) "</time>")))))
+
+(defun t-timestamp (timestamp _contents info)
+  "Transcode a TIMESTAMP object from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
+
+Call INFO's `:html-timestamp-format-function' with TIMESTAMP and
+INFO and return its string result.  Signal `org-w3ctr-error' when
+the option is not a function or does not return a string."
+  (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let ((fun (t--pget info :html-timestamp-format-function)))
     (unless (functionp fun)
@@ -5830,30 +5622,6 @@ not return a string."
       (unless (stringp out)
         (t-error "Timestamp format function returned a non-string: %S" out))
       out)))
-
-(defun t-timestamp (timestamp _contents info)
-  "Transcode a TIMESTAMP object from Org to HTML.
-CONTENTS is nil.  INFO is the info plist.
-
-Return the formatted timestamp string.  A `diary' timestamp goes
-through `org-w3ctr--format-timestamp-diary'; any other dispatches on
-INFO's `:html-timestamp-option' (`raw', `int', `fmt', `cus', `org',
-or `fun'), signaling `org-w3ctr-error' on an unknown value."
-  (declare (ftype (function (t t list) string))
-           (important-return-value t))
-  (let ((type (org-element-property :type timestamp)))
-    (if (eq type 'diary)
-        (t--format-timestamp-diary timestamp info)
-      (let* ((option (t--pget info :html-timestamp-option))
-             (fun (pcase option
-                    (`raw #'t--format-timestamp-raw)
-                    (`int #'t--format-timestamp-int)
-                    (`fmt #'t--format-timestamp-fmt)
-                    (`cus #'t--format-timestamp-cus)
-                    (`org #'t--format-timestamp-org)
-                    (`fun #'t--format-timestamp-fun)
-                    (o (t-error "Unknown timestamp option: %s" o)))))
-        (funcall fun timestamp info)))))
 
 ;;;; Link
 
@@ -7424,9 +7192,8 @@ usable string value, or when the value is of any other type."
   "Return the document date from INFO, rendered by the back end.
 
 INFO is the export options plist.  The date is the single Org timestamp
-in the `:date' option, rendered by `org-w3ctr--format-timestamp-int';
-return nil when `:date' is missing, malformed, or holds more than one
-timestamp.
+in the `:date' option, rendered by `org-w3ctr-timestamp'; return nil
+when `:date' is missing, malformed, or holds more than one timestamp.
 
 Unlike the %d format code, which renders only the start of a range with
 `org-w3ctr-metadata-timestamp-format', this renders the whole timestamp
@@ -7436,7 +7203,7 @@ in the back-end's own style."
   (when-let* ((date (t--pget info :date))
               (_ (and (proper-list-p date) (null (cdr date))))
               (_ (org-element-type-p (car date) 'timestamp)))
-    (t--format-timestamp-int (car date) info)))
+    (t-timestamp (car date) nil info)))
 
 (defun t--get-info-mtime (info)
   "Return the input file's modification time as an ISO UTC string.
