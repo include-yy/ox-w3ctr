@@ -5646,7 +5646,7 @@ and must return non-nil when that link counts as an image.
 Links nested inside another link's description are not visited, so
 only the top-level links are counted."
   (declare (ftype (function (list function) boolean))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (let ((link-count 0)
         (clean t))
     (org-element-map objects
@@ -5667,7 +5667,7 @@ only the top-level links are counted."
 The description may hold only white space and one link, and that link
 must match RULES (see `org-w3ctr-inline-image-rules')."
   (declare (ftype (function (t list) boolean))
-           (pure t) (important-return-value t))
+           (important-return-value t))
   (t--sole-image-link-p
    (org-element-contents link)
    (lambda (obj) (org-export-inline-image-p obj rules))))
@@ -5755,8 +5755,8 @@ RAW-PATH unchanged."
   (declare (ftype (function (string list) string))
            (important-return-value t))
   (if-let* ((_ (t--pget info :html-link-org-files-as-html))
-            (src-ext (downcase (file-name-extension raw-path ".")))
-            (_ (string= ".org" src-ext)))
+            (src-ext (file-name-extension raw-path "."))
+            (_ (string= ".org" (downcase src-ext))))
       (let* ((ext (t--pget info :html-extension))
              (dot (if (string-empty-p ext) "" ".")))
         (concat (file-name-sans-extension raw-path) dot ext))
@@ -5777,7 +5777,7 @@ encoding."
     (if (not (string= "file" type))
         (url-encode-url (concat type ":" raw-path))
       ;; Relative path resolution uses `org-publish-file-relative-name'
-      ;; (see the ox-publish non-goal in README.org); ox-html's
+      ;; (see the ox-publish non-goal in TODO.org); ox-html's
       ;; `:html-link-home' / `:html-link-use-abs-url' rewriting is
       ;; deliberately omitted.
       (let* ((raw-path (org-publish-file-relative-name raw-path info))
@@ -5898,6 +5898,12 @@ DESC is the link description, or nil.  INFO is the info plist."
                   "headline and link to it with [[file:other.org::#custom-id]]"
                   ", or set `org-w3ctr-honor-ox-external-links' to non-nil.")
           (org-element-property :raw-link link))))
+      (`nil
+       ;; Fuzzy link points nowhere.
+       (format "<i>%s</i>"
+               (or desc
+                   (org-export-data
+                    (org-element-property :raw-link link) info))))
       (`headline (t--link-to-headline destination desc info))
       ;; Equation links (`org-w3ctr--link-equation') were removed: a link
       ;; to a `latex-environment' falls through to `org-w3ctr--link-target'

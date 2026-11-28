@@ -7321,7 +7321,9 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (t--link-org-files-as-html "foo.ORG" info) "foo.html")
     ($l (t--link-org-files-as-html "dir/foo.org" info) "dir/foo.html")
     ($l (t--link-org-files-as-html "foo.org.gpg" info) "foo.org.gpg")
-    ($l (t--link-org-files-as-html "foo.txt" info) "foo.txt"))
+    ($l (t--link-org-files-as-html "foo.txt" info) "foo.txt")
+    ($l (t--link-org-files-as-html "Makefile" info) "Makefile")
+    ($l (t--link-org-files-as-html "dir/README" info) "dir/README"))
   ($l (t--link-org-files-as-html
        "foo.org" '(:html-link-org-files-as-html t :html-extension ""))
       "foo")
@@ -7360,7 +7362,8 @@ COUNTER, a cons cell, has its car incremented on every call."
                           "other.org" opt)))))
   ;; Compatibility mode resolves through org-publish.
   (let* ((link (with-temp-buffer
-                 (org-mode) (insert "[[file:other.org::*heading]]") (t-parse1 'link)))
+                 (org-mode) (insert "[[file:other.org::*heading]]")
+                 (t-parse1 'link)))
          (info (list :html-honor-ox-external-links t
                      :html-link-org-files-as-html t :html-extension "html")))
     (cl-letf (((symbol-function 'org-publish-resolve-external-link)
@@ -7368,7 +7371,12 @@ COUNTER, a cons cell, has its car incremented on every call."
                  ($l option "*heading")
                  ($l path "other.org")
                  "FRAG")))
-      ($l (t--link-path link info) "other.html#FRAG"))))
+      ($l (t--link-path link info) "other.html#FRAG")))
+  ;; Non-file links get their protocol prefix and URL encoding.
+  (let ((link (with-temp-buffer
+                (org-mode) (insert "[[https://example.com/a b]]")
+                (t-parse1 'link))))
+    ($l (t--link-path link nil) "https://example.com/a%20b")))
 
 (ert-deftest t--link-radio ()
   "Tests for `org-w3ctr--link-radio'."
@@ -7388,7 +7396,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   (let ((out (org-export-string-as
               "* Hidden :noexport:\n<<<r>>>\n* Shown\nSee r here."
               'w3ctr t)))
-    (should (string-match-p "<p>See r here\\.</p>" out))))
+    ($s (string-match-p "<p>See r here\\.</p>" out))))
 
 (ert-deftest t--link-to-file ()
   "Tests for `org-w3ctr--link-to-file'."
@@ -7405,21 +7413,22 @@ COUNTER, a cons cell, has its car incremented on every call."
   ;; Numbered headline without DESC uses the dotted section number;
   ;; unnumbered headline without DESC uses the exported title.
   (let ((out (org-export-string-as
-              "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: h\n:END:\n\n[[#h]] and [[#h][go]]"
+              ($c "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: h\n:END:\n\n"
+                  "[[#h]] and [[#h][go]]")
               'w3ctr t '(:section-numbers t))))
-    (should (string-match-p "<a href=\"#h\">1</a> and <a href=\"#h\">go</a>"
-                            out)))
+    ($s (string-match-p "<a href=\"#h\">1</a> and <a href=\"#h\">go</a>"
+                        out)))
   (let ((out (org-export-string-as
-              "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: h-unnum\n:END:\n\n[[#h-unnum]]"
+              ($c "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: h-unnum\n:END:\n\n"
+                  "[[#h-unnum]]")
               'w3ctr t '(:section-numbers nil))))
-    (should (string-match-p "<a href=\"#h-unnum\"><b>Head</b></a>"
-                            out)))
+    ($s (string-match-p "<a href=\"#h-unnum\"><b>Head</b></a>"
+                        out)))
   ;; Invalid CUSTOM_ID is rejected by `org-w3ctr--check-id'.
-  (should-error
-   (org-export-string-as
-    "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: a\"&b\n:END:\n\n[[#a\"&b]]"
-    'w3ctr t '(:section-numbers nil))
-   :type 'org-w3ctr-error))
+  ($e! (org-export-string-as
+        "* *Head*\n:PROPERTIES:\n:CUSTOM_ID: a\"&b\n:END:\n\n[[#a\"&b]]"
+        'w3ctr t '(:section-numbers nil))
+       'org-w3ctr-error))
 
 (ert-deftest t--link-target ()
   "Tests for `org-w3ctr--link-target'."
@@ -7458,8 +7467,7 @@ COUNTER, a cons cell, has its car incremented on every call."
                  (org-mode) (insert "[[id:xyz]]") (t-parse1 'link)))
          (info (list :html-honor-ox-external-links nil
                      :id-alist '(("xyz" . "other.org")))))
-    ($q (car (should-error (t--link-dispatch link nil info)))
-        'org-w3ctr-error))
+    ($e! (t--link-dispatch link nil info) 'org-w3ctr-error))
   ;; Compatibility mode builds the ID- fragment via t--link-to-file.
   (let* ((link (with-temp-buffer
                  (org-mode) (insert "[[id:xyz]]") (t-parse1 'link)))
@@ -7467,7 +7475,13 @@ COUNTER, a cons cell, has its car incremented on every call."
                      :html-link-org-files-as-html t :html-extension "html"
                      :id-alist '(("xyz" . "other.org")))))
     ($l (t--link-dispatch link "desc" info)
-        "<a href=\"other.html#ID-xyz\">desc</a>")))
+        "<a href=\"other.html#ID-xyz\">desc</a>"))
+  ;; Unresolved nil destination emits italicized text (matching ox-html).
+  (cl-letf (((symbol-function 'org-export-resolve-fuzzy-link)
+             (lambda (_l _i) nil)))
+    (let ((out (org-export-string-as
+                "[[missing]] and [[missing][desc]]" 'w3ctr t)))
+      ($s (string-match-p "<i>missing</i> and <i>desc</i>" out)))))
 
 (ert-deftest t--link-coderef ()
   "Tests for `org-w3ctr--link-coderef'."
@@ -7491,8 +7505,8 @@ COUNTER, a cons cell, has its car incremented on every call."
               ($c "#+attr__: (id \"a&b\")\n#+begin_example\nx (ref:sc)\n"
                   "#+end_example\n\nSee [[(sc)]].")
               'w3ctr t)))
-    (should (string-match-p
-             "<a href=\"#a&amp;b\" class=\"coderef\">sc</a>" out)))
+    ($s (string-match-p
+         "<a href=\"#a&amp;b\" class=\"coderef\">sc</a>" out)))
   ;; A dangling label signals with its name.
   ($e!l (t--link-coderef "nope" nil '(:parse-tree nil))
         '(org-w3ctr-error "No example or source block defines (ref:nope)"))
@@ -7513,11 +7527,11 @@ COUNTER, a cons cell, has its car incremented on every call."
          (id (and (string-match
                    "<div id=\"\\(org[0-9a-f]+\\)\" class=\"example\">" out)
                   (match-string 1 out))))
-    (should id)
-    (should (string-match-p
-             ($c "<a href=\"#" (regexp-quote id)
-                 "\" class=\"coderef\">sc</a>")
-             out))))
+    ($s id)
+    ($s (string-match-p
+         ($c "<a href=\"#" (regexp-quote id)
+             "\" class=\"coderef\">sc</a>")
+         out))))
 
 (ert-deftest t--link-external ()
   "Tests for `org-w3ctr--link-external'."
@@ -7545,6 +7559,10 @@ COUNTER, a cons cell, has its car incremented on every call."
         "<a href=\"a&quot;b.html\">go</a>")
        ("[[file:img.png]]"
         "<img src=\"img.png\" alt=\"img.png\">")
+       ;; Clickable image (nested image link in description).
+       ("[[https://example.com][file:img.png]]"
+        "<a href=\"https://example.com\"><img src=\"img.png\" alt=\"img.png\"></a>"
+        "<img src=\"img.png\" alt=\"img.png\">")
        ;; Custom ID link to a headline.
        ("* Head\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n\nSee [[#custom]]."
         "<a href=\"#custom\">1</a>")
@@ -7561,7 +7579,8 @@ COUNTER, a cons cell, has its car incremented on every call."
        ;; label, so the block is the addressable unit.
        ("#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\nSee [[(sc)]]."
         "<a href=\"#ex\" class=\"coderef\">sc</a>")
-       ("#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\nSee [[(sc)][line (sc)]]."
+       ("#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\n\
+See [[(sc)][line (sc)]]."
         "<a href=\"#ex\" class=\"coderef\">line sc</a>")
        ;; A source block is a target too.
        ("#+name: ex\n#+begin_src text\nx (ref:sc)\n#+end_src\n\nSee [[(sc)]]."
