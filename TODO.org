@@ -142,15 +142,6 @@ string options with =*-function= ones.  Known divergences to chart:
   gets =class="example"= only when the author supplies no attributes
   (the class positions the self-link and hosts the caption box).
 
-*** Coderef label validation asymmetry                       :coderef:link:
-
-=org-w3ctr--link-coderef= rejects labels outside =[-a-zA-Z0-9_]+= with
-=org-w3ctr-error=, whereas =org-w3ctr--coderef-labels= accepts any
-label matched by =org-w3ctr--coderef-regexp= (e.g. =(ref:my label)=)
-and gives its block an id even though no =[[(...)]]= link can
-reference it.  Decide whether to validate at definition time too when
-revisiting =link=.
-
 *** Descriptionless internal links                                   :link:
 
 =org-w3ctr--link-to-headline= synthesizes the section number (or

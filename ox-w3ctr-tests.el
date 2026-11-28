@@ -4084,7 +4084,10 @@ cookie-less column is remembered as the `none' marker."
           '("a"))
       ;; Source blocks are scanned the same way.
       ($l (f "#+begin_src text\nx (ref:sc)\n#+end_src" 'src-block)
-          '("sc")))
+          '("sc"))
+      ;; Labels outside `[-a-zA-Z0-9_]+' fail loudly at definition time.
+      ($e!l (f "#+begin_example\nx (ref:my label)\n#+end_example" 'example-block)
+            '(org-w3ctr-error "Invalid code reference label: my label")))
     ;; A synthetic element with nil `:value' has no labels.
     ($n (t--coderef-labels '(example-block nil)))))
 

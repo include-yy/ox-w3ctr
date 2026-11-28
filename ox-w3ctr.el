@@ -3775,12 +3775,21 @@ format is ELEMENT's own (see `org-w3ctr--coderef-regexp')."
                     line))
                 (split-string code "\n") "\n"))))
 
+(defconst t--coderef-label-regexp "\\`[-a-zA-Z0-9_]+\\'"
+  "Regular expression matching a valid code-reference label.
+
+An HTML id cannot hold white space, while Org's label regexp
+allows it (as in `(ref:my label)').  Shared by definition-side
+scanning (`org-w3ctr--coderef-labels') and link resolution
+\(`org-w3ctr--link-coderef').")
+
 (defun t--coderef-labels (element)
   "Return the code-reference labels defined in ELEMENT, in order.
 
 ELEMENT is a `src-block' or an `example-block'.  A label that occurs
 on several lines is returned once.  The label format is ELEMENT's own
-\(see `org-w3ctr--coderef-regexp')."
+\(see `org-w3ctr--coderef-regexp').  Signal `org-w3ctr-error' when a
+label does not match `org-w3ctr--coderef-label-regexp'."
   (declare (ftype (function (t) list))
            (important-return-value t))
   (let ((regexp (t--coderef-regexp element))
@@ -3789,7 +3798,10 @@ on several lines is returned once.  The label format is ELEMENT's own
     (dolist (line (split-string
                    (or (org-element-property :value element) "") "\n"))
       (when (string-match regexp line)
-        (push (match-string 3 line) labels)))
+        (let ((label (match-string 3 line)))
+          (unless (string-match-p t--coderef-label-regexp label)
+            (t-error "Invalid code reference label: %s" label))
+          (push label labels))))
     (delete-dups (nreverse labels))))
 
 (defun t--coderef-table (info)
@@ -5912,9 +5924,7 @@ link text is LABEL, or DESC with `(LABEL)' replaced by it (see
 LABEL cannot be an id, or when no block defines it."
   (declare (ftype (function (string (or null string) list) string))
            (important-return-value t))
-  ;; An HTML id cannot hold white space, while Org's label regexp
-  ;; allows it (as in `(ref:my label)').
-  (unless (string-match-p "\\`[-a-zA-Z0-9_]+\\'" label)
+  (unless (string-match-p t--coderef-label-regexp label)
     (t-error "Invalid code reference label: %s" label))
   (let ((block (or (t--coderef-block label info)
                    (t-error "No example or source block defines (ref:%s)"
