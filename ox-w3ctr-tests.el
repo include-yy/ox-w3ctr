@@ -6767,8 +6767,10 @@ COUNTER, a cons cell, has its car incremented on every call."
           (setq-local t-timezone "local" t-export-timezone nil)
           (funcall set-tz 't-timezone "UTC+8")
           ($l (default-value 't-timezone) "UTC+8")
-          (funcall set-extz 't-export-timezone "-0500")
-          ($l (default-value 't-export-timezone) "-0500")
+          (funcall set-tz 't-timezone "  UTC+8  ")
+          ($l (default-value 't-timezone) "  UTC+8  ")
+          (funcall set-extz 't-export-timezone " -0500 ")
+          ($l (default-value 't-export-timezone) " -0500 ")
           (funcall set-extz 't-export-timezone nil)
           ($n (default-value 't-export-timezone))
           (dolist (bad '(nil local 42 "WTF"))
@@ -6979,7 +6981,7 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (t--format-ts-datetime (nth 0 ts5) info)
         " datetime=\"2022-06-07\"")
     ($l (t--format-ts-datetime (nth 0 ts5) info t)
-        " datetime=\"2022-06-08\"")
+        " datetime=\"2022-06-08T13:00Z\"")
     ($l (t--format-ts-datetime (nth 0 ts6) info)
         " datetime=\"2022-06-07T01:00Z\"")
     ($l (t--format-ts-datetime (nth 0 ts6) info t)
@@ -7063,6 +7065,9 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (t--timestamp-format-parts
          (f "<2011-11-18 06:54>--[2011-11-18 14:54]") "%F %R")
         '("2011-11-18 06:54" "2011-11-18 14:54"))
+    ($l (t--timestamp-format-parts
+         (f "<2022-06-07>--<2022-06-08 21:00>") "%F" "%F %R")
+        '("2022-06-07" "2022-06-08 21:00"))
     ($e!l (t--timestamp-format-parts
            '(timestamp (:type diary)) "%F")
           '(org-w3ctr-error "Unknown timestamp type: diary"))))
@@ -7120,14 +7125,19 @@ COUNTER, a cons cell, has its car incremented on every call."
       ($l (t--timestamp-parts (f "<2011-11-18 14:54>") info)
           '("[2011-11-18 14:54]"))
       ($l (t--timestamp-parts (f "[2011-11-18 06:54-14:54]") info)
-          '("[2011-11-18 06:54]" "[2011-11-18 14:54]")))
+          '("[2011-11-18 06:54]" "[2011-11-18 14:54]"))
+      ($l (t--timestamp-parts (f "<2022-06-07>--<2022-06-08 21:00>") info)
+          '("2022-06-07" "[2022-06-08 21:00]")))
     ;; Invalid `:html-timestamp-formats' signals `org-w3ctr-error'.
     ($e!l (t--timestamp-parts (f "[2011-11-18]")
                               '(:html-timestamp-formats bogus))
           '(org-w3ctr-error "Invalid timestamp formats: bogus"))
     ($e!l (t--timestamp-parts (f "[2011-11-18]")
                               '(:html-timestamp-formats (123 . "%F %R")))
-          '(org-w3ctr-error "Invalid timestamp formats: (123 . %F %R)"))))
+          '(org-w3ctr-error "Invalid timestamp formats: (123 . %F %R)"))
+    ($e!l (t--timestamp-parts (f "[2011-11-18]")
+                              '(:html-timestamp-formats ("%F" . 123)))
+          '(org-w3ctr-error "Invalid timestamp formats: (%F . 123)"))))
 
 (ert-deftest t-timestamp-default-format-function ()
   "Tests for `org-w3ctr-timestamp-default-format-function'."
@@ -7337,6 +7347,9 @@ COUNTER, a cons cell, has its car incremented on every call."
        "foo.org" '(:html-link-org-files-as-html t :html-extension ""))
       "foo")
   ($l (t--link-org-files-as-html
+       "foo.org" '(:html-link-org-files-as-html t :html-extension nil))
+      "foo")
+  ($l (t--link-org-files-as-html
        "foo.org" '(:html-link-org-files-as-html nil :html-extension "html"))
       "foo.org"))
 
@@ -7471,7 +7484,7 @@ COUNTER, a cons cell, has its car incremented on every call."
          (info (list :html-honor-ox-external-links nil
                      :id-alist '(("xyz" . "other.org")))))
     ($e! (t--link-dispatch link nil info) 'org-w3ctr-error))
-  ;; Compatibility mode builds the ID- fragment via t--link-to-file.
+  ;; Compatibility mode builds the ID- fragment via org-w3ctr--link-to-file.
   (let* ((link (with-temp-buffer
                  (org-mode) (insert "[[id:xyz]]") (t-parse1 'link)))
          (info (list :html-honor-ox-external-links t

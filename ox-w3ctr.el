@@ -768,7 +768,7 @@ RFC 3339 (URL `https://datatracker.ietf.org/doc/html/rfc3339')."
   :set (lambda (symbol value)
          (let ((case-fold-search t))
            (unless (and (stringp value)
-                        (string-match-p t-timezone-regex value))
+                        (string-match-p t-timezone-regex (string-trim value)))
              (error "Invalid time zone designator: %s" value))
            (set-default symbol value)))
   :type 'string)
@@ -790,7 +790,8 @@ follow the same format rules as the option `org-w3ctr-timezone'."
          (when value
            (let ((case-fold-search t))
              (unless (and (stringp value)
-                          (string-match-p t-timezone-regex value))
+                          (string-match-p t-timezone-regex
+                                          (string-trim value)))
                (error "Invalid time zone designator: %s" value))))
          (set-default symbol value))
   :type '(choice (const nil) string))
@@ -5516,7 +5517,9 @@ suitable for an HTML <time> datetime attribute."
                 timestamp)))
     (format " datetime=\"%s\""
             (t--format-datetime
-             time info (not (org-timestamp-has-time-p timestamp))))))
+             time info
+             (not (org-element-property
+                   (if end :hour-end :hour-start) timestamp))))))
 
 (defun t--interpret-timestamp (timestamp)
   "Interpret an Org TIMESTAMP object with improved error reporting.
@@ -5533,13 +5536,14 @@ inserts trailing spaces when the timestamp is followed by space."
        #'org-element-timestamp-interpreter timestamp :nothing)
       (t-error "Invalid timestamp start: %s" timestamp)))
 
-(defun t--timestamp-format-parts (timestamp fmt)
+(defun t--timestamp-format-parts (timestamp fmt &optional end-fmt)
   "Format TIMESTAMP with format string FMT into one or two strings.
 
 Single timestamps (`active', `inactive') return a one-element list;
 range timestamps (`active-range', `inactive-range') return a
-two-element list.  Signal `org-w3ctr-error' on any other type."
-  (declare (ftype (function (t string) list))
+two-element list, using END-FMT (defaulting to FMT) for the end.
+Signal `org-w3ctr-error' on any other type."
+  (declare (ftype (function (t string &optional (or null string)) list))
            (important-return-value t))
   (let ((type (org-element-property :type timestamp)))
     (pcase type
@@ -5550,7 +5554,7 @@ two-element list.  Signal `org-w3ctr-error' on any other type."
        (list (t--call-with-invalid-time-spec-handler
               #'org-format-timestamp timestamp fmt)
              (t--call-with-invalid-time-spec-handler
-              #'org-format-timestamp timestamp fmt t)))
+              #'org-format-timestamp timestamp (or end-fmt fmt) t)))
       (_ (t-error "Unknown timestamp type: %s" type)))))
 
 (defun t--timestamp-split-range (timestamp text)
@@ -5592,15 +5596,20 @@ value."
           (t--timestamp-format-parts
            timestamp
            (org-time-stamp-format
-            (org-timestamp-has-time-p timestamp) nil 'custom))
+            (org-element-property :hour-start timestamp) nil 'custom)
+           (org-time-stamp-format
+            (org-element-property :hour-end timestamp) nil 'custom))
         (t--timestamp-split-range
          timestamp (t--interpret-timestamp timestamp))))
      ((consp fmts)
-      (let ((fmt (if (org-timestamp-has-time-p timestamp)
-                     (cdr fmts) (car fmts))))
-        (unless (stringp fmt)
-          (t-error "Invalid timestamp formats: %s" fmts))
-        (t--timestamp-format-parts timestamp fmt)))
+      (unless (and (stringp (car fmts)) (stringp (cdr fmts)))
+        (t-error "Invalid timestamp formats: %s" fmts))
+      (t--timestamp-format-parts
+       timestamp
+       (if (org-element-property :hour-start timestamp)
+           (cdr fmts) (car fmts))
+       (if (org-element-property :hour-end timestamp)
+           (cdr fmts) (car fmts))))
      (t (t-error "Invalid timestamp formats: %s" fmts)))))
 
 (defun t-timestamp-default-format-function (timestamp info)
@@ -5737,7 +5746,7 @@ enabled (`:html-inline-images') and:
   is a link that qualifies as an inline image; or
 - its type is `link' and its containing paragraph has no other
   content save white space."
-  (declare (ftype (function (t list &optional t) t))
+  (declare (ftype (function (t list &optional (or null function)) boolean))
            (important-return-value t))
   (let ((paragraph (pcase (org-element-type element)
                      (`paragraph element)
@@ -5784,7 +5793,7 @@ RAW-PATH unchanged."
   (if-let* ((_ (t--pget info :html-link-org-files-as-html))
             (src-ext (file-name-extension raw-path "."))
             (_ (string= ".org" (downcase src-ext))))
-      (let* ((ext (t--pget info :html-extension))
+      (let* ((ext (or (t--pget info :html-extension) ""))
              (dot (if (string-empty-p ext) "" ".")))
         (concat (file-name-sans-extension raw-path) dot ext))
     raw-path))
@@ -5792,11 +5801,11 @@ RAW-PATH unchanged."
 (defun t--link-path (link info)
   "Return the URL string for LINK under INFO.
 
-INFO is the info plist.  A file link becomes a \"file:\" URI (relative
-during publishing), with its \".org\" extension rewritten to
-`:html-extension' (usually \".html\") when requested, and any search
-option appended.  Other link types get their \"TYPE:\" prefix and URL
-encoding."
+INFO is the info plist.  A file link keeps a relative path or becomes
+a \"file://\" URI (see `org-export-file-uri'), with its \".org\"
+extension rewritten to `:html-extension' (default \"html\") when
+requested, and any search option appended.  Other link types get their
+\"TYPE:\" prefix and URL encoding."
   (declare (ftype (function (t list) string))
            (important-return-value t))
   (let ((type (org-element-property :type link))
@@ -5972,8 +5981,9 @@ itself is attribute-escaped for `href'."
   "Transcode a LINK object from Org to HTML.
 DESC is the link description (or nil).  INFO is the info plist.
 
-Return an <img> element for an inline image link, or an <a> element
-\(or plain text for an unexported radio target) after dispatching on
+Return an <img> element for an inline image link, a custom protocol's
+string when matched, or an <a> element (or plain text for an unexported
+radio target, or <i> for an unresolved fuzzy link) after dispatching on
 LINK's protocol and `:type'."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
