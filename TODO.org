@@ -312,6 +312,18 @@ From the 0.2.18 review (not urgent): only if profiling flags the
 font-lock engine, memoize =org-w3ctr--font-lock-face-slug= per export
 (the state already has the =(cache . shiki-languages)= pattern).
 
+*** Fontify palette hue differentiation                       :fontify:css:
+
+In =org-w3ctr-fontify-palette=, the slugs =m= (constant), =v=
+(variable), =o=, and =n= (number) currently share the exact same blue
+(=#0550ae= light / =#79c0ff= dark), and =s= (string) is also a blue
+shade.  The palette is intentionally restrained and passes WCAG AA
+4.5:1 on all six code backgrounds, so this is low-priority; if numeric
+literals and variables feel too similar in dense expressions, nudge
+=n= (or =s=) to a distinct hue that still passes
+=org-w3ctr--fontify-stylesheet-shipped=, then regenerate via
+=org-w3ctr-fontify-update-stylesheet=.
+
 *** Other transcoders take CONTENTS as =string= with no nil guard  :blocks:
 
 ox.el prunes math under =tex:nil=, so an element whose only content
