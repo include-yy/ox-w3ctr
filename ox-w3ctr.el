@@ -623,12 +623,17 @@ highlighting setup."
 ;;;; Fontify shiki engine
 (defcustom t-fontify-shiki-timeout 10
   "Seconds the `shiki' engine waits for the helper's answer.
+Must be a positive number, or nil to use the helper's default timeout.
 A request that takes longer counts as a failure of the engine (see
 `org-w3ctr-fontify-on-error'), which is then not used again in that
 export.  The first request of a session also starts the helper
 process and loads Shiki."
   :group 'org-export-w3ctr
-  :type 'number)
+  :type '(choice (const :tag "Helper default" nil)
+                 (restricted-sexp
+                  :tag "Positive number"
+                  :match-alternatives
+                  ((lambda (v) (and (numberp v) (> v 0)))))))
 
 ;;;; Fontify dispatcher
 (defcustom t-fontify-method 'font-lock
@@ -4008,8 +4013,9 @@ by `eq'."
   (declare (ftype (function ((or null string) list) list))
            (important-return-value t))
   (let* ((state (t--pget info :html-fontify-state))
-         (alist (t--pget info :html-fontify-lang-alist)))
-    (unless (and state (eq (gethash '(cache . lang-alist) state :miss) alist))
+         (alist (t--pget info :html-fontify-lang-alist))
+         (cached (and state (gethash '(cache . lang-alist) state))))
+    (unless (and cached (eq (car cached) alist))
       (unless (proper-list-p alist)
         (t-error "Fontify language alist must be a list: %S" alist))
       (dolist (entry alist)
@@ -4022,7 +4028,7 @@ by `eq'."
                        (or (null name) (t--nw-p name))))
           (t-error "Malformed fontify language entry: %S" entry)))
       (when state
-        (puthash '(cache . lang-alist) alist state)))
+        (puthash '(cache . lang-alist) (cons alist t) state)))
     (and lang (cdr (assoc lang alist)))))
 
 (defun t--fontify-check-tokens (tokens code engine info)
@@ -4112,7 +4118,7 @@ unwrapped.  The result has no wrapper element."
 ;; - (warned . (EVENT . KEY))  -> count; deduplicates per-export warnings
 ;; - (cache . face-table)      -> (EXTRA FACES TABLE)
 ;; - (cache . slugs)           -> (TABLE . SLUGS)
-;; - (cache . lang-alist)      -> validated `:html-fontify-lang-alist'
+;; - (cache . lang-alist)      -> (ALIST . t); validated `:html-fontify-lang-alist'
 ;; - (cache . shiki-languages) -> list of language names from the helper
 
 (defvar t--fontify-last-state nil
@@ -4135,11 +4141,14 @@ language leaves this alone.  See `org-w3ctr--fontify-state'.")
 (defun t--fontify-state (info)
   "Return the fontify state of the export INFO, creating it if needed.
 
-INFO is the info plist; it must be non-empty, since a new state is
-stored in it under `:html-fontify-state' and a nil plist cannot keep
-it.  A new state is also made `org-w3ctr--fontify-last-state'."
+INFO is the info plist; it must be non-empty (otherwise signal
+`org-w3ctr-error'), since a new state is stored in it under
+`:html-fontify-state' and a nil plist cannot keep it.  A new state is
+also made `org-w3ctr--fontify-last-state'."
   (declare (ftype (function (list) hash-table))
            (important-return-value t))
+  (unless (consp info)
+    (t-error "Fontify state requires a non-empty info plist"))
   (or (t--pget info :html-fontify-state)
       (setq t--fontify-last-state
             (t--pput info :html-fontify-state
@@ -4645,7 +4654,7 @@ grammar.  Signal `org-w3ctr-error' for an unknown
         (t--font-lock-in-buffer
          mode hooks reuse
          (lambda ()
-           (insert code)
+           (insert (substring-no-properties code))
            (font-lock-ensure)
            (set-buffer-modified-p nil)
            (t--font-lock-collect table fallback state)))))))
@@ -5136,17 +5145,21 @@ unless the author supplies attributes."
   "Transcode an INLINE-SRC-BLOCK object from Org to HTML.
 CONTENTS is nil.  INFO is the info plist.
 
-Return a single <code class=\"language-LANG\"> element (no
-nesting), with the code, a missing `:value' defaulting to \"\",
-fontified bare by `org-w3ctr-fontify-code'."
+Return a single <code class=\"language-LANG\"> element (or bare
+<code> when `:language' is nil, with no nesting), with the code, a
+missing `:value' defaulting to \"\", fontified bare by
+`org-w3ctr-fontify-code'."
   (declare (ftype (function (t t list) string))
            (important-return-value t))
   (let* ((lang (org-element-property :language inline-src-block))
          (code (t-fontify-code
                 (or (org-element-property :value inline-src-block) "")
                 lang info inline-src-block)))
-    (format "<code class=\"language-%s\">%s</code>"
-            (t--encode-plain-text* lang) code)))
+    (format "<code%s>%s</code>"
+            (if (not lang) ""
+              (format " class=\"language-%s\""
+                      (t--encode-plain-text* lang)))
+            code)))
 
 ;;; Objects
 
