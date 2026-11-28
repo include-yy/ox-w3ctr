@@ -1217,9 +1217,11 @@ repeated exports do not re-read the file; `org-w3ctr-clear-css' resets
 it.")
 
 (defcustom t-style nil
-  "CSS rules to be embedded directly into the exported HTML.
+  "Raw HTML style markup to embed directly in the exported <head>.
 
-When this string is not empty, it *takes precedence* over
+Write complete elements such as <style>...</style> or <link ...>;
+the string is inserted verbatim without wrapping.  When non-empty
+and not whitespace-only, it takes precedence over
 `org-w3ctr-style-file'."
   :group 'org-export-w3ctr
   :type '(choice string (const nil)))
