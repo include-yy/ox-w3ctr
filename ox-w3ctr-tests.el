@@ -7344,22 +7344,15 @@ COUNTER, a cons cell, has its car incremented on every call."
          (info (list :html-honor-ox-external-links nil
                      :html-link-org-files-as-html t :html-extension "html")))
     ($l (t--link-path link info) "other.html#cid"))
-  ;; Strict mode: *heading / untyped fuzzy -> org-w3ctr-error.
+  ;; Non-`#' search options (*heading, fuzzy, etc.) are ignored when
+  ;; `:html-honor-ox-external-links' is nil.
   (dolist (opt '("*heading" "fuzzy"))
     (let* ((link (with-temp-buffer
                    (org-mode) (insert (format "[[file:other.org::%s]]" opt))
                    (t-parse1 'link)))
            (info (list :html-honor-ox-external-links nil
                        :html-link-org-files-as-html t :html-extension "html")))
-      ($e!l (t--link-path link info)
-            (list 'org-w3ctr-error
-                  (format ($c "Cross-file link %S uses search option %S, "
-                              "which requires org-publish in compatibility "
-                              "mode.  Add a CUSTOM_ID to the target and "
-                              "use the #custom-id form, or set "
-                              "`org-w3ctr-honor-ox-external-links' to "
-                              "non-nil.")
-                          "other.org" opt)))))
+      ($l (t--link-path link info) "other.html")))
   ;; Compatibility mode resolves through org-publish.
   (let* ((link (with-temp-buffer
                  (org-mode) (insert "[[file:other.org::*heading]]")

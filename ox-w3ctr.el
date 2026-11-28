@@ -883,10 +883,11 @@ are resolved via `org-publish-resolve-external-link', which requires an
 org-publish project with a populated :crossrefs cache.  This matches
 ox-html behavior.
 
-When nil (strict mode), only the #custom-id form is accepted for
-cross-file links; any other search option (*heading, untyped fuzzy,
-radio-target, target) signals an error.  This removes the dependency on
-org-publish and enforces the use of explicit CUSTOM_ID properties.
+When nil, only the #custom-id form is preserved as a fragment for
+cross-file file: links (other search options such as *heading or
+untyped fuzzy are ignored, linking to the file without a fragment),
+and cross-file id: links signal an error.  This removes the dependency
+on org-publish and favors explicit CUSTOM_ID properties.
 
 In compatibility mode a cross-file link to an *unnamed* element resolves
 only when the target file is published before the linking file: the
@@ -5784,28 +5785,17 @@ encoding."
              (path (t--link-org-files-as-html
                     (org-export-file-uri raw-path) info))
              (option (org-element-property :search-option link)))
-        (if (not option) path
+        (cond
+         ((not option) path)
+         ((t--pget info :html-honor-ox-external-links)
+          ;; Compatibility mode: resolve via org-publish's :crossrefs
+          ;; cache, as ox-html does.
           (concat path "#"
-                  (if (t--pget info :html-honor-ox-external-links)
-                      ;; Compatibility mode: resolve via org-publish's
-                      ;; :crossrefs cache, as ox-html does.
-                      (org-publish-resolve-external-link
-                       option (org-element-property :path link) t)
-                    ;; Strict mode: only the #custom-id form is supported.
-                    ;; Signal an error for *heading, untyped fuzzy, and
-                    ;; target/radio forms; set org-w3ctr-honor-ox-external-links
-                    ;; to non-nil to use the org-publish path instead.
-                    (if (string-prefix-p "#" option)
-                        (substring option 1)
-                      (t-error
-                       (concat
-                        "Cross-file link %S uses search option %S, which "
-                        "requires org-publish in compatibility mode.  "
-                        "Add a CUSTOM_ID to the target and use the "
-                        "#custom-id form, or set "
-                        "`org-w3ctr-honor-ox-external-links' to non-nil.")
-                       (org-element-property :path link)
-                       option)))))))))
+                  (org-publish-resolve-external-link
+                   option (org-element-property :path link) t)))
+         ((string-prefix-p "#" option)
+          (concat path "#" (substring option 1)))
+         (t path))))))
 
 (defun t--link-radio (link desc info)
   "Transcode a radio target LINK with description DESC.
@@ -5856,13 +5846,13 @@ the info plist."
                       (org-element-property :title destination) info)))))
     (format "<a href=\"#%s\">%s</a>" href desc)))
 
-(defun t--link-target (desc info destination)
+(defun t--link-target (destination desc info)
   "Transcode a fuzzy link whose DESTINATION is a target or element.
 
 DESC is the link description, or nil (falling back to a fixed string).
 INFO is the info plist.  Signal `org-w3ctr-error' when DESTINATION
 emits no id."
-  (declare (ftype (function ((or null string) list t) string))
+  (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let ((id (t--element-id destination info)))
     (unless id
@@ -5909,7 +5899,7 @@ DESC is the link description, or nil.  INFO is the info plist."
       ;; to a `latex-environment' falls through to `org-w3ctr--link-target'
       ;; and signals `org-w3ctr-error' (wrap the equation in a named block,
       ;; place a `<<target>>' beside it, or use native TeX \label/\eqref).
-      (_ (t--link-target desc info destination)))))
+      (_ (t--link-target destination desc info)))))
 
 (defun t--link-coderef (label desc info)
   "Transcode the code-reference link [[(LABEL)]].
