@@ -6769,32 +6769,12 @@ COUNTER, a cons cell, has its car incremented on every call."
           (funcall set-extz 't-export-timezone nil)
           ($n (default-value 't-export-timezone))
           (dolist (bad '(nil local 42 "WTF"))
-            (should-error (funcall set-tz 't-timezone bad)))
+            ($e! (funcall set-tz 't-timezone bad)))
           (dolist (bad '(local 42 "WTF"))
-            (should-error (funcall set-extz 't-export-timezone bad))))
+            ($e! (funcall set-extz 't-export-timezone bad))))
       (set-default 't-timezone orig-tz)
       (set-default 't-export-timezone orig-extz))))
 
-
-(ert-deftest t-style-file-custom-set ()
-  "Tests for `org-w3ctr-style-file' custom setter."
-  (let ((setter (get 't-style-file 'custom-set))
-        (orig t-style-file)
-        (orig-cache t--style-cache))
-    (unwind-protect
-        (progn
-          (setq t--style-cache "cached")
-          (funcall setter 't-style-file nil)
-          ($n t-style-file)
-          ($n t--style-cache)
-          (setq t--style-cache "cached")
-          (funcall setter 't-style-file orig)
-          ($l t-style-file orig)
-          ($n t--style-cache)
-          (should-error
-           (funcall setter 't-style-file "relative/style.css")))
-      (setq t-style-file orig
-            t--style-cache orig-cache))))
 (ert-deftest t--timezone-to-offset ()
   "Tests for `org-w3ctr--timezone-to-offset'."
   ($it t--timezone-to-offset
@@ -6802,51 +6782,69 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (it "LOCAL") 'local)
     ($l (it "LoCaL") 'local)
     ($l (it "lOcAl") 'local)
+    ($l (it "UTC") 0)
+    ($l (it "GMT") 0)
+    ($l (it "utc") 0)
     ($l (it "UTC+8") (* 8 3600))
+    ($l (it "utc+8") (* 8 3600))
+    ($l (it "  UTC+8  ") (* 8 3600))
     ($l (it "UTC+08") 28800)
+    ($l (it "UTC+13") (* 13 3600))
+    ($l (it "UTC+14") (* 14 3600))
+    ($l (it "UTC-12") (* -12 3600))
     ($l (it "GMT-5") (* -5 3600))
+    ($l (it "gmt-5") (* -5 3600))
     ($l (it "+0530") (+ (* 5 3600) (* 30 60)))
     ($l (it "-0830") (+ (* -8 3600) (* -30 60)))
+    ($l (it "+1400") (* 14 3600))
+    ($l (it "-1200") (* -12 3600))
     ($n (it "+10"))
     ($n (it "-11"))
     ($n (it "INVALID"))
     ($n (it "UTC+123"))
     ($n (it "+12345"))
-    ($n (it "+1400"))
-    ($n (it "UTC+13"))
+    ($n (it "+1401"))
+    ($n (it "-1201"))
+    ($n (it "-1300"))
+    ($n (it "UTC+15"))
     ($n (it "UTC-13"))
-    ($n (it "+0860"))))
+    ($n (it "+0860"))
+    ;; Does not clobber the caller's match data.
+    (string-match "\\(foo\\)" "foo")
+    ($l (it "UTC+8") 28800)
+    ($l (match-string 1 "foo") "foo")))
 
 (ert-deftest t--get-info-timezone-offset ()
   "Tests for `org-w3ctr--get-info-timezone-offset'."
   ($it t--get-info-timezone-offset
-    (let ((info0 '(:html-timezone "local")))
-      ($l (it info0) 'local))
-    (let ((info1 '(:html-timezone 28800)))
+    (let ((info0 (list :html-timezone "local")))
+      ($l (it info0) 'local)
+      ($q (t--pget info0 :html-timezone) 'local))
+    (let ((info1 (list :html-timezone 28800)))
       ($l (it info1) 28800))
-    (let ((info2 '(:html-timezone -18000)))
+    (let ((info2 (list :html-timezone -18000)))
       ($l (it info2) -18000))
-    (let ((info3 '(:html-timezone "UTC+8")))
+    (let ((info3 (list :html-timezone "UTC+8")))
       ($l (it info3) 28800)
       ($s (numberp (t--pget info3 :html-timezone)))
       ($l (t--pget info3 :html-timezone) 28800))
-    (let ((info4 '(:html-timezone "-0500")))
+    (let ((info4 (list :html-timezone "-0500")))
       ($l (it info4) -18000)
       ($s (numberp (t--pget info4 :html-timezone)))
       ($l (t--pget info4 :html-timezone) -18000))
-    (let ((info5 '(:html-timezone "UTC+0")))
+    (let ((info5 (list :html-timezone "UTC+0")))
       ($l (it info5) 0)
       ($l (t--pget info5 :html-timezone) 0))
-    (let ((info6 '(:html-timezone "+0530")))
+    (let ((info6 (list :html-timezone "+0530")))
       ($l (it info6) 19800)
       ($l (t--pget info6 :html-timezone) 19800))
-    (let ((info7 '(:html-timezone "Invalid")))
+    (let ((info7 (list :html-timezone "Invalid")))
       ($e!l (it info7) '(org-w3ctr-error "Invalid timezone format: Invalid")))
     (dolist (bad '(t :foo (1)))
       ($e!l (it (list :html-timezone bad))
             (list 'org-w3ctr-error (format "Invalid timezone format: %s" bad))))
     ($e!l (it nil) '(org-w3ctr-error "Invalid timezone: nil"))
-    (let ((info8 '(:html-timezone 3600 :other "value")))
+    (let ((info8 (list :html-timezone 3600 :other "value")))
       ($l (it info8) 3600)
       ($l info8 '(:html-timezone 3600 :other "value")))))
 
@@ -6854,99 +6852,90 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr--get-info-export-timezone-offset'."
   ($it t--get-info-export-timezone-offset
     ;; When :html-export-timezone is nil, use :html-timezone
-    (let ((info1 '(:html-timezone 28800)))
+    (let ((info1 (list :html-timezone 28800)))
       ($l (it info1) 28800))
-    (let ((info2 '( :html-timezone "UTC+8"
-                    :html-export-timezone nil)))
+    (let ((info2 (list :html-timezone "UTC+8"
+                       :html-export-timezone nil)))
       ($l (it info2) 28800))
     ;; When :html-timezone is "local", always use 'local
-    (let ((info3 '( :html-timezone "local"
-                    :html-export-timezone 3600)))
+    (let ((info3 (list :html-timezone "local"
+                       :html-export-timezone 3600)))
       ($q (it info3) 'local))
-    (let ((info4 '( :html-timezone "local"
-                    :html-export-timezone "UTC+5")))
+    (let ((info4 (list :html-timezone "local"
+                       :html-export-timezone "UTC+5")))
       ($q (it info4) 'local))
-    (let ((info41 '( :html-timezone local
-                     :html-export-timezone "+0100")))
+    (let ((info41 (list :html-timezone 'local
+                        :html-export-timezone "+0100")))
       ($q (it info41) 'local))
     ;; :html-export-timezone is local
-    (let ((info42 '( :html-timezone 0
-                     :html-export-timezone "local")))
+    (let ((info42 (list :html-timezone 0
+                        :html-export-timezone "local")))
       ($q (it info42) 'local))
-    (let ((info43 '( :html-timezone 0
-                     :html-export-timezone local)))
+    (let ((info43 (list :html-timezone 0
+                        :html-export-timezone 'local)))
       ($q (it info43) 'local))
     ;; When :html-export-timezone is number, use directly
-    (let ((info5 '( :html-timezone 28800
-                    :html-export-timezone -18000)))
+    (let ((info5 (list :html-timezone 28800
+                       :html-export-timezone -18000)))
       ($l (it info5) -18000))
     ;; When :html-export-timezone is string, convert and cache
-    (let ((info6 '( :html-timezone 28800
-                    :html-export-timezone "-0500")))
+    (let ((info6 (list :html-timezone 28800
+                       :html-export-timezone "-0500")))
       ($l (it info6) -18000)
       ($s (fixnump (t--pget info6 :html-export-timezone)))
       ($l (t--pget info6 :html-export-timezone) -18000))
-    (let ((info7 '( :html-timezone 28800
-                    :html-export-timezone "+0530")))
+    (let ((info7 (list :html-timezone 28800
+                       :html-export-timezone "+0530")))
       ($l (it info7) 19800)
       ($l (t--pget info7 :html-export-timezone) 19800))
-    (let ((info8 '( :html-timezone 0
-                    :html-export-timezone "UTC+0")))
+    (let ((info8 (list :html-timezone 0
+                       :html-export-timezone "UTC+0")))
       ($l (it info8) 0))
     ;; Invalid
-    (let ((info9 '( :html-timezone 3600
-                    :html-export-timezone "Invalid")))
+    (let ((info9 (list :html-timezone 3600
+                       :html-export-timezone "Invalid")))
       ($e!l (it info9)
+            '(org-w3ctr-error "Invalid export timezone format: Invalid")))
+    ;; Invalid export timezone still errors even when :html-timezone is local.
+    (let ((info9b (list :html-timezone "local"
+                        :html-export-timezone "Invalid")))
+      ($e!l (it info9b)
             '(org-w3ctr-error "Invalid export timezone format: Invalid")))
     (dolist (bad '(t :foo (1)))
       ($e!l (it (list :html-timezone 0 :html-export-timezone bad))
             (list 'org-w3ctr-error
                   (format "Invalid export timezone format: %s" bad))))
-    (let ((info9 '( :html-timezone "WTF"
-                    :html-export-timezone "+0000")))
+    (let ((info9 (list :html-timezone "WTF"
+                       :html-export-timezone "+0000")))
       ($e!l (it info9) '(org-w3ctr-error "Invalid timezone format: WTF")))
     ;; Test optional argument
-    (let ((info10 '(:html-export-timezone "+0000")))
+    (let ((info10 (list :html-export-timezone "+0000")))
       ($q (it info10 'local) 'local))
-    (let ((info11 '(:html-export-timezone "UTC+8")))
+    (let ((info11 (list :html-export-timezone "UTC+8")))
       ($q (it info11 10) 28800))))
 
 (ert-deftest t--get-info-timezone-delta ()
   "Tests for `org-w3ctr--get-info-timezone-delta'."
   ($it t--get-info-timezone-delta
-    (let ((info '( :html-timezone 2
-                   :html-export-timezone 1)))
+    (let ((info '(:html-timezone 2 :html-export-timezone 1)))
       ($l (it info) -1))
-    (let ((info '( :html-timezone 28800
-                   :html-export-timezone 0)))
+    (let ((info '(:html-timezone 28800 :html-export-timezone 0)))
       ($l (it info) -28800))
-    (let ((info '( :html-timezone local
-                   :html-export-timezone 3600)))
+    (let ((info '(:html-timezone local :html-export-timezone 3600)))
       ($l (it info) 0))
-    (let ((info '( :html-timezone local
-                   :html-export-timezone 3600)))
+    (let ((info '(:html-timezone 3600 :html-export-timezone local)))
       ($l (it info) 0))
-    (let ((info '( :html-timezone 114514
-                   :html-export-timezone 191981)))
+    (let ((info '(:html-timezone 114514 :html-export-timezone 191981)))
       ($l (it info) 77467))
-    (let ((info '( :html-timezone "WTF"
-                   :html-export-timezone "INVALID")))
-      ($e! (it info)))
-    (let ((info '( :html-timezone 0
-                   :html-export-timezone "INVALID")))
-      ($e! (it info)))
-    ($e! (it nil))
-    (let ((info '( :html-timezone 114514
-                   :html-export-timezone 191981)))
-      ($l (it info 1 2) 1))
-    (let ((info '( :html-timezone 114514
-                   :html-export-timezone 191981)))
-      ($l (it info nil 114515) 1))
-    (let ((info '( :html-timezone 114514
-                   :html-export-timezone 191981)))
-      ($l (it info 191980) 1))
-    (let ((info '( :html-timezone 114514
-                   :html-export-timezone 191981)))
+    (let ((info '(:html-timezone "WTF" :html-export-timezone "INVALID")))
+      ($e! (it info) 'org-w3ctr-error))
+    (let ((info '(:html-timezone 0 :html-export-timezone "INVALID")))
+      ($e! (it info) 'org-w3ctr-error))
+    ($e! (it nil) 'org-w3ctr-error)
+    (let ((info '(:html-timezone 114514 :html-export-timezone 191981)))
+      ($l (it info 1 2) 1)
+      ($l (it info nil 114515) 1)
+      ($l (it info 191980) 1)
       ($l (it nil 114514 191981) 77467))))
 
 (ert-deftest t--get-datetime-format ()
@@ -8723,6 +8712,25 @@ COUNTER, a cons cell, has its car incremented on every call."
             "<meta name=\"generator\" content=\"Org Mode\">\n"))))
 
 ;;;; Default CSS export.
+
+(ert-deftest t-style-file-custom-set ()
+  "Tests for `org-w3ctr-style-file' custom setter."
+  (let ((setter (get 't-style-file 'custom-set))
+        (orig t-style-file)
+        (orig-cache t--style-cache))
+    (unwind-protect
+        (progn
+          (setq t--style-cache "cached")
+          (funcall setter 't-style-file nil)
+          ($n t-style-file)
+          ($n t--style-cache)
+          (setq t--style-cache "cached")
+          (funcall setter 't-style-file orig)
+          ($l t-style-file orig)
+          ($n t--style-cache)
+          ($e! (funcall setter 't-style-file "relative/style.css")))
+      (setq t-style-file orig
+            t--style-cache orig-cache))))
 
 (ert-deftest t--load-css ()
   "Tests for `org-w3ctr--load-css'."

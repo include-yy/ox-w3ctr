@@ -735,19 +735,21 @@ without any special HTML tags."
 (defconst t-timezone-regex
   (rx string-start
       (or "local"
-          (seq
-           (or "UTC" "GMT")
-           (group
-            (seq (or "+" "-")
-                 (or (seq (? "0") num)
-                     (seq "1" (any (?0 . ?2)))))))
+          (seq (or "UTC" "GMT")
+               (? (group
+                   (or (seq "+" (or (seq (? "0") num)
+                                    (seq "1" (any (?0 . ?4)))))
+                       (seq "-" (or (seq (? "0") num)
+                                    (seq "1" (any (?0 . ?2)))))))))
           (group
-           (seq
-            (or "+" "-")
-            (or (seq "0" num)
-                (seq "1" (any (?0 . ?3))))
-            (any (?0 . ?5))
-            (any (?0 . ?9)))))
+           (or (seq "+" (or (seq (or (seq "0" num)
+                                     (seq "1" (any (?0 . ?3))))
+                                 (any (?0 . ?5)) num)
+                            "1400"))
+               (seq "-" (or (seq (or (seq "0" num)
+                                     (seq "1" (any (?0 . ?1))))
+                                 (any (?0 . ?5)) num)
+                            "1200")))))
       string-end)
   "Regular expression for matching supported time zone designators.")
 
@@ -5417,28 +5419,32 @@ Return the transcoded string."
 (defun t--timezone-to-offset (zone)
   "Convert timezone string ZONE to offset in seconds.
 
-Valid formats are UTC/GMT[+-]XX (for example, UTC+8), [+-]HHMM (for
-example, -0500) or \"local\", which returns the symbol `local' (the
-system's local time zone).  Return nil if ZONE doesn't match
+Valid formats are UTC/GMT (optionally with an offset in -12..+14, for
+example, \"UTC\" or \"UTC+8\"), [+-]HHMM in -1200..+1400 (for example,
+\"-0500\"), or \"local\", which returns the symbol `local' (the system's
+local time zone).  Return nil if ZONE doesn't match
 `org-w3ctr-timezone-regex'."
   (declare (ftype (function (string) (or fixnum symbol)))
            (pure t) (important-return-value t))
   (let ((case-fold-search t)
         (zone (t--trim zone)))
-    (when (string-match t-timezone-regex zone)
-      (if (string-equal-ignore-case zone "local") 'local
-        (let* ((time (or (match-string 1 zone)
-                         (match-string 2 zone)))
-               (len (length time))
-               (number (string-to-number time)))
-          (cond
-           ;; UTC/GMT[+-]xx
-           ((<= 2 len 3) (* number 3600))
-           ;; [+-]MMMM
-           ((= len 5)
-            (let ((hour (/ number 100))
-                  (minute (% number 100)))
-              (+ (* hour 3600) (* minute 60))))))))))
+    (save-match-data
+      (when (string-match t-timezone-regex zone)
+        (if (string-equal-ignore-case zone "local") 'local
+          (if-let* ((time (or (match-string 1 zone)
+                              (match-string 2 zone))))
+              (let ((len (length time))
+                    (number (string-to-number time)))
+                (cond
+                 ;; UTC/GMT[+-]xx
+                 ((<= 2 len 3) (* number 3600))
+                 ;; [+-]HHMM
+                 ((= len 5)
+                  (let ((hour (/ number 100))
+                        (minute (% number 100)))
+                    (+ (* hour 3600) (* minute 60))))))
+            ;; Bare "UTC" or "GMT".
+            0))))))
 
 (defun t--get-info-timezone-offset (info)
   "Return timezone offset from INFO plist.
@@ -5467,8 +5473,9 @@ invalid."
 
 The export timezone is determined by:
 - If `:html-export-timezone' is nil, use `:html-timezone' value.
-- If `:html-timezone' is `local', always use `local'.
-- Otherwise use `:html-export-timezone' value.
+- Otherwise validate `:html-export-timezone' first (signaling
+  `org-w3ctr-error' if invalid); if `:html-timezone' is `local',
+  return `local', else return the resolved export timezone offset.
 
 If optional argument ZONE1-OFFSET is non-nil, use it as the default
 timezone offset instead of querying `:html-timezone' via
@@ -5479,15 +5486,17 @@ when the caller already knows the default timezone offset."
            (important-return-value t))
   (let ((zone1 (or zone1-offset (t--get-info-timezone-offset info)))
         (zone2 (t--pget info :html-export-timezone)))
-    (cond
-     ((not zone2) zone1)
-     ((eq zone1 'local) 'local)
-     ((eq zone2 'local) 'local)
-     ((fixnump zone2) zone2)
-     ((and (stringp zone2)
-           (when-let* ((time (t--timezone-to-offset zone2)))
-             (t--pput info :html-export-timezone time))))
-     (t (t-error "Invalid export timezone format: %s" zone2)))))
+    (if (not zone2)
+        zone1
+      (let ((resolved
+             (cond
+              ((eq zone2 'local) 'local)
+              ((fixnump zone2) zone2)
+              ((and (stringp zone2)
+                    (when-let* ((time (t--timezone-to-offset zone2)))
+                      (t--pput info :html-export-timezone time))))
+              (t (t-error "Invalid export timezone format: %s" zone2)))))
+        (if (eq zone1 'local) 'local resolved)))))
 
 (defun t--get-info-timezone-delta (info &optional z1 z2)
   "Return the offset difference of export timezone(Z2) and timezone(Z1).
