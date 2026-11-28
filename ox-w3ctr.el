@@ -4091,10 +4091,18 @@ unwrapped.  The result has no wrapper element."
 
 ;;;; Fontify report
 
-;; Per-export fontify state (`:html-fontify-state' in INFO), shared
-;; between report counters and internal entries (`broken', `warned',
-;; `cache').  Saved to `org-w3ctr--fontify-last-state' on creation, as
-;; body-only exports and `org-w3ctr-fontify-code' bypass `template'.
+;; Per-export fontify state (`:html-fontify-state' in INFO), an `equal'
+;; hash table created lazily on the first fontified block and saved to
+;; `org-w3ctr--fontify-last-state' (as body-only exports and
+;; `org-w3ctr-fontify-code' bypass `template').  Key shapes:
+;; - (KIND . KEY)              -> count; KIND in
+;;                                `org-w3ctr--fontify-report-sections'
+;; - (broken . ENGINE)         -> t; engine disabled for this export
+;; - (warned . (EVENT . KEY))  -> count; deduplicates per-export warnings
+;; - (cache . face-table)      -> (EXTRA FACES TABLE)
+;; - (cache . slugs)           -> (TABLE . SLUGS)
+;; - (cache . lang-alist)      -> validated `:html-fontify-lang-alist'
+;; - (cache . shiki-languages) -> list of language names from the helper
 
 (defvar t--fontify-last-state nil
   "The fontify state of the most recent fontifying run, or nil.
