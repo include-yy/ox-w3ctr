@@ -160,9 +160,6 @@
     (statistics-cookie . t-statistics-cookie)   ; [%] [/]
     (subscript . t-subscript)                   ; a_{b}
     (superscript . t-superscript)               ; a^{b}
-    (timestamp . t-timestamp)                   ; <...>, [...]
-    (link . t-link)                             ; [[...][...]]
-    ;; smallest objects
     (bold . t-bold)                             ; *a*
     (italic . t-italic)                         ; /a/
     (underline . t-underline)                   ; _a_
@@ -170,6 +167,8 @@
     (code . t-code)                             ; ~a~
     (strike-through . t-strike-through)         ; +a+
     (plain-text . t-plain-text)
+    (timestamp . t-timestamp)                   ; <...>, [...]
+    (link . t-link)                             ; [[...][...]]
     ;;@ headline section
     (section . t-section)
     (headline . t-headline)
@@ -223,6 +222,8 @@
     (:html-fontify-method nil "fontify" t-fontify-method)
     (:html-fontify-on-error nil nil t-fontify-on-error)
     (:html-fontify-unknown-language nil nil t-fontify-unknown-language)
+    ;; Markup texts
+    (:html-text-markup-alist nil nil t-text-markup-alist)
     ;; Timestamp
     (:html-timezone "HTML_TIMEZONE" nil t-timezone)
     (:html-export-timezone "HTML_EXPORT_TIMEZONE" nil t-export-timezone)
@@ -237,8 +238,6 @@
     (:html-inline-image-rules nil nil t-inline-image-rules)
     (:html-extension nil nil t-extension)
     (:html-honor-ox-external-links nil nil t-honor-ox-external-links)
-    ;; Markup texts
-    (:html-text-markup-alist nil nil t-text-markup-alist)
     ;; Todo
     (:html-todo-kwd-class-prefix nil nil t-todo-kwd-class-prefix)
     (:html-todo-format-function nil nil t-todo-format-function)
@@ -706,6 +705,32 @@ A block without a language never counts."
   :type '(choice (const error) (const warn) (const plain))
   :safe (lambda (v) (memq v '(error warn plain))))
 
+;;;; Markup texts
+(defcustom t-text-markup-alist
+  ;; See also `org-html-text-markup-alist'.
+  '((bold . "<b>%s</b>")
+    (code . "<code>%s</code>")
+    (italic . "<i>%s</i>")
+    (strike-through . "<s>%s</s>")
+    (underline . "<u>%s</u>")
+    (verbatim . "<code>%s</code>"))
+  "Association list mapping Org markup types to HTML format strings.
+Each element in the alist should have the form (TYPE . FORMAT).
+
+TYPE is a symbol representing the markup, which must be one of
+symbol `bold', symbol `code', symbol `italic',
+symbol `strike-through', symbol `underline', or symbol `verbatim'.
+
+FORMAT is a string used to wrap the text, where \"%s\" is
+replaced by the text content itself.
+
+If no entry exists for a given markup type, the text is exported
+without any special HTML tags."
+  :group 'org-export-w3ctr
+  :type '(alist :key-type (symbol :tag "Markup type")
+                :value-type (string :tag "Format string"))
+  :options '(bold code italic strike-through underline verbatim))
+
 ;;;; Timestamp
 (defconst t-timezone-regex
   (rx string-start
@@ -921,32 +946,6 @@ with a NEWS entry."
   :group 'org-export-w3ctr
   :type 'boolean
   :safe #'booleanp)
-
-;;;; Markup texts
-(defcustom t-text-markup-alist
-  ;; See also `org-html-text-markup-alist'.
-  '((bold . "<b>%s</b>")
-    (code . "<code>%s</code>")
-    (italic . "<i>%s</i>")
-    (strike-through . "<s>%s</s>")
-    (underline . "<u>%s</u>")
-    (verbatim . "<code>%s</code>"))
-  "Association list mapping Org markup types to HTML format strings.
-Each element in the alist should have the form (TYPE . FORMAT).
-
-TYPE is a symbol representing the markup, which must be one of
-symbol `bold', symbol `code', symbol `italic',
-symbol `strike-through', symbol `underline', or symbol `verbatim'.
-
-FORMAT is a string used to wrap the text, where \"%s\" is
-replaced by the text content itself.
-
-If no entry exists for a given markup type, the text is exported
-without any special HTML tags."
-  :group 'org-export-w3ctr
-  :type '(alist :key-type (symbol :tag "Markup type")
-                :value-type (string :tag "Format string"))
-  :options '(bold code italic strike-through underline verbatim))
 
 ;;;; Todo
 (defcustom t-todo-kwd-class-prefix ""
@@ -5259,6 +5258,150 @@ Return CONTENTS wrapped in a <sup> element."
            (pure t) (important-return-value t))
   (format "<sup>%s</sup>" (or contents "")))
 
+;;;; Markup texts
+
+;; See (info "(org) Emphasis and Monospace")
+;; Options:
+;; - :html-text-markup-alist (`org-w3ctr-text-markup-alist')
+
+(defun t--get-markup-format (name info)
+  "Return the markup format string for NAME from INFO.
+NAME is a symbol (like `bold') and INFO is the info plist.
+
+Return \"%s\" if `:html-text-markup-alist' has no entry for NAME or
+its value is nil.  Signal `org-w3ctr-error' when
+`:html-text-markup-alist' is not a proper list or the entry for
+NAME is not a string."
+  (declare (ftype (function (symbol list) string))
+           (important-return-value t))
+  (let ((alist (t--pget info :html-text-markup-alist)))
+    (unless (proper-list-p alist)
+      (t-error "Invalid :html-text-markup-alist (expected a list): %S"
+               alist))
+    (let ((val (cdr (assq name alist))))
+      (cond ((null val) "%s")
+            ((stringp val) val)
+            (t (t-error "Invalid markup format for %s (expected a string): %S"
+                        name val))))))
+
+(defun t-bold (_bold contents info)
+  "Transcode BOLD from Org to HTML.
+CONTENTS is the bold text (nil becomes \"\").  INFO is the info plist.
+
+Return the formatted text."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'bold info) (or contents "")))
+
+(defun t-italic (_italic contents info)
+  "Transcode ITALIC from Org to HTML.
+CONTENTS is the italic text (nil becomes \"\").  INFO is the info
+plist.
+
+Return the formatted text."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'italic info) (or contents "")))
+
+(defun t-underline (_underline contents info)
+  "Transcode UNDERLINE from Org to HTML.
+CONTENTS is the underlined text (nil becomes \"\").  INFO is the info
+plist.
+
+Return the formatted text."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'underline info) (or contents "")))
+
+(defun t-verbatim (verbatim _contents info)
+  "Transcode VERBATIM from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
+
+Return VERBATIM's HTML-encoded `:value' (defaulting to \"\") wrapped
+in its markup format."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'verbatim info)
+          (t--encode-plain-text
+           (or (org-element-property :value verbatim) ""))))
+
+(defun t-code (code _contents info)
+  "Transcode CODE from Org to HTML.
+CONTENTS is nil.  INFO is the info plist.
+
+Return CODE's HTML-encoded `:value' (defaulting to \"\") wrapped in
+its markup format."
+  (declare (ftype (function (t t list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'code info)
+          (t--encode-plain-text
+           (or (org-element-property :value code) ""))))
+
+(defun t-strike-through (_strike-through contents info)
+  "Transcode STRIKE-THROUGH from Org to HTML.
+CONTENTS is the struck-through text (nil becomes \"\").  INFO is the
+info plist.
+
+Return the formatted text."
+  (declare (ftype (function (t (or null string) list) string))
+           (important-return-value t))
+  (format (t--get-markup-format 'strike-through info) (or contents "")))
+
+;;;; Plain Text
+
+;; Options:
+;; :with-smart-quotes    (`org-export-with-smart-quotes')
+;; :with-special-strings (`org-export-with-special-strings')
+;; :preserve-breaks      (`org-export-preserve-breaks')
+
+(defun t--convert-special-strings (string)
+  "Convert special characters in STRING to HTML."
+  (declare (ftype (function (string) string))
+           (pure t) (important-return-value t))
+  ;; `\-' and `...' are literals, so `string-replace' needs no copy
+  ;; when STRING holds none of them.  `"\\-"' here is the literal
+  ;; form of the `"\\\\-"' regexp in `org-html-special-string-regexps'
+  ;; (the regexp layer is gone).  The dash rules need a regexp for
+  ;; the `[^-]' lookahead; `---' must run before `--', or a
+  ;; three-hyphen run becomes `-&#x2013;'.
+  (string-replace
+   "..." "&#x2026;"
+   (replace-regexp-in-string
+    "--\\([^-]\\)" "&#x2013;\\1"
+    (replace-regexp-in-string
+     "---\\([^-]\\)" "&#x2014;\\1"
+     (string-replace "\\-" "&#x00ad;" string) t)
+    t)))
+
+(defun t-plain-text (text info)
+  "Transcode a TEXT string from Org to HTML.
+TEXT is the plain text content.  INFO is the info plist.
+
+Encode HTML entities, activate smart quotes when enabled, convert
+special strings when enabled, and preserve line breaks when enabled.
+Return the transcoded string."
+  (declare (ftype (function (string list) string))
+           (important-return-value t))
+  (let ((output text))
+    ;; Protect following characters: <, >, &.
+    (setq output (t--encode-plain-text output))
+    ;; Handle smart quotes.  Be sure to provide original
+    ;; string since OUTPUT may have been modified.
+    (when (t--pget info :with-smart-quotes)
+      (setq output (org-export-activate-smart-quotes
+                    output :html info text)))
+    ;; Handle special strings.
+    (when (t--pget info :with-special-strings)
+      (setq output (t--convert-special-strings output)))
+    ;; Handle break preservation if required.
+    (when (t--pget info :preserve-breaks)
+      (setq output
+            (replace-regexp-in-string
+             "\\(\\\\\\\\\\)?[ \t]*\n"
+             "<br>\n" output)))
+    ;; Return value.
+    output))
+
 ;;;; Timestamp
 
 ;; See (info "(org)Timestamps")
@@ -6051,161 +6194,6 @@ LINK's protocol and `:type'."
      ;; External or file link.
      (t
       (t--link-external path desc)))))
-
-;;; Smallest objects
-;; See (info "(org) Emphasis and Monospace")
-;; Options:
-;; - :html-text-markup-alist (`org-w3ctr-text-markup-alist')
-
-(defun t--get-markup-format (name info)
-  "Return the markup format string for NAME from INFO.
-NAME is a symbol (like `bold') and INFO is the info plist.
-
-Return \"%s\" if `:html-text-markup-alist' has no entry for NAME or
-its value is nil.  Signal `org-w3ctr-error' when
-`:html-text-markup-alist' is not a proper list or the entry for
-NAME is not a string."
-  (declare (ftype (function (symbol list) string))
-           (important-return-value t))
-  (let ((alist (t--pget info :html-text-markup-alist)))
-    (unless (proper-list-p alist)
-      (t-error "Invalid :html-text-markup-alist (expected a list): %S"
-               alist))
-    (let ((val (cdr (assq name alist))))
-      (cond ((null val) "%s")
-            ((stringp val) val)
-            (t (t-error "Invalid markup format for %s (expected a string): %S"
-                        name val))))))
-
-;;;; Bold
-
-(defun t-bold (_bold contents info)
-  "Transcode BOLD from Org to HTML.
-CONTENTS is the bold text (nil becomes \"\").  INFO is the info plist.
-
-Return the formatted text."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'bold info) (or contents "")))
-
-;;;; Italic
-
-(defun t-italic (_italic contents info)
-  "Transcode ITALIC from Org to HTML.
-CONTENTS is the italic text (nil becomes \"\").  INFO is the info
-plist.
-
-Return the formatted text."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'italic info) (or contents "")))
-
-;;;; Underline
-
-(defun t-underline (_underline contents info)
-  "Transcode UNDERLINE from Org to HTML.
-CONTENTS is the underlined text (nil becomes \"\").  INFO is the info
-plist.
-
-Return the formatted text."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'underline info) (or contents "")))
-
-;;;; Verbatim
-
-(defun t-verbatim (verbatim _contents info)
-  "Transcode VERBATIM from Org to HTML.
-CONTENTS is nil.  INFO is the info plist.
-
-Return VERBATIM's HTML-encoded `:value' (defaulting to \"\") wrapped
-in its markup format."
-  (declare (ftype (function (t t list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'verbatim info)
-          (t--encode-plain-text
-           (or (org-element-property :value verbatim) ""))))
-
-;;;; Code
-
-(defun t-code (code _contents info)
-  "Transcode CODE from Org to HTML.
-CONTENTS is nil.  INFO is the info plist.
-
-Return CODE's HTML-encoded `:value' (defaulting to \"\") wrapped in
-its markup format."
-  (declare (ftype (function (t t list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'code info)
-          (t--encode-plain-text
-           (or (org-element-property :value code) ""))))
-
-;;;; Strike-Through
-
-(defun t-strike-through (_strike-through contents info)
-  "Transcode STRIKE-THROUGH from Org to HTML.
-CONTENTS is the struck-through text (nil becomes \"\").  INFO is the
-info plist.
-
-Return the formatted text."
-  (declare (ftype (function (t (or null string) list) string))
-           (important-return-value t))
-  (format (t--get-markup-format 'strike-through info) (or contents "")))
-
-;;;; Plain Text
-
-;; Options:
-;; :with-smart-quotes    (`org-export-with-smart-quotes')
-;; :with-special-strings (`org-export-with-special-strings')
-;; :preserve-breaks      (`org-export-preserve-breaks')
-
-(defun t--convert-special-strings (string)
-  "Convert special characters in STRING to HTML."
-  (declare (ftype (function (string) string))
-           (pure t) (important-return-value t))
-  ;; `\-' and `...' are literals, so `string-replace' needs no copy
-  ;; when STRING holds none of them.  `"\\-"' here is the literal
-  ;; form of the `"\\\\-"' regexp in `org-html-special-string-regexps'
-  ;; (the regexp layer is gone).  The dash rules need a regexp for
-  ;; the `[^-]' lookahead; `---' must run before `--', or a
-  ;; three-hyphen run becomes `-&#x2013;'.
-  (string-replace
-   "..." "&#x2026;"
-   (replace-regexp-in-string
-    "--\\([^-]\\)" "&#x2013;\\1"
-    (replace-regexp-in-string
-     "---\\([^-]\\)" "&#x2014;\\1"
-     (string-replace "\\-" "&#x00ad;" string) t)
-    t)))
-
-(defun t-plain-text (text info)
-  "Transcode a TEXT string from Org to HTML.
-TEXT is the plain text content.  INFO is the info plist.
-
-Encode HTML entities, activate smart quotes when enabled, convert
-special strings when enabled, and preserve line breaks when enabled.
-Return the transcoded string."
-  (declare (ftype (function (string list) string))
-           (important-return-value t))
-  (let ((output text))
-    ;; Protect following characters: <, >, &.
-    (setq output (t--encode-plain-text output))
-    ;; Handle smart quotes.  Be sure to provide original
-    ;; string since OUTPUT may have been modified.
-    (when (t--pget info :with-smart-quotes)
-      (setq output (org-export-activate-smart-quotes
-                    output :html info text)))
-    ;; Handle special strings.
-    (when (t--pget info :with-special-strings)
-      (setq output (t--convert-special-strings output)))
-    ;; Handle break preservation if required.
-    (when (t--pget info :preserve-breaks)
-      (setq output
-            (replace-regexp-in-string
-             "\\(\\\\\\\\\\)?[ \t]*\n"
-             "<br>\n" output)))
-    ;; Return value.
-    output))
 
 ;;; Headline and Section
 
