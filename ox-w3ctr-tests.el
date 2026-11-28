@@ -9179,8 +9179,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr--get-info-toc-element'."
   ($l (t--get-info-toc-element '(:html-toc-element ul)) "ul")
   ($l (t--get-info-toc-element '(:html-toc-element ol)) "ol")
-  ($q (car (should-error (t--get-info-toc-element '(:html-toc-element dl))))
-      'org-w3ctr-error))
+  ($e! (t--get-info-toc-element '(:html-toc-element dl)) 'org-w3ctr-error))
 
 (ert-deftest t--toc-alist-to-text ()
   "Tests for `org-w3ctr--toc-alist-to-text'."
@@ -9199,10 +9198,13 @@ COUNTER, a cons cell, has its car incremented on every call."
     ;; The two cases of Org commit 332695e85, where the scope semantics
     ;; was fixed upstream.
     ($l (t--toc-alist-to-text '(("1" . 1) ("1.1" . 2) ("2" . 1)) info t)
-        "\n<ul class=\"toc\">\n<li>1\n<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n<li>2</li>\n</ul>\n")
+        ($c "\n<ul class=\"toc\">\n<li>1\n<ul class=\"toc\">\n"
+            "<li>1.1</li>\n</ul>\n</li>\n<li>2</li>\n</ul>\n"))
     ;; A first entry below the top level wraps in empty lists.
     ($l (t--toc-alist-to-text '(("1" . 2) ("1.1" . 3) ("2" . 1)) info t)
-        "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n<li>1\n<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n</ul>\n</li>\n<li>2</li>\n</ul>\n")
+        ($c "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n<li>1\n"
+            "<ul class=\"toc\">\n<li>1.1</li>\n</ul>\n</li>\n</ul>\n"
+            "</li>\n<li>2</li>\n</ul>\n"))
     ;; Without top, the first entry's level sets the depth.
     ($l (t--toc-alist-to-text '(("a" . 3)) info)
         "\n<ul class=\"toc\">\n<li>a</li>\n</ul>\n")))
@@ -9244,7 +9246,8 @@ COUNTER, a cons cell, has its car incremented on every call."
             ((symbol-function 't-toc-headline-default-format-function)
              (lambda (h _i) (symbol-name h))))
     ($l (t--build-toc 2 '(:html-toc-element ul))
-        "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n<li>h1</li>\n</ul>\n</li>\n</ul>\n")
+        ($c "\n<ul class=\"toc\">\n<li>\n<ul class=\"toc\">\n"
+            "<li>h1</li>\n</ul>\n</li>\n</ul>\n"))
     ($l (t--build-toc 2 '(:html-toc-element ul) 'scope-el)
         "\n<ul class=\"toc\">\n<li>h1</li>\n</ul>\n")))
 
@@ -9341,7 +9344,8 @@ that changes them fails here instead of corrupting a TOC silently."
                (lambda (d _i &optional _s) (setq seen d) "TOC")))
       ;; The depth comes from :with-toc.
       ($l (t--build-table-of-contents
-           '(:with-toc 2 :html-toplevel-hlevel 3 :html-toc-title "Table of Contents"))
+           '( :with-toc 2 :html-toplevel-hlevel 3
+              :html-toc-title "Table of Contents"))
           "<nav id=\"toc\">\n<h3>Table of Contents</h3>TOC</nav>\n")
       ($l seen 2)))
   ;; A missing title falls back to `org-w3ctr-toc-title'.
@@ -9351,13 +9355,16 @@ that changes them fails here instead of corrupting a TOC silently."
         "<nav id=\"toc\">\n<h3>Table of Contents</h3>TOC</nav>\n"))
   ;; No entries, no block.
   (cl-letf (((symbol-function 't--build-toc) (lambda (_d _i &optional _s) nil)))
-    ($n (t--build-table-of-contents '(:with-toc 2 :html-toplevel-hlevel 3 :html-toc-title "Table of Contents"))))
+    ($n (t--build-table-of-contents
+         '( :with-toc 2 :html-toplevel-hlevel 3
+            :html-toc-title "Table of Contents"))))
   ;; A nil :with-toc means no table at all: the builder is not even
   ;; asked (its nil depth means "unlimited" instead).
   (cl-letf (((symbol-function 't--build-toc)
              (lambda (_d _i &optional _s) "TOC")))
     ($n (t--build-table-of-contents
-         '(:with-toc nil :html-toplevel-hlevel 3 :html-toc-title "Table of Contents")))))
+         '( :with-toc nil :html-toplevel-hlevel 3
+            :html-toc-title "Table of Contents")))))
 
 (ert-deftest t--list-of-elements ()
   "Tests for `org-w3ctr--list-of-elements'."

@@ -7285,11 +7285,12 @@ line from `org-w3ctr-format-public-license'.  A row shows
 ;;;; Table of Contents
 
 ;; Options:
-;; :html-toc-element (`org-w3ctr-toc-element')
-;; :html-toc-title (`org-w3ctr-toc-title')
-;; :html-toc-headline-format-function
+;; - :html-toc-element (`org-w3ctr-toc-element')
+;; - :html-toc-title (`org-w3ctr-toc-title')
+;; - :html-toc-headline-format-function
 ;;   (`org-w3ctr-toc-headline-format-function')
-;; :with-toc (`org-export-with-toc')
+;; - :html-toplevel-hlevel (`org-w3ctr-toplevel-hlevel')
+;; - :with-toc (`org-export-with-toc')
 
 (defun t--toc-headline-secno (headline info)
   "Return the section number of HEADLINE as an HTML span, or nil.
@@ -7298,7 +7299,7 @@ HEADLINE is a headline element and INFO the export options plist.
 The span holds the headline number, dotted between levels.  Return
 nil when HEADLINE is unnumbered."
   (declare (ftype (function (t list) (or null string)))
-           (important-return-value t))
+           (pure t) (important-return-value t))
   (when-let* (((org-export-numbered-headline-p headline info))
               (numbers (org-export-get-headline-number headline info)))
     (format "<span class=\"secno\">%s</span>"
@@ -7356,7 +7357,7 @@ is the symbol `ul' or `ol'; return its name.  Signal
   (let ((tag (t--pget info :html-toc-element)))
     (pcase tag
       (`ul "ul") (`ol "ol")
-      (_ (t-error "Invalid TOC list tag: %s" tag)))))
+      (_ (t-error "Invalid TOC list tag: %S" tag)))))
 
 (defun t--toc-alist-to-text (toc-entries info &optional top)
   "Return the innards of a table of contents as a string.
