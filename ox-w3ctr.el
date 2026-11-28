@@ -925,7 +925,8 @@ followed by a space, this prefix, and the fixed-up keyword name.
 With the default empty prefix, a TODO item therefore has the class
 \"todo TODO\"."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 (defcustom t-todo-format-function #'t-todo-default-format-function
   "Custom function for formatting TODO keywords.
@@ -966,7 +967,8 @@ The final class will be this prefix followed by the fixed-up tag
 name.  For example, if a tag is \"a\", its class will be
 \"tag-a\" when the prefix is \"tag-\"."
   :group 'org-export-w3ctr
-  :type 'string)
+  :type 'string
+  :safe #'stringp)
 
 ;;;; Headline
 (defcustom t-format-headline-function
@@ -1010,9 +1012,15 @@ exported as list items."
 (defcustom t-container-element "section"
   "The HTML tag name for the element that contains a headline.
 
-Common values are \"section\" or \"div\".  If nil, \"div\" is used."
+Common values are \"section\" or \"div\".  If nil, \"div\" is used.
+Other invalid HTML element names signal `org-w3ctr-error' during
+export."
   :group 'org-export-w3ctr
-  :type '(choice string (const nil)))
+  :type '(choice string (const nil))
+  :safe (lambda (v)
+          (or (null v)
+              (and (stringp v)
+                   (string-match-p "\\`[a-zA-Z][a-zA-Z0-9-]*\\'" v)))))
 
 (defcustom t-self-link-headlines t
   "Non-nil means headlines include a self-link anchor."
@@ -6285,8 +6293,8 @@ low-level."
 
 (defun t--headline-class (value)
   "Validate and normalize a headline CSS class attribute VALUE.
-VALUE is a string of whitespace-separated CSS class names, or nil.
 
+VALUE is a string of whitespace-separated CSS class names, or nil.
 Return the class names joined by single spaces, or nil when VALUE is
 nil or whitespace-only.  Signal `org-w3ctr-error' when any token is
 not a valid unescaped CSS identifier."
@@ -6436,8 +6444,8 @@ block is built by the function in `:html-heading-format-function'."
 
 (defun t-headline (headline contents info)
   "Transcode a HEADLINE element from Org to HTML.
-CONTENTS holds the contents of the headline.  INFO is the info plist.
 
+CONTENTS holds the contents of the headline.  INFO is the info plist.
 Return nil for footnote sections; otherwise return the headline as a
 low-level list item or a normal section."
   (declare (ftype (function (t (or null string) list) (or null string)))

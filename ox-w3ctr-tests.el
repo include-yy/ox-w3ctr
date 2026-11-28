@@ -8121,6 +8121,22 @@ COUNTER, a cons cell, has its car incremented on every call."
            "<h2 class=\"h1\">a</h2>\n"
            "<a class=\"self-link\" href=\"#1\" "
            "aria-label=\"Link to this section\"></a>\n</div>\n</section>\n"))))
+  ;; Custom :html-heading-format-function hook and nil fallback.
+  (t-check-element-values
+   #'t--build-normal-headline
+   '(("* a\n:PROPERTIES:\n:CUSTOM_ID: 1\n:HTML_HEADLINE_CLASS: h1\n:END:\n"
+      "<section id=\"1\">\n<header>h2|1|h1|a</header>\n</section>\n"))
+   t (list :with-toc nil
+           :html-heading-format-function
+           (lambda (_hl title h id cls _info)
+             (format "<header>%s|%s|%s|%s</header>\n" h id cls title))))
+  (t-check-element-values
+   #'t--build-normal-headline
+   `(("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:CUSTOM_ID: 1\n:END:\n"
+      ,($c "<section id=\"1\">\n<div class=\"header-wrapper\">\n"
+           "<h2>a</h2>\n</div>\n</section>\n")))
+   t '(:with-toc nil :html-self-link-headlines nil
+                 :html-heading-format-function nil))
   ;; Invalid CSS class signals org-w3ctr-error.
   ($e! (org-export-string-as
         "* a\n:PROPERTIES:\n:HTML_CONTAINER_CLASS: a\"b\n:END:\n"
@@ -8157,7 +8173,12 @@ COUNTER, a cons cell, has its car incremented on every call."
                 (lambda (&rest _) (error "unexpected")))
                ((symbol-function 't--build-normal-headline)
                 (lambda (&rest _) (error "unexpected"))))
-      ($l (it '(headline (:footnote-section-p t)) "contents" 'info) nil))))
+      ($l (it '(headline (:footnote-section-p t)) "contents" 'info) nil)))
+  ;; End-to-end: a footnote section headline is omitted from <main>.
+  ($l (org-export-string-as
+       "* Footnotes\n\n[fn:1] note\n"
+       'w3ctr t '(:with-toc nil :with-footnotes nil))
+      "<main>\n</main>\n"))
 
 ;;; Template and Inner Template
 
