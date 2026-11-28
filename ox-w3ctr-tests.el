@@ -3768,9 +3768,15 @@ cookie-less column is remembered as the `none' marker."
         (list t--jstools 'tex2svg
               (list :tex "\\begin{equation}\nx=1\n\\end{equation}"
                     :display t))))
-  ;; a delimiter-less inline fragment (such as a bare `\Users' from
-  ;; `C:\Users\foo') is HTML-escaped as plain text without calling the
-  ;; RPC, the custom renderer, or incrementing `:html-math-count'
+  ;; any other mode signals org-w3ctr-error
+  ($e!l (t--format-latex "$x$" 'bogus nil)
+        '(org-w3ctr-error "Unknown LaTeX mode: bogus")))
+
+(ert-deftest t--format-latex-math-count ()
+  "Non-math and failed RPC leave `:html-math-count' untouched; math bumps it."
+  ;; A delimiter-less inline fragment (such as `\Users' from `C:\Users\foo')
+  ;; or empty/blank delimiters are HTML-escaped as plain text without calling
+  ;; the RPC, the custom renderer, or incrementing `:html-math-count'.
   (let* (called
          (info (list :with-latex 'mathjax
                      :html-math-custom-format-function
@@ -3784,7 +3790,6 @@ cookie-less column is remembered as the `none' marker."
           "\\cmd{a &amp; b}")
       ($l (t--format-latex "\\cmd{a < b}" 'custom info)
           "\\cmd{a &lt; b}")
-      ;; empty or blank-body delimiters are not treated as math either
       ($l (t--format-latex "\\(\\)" 'mathjax info) "\\(\\)")
       ($l (t--format-latex "\\[  \\]" 'mathml-by-mathjax info) "\\[  \\]")
       ($l (t--format-latex "$$$$" 'svg-by-mathjax info) "$$$$")
@@ -3792,7 +3797,7 @@ cookie-less column is remembered as the `none' marker."
       ($l (t--format-latex "  " 'custom info t) "  ")
       ($n called)
       ($n (t--pget info :html-math-count))
-      ;; real math fragments and environments increment `:html-math-count'
+      ;; Real math fragments and environments increment `:html-math-count'.
       ($l (t--format-latex "$x$" 'mathjax info) "\\(x\\)")
       ($l (t--pget info :html-math-count) 1)
       ($l (t--format-latex "$x$" 'mathml-by-mathjax info) "<M>")
@@ -3807,15 +3812,12 @@ cookie-less column is remembered as the `none' marker."
                            'custom info t)
           "<C>")
       ($l (t--pget info :html-math-count) 5)))
-  ;; an RPC error does not increment `:html-math-count'
+  ;; An RPC error does not increment `:html-math-count'.
   (let ((info (list :with-latex 'svg-by-mathjax)))
     (cl-letf (((symbol-function 't--jcall) (lambda (&rest _) 42)))
       ($e!l (t--format-latex "$x$" 'svg-by-mathjax info)
             '(org-w3ctr-error "RPC method tex2svg returned a non-string: 42"))
-      ($n (t--pget info :html-math-count))))
-  ;; any other mode signals org-w3ctr-error
-  ($e!l (t--format-latex "$x$" 'bogus nil)
-        '(org-w3ctr-error "Unknown LaTeX mode: bogus")))
+      ($n (t--pget info :html-math-count)))))
 
 (ert-deftest t-latex-fragment ()
   "Tests for `org-w3ctr-latex-fragment'."
@@ -4292,9 +4294,10 @@ fresh: the code under test may store its state in it."
   ($e!l (t--fontify-face-table
          (t-test-fontify-info :html-fontify-extra-faces '((foo . "k") . bar)))
         '(org-w3ctr-error
-          "Fontify extra faces must be a list: ((foo . \"k\") . bar)"))
-  ;; When INFO already has a fontify state, the validated table is
-  ;; cached by `eq' on the input lists, and invalidated when either changes.
+          "Fontify extra faces must be a list: ((foo . \"k\") . bar)")))
+
+(ert-deftest t--fontify-face-table-cache ()
+  "Validated face table is cached by `eq' in state and invalidated on change."
   (let* ((t--fontify-last-state nil)
          (info (t-test-fontify-info :html-fontify-extra-faces '((foo . "k"))))
          (_state (t--fontify-state info))
@@ -4332,8 +4335,10 @@ fresh: the code under test may store its state in it."
   ;; Extra faces may bring new slugs.
   ($s (member "zz" (t--fontify-slugs
                     (t-test-fontify-info :html-fontify-extra-faces
-                                         '((foo . "zz"))))))
-  ;; Cached in an existing fontify state and invalidated when faces change.
+                                         '((foo . "zz")))))))
+
+(ert-deftest t--fontify-slugs-cache ()
+  "Slugs list is cached in an existing fontify state and invalidated on change."
   (let* ((t--fontify-last-state nil)
          (info (t-test-fontify-info :html-fontify-extra-faces '((foo . "zz"))))
          (_state (t--fontify-state info))
@@ -4396,8 +4401,10 @@ fresh: the code under test may store its state in it."
           '(org-w3ctr-error "Fontify language alist must be a list: x"))
     ($e!l (entry '(("c") . x) "c")
           '(org-w3ctr-error
-            "Fontify language alist must be a list: ((\"c\") . x)")))
-  ;; Cached by `eq' in an existing fontify state and invalidated on replacement.
+            "Fontify language alist must be a list: ((\"c\") . x)"))))
+
+(ert-deftest t--fontify-lang-entry-cache ()
+  "Language alist validation is cached by `eq' in state and reset on swap."
   (let* ((t--fontify-last-state nil)
          (alist (copy-tree '(("c" :font-lock c-mode))))
          (info (t-test-fontify-info :html-fontify-lang-alist alist))
@@ -4945,8 +4952,10 @@ fresh: the code under test may store its state in it."
   ;; A symbol's value includes what it inherits (here from `error').
   ($l (t--font-lock-face-attribute '(font-lock-warning-face) :weight) 'bold)
   ($n (t--font-lock-face-attribute '(bold) :foreground))
-  ($n (t--font-lock-face-attribute nil :foreground))
-  ;; Inherit is passed as t, never `default', so `default' does not leak.
+  ($n (t--font-lock-face-attribute nil :foreground)))
+
+(ert-deftest t--font-lock-face-attribute-internal ()
+  "Inherit is passed as t, never `default', so `default' does not leak."
   (let ((orig (symbol-function 'face-attribute))
         got-inherit)
     (cl-letf (((symbol-function 'face-attribute)
@@ -5222,69 +5231,73 @@ fresh: the code under test may store its state in it."
 
 (ert-deftest t--font-lock-tokens ()
   "Tests for `org-w3ctr--font-lock-tokens'."
+  (let ((t--fontify-last-state nil))
+    (let* ((code "(defun foo () (message \"<s>\"))")
+           (info (t-test-fontify-info))
+           (tokens (t--font-lock-tokens code "emacs-lisp" info)))
+      ($s (member '("k" . "defun") tokens))
+      ($s (member '("s" . "\"<s>\"") tokens))
+      ;; Raw text, not HTML: the tokens give the code back.
+      ($l (mapconcat #'cdr tokens) code)
+      ($q (t--fontify-check-tokens tokens code 'font-lock info) tokens)
+      ($q (t--font-lock-tokens "x" "no-such-lang" info) :decline)
+      ($n (t--font-lock-tokens "" "emacs-lisp" info)))
+    ;; Caller text properties on CODE are stripped before fontification.
+    ($l (t--font-lock-tokens
+         (propertize "x" 'face 'font-lock-keyword-face) "plain-fund"
+         (t-test-fontify-info
+          :html-fontify-lang-alist '(("plain-fund"
+                                      :font-lock fundamental-mode))))
+        '((nil . "x")))
+    ;; Mode hooks run only when asked to.
+    (let* ((runs 0)
+           (prog-mode-hook nil)
+           (emacs-lisp-mode-hook
+            (list (lambda () (setq runs (1+ runs))))))
+      (ignore (t--font-lock-tokens "(a)" "emacs-lisp" (t-test-fontify-info)))
+      ($l runs 0)
+      (ignore (t--font-lock-tokens "(a)" "emacs-lisp"
+                                   (t-test-fontify-info
+                                    :html-fontify-run-mode-hooks t)))
+      ($l runs 1))
+    ;; Face fallback is validated even when the language would decline.
+    (dolist (lang '("emacs-lisp" "no-such-lang"))
+      ($e!l (t--font-lock-tokens "x" lang
+                                 (t-test-fontify-info
+                                  :html-fontify-face-fallback 'bogus))
+            '(org-w3ctr-error "Unknown fontify face fallback: bogus")))))
+
+(ert-deftest t--font-lock-tokens-reuse-and-treesit ()
+  "Buffer reuse skips re-init and tree-sitter modes decline without a parser."
   (let ((t--fontify-last-state nil)
         (t--font-lock-buffers nil))
     (unwind-protect
         (progn
+          ;; Reusing a mode buffer skips re-init and gives identical tokens.
           (let* ((code "(defun foo () (message \"<s>\"))")
+                 (other "(let ((x 1)) \"hi\")")
                  (info (t-test-fontify-info))
-                 (tokens (t--font-lock-tokens code "emacs-lisp" info)))
-            ($s (member '("k" . "defun") tokens))
-            ($s (member '("s" . "\"<s>\"") tokens))
-            ;; Raw text, not HTML: the tokens give the code back.
-            ($l (mapconcat #'cdr tokens) code)
-            ($q (t--fontify-check-tokens tokens code 'font-lock info) tokens)
-            ;; Reusing a mode buffer skips re-init and gives identical tokens.
-            (let* ((reinfo (t-test-fontify-info :html-fontify-reuse-buffer t))
-                   (other "(let ((x 1)) \"hi\")")
-                   (expected-other
-                    (t--font-lock-tokens other "emacs-lisp" info))
-                   (inits 0)
-                   (orig (symbol-function 'emacs-lisp-mode)))
-              (cl-letf (((symbol-function 'emacs-lisp-mode)
-                         (lambda () (setq inits (1+ inits)) (funcall orig))))
-                ($l (t--font-lock-tokens code "emacs-lisp" reinfo) tokens)
-                ($l (t--font-lock-tokens other "emacs-lisp" reinfo)
-                    expected-other)
-                ($l inits 1))
-              (let ((buf (cdr (assoc '(emacs-lisp-mode . nil)
-                                     t--font-lock-buffers))))
-                ($s (buffer-live-p buf))
-                (with-current-buffer buf
-                  ($l (buffer-size) 0)
-                  ($n (buffer-narrowed-p))
-                  ($n (overlays-in (point-min) (point-max)))))))
-          (let ((info (t-test-fontify-info)))
-            ($q (t--font-lock-tokens "x" "no-such-lang" info) :decline)
-            ($n (t--font-lock-tokens "" "emacs-lisp" info)))
-          ;; Caller text properties on CODE are stripped before fontification.
-          ($l (t--font-lock-tokens
-               (propertize "x" 'face 'font-lock-keyword-face) "plain-fund"
-               (t-test-fontify-info
-                :html-fontify-lang-alist '(("plain-fund"
-                                            :font-lock fundamental-mode))))
-              '((nil . "x")))
-          ;; Mode hooks run only when asked to.
-          (let* ((runs 0)
-                 (prog-mode-hook nil)
-                 (emacs-lisp-mode-hook
-                  (list (lambda () (setq runs (1+ runs))))))
-            (ignore (t--font-lock-tokens "(a)" "emacs-lisp"
-                                         (t-test-fontify-info)))
-            ($l runs 0)
-            (ignore (t--font-lock-tokens "(a)" "emacs-lisp"
-                                         (t-test-fontify-info
-                                          :html-fontify-run-mode-hooks t)))
-            ($l runs 1))
-          ;; Face fallback is validated even when the language would decline.
-          (dolist (lang '("emacs-lisp" "no-such-lang"))
-            ($e!l (t--font-lock-tokens "x" lang
-                                       (t-test-fontify-info
-                                        :html-fontify-face-fallback 'bogus))
-                  '(org-w3ctr-error "Unknown fontify face fallback: bogus")))
-          ;; A tree-sitter mode declines without a parser, and may not offer
-          ;; to install its grammar; with a parser, it fontifies.  A stand-in
-          ;; mode keeps this independent of the grammars installed.
+                 (tokens (t--font-lock-tokens code "emacs-lisp" info))
+                 (expected-other
+                  (t--font-lock-tokens other "emacs-lisp" info))
+                 (reinfo (t-test-fontify-info :html-fontify-reuse-buffer t))
+                 (inits 0)
+                 (orig (symbol-function 'emacs-lisp-mode)))
+            (cl-letf (((symbol-function 'emacs-lisp-mode)
+                       (lambda () (setq inits (1+ inits)) (funcall orig))))
+              ($l (t--font-lock-tokens code "emacs-lisp" reinfo) tokens)
+              ($l (t--font-lock-tokens other "emacs-lisp" reinfo)
+                  expected-other)
+              ($l inits 1))
+            (let ((buf (cdr (assoc '(emacs-lisp-mode . nil)
+                                   t--font-lock-buffers))))
+              ($s (buffer-live-p buf))
+              (with-current-buffer buf
+                ($l (buffer-size) 0)
+                ($n (buffer-narrowed-p))
+                ($n (overlays-in (point-min) (point-max))))))
+          ;; A tree-sitter mode declines without a parser and never offers
+          ;; to install its grammar; with a parser, it fontifies.
           (let ((info (t-test-fontify-info
                        :html-fontify-lang-alist
                        '(("fake" :font-lock t-test-fake-ts-mode))))
@@ -5551,6 +5564,10 @@ COUNTER, a cons cell, has its car incremented on every call."
       ('error (error "boom"))
       ('bad (list (cons nil "WRONG"))))))
 
+(defun t-test-fontify-count (info kind key)
+  "Return the (KIND . KEY) entry stored in INFO's fontify state."
+  (gethash (cons kind key) (t--fontify-state info)))
+
 (ert-deftest t--plain-tokens ()
   "Tests for `org-w3ctr--plain-tokens'."
   ($l (t--plain-tokens "<a>" "c" nil) '((nil . "<a>")))
@@ -5767,9 +5784,9 @@ COUNTER, a cons cell, has its car incremented on every call."
             ($n (t--fontify-failure 'eng err "c" nil info))
             ($n (t--fontify-failure 'eng err "c" nil info))))
         ;; Counted and broken, whatever the policy.
-        (let ((state (t--fontify-state info)))
-          ($l (gethash '(failure . eng) state) (if (eq policy 'error) 1 2))
-          ($s (gethash '(broken . eng) state)))
+        ($l (t-test-fontify-count info 'failure 'eng)
+            (if (eq policy 'error) 1 2))
+        ($s (t-test-fontify-count info 'broken 'eng))
         ($l warnings (if (eq policy 'warn)
                          '("Fontify engine eng failed on the c code: boom")))))
     ;; An org-w3ctr-error keeps its own message, without the type name.
@@ -5796,20 +5813,20 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($n (t--fontify-unavailable 'off info))
         ($n (t--fontify-unavailable 'off info))
         ($n (t--fontify-unavailable 'bare info))
-        ($l (gethash '(unavailable . off) (t--fontify-state info)) 2)
-        ($s (gethash '(broken . off) (t--fontify-state info))))
+        ($l (t-test-fontify-count info 'unavailable 'off) 2)
+        ($s (t-test-fontify-count info 'broken 'off)))
       (let ((info (t-test-fontify-info :html-fontify-on-error 'silent)))
         ($n (t--fontify-unavailable 'off info))
-        ($l (gethash '(unavailable . off) (t--fontify-state info)) 1)
-        ($s (gethash '(broken . off) (t--fontify-state info)))))
+        ($l (t-test-fontify-count info 'unavailable 'off) 1)
+        ($s (t-test-fontify-count info 'broken 'off))))
     ;; The hint is appended when the engine has one.
     ($l (nreverse warnings) '("Fontify engine off is unavailable: needs x"
                               "Fontify engine bare is unavailable"))
     (let ((info (t-test-fontify-info :html-fontify-on-error 'error)))
       ($e!l (t--fontify-unavailable 'off info)
             '(org-w3ctr-error "Fontify engine off is unavailable: needs x"))
-      ($l (gethash '(unavailable . off) (t--fontify-state info)) 1)
-      ($s (gethash '(broken . off) (t--fontify-state info))))))
+      ($l (t-test-fontify-count info 'unavailable 'off) 1)
+      ($s (t-test-fontify-count info 'broken 'off)))))
 
 (ert-deftest t--fontify-unknown ()
   "Tests for `org-w3ctr--fontify-unknown'."
@@ -5823,19 +5840,23 @@ COUNTER, a cons cell, has its car incremented on every call."
         ;; Warned once per language and export, counted every time.
         (dotimes (_ 2) ($n (t--fontify-unknown "rust" nil info)))
         ($n (t--fontify-unknown "go" nil info))
-        ($l (gethash '(unknown-language . "rust") (t--fontify-state info)) 2))
+        ($l (t-test-fontify-count info 'unknown-language "rust") 2))
       (let ((info (t-test-fontify-info :html-fontify-unknown-language 'plain)))
         ($n (t--fontify-unknown "rust" nil info))
-        ($l (gethash '(unknown-language . "rust") (t--fontify-state info)) 1)))
+        ($l (t-test-fontify-count info 'unknown-language "rust") 1)))
     ($l (nreverse warnings) '("No fontify engine handles the rust code"
                               "No fontify engine handles the go code"))
     (let ((info (t-test-fontify-info :html-fontify-unknown-language 'error)))
       ($e!l (t--fontify-unknown "rust" nil info)
             '(org-w3ctr-error "No fontify engine handles the rust code"))
-      ($l (gethash '(unknown-language . "rust") (t--fontify-state info)) 1))))
+      ($l (t-test-fontify-count info 'unknown-language "rust") 1))))
 
 (ert-deftest t--fontify-dispatch ()
   "Tests for `org-w3ctr--fontify-dispatch'."
+  ;; Single-block policy combinations are swept exhaustively in
+  ;; `org-w3ctr--fontify-dispatch-matrix'; this test pins real engine
+  ;; integration, exact messages (with line numbers), state counters,
+  ;; and chains without `plain'.
   (let ((t--fontify-last-state nil))
     ;; The real font-lock engine wins for a language it knows.
     (let* ((info (t-test-fontify-info))
@@ -5843,55 +5864,13 @@ COUNTER, a cons cell, has its car incremented on every call."
                                         '(font-lock plain) info nil)))
       ($q (car result) 'font-lock)
       ($s (member '("k" . "defun") (cdr result)))
-      ($l (gethash '(engine . font-lock) (t--fontify-state info)) 1))
-    ;; A failed engine is broken for the rest of the export only.
-    (let* ((calls (list 0))
-           (t-fontify-engines
-            `((boom :fontify ,(t-test-fontify-stub 'error calls)
-                    :available always)
-              (plain :fontify t--plain-tokens :available always)))
-           (info (t-test-fontify-info :html-fontify-on-error 'silent)))
-      ($l (t--fontify-dispatch "x" "l" '(boom plain) info nil)
-          '(plain (nil . "x")))
-      ($l (t--fontify-dispatch "y" "l" '(boom plain) info nil)
-          '(plain (nil . "y")))
-      ($l (car calls) 1)
-      ($l (gethash '(failure . boom) (t--fontify-state info)) 1)
-      ;; A failure is not an unknown language.
-      ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
-      (ignore (t--fontify-dispatch
-               "x" "l" '(boom plain)
-               (t-test-fontify-info :html-fontify-on-error 'silent) nil))
-      ($l (car calls) 2))
-    ;; An unavailable engine is never called, warned about once per
-    ;; export (with its hint), and does not make the language unknown.
-    (let* ((calls (list 0))
-           (warnings nil)
-           (t-fontify-engines
-            `((off :fontify ,(t-test-fontify-stub 'decline calls)
-                   :available ignore :hint "needs a thing")
-              (plain :fontify t--plain-tokens :available always)))
-           (info (t-test-fontify-info)))
-      (cl-letf (((symbol-function 'display-warning)
-                 (lambda (type msg &rest _)
-                   ($q type 'ox-w3ctr)
-                   (push msg warnings))))
-        ($q (car (t--fontify-dispatch "x" "l" '(off plain) info nil)) 'plain)
-        ($q (car (t--fontify-dispatch "y" "l" '(off plain) info nil)) 'plain))
-      ($l (car calls) 0)
-      ($l warnings '("Fontify engine off is unavailable: needs a thing"))
-      ($l (gethash '(unavailable . off) (t--fontify-state info)) 1)
-      ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
-      ;; Under the `error' policy it signals.
-      ($e!l (t--fontify-dispatch
-             "x" "l" '(off plain)
-             (t-test-fontify-info :html-fontify-on-error 'error) nil)
-            '(org-w3ctr-error
-              "Fontify engine off is unavailable: needs a thing")))
-    ;; Warnings: once per engine, and once per language, per export.
+      ($l (t-test-fontify-count info 'engine 'font-lock) 1))
+    ;; Warnings are deduplicated per export, and declines are counted.
     (let* ((warnings nil)
            (t-fontify-engines
-            `((boom :fontify ,(t-test-fontify-stub 'bad) :available always)
+            `((off :fontify ,(t-test-fontify-stub 'decline)
+                   :available ignore :hint "needs a thing")
+              (boom :fontify ,(t-test-fontify-stub 'bad) :available always)
               (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
               (plain :fontify t--plain-tokens :available always)))
            (info (t-test-fontify-info)))
@@ -5900,17 +5879,22 @@ COUNTER, a cons cell, has its car incremented on every call."
                    ($q type 'ox-w3ctr)
                    (push msg warnings))))
         (dotimes (_ 2)
+          (ignore (t--fontify-dispatch "x" "l" '(off plain) info nil))
           (ignore (t--fontify-dispatch "x" "l" '(boom plain) info nil))
           (ignore (t--fontify-dispatch "x" "m" '(nope plain) info nil))))
       ($l (nreverse warnings)
-          (list (concat "Fontify engine boom failed on the l code: Engine boom"
+          (list "Fontify engine off is unavailable: needs a thing"
+                (concat "Fontify engine boom failed on the l code: Engine boom"
                         " returned tokens that do not add up to the code")
                 "No fontify engine handles the m code"))
-      ($l (gethash '(decline . nope) (t--fontify-state info)) 2)
-      ($l (gethash '(unknown-language . "m") (t--fontify-state info)) 2))
-    ;; The `error' policies signal, with the block's line.
+      ($l (t-test-fontify-count info 'unavailable 'off) 1)
+      ($l (t-test-fontify-count info 'decline 'nope) 2)
+      ($l (t-test-fontify-count info 'unknown-language "m") 2))
+    ;; Error policies include the block's line number (and `:available' errors).
     (let ((t-fontify-engines
            `((boom :fontify ,(t-test-fontify-stub 'error) :available always)
+             (unready :fontify ,(t-test-fontify-stub 'tokens)
+                      :available ,(lambda (_) (error "unready")))
              (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
              (plain :fontify t--plain-tokens :available always))))
       (with-temp-buffer
@@ -5923,42 +5907,49 @@ COUNTER, a cons cell, has its car incremented on every call."
                 '(org-w3ctr-error
                   "Fontify engine boom failed on the l code at line 2: boom"))
           ($e!l (t--fontify-dispatch
+                 "x" "l" '(unready plain)
+                 (t-test-fontify-info :html-fontify-on-error 'error) el)
+                (list 'org-w3ctr-error
+                      ($c "Fontify engine unready failed on the l code"
+                          " at line 2: unready")))
+          ($e!l (t--fontify-dispatch
                  "x" "l" '(nope plain)
                  (t-test-fontify-info :html-fontify-unknown-language 'error) el)
                 (list 'org-w3ctr-error
                       "No fontify engine handles the l code at line 2")))))
-    ;; A chain without `plain' still ends in plain tokens, and a
-    ;; language every engine declined is unknown.
+    ;; A chain without `plain' still falls back to plain tokens.
     (let ((t-fontify-engines
            `((nope :fontify ,(t-test-fontify-stub 'decline) :available always)
              (plain :fontify t--plain-tokens :available always)))
           (info (t-test-fontify-info :html-fontify-unknown-language 'plain)))
       ($l (t--fontify-dispatch "x" "l" '(nope) info nil) '(plain (nil . "x")))
-      ($l (gethash '(decline . nope) (t--fontify-state info)) 1)
-      ($l (gethash '(unknown-language . "l") (t--fontify-state info)) 1))
-    ;; An `:available' function that signals is a failure of its engine:
-    ;; it counts as tried, so a later decline does not make the language
-    ;; unknown.
+      ($l (t-test-fontify-count info 'decline 'nope) 1)
+      ($l (t-test-fontify-count info 'unknown-language "l") 1))))
+
+(ert-deftest t--fontify-dispatch-broken-cross-block ()
+  "A failed engine is skipped for the rest of the export, not the next one."
+  (let ((t--fontify-last-state nil))
+    ;; Failed engine is broken for this export only; next export tries again.
     (let* ((calls (list 0))
            (t-fontify-engines
-            `((unready :fontify ,(t-test-fontify-stub 'tokens calls)
-                       :available ,(lambda (_) (error "unready")))
-              (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
+            `((boom :fontify ,(t-test-fontify-stub 'error calls)
+                    :available always)
               (plain :fontify t--plain-tokens :available always)))
            (info (t-test-fontify-info :html-fontify-on-error 'silent)))
-      ($l (t--fontify-dispatch "x" "l" '(unready nope plain) info nil)
+      ($l (t--fontify-dispatch "x" "l" '(boom plain) info nil)
           '(plain (nil . "x")))
-      ($l (car calls) 0)
-      ($l (gethash '(failure . unready) (t--fontify-state info)) 1)
-      ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
-      ($e!l (t--fontify-dispatch
-             "x" "l" '(unready plain)
-             (t-test-fontify-info :html-fontify-on-error 'error) nil)
-            '(org-w3ctr-error
-              "Fontify engine unready failed on the l code: unready")))
-    ;; Cross-block `broken' interaction: block 1 marks `boom' broken (so
-    ;; `tried' > `declined', not unknown); block 2 skips `boom', leaving
-    ;; only `nope' to decline, which now triggers `unknown-language'.
+      ($l (t--fontify-dispatch "y" "l" '(boom plain) info nil)
+          '(plain (nil . "y")))
+      ($l (car calls) 1)
+      ($l (t-test-fontify-count info 'failure 'boom) 1)
+      ($n (t-test-fontify-count info 'unknown-language "l"))
+      (ignore (t--fontify-dispatch
+               "x" "l" '(boom plain)
+               (t-test-fontify-info :html-fontify-on-error 'silent) nil))
+      ($l (car calls) 2))
+    ;; Cross-block interaction: block 1 marks `boom' broken (`tried' >
+    ;; `declined', not unknown); block 2 skips `boom', leaving only
+    ;; `nope' to decline, which now triggers `unknown-language'.
     (let* ((t-fontify-engines
             `((boom :fontify ,(t-test-fontify-stub 'error) :available always)
               (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
@@ -5967,12 +5958,12 @@ COUNTER, a cons cell, has its car incremented on every call."
                                       :html-fontify-unknown-language 'plain)))
       ($l (t--fontify-dispatch "x" "l" '(boom nope plain) info nil)
           '(plain (nil . "x")))
-      ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
+      ($n (t-test-fontify-count info 'unknown-language "l"))
       ($l (t--fontify-dispatch "y" "l" '(boom nope plain) info nil)
           '(plain (nil . "y")))
-      ($l (gethash '(failure . boom) (t--fontify-state info)) 1)
-      ($l (gethash '(decline . nope) (t--fontify-state info)) 2)
-      ($l (gethash '(unknown-language . "l") (t--fontify-state info)) 1))))
+      ($l (t-test-fontify-count info 'failure 'boom) 1)
+      ($l (t-test-fontify-count info 'decline 'nope) 2)
+      ($l (t-test-fontify-count info 'unknown-language "l") 1))))
 
 (ert-deftest t--fontify-dispatch-matrix ()
   "Exhaustive sweep of the dispatcher against a model of its rules."
@@ -6095,33 +6086,12 @@ COUNTER, a cons cell, has its car incremented on every call."
         "hello")
     (let ((t-fontify-method nil))
       ($l (t-fontify-code "(a < b)" "emacs-lisp") "(a &lt; b)"))
-    ;; The options are checked even when there is nothing to fontify,
-    ;; and malformed options signal under the default `warn' policy
-    ;; instead of failing the engines into plain output.
+    ;; Options are checked up front even when there is nothing to fontify,
+    ;; under the default `warn' policy (all option errors are covered in
+    ;; `org-w3ctr--fontify-check-options').
     ($e!l (t-fontify-code "x" nil
                           (t-test-fontify-info :html-fontify-on-error 'loud))
           '(org-w3ctr-error "Unknown value for :html-fontify-on-error: loud"))
-    ($e!l (t-fontify-code "(a)" "emacs-lisp"
-                          (t-test-fontify-info
-                           :html-fontify-unknown-language 'loud))
-          '(org-w3ctr-error
-            "Unknown value for :html-fontify-unknown-language: loud"))
-    ($e!l (t-fontify-code "" "emacs-lisp"
-                          (t-test-fontify-info
-                           :html-fontify-face-fallback 'bogus))
-          '(org-w3ctr-error
-            "Unknown value for :html-fontify-face-fallback: bogus"))
-    ($e!l (t-fontify-code "(a)" "emacs-lisp"
-                          (t-test-fontify-info
-                           :html-fontify-extra-faces '((foo . "K"))))
-          '(org-w3ctr-error "Malformed fontify face entry: (foo . \"K\")"))
-    ($e!l (t-fontify-code "(a)" "emacs-lisp"
-                          (t-test-fontify-info
-                           :html-fontify-lang-alist
-                           '(("emacs-lisp" . emacs-lisp-mode))))
-          (list 'org-w3ctr-error
-                ($c "Malformed fontify language entry: "
-                    "(\"emacs-lisp\" . emacs-lisp-mode)")))
     ;; With INFO its `:html-fontify-method' decides, over the option.
     (let ((t-fontify-method nil))
       ($s (string-match-p
@@ -6182,24 +6152,31 @@ COUNTER, a cons cell, has its car incremented on every call."
                               '(:html-fontify-method nil))
         ($c "<div>\n<pre><code class=\"language-text\">a\nb</code></pre>"
             "</div>\n<main>\n</main>\n"))
-    ;; INFO reaches `org-w3ctr-fontify-code'.
+    ;; INFO reaches `org-w3ctr-fontify-code', coderef labels are stripped,
+    ;; and LANG is HTML-escaped in the class attribute.
     ($s (string-match-p
          "<code class=\"language-emacs-lisp\">(defun foo () 1)</code>"
          (org-export-string-as
           "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
           'w3ctr t '(:html-fontify-method nil))))
-    ;; The code-reference labels are removed.
     ($s (string-match-p
          "<code class=\"language-text\">x</code>"
          (org-export-string-as
           "#+begin_src text\nx (ref:a)\n#+end_src"
           'w3ctr t '(:html-fontify-method nil))))
-    ;; LANG comes from the block header and is escaped in the class.
     ($s (string-match-p
          "<code class=\"language-a&quot;b&lt;c\">x</code>"
          (org-export-string-as
           "#+begin_src a\"b<c\nx\n#+end_src"
-          'w3ctr t '(:html-fontify-method nil))))
+          'w3ctr t '(:html-fontify-method nil))))))
+
+(ert-deftest t-src-block-attributes ()
+  "Attributes, names, captions, and self-links on source blocks."
+  (let ((t--fontify-last-state nil)
+        (t-fontify-method 'font-lock)
+        (t-fontify-unknown-language 'warn)
+        (t-fontify-reuse-buffer nil))
+    ;; A captioned block gets an auto id, `class="example"', and a self-link.
     (let ((out (org-export-string-as
                 "#+caption: C\n#+begin_src emacs-lisp\nx\n#+end_src"
                 'w3ctr t)))
@@ -6212,91 +6189,82 @@ COUNTER, a cons cell, has its car incremented on every call."
              (match-string 1 out)))
            out))
       ($s (string-match-p "<span>C</span>" out)))
-    ;; Attributes come from `#+attr__', or `#+attr_html' when that is
-    ;; absent; `#+attr__' wins over `#+attr_html'.
-    (let ((out (org-export-string-as
-                "#+attr__: [foo]\n#+begin_src emacs-lisp\nx\n#+end_src"
-                'w3ctr t)))
-      ($s (string-match-p "<div class=\"foo\">" out)))
-    (let ((out (org-export-string-as
-                "#+attr_html: :class foo\n#+begin_src emacs-lisp\nx\n#+end_src"
-                'w3ctr t)))
-      ($s (string-match-p "<div class=\"foo\">" out)))
-    (let ((out (org-export-string-as
-                (concat "#+attr__: [foo]\n#+attr_html: :class bar\n"
-                        "#+begin_src emacs-lisp\nx\n#+end_src")
-                'w3ctr t)))
-      ($s (string-match-p "<div class=\"foo\">" out)))
-    ;; A named block gets its id, captioned or not.
-    (let ((t-prefer-user-labels t))
-      (let ((out (org-export-string-as
-                  "#+name: nm\n#+begin_src emacs-lisp\nx\n#+end_src" 'w3ctr t)))
-        ($s (string-match-p "<div id=\"nm\">" out)))
-      (let ((out (org-export-string-as
-                  (concat "#+name: nm\n#+caption: C\n"
-                          "#+begin_src emacs-lisp\nx\n#+end_src")
-                  'w3ctr t)))
-        ($s (string-match-p "<div id=\"nm\" class=\"example\">" out))
-        ($s (string-match-p
-             ($c "<a class=\"self-link\" href=\"#nm\""
-                 " aria-label=\"source block\"></a>")
-             out)))
-      ;; The caption is transcoded, and the id is escaped in the self-link.
-      (let ((out (org-export-string-as
-                  (concat "#+name: nm\n#+caption: *Bold*\n"
-                          "#+begin_src text\nx\n#+end_src")
-                  'w3ctr t)))
-        ($s (string-match-p "<span><b>Bold</b></span>" out)))
-      (let ((out (org-export-string-as
-                  (concat "#+caption: C\n#+attr__: (id \"a&b\")\n"
-                          "#+begin_src text\nx\n#+end_src")
-                  'w3ctr t)))
-        ($s (string-match-p "<a class=\"self-link\" href=\"#a&amp;b\""
-                            out))))
-    ;; User attributes replace the default class on a captioned block, and
-    ;; the self-link follows the id the block actually emits.
-    (let ((t-prefer-user-labels t))
-      (let ((out (org-export-string-as
-                  (concat "#+name: nm\n#+caption: C\n#+attr__: [foo]\n"
-                          "#+begin_src emacs-lisp\nx\n#+end_src")
-                  'w3ctr t)))
-        ($s (string-match-p "<div id=\"nm\" class=\"foo\">" out))
-        ($s (string-match-p "<a class=\"self-link\" href=\"#nm\"" out)))
-      (let ((out (org-export-string-as
-                  ($c "#+name: nm\n#+caption: C\n#+attr__: (id \"custom\")\n"
-                      "#+begin_src emacs-lisp\nx\n#+end_src")
-                  'w3ctr t)))
-        ($s (string-match-p "<div id=\"custom\">" out))
-        ($s (string-match-p "<a class=\"self-link\" href=\"#custom\"" out)))
-      (let ((out (org-export-string-as
-                  (concat "#+name: nm\n#+caption: C\n#+attr_html: :class foo\n"
-                          "#+begin_src emacs-lisp\nx\n#+end_src")
-                  'w3ctr t)))
-        ($s (string-match-p "<div class=\"foo\" id=\"nm\">" out))
-        ($s (string-match-p "<a class=\"self-link\" href=\"#nm\"" out)))
-      ;; When the id is explicitly suppressed, no broken self-link is emitted.
-      (let ((out (org-export-string-as
-                  (concat "#+caption: C\n#+attr_html: :id\n"
-                          "#+begin_src emacs-lisp\nx\n#+end_src")
-                  'w3ctr t)))
-        ($s (string-match-p "<div>\n<span>C</span>" out))
-        ($n (string-match-p "self-link" out))))
-    ;; An empty or blank caption is treated as uncaptioned.
+    ;; `#+attr__' wins over `#+attr_html'; an empty caption is uncaptioned.
+    ($s (string-match-p
+         "<div class=\"foo\">"
+         (org-export-string-as
+          ($c "#+attr__: [foo]\n#+attr_html: :class bar\n"
+              "#+begin_src emacs-lisp\nx\n#+end_src")
+          'w3ctr t)))
+    ($s (string-match-p
+         "<div class=\"foo\">"
+         (org-export-string-as
+          "#+attr_html: :class foo\n#+begin_src emacs-lisp\nx\n#+end_src"
+          'w3ctr t)))
     (let ((out (org-export-string-as
                 "#+caption:   \n#+begin_src emacs-lisp\nx\n#+end_src"
                 'w3ctr t)))
       ($s (string-match-p "<div>\n<pre>" out))
       ($n (string-match-p "self-link" out)))
-    ;; The per-file option reaches the transcoder through INFO.
-    (let ((src "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"))
-      ($s (string-match-p "tok-k" (org-export-string-as src 'w3ctr t)))
-      ($n (string-match-p
-           "tok-k" (org-export-string-as (concat "#+OPTIONS: fontify:nil\n" src)
-                                         'w3ctr t)))
-      ($e!l (org-export-string-as (concat "#+OPTIONS: fontify:bogus\n" src)
-                                  'w3ctr t)
-            '(org-w3ctr-error "Unknown fontify method: bogus")))
-    ;; A block's own :fontify wins over the file's method.
+    ;; Named blocks, transcoded captions, user overrides, and suppressed id.
+    (let ((t-prefer-user-labels t))
+      ($s (string-match-p
+           "<div id=\"nm\">"
+           (org-export-string-as
+            "#+name: nm\n#+begin_src emacs-lisp\nx\n#+end_src" 'w3ctr t)))
+      (let ((out (org-export-string-as
+                  ($c "#+name: nm\n#+caption: *Bold*\n"
+                      "#+begin_src text\nx\n#+end_src")
+                  'w3ctr t)))
+        ($s (string-match-p "<div id=\"nm\" class=\"example\">" out))
+        ($s (string-match-p
+             ($c "<a class=\"self-link\" href=\"#nm\""
+                 " aria-label=\"source block\"></a>")
+             out))
+        ($s (string-match-p "<span><b>Bold</b></span>" out)))
+      ;; User attributes replace the default class; self-link follows real id.
+      (let ((out (org-export-string-as
+                  ($c "#+name: nm\n#+caption: C\n#+attr__: [foo]\n"
+                      "#+begin_src emacs-lisp\nx\n#+end_src")
+                  'w3ctr t)))
+        ($s (string-match-p "<div id=\"nm\" class=\"foo\">" out))
+        ($s (string-match-p "<a class=\"self-link\" href=\"#nm\"" out)))
+      (let ((out (org-export-string-as
+                  ($c "#+caption: C\n#+attr__: (id \"a&b\")\n"
+                      "#+begin_src text\nx\n#+end_src")
+                  'w3ctr t)))
+        ($s (string-match-p "<div id=\"a&amp;b\">" out))
+        ($s (string-match-p "<a class=\"self-link\" href=\"#a&amp;b\"" out)))
+      (let ((out (org-export-string-as
+                  ($c "#+name: nm\n#+caption: C\n#+attr_html: :class foo\n"
+                      "#+begin_src emacs-lisp\nx\n#+end_src")
+                  'w3ctr t)))
+        ($s (string-match-p "<div class=\"foo\" id=\"nm\">" out))
+        ($s (string-match-p "<a class=\"self-link\" href=\"#nm\"" out)))
+      ;; Explicitly suppressing `:id' suppresses the self-link too.
+      (let ((out (org-export-string-as
+                  ($c "#+caption: C\n#+attr_html: :id\n"
+                      "#+begin_src emacs-lisp\nx\n#+end_src")
+                  'w3ctr t)))
+        ($s (string-match-p "<div>\n<span>C</span>" out))
+        ($n (string-match-p "self-link" out))))))
+
+(ert-deftest t-src-block-options ()
+  "Per-file OPTIONS, block `:fontify' overrides, and unknown-language policy."
+  (let ((t--fontify-last-state nil)
+        (t-fontify-method 'font-lock)
+        (t-fontify-unknown-language 'warn)
+        (t-fontify-reuse-buffer nil)
+        (src "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"))
+    ;; Per-file `#+OPTIONS: fontify:...' reaches the transcoder through INFO.
+    ($s (string-match-p "tok-k" (org-export-string-as src 'w3ctr t)))
+    ($n (string-match-p
+         "tok-k" (org-export-string-as (concat "#+OPTIONS: fontify:nil\n" src)
+                                       'w3ctr t)))
+    ($e!l (org-export-string-as (concat "#+OPTIONS: fontify:bogus\n" src)
+                                'w3ctr t)
+          '(org-w3ctr-error "Unknown fontify method: bogus"))
+    ;; Block-level `:fontify' wins over file-level method and reports line.
     ($n (string-match-p
          "tok-" (org-export-string-as
                  "#+begin_src emacs-lisp :fontify nil\n(defun f ())\n#+end_src"
@@ -6305,7 +6273,7 @@ COUNTER, a cons cell, has its car incremented on every call."
            "\n#+begin_src emacs-lisp :fontify bogus\n(defun f ())\n#+end_src"
            'w3ctr t)
           '(org-w3ctr-error "Unknown fontify method: bogus at line 2"))
-    ;; The unknown-language policy, through a real export.
+    ;; The unknown-language policy through a real export.
     ($e!l (org-export-string-as "#+begin_src nosuchlang\nx\n#+end_src" 'w3ctr t
                                 '(:html-fontify-unknown-language error))
           '(org-w3ctr-error
