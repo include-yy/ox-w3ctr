@@ -3521,16 +3521,18 @@ Accept `#+attr__:' and `#+attr_html:' for custom attributes; only
 named blocks get an automatic id.  Captions are dropped."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (format
-   "<p%s>%s</p>"
-   (t--make-attr__id* verse-block info t)
-   (t--prepend-newline
-    (replace-regexp-in-string
-     "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
-     ;; An explicit `\\' line break is already `<br>\n'; absorb the
-     ;; `<br>' so the newline does not add a second one.
-     (replace-regexp-in-string
-      "\\(?:<br>\\)?[ \t]*\n" "<br>\n" (or contents ""))))))
+  (let ((case-fold-search nil))
+    (format
+     "<p%s>%s</p>"
+     (t--make-attr__id* verse-block info t)
+     (t--prepend-newline
+      (replace-regexp-in-string
+       "^[ \t]+" (lambda (m) (t--make-string (length m) "&#xa0;"))
+       ;; An explicit `\\' line break is already `<br>\n'; absorb the
+       ;; `<br>' so the newline does not add a second one.
+       (replace-regexp-in-string
+        "\\(?:<br>\\)?[ \t]*\n" "<br>\n" (or contents "") t t)
+       t t)))))
 
 ;;;; LaTeX
 
@@ -3624,7 +3626,8 @@ MODE is `:with-latex' (nil, `verbatim', `mathjax'/t,
 and delimiter-less fragments with nil DEFAULT-DISPLAY are
 HTML-escaped as plain text without invoking any renderer; emitted
 math increments `:html-math-count' in INFO.  Signal `org-w3ctr-error'
-on an unknown MODE or a custom result that is neither a string nor nil."
+on an unknown MODE, an invalid RPC result, or a custom result that is
+neither a string nor nil."
   (declare (ftype (function (string t list &optional boolean)
                             (or null string)))
            (important-return-value t))
@@ -3774,14 +3777,20 @@ for custom attributes; only named paragraphs get an automatic id."
   "Return the regexp matching ELEMENT's code-reference labels.
 
 The format is ELEMENT's own `-l' switch when it has one, and
-`org-coderef-label-format' otherwise.  Never consult the element at
-point: `org-src-coderef-format' does, which leaks one block's format
-into another when the point happens to sit in a block with `-l'."
+`org-coderef-label-format' otherwise.  It must be a string containing
+exactly one literal `%s' placeholder; signal `org-w3ctr-error'
+otherwise.  Never consult the element at point:
+`org-src-coderef-format' does, which leaks one block's format into
+another when the point happens to sit in a block with `-l'."
   (declare (ftype (function (t) string))
            (important-return-value t))
-  (org-src-coderef-regexp
-   (or (org-element-property :label-fmt element)
-       org-coderef-label-format)))
+  (let* ((fmt (or (org-element-property :label-fmt element)
+                  org-coderef-label-format))
+         (pos (and (stringp fmt) (string-search "%s" fmt)))
+         (case-fold-search nil))
+    (unless (and pos (not (string-search "%s" fmt (+ pos 2))))
+      (t-error "Invalid code reference label format: %S" fmt))
+    (org-src-coderef-regexp fmt)))
 
 (defun t--code-text (element)
   "Return ELEMENT's code text, with its code-reference labels removed.
@@ -3796,7 +3805,8 @@ format is ELEMENT's own (see `org-w3ctr--coderef-regexp')."
          (code (if (org-src-preserve-indentation-p element)
                    value
                  (org-remove-indentation value)))
-         (regexp (t--coderef-regexp element)))
+         (regexp (t--coderef-regexp element))
+         (case-fold-search nil))
     ;; As in `org-export-unravel-code': drop the final newline and the
     ;; last cell of each matching line, the label with its white space.
     (replace-regexp-in-string
@@ -3816,6 +3826,7 @@ on several lines is returned once.  The label format is ELEMENT's own
   (declare (ftype (function (t) list))
            (important-return-value t))
   (let ((regexp (t--coderef-regexp element))
+        (case-fold-search nil)
         labels)
     (dolist (line (split-string
                    (or (org-element-property :value element) "") "\n"))

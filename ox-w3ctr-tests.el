@@ -3556,7 +3556,7 @@ cookie-less column is remembered as the `none' marker."
     ;; A synthetic keyword with nil `:value' falls back to "".
     ($l (t-keyword '(keyword (:key "H")) nil nil) "")
     ;; A synthetic lowercase :key falls through (the parser upcases).
-    ($l (t-keyword '(keyword (:key "h" :value "x")) nil nil) nil)
+    ($n (t-keyword '(keyword (:key "h" :value "x")) nil nil))
     ;; Error handling: malformed Lisp signals `org-w3ctr-error' with line number.
     ($e!l (org-export-string-as "#+e: (broken" 'w3ctr t)
           '(org-w3ctr-error "#+E keyword at line 1: End of file during parsing"))
@@ -3614,7 +3614,12 @@ cookie-less column is remembered as the `none' marker."
                                 (match-string 1 out))
                         out)))
   ;; A synthetic element with nil CONTENTS falls back to "".
-  ($l (t-verse-block '(verse-block nil) nil nil) "<p></p>"))
+  ($l (t-verse-block '(verse-block nil) nil nil) "<p></p>")
+  ;; Uppercase <BR> is not absorbed even under `case-fold-search' = t,
+  ;; and the inserted <br> stays lowercase.
+  (let ((case-fold-search t))
+    ($l (t-verse-block '(verse-block nil) "a<BR>\nb\n" nil)
+        "<p>\na<BR><br>\nb<br>\n</p>")))
 
 ;;;; LaTeX
 
@@ -3685,8 +3690,13 @@ cookie-less column is remembered as the `none' marker."
   ;; and expands it into plain text under `verbatim'
   ;; (`org-export--remove-uninterpreted-data') -- so only a direct call
   ;; reaches these two cases, and the export drops the math.
-  ($l (t--format-latex "$x$" nil nil) nil)
-  ($l (t--format-latex "$x$" 'verbatim nil) nil)
+  ($n (t--format-latex "$x$" nil nil))
+  ($n (t--format-latex "$x$" 'verbatim nil))
+  ;; `org-w3ctr-with-latex' `:safe' predicate admits the 7 valid modes only.
+  (let ((pred (get 't-with-latex 'safe-local-variable)))
+    (dolist (v '(nil verbatim mathjax t mathml-by-mathjax svg-by-mathjax custom))
+      ($s (funcall pred v)))
+    ($n (funcall pred 'bogus)))
   ;; mathjax normalizes the delimiters and HTML-escapes <, >, & for
   ;; client-side MathJax, and the legacy t alias behaves the same
   ($l (t--format-latex "$x$" 'mathjax nil) "\\(x\\)")
@@ -3699,12 +3709,17 @@ cookie-less column is remembered as the `none' marker."
          (info (list :html-math-custom-format-function renderer)))
     ($l (t--format-latex "$x$" 'custom info) "<M>")
     ($l got (list "$x$" info)))
-  ;; a custom nil result is kept, an absent option falls back to the
-  ;; default, and any other result type signals
-  (let ((info '(:html-math-custom-format-function (lambda (_f _i) nil))))
-    ($l (t--format-latex "$x$" 'custom info) nil))
+  ;; a custom nil or blank result is kept without incrementing
+  ;; `:html-math-count', an absent option falls back to the default,
+  ;; and any other result type signals
+  (let ((info (list :html-math-custom-format-function (lambda (_f _i) nil))))
+    ($n (t--format-latex "$x$" 'custom info))
+    ($n (t--pget info :html-math-count)))
+  (let ((info (list :html-math-custom-format-function (lambda (_f _i) "  "))))
+    ($l (t--format-latex "$x$" 'custom info) "  ")
+    ($n (t--pget info :html-math-count)))
   ($l (t--format-latex "$x$" 'custom nil) "$x$")
-  (let ((info '(:html-math-custom-format-function (lambda (_f _i) 42))))
+  (let ((info (list :html-math-custom-format-function (lambda (_f _i) 42))))
     ($e!l (t--format-latex "$x$" 'custom info)
           '(org-w3ctr-error "Custom LaTeX renderer returned a non-string: 42")))
   ;; the RPC modes call the jstools MathJax helpers with explicit :tex
@@ -3795,7 +3810,7 @@ cookie-less column is remembered as the `none' marker."
            (lambda (f _i) (format "<C>%s</C>" f))))
   ;; a nil :value (not parser-reachable) degrades to the empty string
   ($l (t-latex-fragment (org-element-create 'latex-fragment)
-                        nil '(:with-latex mathjax))
+                        nil (list :with-latex 'mathjax))
       ""))
 
 (ert-deftest t-latex-environment ()
@@ -3828,7 +3843,7 @@ cookie-less column is remembered as the `none' marker."
            (lambda (f _i) (format "<C>%s</C>" f))))
   ;; a nil :value (not parser-reachable) degrades to the empty string
   ($l (t-latex-environment (org-element-create 'latex-environment)
-                           nil '(:with-latex mathjax))
+                           nil (list :with-latex 'mathjax))
       ""))
 
 ;;;; Paragraph
@@ -3866,8 +3881,10 @@ cookie-less column is remembered as the `none' marker."
      ("- [ ] 123" "123")
      ("- 123\n 234" "123\n234")
      ("- 123\n  - sub" "sub" "123")
-     ;; multi-block items keep <p> on the first paragraph too, so
-     ;; `li > p:first-child' / `dd > p:first-child' spacing works
+     ;; multi-block items keep <p> on the first paragraph too, even when
+     ;; a sub-list immediately follows it, so `li > p:first-child' /
+     ;; `dd > p:first-child' spacing works
+     ("- 123\n  - sub\n\n  after" "<p>after</p>" "sub" "<p>123</p>")
      ("- 123\n\n   234" "<p>234</p>" "<p>123</p>")
      ("- term :: text\n\n  more" "<p>more</p>" "<p>text</p>")
      ;; a standalone image in a list item is still wrapped in <figure>
@@ -3922,10 +3939,11 @@ cookie-less column is remembered as the `none' marker."
    '(("[[./1.png]]" "<p><a href=\"./1.png\">./1.png</a></p>"))
    t '(:html-inline-images nil))
   ;; nil CONTENTS: math under `tex:nil' is pruned before the
-  ;; transcoder runs, and the empty paragraph is ""
+  ;; transcoder runs, and the empty paragraph is "" (including in a list item)
   (t-check-element-values
    #'t-paragraph
-   '(("$x^2$" ""))
+   '(("$x^2$" "")
+     ("- $x^2$" ""))
    t '(:with-latex nil)))
 
 ;;;; Code references
@@ -3935,11 +3953,17 @@ cookie-less column is remembered as the `none' marker."
   ;; A block without `-l' matches the default `(ref:NAME)' format.
   (let ((el (t-get-element "#+begin_example\nx (ref:a)\n#+end_example"
                            'example-block)))
-    (should (string-match-p (t--coderef-regexp el) "x (ref:a)")))
+    ($s (string-match-p (t--coderef-regexp el) "x (ref:a)")))
   ;; The block's own `-l' switch sets the format.
   (let ((el (t-get-element "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
                            'example-block)))
-    (should (string-match-p (t--coderef-regexp el) "x ((a))"))))
+    ($s (string-match-p (t--coderef-regexp el) "x ((a))")))
+  ;; Format must be a string with exactly one literal `%s' placeholder.
+  (let ((case-fold-search t))
+    (dolist (bad '("foo" "(ref:%S)" "%s-%s" "" 42))
+      ($e!l (t--coderef-regexp `(example-block (:label-fmt ,bad)))
+            (list 'org-w3ctr-error
+                  (format "Invalid code reference label format: %S" bad))))))
 
 (ert-deftest t--code-text ()
   "Tests for `org-w3ctr--code-text'."
@@ -3953,6 +3977,10 @@ cookie-less column is remembered as the `none' marker."
     ;; Code-reference labels are removed with their white space.
     ($l (f "#+begin_example\nx (ref:sc)\n#+end_example" 'example-block)
         "x")
+    ;; Matching is case-sensitive even under `case-fold-search' = t.
+    (let ((case-fold-search t))
+      ($l (f "#+begin_example\nx (REF:sc)\n#+end_example" 'example-block)
+          "x (REF:sc)"))
     ;; The block's own `-l' format is what is removed.
     ($l (f "#+begin_example -l \"((%s))\"\nx ((sc))\n#+end_example"
            'example-block)
@@ -3975,8 +4003,10 @@ cookie-less column is remembered as the `none' marker."
     ($l (f "#+begin_example\nx (ref:a)\ny (ref:a)\n#+end_example"
            'example-block)
         '("a"))
-    ;; A label must end the line to count.
+    ;; A label must end the line to count, and matching is case-sensitive.
     ($n (f "#+begin_example\nx (ref:a) y\n#+end_example" 'example-block))
+    (let ((case-fold-search t))
+      ($n (f "#+begin_example\nx (REF:a)\n#+end_example" 'example-block)))
     ;; The block's own `-l' switch sets the label format.
     ($l (f "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
            'example-block)
@@ -4001,17 +4031,21 @@ cookie-less column is remembered as the `none' marker."
       ($l (t--coderef-labels second) '("b"))
       ($l (t--code-text second) "y")))
   ;; The same document exports with both links resolving.
-  (let ((org-w3ctr-prefer-user-labels t))
+  (let ((t-prefer-user-labels t))
     (let ((out (org-export-string-as
                 ($c "#+name: a\n#+begin_example -l \"((%s))\"\nx ((a))\n"
                     "#+end_example\n\n#+name: b\n#+begin_example\ny (ref:b)\n"
                     "#+end_example\n\nSee [[(a)]] and [[(b)]].")
                 'w3ctr t)))
-      (should (string-match-p "<a href=\"#a\" class=\"coderef\">a</a>" out))
-      (should (string-match-p "<a href=\"#b\" class=\"coderef\">b</a>" out)))))
+      ($s (string-match-p "<a href=\"#a\" class=\"coderef\">a</a>" out))
+      ($s (string-match-p "<a href=\"#b\" class=\"coderef\">b</a>" out)))))
 
 (ert-deftest t--coderef-table ()
   "Tests for `org-w3ctr--coderef-table'."
+  ;; nil INFO returns a fresh empty hash table without writing cache.
+  (let ((empty (t--coderef-table nil)))
+    ($s (hash-table-p empty))
+    ($l (hash-table-count empty) 0))
   (let* ((tree (with-temp-buffer
                  (insert ($c "#+begin_example\na (ref:a)\na2 (ref:a)\n#+end_example\n"
                              "#+begin_src text\nb (ref:b)\n#+end_src\n"))
@@ -4129,8 +4163,8 @@ cookie-less column is remembered as the `none' marker."
   "An example block that defines a code reference always gets an id."
   (let ((out (org-export-string-as
               "#+begin_example\nx (ref:sc)\n#+end_example" 'w3ctr t)))
-    (should (string-match-p "<div id=\"org[0-9a-f]+\" class=\"example\">"
-                            out)))
+    ($s (string-match-p "<div id=\"org[0-9a-f]+\" class=\"example\">"
+                        out)))
   ;; Without a code reference there is no id.
   (let ((out (org-export-string-as "#+begin_example\nx\n#+end_example"
                                    'w3ctr t)))
