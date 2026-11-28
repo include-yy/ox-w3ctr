@@ -6950,7 +6950,7 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (it 0 's-colon) "%F %R+00:00")
     ($l (it 0 's-colon-zulu) "%F %RZ")
     ($l (it 4800 's-colon-zulu) "%F %R+01:20")
-    ($l (it 0 'T-colon) "%FT%R+00:00")
+    ($l (it 0 'T-none-zulu) "%FT%RZ")
     ($l (it 0 'T-none) "%FT%R+0000")
     ($l (it 0 'T-colon) "%FT%R+00:00")
     ($l (it 0 'T-colon-zulu) "%FT%RZ")
@@ -7009,17 +7009,26 @@ COUNTER, a cons cell, has its car incremented on every call."
                   :html-datetime-option T-colon-zulu)))
     ($l (t--format-datetime test-time info5)
         "2023-01-01T12:00Z"))
+  ;; Test timezone conversion (non-zero delta) and notime.
+  (let ((test-time (encode-time 0 0 12 1 1 2023))
+        (info-conv '(:html-timezone 28800
+                     :html-export-timezone 0
+                     :html-datetime-option T-none-zulu)))
+    ($l (t--format-datetime test-time info-conv)
+        "2023-01-01T04:00Z")
+    ($l (t--format-datetime test-time info-conv t)
+        "2023-01-01"))
   ;; Test local timezone
   (let ((test-time (encode-time 0 0 12 1 1 2023))
-        (info6 '( :html-timezone "local"
-                  :html-export-timezone "local"
-                  :html-datetime-option s-none)))
+        (info6 (list :html-timezone "local"
+                     :html-export-timezone "local"
+                     :html-datetime-option 's-none)))
     ($l "2023-01-01 12:00"
         (t--format-datetime test-time info6)))
   ;; Test invalid timezone
   (let ((test-time (encode-time 0 0 12 1 1 2023))
         (info7 '(:html-timezone "Invalid")))
-    ($e! (t--format-datetime test-time info7)))
+    ($e! (t--format-datetime test-time info7) 'org-w3ctr-error))
   ;; Test invalid datetime option
   (let ((test-time (encode-time 0 0 12 1 1 2023)))
     ($e!l (t--format-datetime test-time '(:html-timezone 0))
@@ -7153,7 +7162,8 @@ COUNTER, a cons cell, has its car incremented on every call."
           '(org-w3ctr-error "Invalid timestamp: [1949-10-01]"))
     ($e! (let ((ts (f "[2000-01-01]")))
            (setf (org-element-property :year-start ts) nil)
-           (g ts))))
+           (g ts))
+         'org-w3ctr-error))
   (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (g (x) (t--interpret-timestamp (f x))))
     ($l (g "<2007-05-16 12:30 +1h>") "<2007-05-16 Wed 12:30 +1h>")
@@ -7194,9 +7204,11 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr--format-ts-span-time'."
   ;; <span> branch (datetime = nil)
   ($l (t--format-ts-span-time "hello" nil)
-      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">hello</span></span>")
+      ($c "<span class=\"timestamp-wrapper\">"
+          "<span class=\"timestamp\">hello</span></span>"))
   ($l (t--format-ts-span-time "a < b" nil)
-      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a &lt; b</span></span>")
+      ($c "<span class=\"timestamp-wrapper\">"
+          "<span class=\"timestamp\">a &lt; b</span></span>"))
   ;; <time> branch (datetime string supplied)
   ($l (t--format-ts-span-time "hello" nil "") "<time>hello</time>")
   ($l (t--format-ts-span-time "2024" nil " datetime=\"2024\"")
@@ -7205,10 +7217,12 @@ COUNTER, a cons cell, has its car incremented on every call."
       "<time datetime=\"2024\">100% %s</time>")
   ;; special strings via t-plain-text
   ($l (t--format-ts-span-time "a -- b" '(:with-special-strings t))
-      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a &#x2013; b</span></span>")
+      ($c "<span class=\"timestamp-wrapper\">"
+          "<span class=\"timestamp\">a &#x2013; b</span></span>"))
   ;; preserve breaks via t-plain-text
   ($l (t--format-ts-span-time "a\nb" '(:preserve-breaks t))
-      "<span class=\"timestamp-wrapper\"><span class=\"timestamp\">a<br>\nb</span></span>"))
+      ($c "<span class=\"timestamp-wrapper\">"
+          "<span class=\"timestamp\">a<br>\nb</span></span>")))
 
 (ert-deftest t--format-ts-time ()
   "Tests for `org-w3ctr--format-ts-time'."
@@ -7237,7 +7251,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   (cl-flet* ((f (s) (t-get-element s 'timestamp))
              (g (x y info) (t--format-timestamp-raw-1 (f x) y info))
              (p (w) `( :html-timestamp-wrapper ,w)))
-    ($e!l (g "[2000-01-01]" "[0000-00-00]"(p 'wtf))
+    ($e!l (g "[2000-01-01]" "[0000-00-00]" (p 'wtf))
           '(org-w3ctr-error "Unknown timestamp wrapper: wtf"))
     ;; test none
     (let ((ts "[2000-01-01]"))
@@ -7266,9 +7280,9 @@ COUNTER, a cons cell, has its car incremented on every call."
               "<span class=\"timestamp\">"
               "&amp;" "</span></span>")))
     ;; test time
-    (let ((info '( :html-timestamp-wrapper time
-                   :html-datetime-option T-none
-                   :html-timezone 28800))
+    (let ((info (list :html-timestamp-wrapper 'time
+                      :html-datetime-option 'T-none
+                      :html-timezone 28800))
           (t1 "[1970-01-02]")
           (t2 "[1970-01-02 08:00]")
           (t3 "[1970-01-02 08:00-13:00]")
@@ -7570,7 +7584,8 @@ COUNTER, a cons cell, has its car incremented on every call."
           (t2 "<2011-11-18 14:54>")
           (t3 "[2011-11-18 06:54-14:54]")
           (t4 "<2011-11-18 06:54>--[2011-11-18 14:54]")
-          (info '(:html-timestamp-format-function (lambda (_a _b) "hello"))))
+          (info (list :html-timestamp-format-function
+                      (lambda (_a _b) "hello"))))
       ($it t--format-timestamp-fun
         ($l (it (f t1) info) "hello")
         ($l (it (f t2) info) "hello")
@@ -7579,7 +7594,8 @@ COUNTER, a cons cell, has its car incremented on every call."
         ($e!l (it (f t1) nil)
               '(org-w3ctr-error "Invalid timestamp format function: nil"))
         ($e!l (it (f t1) '(:html-timestamp-format-function not-a-fn))
-              '(org-w3ctr-error "Invalid timestamp format function: not-a-fn"))
+              '(org-w3ctr-error
+                "Invalid timestamp format function: not-a-fn"))
         ($e!l (it (f t1)
                   (list :html-timestamp-format-function (lambda (_a _b) 42)))
               '(org-w3ctr-error
@@ -7594,7 +7610,8 @@ COUNTER, a cons cell, has its car incremented on every call."
      ("[2006-01-02 15:04:05]"
       "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>")
      ("<2006-01-02 15:04:05>"
-      "<time datetime=\"2006-01-02 15:04+0800\">&lt;2006-01-02 15:04&gt;</time>")
+      "<time datetime=\"2006-01-02 15:04+0800\">\
+&lt;2006-01-02 15:04&gt;</time>")
      ("[2025-03-30]--[2025-03-31]"
       "<time datetime=\"2025-03-30\">[2025-03-30]</time>&#x2013;\
 <time datetime=\"2025-03-31\">[2025-03-31]</time>")
@@ -7605,8 +7622,10 @@ COUNTER, a cons cell, has its car incremented on every call."
       "<time datetime=\"2006-01-02 15:04+0800\">[2006-01-02 15:04]</time>\
 &#x2013;<time datetime=\"2006-01-03 04:05+0800\">[2006-01-03 04:05]</time>")
      ("<2006-01-02 15:04:05>--<2006-01-03 04:05:06>"
-      "<time datetime=\"2006-01-02 15:04+0800\">&lt;2006-01-02 15:04&gt;</time>\
-&#x2013;<time datetime=\"2006-01-03 04:05+0800\">&lt;2006-01-03 04:05&gt;</time>")
+      "<time datetime=\"2006-01-02 15:04+0800\">\
+&lt;2006-01-02 15:04&gt;</time>&#x2013;\
+<time datetime=\"2006-01-03 04:05+0800\">\
+&lt;2006-01-03 04:05&gt;</time>")
      ("[2024-02-02]--<2025-02-02>"
       "<time datetime=\"2024-02-02\">[2024-02-02]</time>&#x2013;\
 <time datetime=\"2025-02-02\">[2025-02-02]</time>")
@@ -7649,7 +7668,8 @@ COUNTER, a cons cell, has its car incremented on every call."
   ;; document cannot supply an inline lambda to run arbitrary Lisp.
   (t-check-element-values
    #'t-timestamp
-   '(("#+OPTIONS: ts:fun tsfn:(lambda (&rest _) (error \"pwned\"))\n<2011-11-18>"
+   '(("#+OPTIONS: ts:fun tsfn:(lambda (&rest _) (error \"pwned\"))\n\
+<2011-11-18>"
       "&lt;2011-11-18&gt;"))
    t)
   ($e!l (org-export-string-as "[2011-11-18]" 'w3ctr t
