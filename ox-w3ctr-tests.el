@@ -7775,48 +7775,6 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 ;;;; Headline
 
-(ert-deftest t--headline-todo ()
-  "Tests for `org-w3ctr--headline-todo'."
-  (t-check-element-values
-   #'t--headline-todo
-   '(("* TODO a" "TODO")
-     ("* DONE b" "DONE")
-     ("* c" nil)
-     ;; The keyword goes through `org-export-data', so HTML-significant
-     ;; characters in it are escaped.
-     ("#+TODO: TODO WAIT<SEEN | DONE\n* WAIT<SEEN d" "WAIT&lt;SEEN"))
-   t '(:with-todo-keywords t :with-toc nil))
-  (t-check-element-values
-   #'t--headline-todo
-   '(("* TODO a" nil))
-   t '(:with-todo-keywords nil :with-toc nil)))
-
-(ert-deftest t--headline-priority ()
-  "Tests for `org-w3ctr--headline-priority'."
-  (t-check-element-values
-   #'t--headline-priority
-   '(("* [#A] a" 65)
-     ("* [#1] b" 1)
-     ("* c" nil))
-   t '(:with-priority t :with-toc nil))
-  (t-check-element-values
-   #'t--headline-priority
-   '(("* [#A] a" nil))
-   t '(:with-priority nil :with-toc nil)))
-
-(ert-deftest t--headline-tags ()
-  "Tests for `org-w3ctr--headline-tags'."
-  (t-check-element-values
-   #'t--headline-tags
-   '(("* a :x:" ("x"))
-     ("* b :x:y:" ("x" "y"))
-     ("* c" nil))
-   t '(:with-tags t :with-toc nil))
-  (t-check-element-values
-   #'t--headline-tags
-   '(("* a :x:" nil))
-   t '(:with-tags nil :with-toc nil)))
-
 (ert-deftest t-format-headline-default-function ()
   "Tests for `org-w3ctr-format-headline-default-function'."
   ($l (t-format-headline-default-function nil nil nil "Title" nil nil)
@@ -7829,16 +7787,25 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t--build-bare-headline ()
   "Tests for `org-w3ctr--build-bare-headline'."
-  (t-check-element-values
-   #'t--build-bare-headline
-   '(("* TODO [#A] text :x:" "TODO|todo|65|text|(x)")
-     ("* DONE b" "DONE|done|nil|b|nil")
-     ("* text" "nil|nil|nil|text|nil"))
-   t '(:with-todo-keywords t :with-priority t :with-tags t
-                           :html-format-headline-function
-                           (lambda (todo todo-type priority text tags _info)
-                             (format "%s|%s|%s|%s|%s" todo todo-type priority text tags))
-                           :with-toc nil))
+  (let ((fmt (lambda (todo todo-type priority text tags _info)
+               (format "%s|%s|%s|%s|%s"
+                       todo todo-type priority text tags))))
+    (t-check-element-values
+     #'t--build-bare-headline
+     '(("* TODO [#A] text :x:" "TODO|todo|65|text|(x)")
+       ("* DONE [#1] b :x:y:" "DONE|done|1|b|(x y)")
+       ("* text" "nil|nil|nil|text|nil")
+       ;; The TODO keyword goes through `org-export-data', escaping HTML.
+       ("#+TODO: TODO WAIT<SEEN | DONE\n* WAIT<SEEN d"
+        "WAIT&lt;SEEN|todo|nil|d|nil"))
+     t (list :with-todo-keywords t :with-priority t :with-tags t
+             :html-format-headline-function fmt :with-toc nil))
+    ;; Disabled options suppress TODO, priority, and tags.
+    (t-check-element-values
+     #'t--build-bare-headline
+     '(("* TODO [#A] text :x:" "nil|nil|nil|text|nil"))
+     t (list :with-todo-keywords nil :with-priority nil :with-tags nil
+             :html-format-headline-function fmt :with-toc nil)))
   ;; A nil format function falls back to the default.
   (t-check-element-values
    #'t--build-bare-headline
@@ -7867,7 +7834,8 @@ COUNTER, a cons cell, has its car incremented on every call."
       ,($c "<span class=\"todo org-status-TODO\">TODO</span> "
            "<span class=\"priority\">[F]</span> "
            "test7&#xa0;&#xa0;&#xa0;<span class=\"tag\">"
-           "<span class=\"tag1\">tag1</span>&#xa0;<span class=\"tag2\">tag2</span></span>")))
+           "<span class=\"tag1\">tag1</span>&#xa0;"
+           "<span class=\"tag2\">tag2</span></span>")))
    t '(:html-format-headline-function
        t-format-headline-default-function
        :with-todo-keywords t :with-priority t :with-tags t
@@ -7942,7 +7910,7 @@ COUNTER, a cons cell, has its car incremented on every call."
       "foo bar-1 _baz --custom")
   ($l (t--headline-class "-neg") "-neg")
   (dolist (bad '("123" "-1a" "-" "a\"b" "a<b" "a&b" "ok 1bad" "foo.bar"))
-    (should-error (t--headline-class bad) :type 'org-w3ctr-error)))
+    ($e! (t--headline-class bad) 'org-w3ctr-error)))
 
 (ert-deftest t--build-low-level-headline ()
   "Tests for `org-w3ctr--build-low-level-headline'."
@@ -7969,33 +7937,41 @@ COUNTER, a cons cell, has its car incremented on every call."
                   (t-get-element
                    ($c "* x\n:PROPERTIES:\n" props ":END:\n")
                    'headline)))
-        ($l (it (hl ":HTML_CONTAINER_CLASS: cc\n") nil nil)
-            "<ol>\n<li id=\"0\" class=\"cc\">test</li>\n</ol>\n")
-        ($l (it (hl ":HTML_HEADLINE_CLASS: hc\n") nil nil)
-            "<ol>\n<li id=\"0\"><span class=\"hc\">test</span></li>\n</ol>\n")
-        ($l (it (hl ":HTML_CONTAINER_CLASS: cc\n:HTML_HEADLINE_CLASS: hc\n") nil nil)
-            ($c "<ol>\n<li id=\"0\" class=\"cc\">"
-                "<span class=\"hc\">test</span></li>\n</ol>\n"))
-        ($l (it (hl ":HTML_CONTAINER_CLASS: cc\n:HTML_HEADLINE_CLASS: hc\n") "cont" nil)
-            ($c "<ol>\n<li id=\"0\" class=\"cc\">"
-                "<span class=\"hc\">test</span><br>\ncont\n</li>\n</ol>\n")))))
-  (let ((counter 0))
-    (cl-letf (((symbol-function 't--reference)
-               (lambda (n i &optional b)
-                 (when (org-element-type-p n 'headline)
-                   (number-to-string (incf counter))))))
-      (t-check-element-values
-       #'t--build-low-level-headline
-       `((,($c "* a\n** b\n*** c\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n"
-               "*** d\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\nabc\n"
-               "*** e\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n")
-          "<li id=\"3\">e</li>\n</ul>\n"
-          "<li id=\"2\">d<br>\n<p>abc</p>\n</li>\n"
-          "<ul>\n<li id=\"1\">c</li>\n"))
-       t '( :html-honor-ox-headline-levels t
-            :headline-levels 2
-            :html-format-headline-function
-            t-format-headline-default-function)))))
+        (let ((both ":HTML_CONTAINER_CLASS: cc\n:HTML_HEADLINE_CLASS: hc\n"))
+          ($l (it (hl ":HTML_CONTAINER_CLASS: cc\n") nil nil)
+              "<ol>\n<li id=\"0\" class=\"cc\">test</li>\n</ol>\n")
+          ($l (it (hl ":HTML_HEADLINE_CLASS: hc\n") nil nil)
+              "<ol>\n<li id=\"0\"><span class=\"hc\">test</span></li>\n</ol>\n")
+          ($l (it (hl both) nil nil)
+              ($c "<ol>\n<li id=\"0\" class=\"cc\">"
+                  "<span class=\"hc\">test</span></li>\n</ol>\n"))
+          ($l (it (hl both) "cont" nil)
+              ($c "<ol>\n<li id=\"0\" class=\"cc\">"
+                  "<span class=\"hc\">test</span><br>\n"
+                  "cont\n</li>\n</ol>\n"))))))
+  (cl-letf (((symbol-function 't--reference)
+             (lambda (n _i &optional _b)
+               (when (org-element-type-p n 'headline)
+                 (org-element-property :raw-value n)))))
+    (t-check-element-values
+     #'t--build-low-level-headline
+     `((,($c "* a\n** b\n*** c\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n"
+             "*** d\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\nabc\n"
+             "*** e\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n")
+        "<li id=\"e\">e</li>\n</ul>\n"
+        "<li id=\"d\">d<br>\n<p>abc</p>\n</li>\n"
+        "<ul>\n<li id=\"c\">c</li>\n")
+       ;; Mixed numbered and unnumbered siblings open/close balanced lists.
+       (,($c "* a\n** b\n*** c\n"
+             "*** d\n:PROPERTIES:\n:UNNUMBERED: t\n:END:\n"
+             "*** e\n")
+        "<ol>\n<li id=\"e\">e</li>\n</ol>\n"
+        "<ul>\n<li id=\"d\">d</li>\n</ul>\n"
+        "<ol>\n<li id=\"c\">c</li>\n</ol>\n"))
+     t '( :html-honor-ox-headline-levels t
+          :headline-levels 2
+          :html-format-headline-function
+          t-format-headline-default-function))))
 
 (ert-deftest t--headline-container ()
   "Tests for `org-w3ctr--headline-container'."
@@ -8016,7 +7992,12 @@ COUNTER, a cons cell, has its car incremented on every call."
   (t-check-element-values
    #'t--headline-container
    '(("* abc\n:PROPERTIES:\n:HTML_CONTAINER: aside\n:END:\n" "aside"))
-   t '(:html-container "section")))
+   t '(:html-container "section"))
+  ;; Invalid tag names signal org-w3ctr-error.
+  (let ((hl (t-get-element "* abc" 'headline)))
+    (dolist (bad '("" "  " "123" "-div" "div>x" "div onclick=x"))
+      ($e! (t--headline-container hl (list :html-container bad))
+           'org-w3ctr-error))))
 
 (ert-deftest t--headline-self-link ()
   "Tests for `org-w3ctr--headline-self-link'."
@@ -8058,22 +8039,6 @@ COUNTER, a cons cell, has its car incremented on every call."
         nil nil nil))
      t '( :with-toc nil))))
 
-(ert-deftest t--headline-hN ()
-  "Tests for `org-w3ctr--headline-hN'."
-  ($it t--headline-hN
-    (cl-letf (((symbol-function 't--get-headline-hlevel)
-               (lambda (_h _i) 3)))
-      ($l (it nil nil) "h3"))
-    (cl-letf (((symbol-function 't--get-headline-hlevel)
-               (lambda (_h _i) 7)))
-      ($l (it nil nil) "h6")))
-  (t-check-element-values
-   #'t--headline-hN
-   '(("* a\n** b\n*** c\n**** d\n***** e\n****** f\n"
-      "h2" "h3" "h4" "h5" "h6"))
-   t '( :html-honor-ox-headline-levels nil
-        :html-toplevel-hlevel 2)))
-
 (ert-deftest t-heading-default-format-function ()
   "Tests for `org-w3ctr-heading-default-format-function'."
   ;; Full: secno + title in <hN>, self-link beside, class on <hN>.
@@ -8088,10 +8053,9 @@ COUNTER, a cons cell, has its car incremented on every call."
             "<span class=\"secno\">1. </span>title</h2>\n"
             "<a class=\"self-link\"></a>\n"
             "</div>\n"))
-    (should-error
-     (t-heading-default-format-function
-      'hl "title" "h2" "id" "bad\"cls" nil)
-     :type 'org-w3ctr-error))
+    ($e! (t-heading-default-format-function
+          'hl "title" "h2" "id" "bad\"cls" nil)
+         'org-w3ctr-error))
   ;; Minimal: no secno, no self-link, no class.
   (cl-letf* (((symbol-function 't--headline-secno) (lambda (_h _i) nil))
              ((symbol-function 't--headline-self-link)
@@ -8106,8 +8070,8 @@ COUNTER, a cons cell, has its car incremented on every call."
   "Tests for `org-w3ctr--build-normal-headline'."
   (cl-letf (((symbol-function 't--headline-secno)
              (lambda (_h _i) "1. "))
-            ((symbol-function 't--headline-hN)
-             (lambda (_h _i) "h2"))
+            ((symbol-function 't--get-headline-hlevel)
+             (lambda (_h _i) 2))
             ((symbol-function 't--build-base-headline)
              (lambda (_h _i) "text"))
             ((symbol-function 't--reference)
@@ -8123,7 +8087,14 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (t--build-normal-headline nil "<p>hello world</p>\n" nil)
         ($c "<section id=\"pid\">\n<div class=\"header-wrapper\">\n"
             "<h2>1. text</h2>\n<a href=\"#x\"></a>\n"
-            "</div>\n<p>hello world</p>\n</section>\n")))
+            "</div>\n<p>hello world</p>\n</section>\n"))
+    ;; Heading level is capped at h6.
+    (cl-letf (((symbol-function 't--get-headline-hlevel)
+               (lambda (_h _i) 7)))
+      ($l (t--build-normal-headline nil nil nil)
+          ($c "<section id=\"pid\">\n<div class=\"header-wrapper\">\n"
+              "<h6>1. text</h6>\n<a href=\"#x\"></a>\n"
+              "</div>\n</section>\n"))))
   ;; :PROPERTIES:\n:UNNUMBERED:t\n:CUSTOM_ID:1\n:END:\n
   (t-check-element-values
    #'t--build-normal-headline
@@ -8136,23 +8107,22 @@ COUNTER, a cons cell, has its car incremented on every call."
            "<h2>a</h2>\n<a class=\"self-link\" href=\"#1\" "
            "aria-label=\"Link to this section\"></a>\n</div>\n"
            "<p>123456</p>\n</section>\n"))
-     ("* a\n:PROPERTIES:\n:UNNUMBERED: t\n:CUSTOM_ID: 1\n:HTML_CONTAINER_CLASS: c1  c2\n:HTML_HEADLINE_CLASS: h1\n:END:\n"
+     (,($c "* a\n:PROPERTIES:\n:UNNUMBERED: t\n:CUSTOM_ID: 1\n"
+           ":HTML_CONTAINER_CLASS: c1  c2\n:HTML_HEADLINE_CLASS: h1\n:END:\n")
       ,($c "<section id=\"1\" class=\"c1 c2\">\n"
            "<div class=\"header-wrapper\">\n"
            "<h2 class=\"h1\">a</h2>\n"
            "<a class=\"self-link\" href=\"#1\" "
            "aria-label=\"Link to this section\"></a>\n</div>\n</section>\n"))))
   ;; Invalid CSS class signals org-w3ctr-error.
-  (should-error
-   (org-export-string-as
-    "* a\n:PROPERTIES:\n:HTML_CONTAINER_CLASS: a\"b\n:END:\n"
-    'w3ctr t '(:with-toc nil))
-   :type 'org-w3ctr-error)
-  (should-error
-   (org-export-string-as
-    "* a\n:PROPERTIES:\n:HTML_HEADLINE_CLASS: 123\n:END:\n"
-    'w3ctr t '(:with-toc nil))
-   :type 'org-w3ctr-error))
+  ($e! (org-export-string-as
+        "* a\n:PROPERTIES:\n:HTML_CONTAINER_CLASS: a\"b\n:END:\n"
+        'w3ctr t '(:with-toc nil))
+       'org-w3ctr-error)
+  ($e! (org-export-string-as
+        "* a\n:PROPERTIES:\n:HTML_HEADLINE_CLASS: 123\n:END:\n"
+        'w3ctr t '(:with-toc nil))
+       'org-w3ctr-error))
 
 (ert-deftest t-headline ()
   "Tests for `org-w3ctr-headline'."

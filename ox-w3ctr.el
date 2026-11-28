@@ -6196,42 +6196,8 @@ Return the formatted HTML string, or nil when TAGS is empty."
 ;; - :section-numbers (`org-export-with-section-numbers')
 ;; - `org-footnote-section'
 
-(defun t--headline-todo (headline info)
-  "Format and return the TODO keyword for HEADLINE.
-
-Return the exported keyword string only if `:with-todo-keywords' is
-enabled in INFO and a TODO keyword exists on the HEADLINE.  Return nil
-otherwise."
-  (declare (ftype (function (t list) (or null string)))
-           (important-return-value t))
-  (and-let* (((t--pget info :with-todo-keywords))
-             (todo (org-element-property :todo-keyword headline)))
-    (org-export-data todo info)))
-
-(defun t--headline-priority (headline info)
-  "Return the numerical priority of a headline.
-
-Return the priority number (for example, 65 for [#A]) only if the
-export option `:with-priority' is non-nil in INFO and the HEADLINE
-element has a priority cookie.  Return nil otherwise."
-  (declare (ftype (function (t list) (or null fixnum)))
-           (important-return-value t))
-  (and (t--pget info :with-priority)
-       (org-element-property :priority headline)))
-
-(defun t--headline-tags (headline info)
-  "Return the list of tags for a headline.
-
-Return a list of tags associated with the HEADLINE element, but only if
-the export option `:with-tags' is enabled in the INFO plist.  The tags
-are processed for export.  Return nil if tags are disabled or not
-present."
-  (declare (ftype (function (t list) list))
-           (important-return-value t))
-  (and (t--pget info :with-tags)
-       (org-export-get-tags headline info)))
-
-(defun t-format-headline-default-function (todo _todo-type priority text tags info)
+(defun t-format-headline-default-function
+    (todo _todo-type priority text tags info)
   "Format a headline from its todo, priority, text, and tags.
 
 See `org-w3ctr-format-headline-function' for details and the
@@ -6258,10 +6224,14 @@ values followed by TEXT and INFO: (TODO TODO-TYPE PRIORITY TEXT TAGS
 INFO).  Return the formatted HTML string that function returns."
   (declare (ftype (function (t string list) string))
            (important-return-value t))
-  (let* ((todo (t--headline-todo headline info))
+  (let* ((todo (and-let* (((t--pget info :with-todo-keywords))
+                          (kwd (org-element-property :todo-keyword headline)))
+                 (org-export-data kwd info)))
          (todo-type (and todo (org-element-property :todo-type headline)))
-         (priority (t--headline-priority headline info))
-         (tags (t--headline-tags headline info)))
+         (priority (and (t--pget info :with-priority)
+                        (org-element-property :priority headline)))
+         (tags (and (t--pget info :with-tags)
+                    (org-export-get-tags headline info))))
     (funcall (or (t--pget info :html-format-headline-function)
                  #'t-format-headline-default-function)
              todo todo-type priority text tags info)))
@@ -6339,8 +6309,9 @@ not a valid unescaped CSS identifier."
 
 HEADLINE is the headline element, CONTENTS its transcoded contents,
 and INFO the info plist.  Render headlines that are too deep to become
-standard <hN> tags.  Create a list structure where a group of sibling
-low-level headlines becomes a single `<ol>' or `<ul>'.
+standard <hN> tags.  Create a list structure where consecutive sibling
+low-level headlines of the same numbering kind share an `<ol>' or
+`<ul>'.
 
 The list type (`<ol>' vs. `<ul>') is determined by whether section
 numbering is active.  The reference id and `:HTML_CONTAINER_CLASS:'
@@ -6350,6 +6321,18 @@ the headline text is wrapped in a `<span>' with that class."
            (important-return-value t))
   (let* ((numberedp (org-export-numbered-headline-p headline info))
          (tag (if numberedp "ol" "ul"))
+         (openp
+          (or (org-export-first-sibling-p headline info)
+              (let ((prev (org-export-get-previous-element headline info)))
+                (and (org-element-type-p prev 'headline)
+                     (xor numberedp
+                          (org-export-numbered-headline-p prev info))))))
+         (closep
+          (or (org-export-last-sibling-p headline info)
+              (let ((next (org-export-get-next-element headline info)))
+                (and (org-element-type-p next 'headline)
+                     (xor numberedp
+                          (org-export-numbered-headline-p next info))))))
          (text (t--build-base-headline headline info))
          (id (t--encode-plain-text* (t--reference headline info)))
          (c-cls (t--headline-class
@@ -6357,29 +6340,31 @@ the headline text is wrapped in a `<span>' with that class."
          (h-cls (t--headline-class
                  (org-element-property :HTML_HEADLINE_CLASS headline))))
     (concat
-     (and (org-export-first-sibling-p headline info)
-          (format "<%s>\n" tag))
+     (and openp (format "<%s>\n" tag))
      (format "<li id=\"%s\"%s>" id
              (or (and c-cls (format " class=\"%s\"" c-cls)) ""))
      (if h-cls (format "<span class=\"%s\">%s</span>" h-cls text) text)
      (when-let* ((c (t--nw-trim contents))) (concat "<br>\n" c "\n"))
      "</li>\n"
-     (and (org-export-last-sibling-p headline info)
-          (format "</%s>\n" tag)))))
+     (and closep (format "</%s>\n" tag)))))
 
 (defun t--headline-container (headline info)
   "Return the HTML container tag name for HEADLINE.
 
 HEADLINE is the headline element, INFO the export plist.  Return
 HEADLINE's `:HTML_CONTAINER' property when set, else the
-`:html-container' option from INFO, else \"div\".  The result names
-the element (for example \"section\" or \"div\") wrapping the headline
-and its contents."
+`:html-container' option from INFO, else \"div\".  Signal
+`org-w3ctr-error' when the tag name is not a valid HTML element
+name."
   (declare (ftype (function (t list) string))
            (important-return-value t))
-  (or (org-element-property :HTML_CONTAINER headline)
-      (t--pget info :html-container)
-      "div"))
+  (let ((tag (or (org-element-property :HTML_CONTAINER headline)
+                 (t--pget info :html-container)
+                 "div")))
+    (unless (and (stringp tag)
+                 (string-match-p "\\`[a-zA-Z][a-zA-Z0-9-]*\\'" tag))
+      (t-error "Invalid HTML container tag: %S" tag))
+    tag))
 
 (defun t--headline-self-link (id info)
   "Return the self-link for the headline identified by ID.
@@ -6409,16 +6394,6 @@ dotted section number (for example, \"1.1. \"), else nil."
     (format "<span class=\"secno\">%s. </span>"
             (mapconcat #'number-to-string numbers "."))))
 
-(defun t--headline-hN (headline info)
-  "Return the HTML heading tag name (for example, \"h2\") for HEADLINE.
-
-HEADLINE is the headline element, INFO the export plist.  The
-h-level is capped at 6, so the tag is always at most \"h6\"."
-  (declare (ftype (function (t list) string))
-           (important-return-value t))
-  (let* ((level (min 6 (t--get-headline-hlevel headline info))))
-    (format "h%s" level)))
-
 (defun t-heading-default-format-function (headline title h id class info)
   "Return the `.header-wrapper' div holding the heading and its self-link.
 
@@ -6445,7 +6420,7 @@ footnote or a low-level headline treated as a list item.  The heading
 block is built by the function in `:html-heading-format-function'."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
-  (let* ((h (t--headline-hN headline info))
+  (let* ((h (format "h%d" (min 6 (t--get-headline-hlevel headline info))))
          (text (t--build-base-headline headline info))
          (id (t--reference headline info))
          (c (t--headline-container headline info))
