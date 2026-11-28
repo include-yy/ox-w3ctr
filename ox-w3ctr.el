@@ -1420,8 +1420,9 @@ is normalized to end in a newline; see
   :type '(choice (const :tag "None" nil) string function symbol))
 
 (defcustom t-postamble
-  "<p role=\"navigation\" id=\"back-to-top\"><a href=\"#title\"><abbr title=\"Back to Top\">↑</abbr></a></p>
-"
+  (concat "<p role=\"navigation\" id=\"back-to-top\">"
+          "<a href=\"#title\"><abbr title=\"Back to Top\">\u2191</abbr></a>"
+          "</p>\n")
   "Control the postamble inserted into the exported HTML.
 
 The value takes the same kinds as `org-w3ctr-preamble'.  The
