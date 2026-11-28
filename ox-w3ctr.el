@@ -4809,11 +4809,15 @@ offending value, and when `org-w3ctr-fontify-engines' has no
     (if (memq 'plain names) names (append names '(plain)))))
 
 (defun t--fontify-line (element)
-  "Return the line where ELEMENT starts in the current buffer, or nil."
+  "Return the line where ELEMENT starts in the current buffer, or nil.
+Return nil when ELEMENT is nil or its `:begin' is not a valid
+position in the current buffer."
   (declare (ftype (function (t) (or null integer)))
            (important-return-value t))
   (when-let* ((begin (and element (org-element-property :begin element))))
-    (line-number-at-pos begin)))
+    (and (integerp begin)
+         (<= (point-min) begin (point-max))
+         (line-number-at-pos begin))))
 
 (defun t--fontify-where (lang element)
   "Describe the code being fontified, for messages.
@@ -4829,15 +4833,17 @@ LANG is its language and ELEMENT its block or inline block, or nil."
 
 VALUE must be the text of exactly one Lisp object: nil, an engine
 name or a parenthesized list of them.  It is only read, never
-evaluated.  Signal `org-w3ctr-error' with ELEMENT's line otherwise."
+evaluated.  Signal `org-w3ctr-error' (with ELEMENT's line when
+available) otherwise."
   (declare (ftype (function (t t) t))
            (important-return-value t))
   (let* ((text (and (stringp value) (string-trim value)))
          (read (and text (not (string-empty-p text))
                     (ignore-errors (read-from-string text)))))
     (unless (and read (= (cdr read) (length text)))
-      (t-error "Invalid :fontify value %S at line %s"
-               value (t--fontify-line element)))
+      (let ((line (t--fontify-line element)))
+        (t-error "Invalid :fontify value %S%s"
+                 value (if line (format " at line %d" line) ""))))
     (car read)))
 
 (defun t--fontify-chain-for (element info)
@@ -4847,7 +4853,8 @@ ELEMENT's `:fontify' header argument, when present, gives the method
 \(see `org-w3ctr--fontify-read-method'); otherwise INFO's
 `:html-fontify-method' does.  Header arguments are parsed without
 evaluating Lisp.  The method goes through `org-w3ctr--fontify-chain';
-an error about a block's own method gets the block's line."
+an error about a block's own method gets the block's line when
+available."
   (declare (ftype (function (t list) list))
            (important-return-value t))
   (let* ((params (and element (org-element-property :parameters element)))
@@ -4859,8 +4866,10 @@ an error about a block's own method gets the block's line."
       (let ((method (t--fontify-read-method (cdr cell) element)))
         (condition-case err
             (t--fontify-chain method)
-          (t-error (t-error "%s at line %s" (cadr err)
-                            (t--fontify-line element))))))))
+          (t-error
+           (if-let* ((line (t--fontify-line element)))
+               (t-error "%s at line %d" (cadr err) line)
+             (signal err))))))))
 
 (defun t--fontify-policy (key choices info)
   "Validate KEY against CHOICES in INFO and return its value.

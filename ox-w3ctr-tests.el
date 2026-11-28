@@ -5311,7 +5311,8 @@ COUNTER, a cons cell, has its car incremented on every call."
   (with-temp-buffer
     (insert "a\nb\n#+begin_src c\nx\n#+end_src\n")
     (org-mode)
-    ($l (t--fontify-line (t-parse1 'src-block)) 3)))
+    ($l (t--fontify-line (t-parse1 'src-block)) 3)
+    ($n (t--fontify-line '(src-block (:begin 99999))))))
 
 (ert-deftest t--fontify-where ()
   "Tests for `org-w3ctr--fontify-where'."
@@ -5329,11 +5330,16 @@ COUNTER, a cons cell, has its car incremented on every call."
   ($l (t--fontify-read-method "(shiki font-lock)" nil) '(shiki font-lock))
   ;; Read, never evaluated.
   ($l (t--fontify-read-method "(error \"x\")" nil) '(error "x"))
-  ;; Exactly one object, or an error with the line.
+  ;; Exactly one object, or an error (with the line when available).
   (dolist (bad '("a b" "(" "" "  " 3 nil))
     ($e!l (t--fontify-read-method bad nil)
           (list 'org-w3ctr-error
-                (format "Invalid :fontify value %S at line nil" bad)))))
+                (format "Invalid :fontify value %S" bad))))
+  (with-temp-buffer
+    (insert "\n#+begin_src c\nx\n#+end_src\n")
+    (org-mode)
+    ($e!l (t--fontify-read-method "(" (t-parse1 'src-block))
+          '(org-w3ctr-error "Invalid :fontify value \"(\" at line 2"))))
 
 (ert-deftest t--fontify-chain-for ()
   "Tests for `org-w3ctr--fontify-chain-for'."
@@ -5352,11 +5358,13 @@ COUNTER, a cons cell, has its car incremented on every call."
       ;; Lisp in header arguments is not evaluated.
       ($l (t--fontify-chain-for (el " :var x=(error \"no\") :fontify nil") info)
           '(plain))
-      ;; A block's bad method carries the block's line.
+      ;; A block's bad method carries the block's line when available.
       ($e!l (t--fontify-chain-for (el " :fontify bogus") info)
             '(org-w3ctr-error "Unknown fontify method: bogus at line 1"))
       ($e!l (t--fontify-chain-for (el " :fontify (a") info)
-            '(org-w3ctr-error "Invalid :fontify value \"(a\" at line 1")))
+            '(org-w3ctr-error "Invalid :fontify value \"(a\" at line 1"))
+      ($e!l (t--fontify-chain-for '(src-block (:parameters ":fontify bogus")) info)
+            '(org-w3ctr-error "Unknown fontify method: bogus")))
     ($e!l (t--fontify-chain-for nil
                                 (t-test-fontify-info :html-fontify-method 'x))
           '(org-w3ctr-error "Unknown fontify method: x"))))
