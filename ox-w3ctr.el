@@ -5957,14 +5957,13 @@ LINK's protocol and `:type'."
   (declare (ftype (function (t (or null string) list) string))
            (important-return-value t))
   (let ((type (org-element-property :type link))
-        (path (t--link-path link info))
         (desc (t--nw-p desc)))
     (cond
      ;; Link type is handled by a special function.
      ((org-export-custom-protocol-maybe link desc 'w3ctr info))
      ;; Image file.
      ((t--link-image-p link info)
-      (t--format-image path))
+      (t--format-image (t--link-path link info)))
      ;; Radio target.
      ((string= type "radio")
       (t--link-radio link desc info))
@@ -5976,7 +5975,7 @@ LINK's protocol and `:type'."
       (t--link-coderef (org-element-property :path link) desc info))
      ;; External or file link.
      (t
-      (t--link-external path desc)))))
+      (t--link-external (t--link-path link info) desc)))))
 
 ;;; Headline and Section
 
