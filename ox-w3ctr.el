@@ -5919,9 +5919,9 @@ DESC is the link description, or nil.  INFO is the info plist."
 LABEL is the reference name, DESC the link description or nil, and
 INFO the info plist.  The href is the id of the block that defines
 `(ref:LABEL)', so every label in one block shares a target.  The
-link text is LABEL, or DESC with `(LABEL)' replaced by it (see
-`org-export-get-coderef-format').  Signal `org-w3ctr-error' when
-LABEL cannot be an id, or when no block defines it."
+link text is LABEL, or DESC with its first `(LABEL)' replaced by
+LABEL.  Signal `org-w3ctr-error' when LABEL cannot be an id, or when
+no block defines it."
   (declare (ftype (function (string (or null string) list) string))
            (important-return-value t))
   (unless (string-match-p t--coderef-label-regexp label)
@@ -5932,7 +5932,14 @@ LABEL cannot be an id, or when no block defines it."
     (let ((id (or (t--element-id block info)
                   (t-error "Code reference %s is in a block with no id"
                            label)))
-          (text (format (org-export-get-coderef-format label desc) label)))
+          (text (if (not desc) label
+                  (let* ((needle (concat "(" label ")"))
+                         (pos (string-search needle desc)))
+                    (if pos
+                        (concat (substring desc 0 pos)
+                                label
+                                (substring desc (+ pos (length needle))))
+                      desc)))))
       (format "<a href=\"#%s\" class=\"coderef\">%s</a>"
               (t--encode-plain-text* id) text))))
 

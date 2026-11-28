@@ -6755,7 +6755,7 @@ COUNTER, a cons cell, has its car incremented on every call."
 ;;;; Timestamp
 
 (ert-deftest t-timezone-custom-set ()
-  "The `:set' functions of `org-w3ctr-timezone' and `org-w3ctr-export-timezone'."
+  "Custom `:set' for `org-w3ctr-timezone' and `org-w3ctr-export-timezone'."
   (let ((orig-tz (default-value 't-timezone))
         (orig-extz (default-value 't-export-timezone))
         (set-tz (get 't-timezone 'custom-set))
@@ -7205,7 +7205,7 @@ COUNTER, a cons cell, has its car incremented on every call."
    '(("#+OPTIONS: tsfn:(lambda (&rest _) (error \"pwned\"))\n<2011-11-18>"
       "<time datetime=\"2011-11-18\">&lt;2011-11-18&gt;</time>"))
    t))
-
+
 ;;;; Link
 
 (ert-deftest t-inline-image-path-regexp ()
@@ -7343,7 +7343,8 @@ COUNTER, a cons cell, has its car incremented on every call."
     ($l (t--link-path link info) "other.html"))
   ;; Strict mode: #custom-id -> direct fragment.
   (let* ((link (with-temp-buffer
-                 (org-mode) (insert "[[file:other.org::#cid]]") (t-parse1 'link)))
+                 (org-mode) (insert "[[file:other.org::#cid]]")
+                 (t-parse1 'link)))
          (info (list :html-honor-ox-external-links nil
                      :html-link-org-files-as-html t :html-extension "html")))
     ($l (t--link-path link info) "other.html#cid"))
@@ -7495,7 +7496,14 @@ COUNTER, a cons cell, has its car incremented on every call."
         "<a href=\"#ex\" class=\"coderef\">line sc</a>")
     ;; ... and is used as is when it does not mention it.
     ($l (t--link-coderef "sc" "line 3" info)
-        "<a href=\"#ex\" class=\"coderef\">line 3</a>"))
+        "<a href=\"#ex\" class=\"coderef\">line 3</a>")
+    ;; Literal `%' in DESC is not interpreted as a format specifier.
+    ($l (t--link-coderef "sc" "100% done" info)
+        "<a href=\"#ex\" class=\"coderef\">100% done</a>")
+    ($l (t--link-coderef "sc" "100% (sc)" info)
+        "<a href=\"#ex\" class=\"coderef\">100% sc</a>")
+    ($l (t--link-coderef "sc" "use %s" info)
+        "<a href=\"#ex\" class=\"coderef\">use %s</a>"))
   ;; Special characters in the defining block's id are attribute-escaped.
   (let ((out (org-export-string-as
               ($c "#+attr__: (id \"a&b\")\n#+begin_example\nx (ref:sc)\n"
@@ -7545,7 +7553,7 @@ COUNTER, a cons cell, has its car incremented on every call."
   (let ((t--fontify-last-state nil))
     (t-check-element-values
      #'t-link
-     '(("[[https://example.com][desc]]"
+     `(("[[https://example.com][desc]]"
         "<a href=\"https://example.com\">desc</a>")
        ("[[https://example.com]]"
         "<a href=\"https://example.com\">https://example.com</a>")
@@ -7557,7 +7565,8 @@ COUNTER, a cons cell, has its car incremented on every call."
         "<img src=\"img.png\" alt=\"img.png\">")
        ;; Clickable image (nested image link in description).
        ("[[https://example.com][file:img.png]]"
-        "<a href=\"https://example.com\"><img src=\"img.png\" alt=\"img.png\"></a>"
+        ,($c "<a href=\"https://example.com\">"
+             "<img src=\"img.png\" alt=\"img.png\"></a>")
         "<img src=\"img.png\" alt=\"img.png\">")
        ;; Custom ID link to a headline.
        ("* Head\n:PROPERTIES:\n:CUSTOM_ID: custom\n:END:\n\nSee [[#custom]]."
@@ -7573,13 +7582,15 @@ COUNTER, a cons cell, has its car incremented on every call."
         "<a href=\"#radio\">radio</a>")
        ;; A code-reference link points at the block that defines the
        ;; label, so the block is the addressable unit.
-       ("#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\nSee [[(sc)]]."
+       (,($c "#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\n"
+             "See [[(sc)]].")
         "<a href=\"#ex\" class=\"coderef\">sc</a>")
-       ("#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\n\
-See [[(sc)][line (sc)]]."
+       (,($c "#+name: ex\n#+begin_example\nx (ref:sc)\n#+end_example\n\n"
+             "See [[(sc)][line (sc)]].")
         "<a href=\"#ex\" class=\"coderef\">line sc</a>")
        ;; A source block is a target too.
-       ("#+name: ex\n#+begin_src text\nx (ref:sc)\n#+end_src\n\nSee [[(sc)]]."
+       (,($c "#+name: ex\n#+begin_src text\nx (ref:sc)\n#+end_src\n\n"
+             "See [[(sc)]].")
         "<a href=\"#ex\" class=\"coderef\">sc</a>"))
      t '(:with-latex verbatim :html-prefer-user-labels t))))
 
