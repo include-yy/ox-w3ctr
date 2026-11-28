@@ -3984,230 +3984,239 @@ cookie-less column is remembered as the `none' marker."
 
 (ert-deftest t--coderef-regexp ()
   "Tests for `org-w3ctr--coderef-regexp'."
-  ;; A block without `-l' matches the default `(ref:NAME)' format only.
-  (let ((el (t-get-element "#+begin_example\nx (ref:a)\n#+end_example"
-                           'example-block)))
-    ($s (string-match-p (t--coderef-regexp el) "x (ref:a)"))
-    ($n (string-match-p (t--coderef-regexp el) "x ((a))")))
-  ;; The block's own `-l' switch sets the format and quotes regexp specials.
-  (let ((el (t-get-element "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
-                           'example-block)))
-    ($s (string-match-p (t--coderef-regexp el) "x ((a))"))
-    ($n (string-match-p (t--coderef-regexp el) "x (ref:a)")))
-  (let ((el (t-get-element "#+begin_example -l \"[%s]\"\nx [a]\n#+end_example"
-                           'example-block)))
-    ($s (string-match-p (t--coderef-regexp el) "x [a]"))
-    ($n (string-match-p (t--coderef-regexp el) "x a")))
-  ;; Format must be a string with exactly one literal `%s' placeholder.
-  (let ((case-fold-search t))
-    (dolist (bad '("foo" "(ref:%S)" "%s-%s" "%s%s" "" 42))
-      ($e!l (t--coderef-regexp `(example-block (:label-fmt ,bad)))
-            (list 'org-w3ctr-error
-                  (format "Invalid code reference label format: %S" bad)))))
-  (let ((org-coderef-label-format "bad"))
-    ($e!l (t--coderef-regexp '(example-block nil))
-          '(org-w3ctr-error "Invalid code reference label format: \"bad\""))))
+  (let ((org-coderef-label-format "(ref:%s)"))
+    ;; A block without `-l' matches the default `(ref:NAME)' format only.
+    (let ((el (t-get-element "#+begin_example\nx (ref:a)\n#+end_example"
+                             'example-block)))
+      ($s (string-match-p (t--coderef-regexp el) "x (ref:a)"))
+      ($n (string-match-p (t--coderef-regexp el) "x ((a))")))
+    ;; The block's own `-l' switch sets the format and quotes regexp specials.
+    (let ((el (t-get-element "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
+                             'example-block)))
+      ($s (string-match-p (t--coderef-regexp el) "x ((a))"))
+      ($n (string-match-p (t--coderef-regexp el) "x (ref:a)")))
+    (let ((el (t-get-element "#+begin_example -l \"[%s]\"\nx [a]\n#+end_example"
+                             'example-block)))
+      ($s (string-match-p (t--coderef-regexp el) "x [a]"))
+      ($n (string-match-p (t--coderef-regexp el) "x a")))
+    ;; Format must be a string with exactly one literal `%s' placeholder.
+    (let ((case-fold-search t))
+      (dolist (bad '("foo" "(ref:%S)" "%s-%s" "%s%s" "" 42))
+        ($e!l (t--coderef-regexp `(example-block (:label-fmt ,bad)))
+              (list 'org-w3ctr-error
+                    (format "Invalid code reference label format: %S" bad)))))
+    (let ((org-coderef-label-format "bad"))
+      ($e!l (t--coderef-regexp '(example-block nil))
+            '(org-w3ctr-error "Invalid code reference label format: \"bad\"")))))
 
 (ert-deftest t--code-text ()
   "Tests for `org-w3ctr--code-text'."
-  (cl-flet ((f (str type) (t--code-text (t-get-element str type))))
-    ;; Common indentation and only one final newline are removed.
-    ($l (f "#+begin_example\n  a\n   b\n#+end_example" 'example-block)
-        "a\n b")
-    ($l (f "#+begin_example\na\n\n#+end_example" 'example-block)
-        "a\n")
-    ;; `-i' preserves the indentation.
-    ($l (f "#+begin_example -i\n  a\n   b\n#+end_example" 'example-block)
-        "  a\n   b")
-    ;; Code-reference labels at line end are removed; mid-line labels stay.
-    ($l (f "#+begin_example\nx (ref:sc)\n#+end_example" 'example-block)
-        "x")
-    ($l (f "#+begin_example\nx (ref:a) y\n  (ref:b)\nz\n#+end_example"
-           'example-block)
-        "x (ref:a) y\n\nz")
-    ;; Matching is case-sensitive even under `case-fold-search' = t.
-    (let ((case-fold-search t))
-      ($l (f "#+begin_example\nx (REF:sc)\n#+end_example" 'example-block)
-          "x (REF:sc)"))
-    ;; The block's own `-l' format is what is removed.
-    ($l (f "#+begin_example -l \"((%s))\"\nx ((sc))\n#+end_example"
-           'example-block)
-        "x")
-    ;; Source blocks are handled the same way.
-    ($l (f "#+begin_src text\n  x (ref:sc)\n#+end_src" 'src-block) "x"))
-  ;; A synthetic element with nil `:value' yields "".
-  ($l (t--code-text '(example-block nil)) ""))
+  (let ((org-src-preserve-indentation nil)
+        (org-coderef-label-format "(ref:%s)"))
+    (cl-flet ((f (str type) (t--code-text (t-get-element str type))))
+      ;; Common indentation and only one final newline are removed.
+      ($l (f "#+begin_example\n  a\n   b\n#+end_example" 'example-block)
+          "a\n b")
+      ($l (f "#+begin_example\na\n\n#+end_example" 'example-block)
+          "a\n")
+      ;; `-i' preserves the indentation.
+      ($l (f "#+begin_example -i\n  a\n   b\n#+end_example" 'example-block)
+          "  a\n   b")
+      ;; Code-reference labels at line end are removed; mid-line labels stay.
+      ($l (f "#+begin_example\nx (ref:sc)\n#+end_example" 'example-block)
+          "x")
+      ($l (f "#+begin_example\nx (ref:a) y\n  (ref:b)\nz\n#+end_example"
+             'example-block)
+          "x (ref:a) y\n\nz")
+      ;; Matching is case-sensitive even under `case-fold-search' = t.
+      (let ((case-fold-search t))
+        ($l (f "#+begin_example\nx (REF:sc)\n#+end_example" 'example-block)
+            "x (REF:sc)"))
+      ;; The block's own `-l' format is what is removed.
+      ($l (f "#+begin_example -l \"((%s))\"\nx ((sc))\n#+end_example"
+             'example-block)
+          "x")
+      ;; Source blocks are handled the same way.
+      ($l (f "#+begin_src text\n  x (ref:sc)\n#+end_src" 'src-block) "x"))
+    ;; A synthetic element with nil `:value' yields "".
+    ($l (t--code-text '(example-block nil)) "")))
 
 (ert-deftest t--coderef-labels ()
   "Tests for `org-w3ctr--coderef-labels'."
-  (cl-flet ((f (str type) (t--coderef-labels (t-get-element str type))))
-    ;; A block without labels has none.
-    ($n (f "#+begin_example\nx\n#+end_example" 'example-block))
-    ;; Labels come back in document order.
-    ($l (f "#+begin_example\nx (ref:a)\ny (ref:b)\n#+end_example"
-           'example-block)
-        '("a" "b"))
-    ;; A label repeated on several lines is returned once, keeping first order.
-    ($l (f "#+begin_example\nx (ref:a)\ny (ref:b)\nz (ref:a)\n#+end_example"
-           'example-block)
-        '("a" "b"))
-    ;; A label must end the line to count, and matching is case-sensitive.
-    ($n (f "#+begin_example\nx (ref:a) y\n#+end_example" 'example-block))
-    (let ((case-fold-search t))
-      ($n (f "#+begin_example\nx (REF:a)\n#+end_example" 'example-block)))
-    ;; The block's own `-l' switch sets the label format.
-    ($l (f "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
-           'example-block)
-        '("a"))
-    ;; Source blocks are scanned the same way.
-    ($l (f "#+begin_src text\nx (ref:sc)\n#+end_src" 'src-block)
-        '("sc")))
-  ;; A synthetic element with nil `:value' has no labels.
-  ($n (t--coderef-labels '(example-block nil))))
+  (let ((org-coderef-label-format "(ref:%s)"))
+    (cl-flet ((f (str type) (t--coderef-labels (t-get-element str type))))
+      ;; A block without labels has none.
+      ($n (f "#+begin_example\nx\n#+end_example" 'example-block))
+      ;; Labels come back in document order.
+      ($l (f "#+begin_example\nx (ref:a)\ny (ref:b)\n#+end_example"
+             'example-block)
+          '("a" "b"))
+      ;; A label repeated on several lines is returned once, keeping first order.
+      ($l (f "#+begin_example\nx (ref:a)\ny (ref:b)\nz (ref:a)\n#+end_example"
+             'example-block)
+          '("a" "b"))
+      ;; A label must end the line to count, and matching is case-sensitive.
+      ($n (f "#+begin_example\nx (ref:a) y\n#+end_example" 'example-block))
+      (let ((case-fold-search t))
+        ($n (f "#+begin_example\nx (REF:a)\n#+end_example" 'example-block)))
+      ;; The block's own `-l' switch sets the label format.
+      ($l (f "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example"
+             'example-block)
+          '("a"))
+      ;; Source blocks are scanned the same way.
+      ($l (f "#+begin_src text\nx (ref:sc)\n#+end_src" 'src-block)
+          '("sc")))
+    ;; A synthetic element with nil `:value' has no labels.
+    ($n (t--coderef-labels '(example-block nil)))))
 
 (ert-deftest t--coderef-labels-format-isolation ()
   "One block's `-l' format does not leak into another block."
-  (with-temp-buffer
-    (insert ($c "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example\n\n"
-                "#+begin_example\ny (ref:b)\n#+end_example\n"))
-    (org-mode)
-    (let* ((tree (org-element-parse-buffer))
-           (blocks (org-element-map tree 'example-block #'identity))
-           (second (cadr blocks)))
-      ;; Put point in the first block, which has a format of its own.
-      (goto-char (org-element-property :begin (car blocks)))
-      ($l (t--coderef-labels second) '("b"))
-      ($l (t--code-text second) "y")))
-  ;; The same document exports with both links resolving.
-  (let ((t-prefer-user-labels t))
-    (let ((out (org-export-string-as
-                ($c "#+name: a\n#+begin_example -l \"((%s))\"\nx ((a))\n"
-                    "#+end_example\n\n#+name: b\n#+begin_example\ny (ref:b)\n"
-                    "#+end_example\n\nSee [[(a)]] and [[(b)]].")
-                'w3ctr t)))
-      ($s (string-match-p "<a href=\"#a\" class=\"coderef\">a</a>" out))
-      ($s (string-match-p "<a href=\"#b\" class=\"coderef\">b</a>" out)))))
+  (let ((org-coderef-label-format "(ref:%s)"))
+    (with-temp-buffer
+      (insert ($c "#+begin_example -l \"((%s))\"\nx ((a))\n#+end_example\n\n"
+                  "#+begin_example\ny (ref:b)\n#+end_example\n"))
+      (org-mode)
+      (let* ((tree (org-element-parse-buffer))
+             (blocks (org-element-map tree 'example-block #'identity))
+             (second (cadr blocks)))
+        ;; Put point in the first block, which has a format of its own.
+        (goto-char (org-element-property :begin (car blocks)))
+        ($l (t--coderef-labels second) '("b"))
+        ($l (t--code-text second) "y")))
+    ;; The same document exports with both links resolving.
+    (let ((t-prefer-user-labels t))
+      (let ((out (org-export-string-as
+                  ($c "#+name: a\n#+begin_example -l \"((%s))\"\nx ((a))\n"
+                      "#+end_example\n\n#+name: b\n#+begin_example\ny (ref:b)\n"
+                      "#+end_example\n\nSee [[(a)]] and [[(b)]].")
+                  'w3ctr t)))
+        ($s (string-match-p "<a href=\"#a\" class=\"coderef\">a</a>" out))
+        ($s (string-match-p "<a href=\"#b\" class=\"coderef\">b</a>" out))))))
 
 (ert-deftest t--coderef-table ()
   "Tests for `org-w3ctr--coderef-table'."
-  ;; nil INFO returns a fresh empty hash table without writing cache.
-  (let ((empty (t--coderef-table nil)))
-    ($s (hash-table-p empty))
-    ($l (hash-table-count empty) 0)
-    ($nq (t--coderef-table nil) empty)
-    ($n (t--pget nil :html-coderef-cache)))
-  (let* ((tree (with-temp-buffer
-                 (insert ($c "#+begin_example\na (ref:a)\na2 (ref:a)\n#+end_example\n"
-                             "#+begin_src text\nb (ref:b)\n#+end_src\n"))
-                 (org-mode)
-                 (org-element-parse-buffer)))
-         (info (list :parse-tree tree))
-         (table (t--coderef-table info)))
-    ($s (hash-table-p table))
-    ($q (t--coderef-table info) table)
-    ($q (t--pget info :html-coderef-cache) table)
-    ($q (org-element-type (gethash "a" table)) 'example-block)
-    ($q (org-element-type (gethash "b" table)) 'src-block))
-  ;; Duplicate label across two non-ignored blocks signals `org-w3ctr-error'.
-  (let* ((tree (with-temp-buffer
-                 (insert ($c "#+begin_example\nx (ref:d)\n#+end_example\n"
-                             "#+begin_example\ny (ref:d)\n#+end_example\n"))
-                 (org-mode)
-                 (org-element-parse-buffer)))
-         (info (list :parse-tree tree)))
-    ($e!l (t--coderef-table info)
-          '(org-w3ctr-error "Duplicate code reference label: d"))
-    ($n (t--pget info :html-coderef-cache))))
+  (let ((org-coderef-label-format "(ref:%s)"))
+    ;; nil INFO returns a fresh empty hash table without writing cache.
+    (let ((empty (t--coderef-table nil)))
+      ($s (hash-table-p empty))
+      ($l (hash-table-count empty) 0)
+      ($nq (t--coderef-table nil) empty)
+      ($n (t--pget nil :html-coderef-cache)))
+    (let* ((tree (with-temp-buffer
+                   (insert ($c "#+begin_example\na (ref:a)\na2 (ref:a)\n#+end_example\n"
+                               "#+begin_src text\nb (ref:b)\n#+end_src\n"))
+                   (org-mode)
+                   (org-element-parse-buffer)))
+           (info (list :parse-tree tree))
+           (table (t--coderef-table info)))
+      ($s (hash-table-p table))
+      ($q (t--coderef-table info) table)
+      ($q (t--pget info :html-coderef-cache) table)
+      ($q (org-element-type (gethash "a" table)) 'example-block)
+      ($q (org-element-type (gethash "b" table)) 'src-block))
+    ;; Duplicate label across two non-ignored blocks signals `org-w3ctr-error'.
+    (let* ((tree (with-temp-buffer
+                   (insert ($c "#+begin_example\nx (ref:d)\n#+end_example\n"
+                               "#+begin_example\ny (ref:d)\n#+end_example\n"))
+                   (org-mode)
+                   (org-element-parse-buffer)))
+           (info (list :parse-tree tree)))
+      ($e!l (t--coderef-table info)
+            '(org-w3ctr-error "Duplicate code reference label: d"))
+      ($n (t--pget info :html-coderef-cache)))))
 
 (ert-deftest t--coderef-block ()
   "Tests for `org-w3ctr--coderef-block'."
-  (let* ((tree (with-temp-buffer
-                 (insert ($c "#+begin_example\na (ref:a)\n#+end_example\n"
-                             "#+begin_src text\nb (ref:b)\n#+end_src\n"))
-                 (org-mode)
-                 (org-element-parse-buffer)))
-         (info (list :parse-tree tree)))
-    ($q (org-element-type (t--coderef-block "a" info)) 'example-block)
-    ($q (org-element-type (t--coderef-block "b" info)) 'src-block)
-    ;; A label no block defines has no block.
-    ($n (t--coderef-block "nope" info)))
-  ;; Duplicate labels across blocks signal `org-w3ctr-error', unless one
-  ;; of the blocks is in `:ignore-list'.
-  (let* ((tree (with-temp-buffer
-                 (insert ($c "#+begin_example\nx (ref:d)\n#+end_example\n"
-                             "#+begin_example\ny (ref:d)\n#+end_example\n"))
-                 (org-mode)
-                 (org-element-parse-buffer)))
-         (first (car (org-element-map tree 'example-block #'identity))))
-    ($e!l (t--coderef-block "d" (list :parse-tree tree))
-          '(org-w3ctr-error "Duplicate code reference label: d"))
-    ($l (org-element-property
-         :value (t--coderef-block
-                 "d" (list :parse-tree tree :ignore-list (list first))))
-        "y (ref:d)\n")))
+  (let ((org-coderef-label-format "(ref:%s)"))
+    (let* ((tree (with-temp-buffer
+                   (insert ($c "#+begin_example\na (ref:a)\n#+end_example\n"
+                               "#+begin_src text\nb (ref:b)\n#+end_src\n"))
+                   (org-mode)
+                   (org-element-parse-buffer)))
+           (info (list :parse-tree tree)))
+      ($q (org-element-type (t--coderef-block "a" info)) 'example-block)
+      ($q (org-element-type (t--coderef-block "b" info)) 'src-block)
+      ;; A label no block defines has no block.
+      ($n (t--coderef-block "nope" info)))
+    ;; Duplicate labels across blocks signal `org-w3ctr-error', unless one
+    ;; of the blocks is in `:ignore-list'.
+    (let* ((tree (with-temp-buffer
+                   (insert ($c "#+begin_example\nx (ref:d)\n#+end_example\n"
+                               "#+begin_example\ny (ref:d)\n#+end_example\n"))
+                   (org-mode)
+                   (org-element-parse-buffer)))
+           (first (car (org-element-map tree 'example-block #'identity))))
+      ($e!l (t--coderef-block "d" (list :parse-tree tree))
+            '(org-w3ctr-error "Duplicate code reference label: d"))
+      ($l (org-element-property
+           :value (t--coderef-block
+                   "d" (list :parse-tree tree :ignore-list (list first))))
+          "y (ref:d)\n"))))
 
 ;;;; Example Block
 
 (ert-deftest t-example-block ()
   "Tests for `org-w3ctr-example-block'."
-  (t-check-element-values
-   #'t-example-block
-   '(("#+name: t\n#+begin_example\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre></pre>\n</div>")
-     ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
-     ;; content is HTML-escaped via `org-w3ctr--encode-plain-text'
-     ;; (quotes stay raw)
-     ("#+begin_example\n<b>&\"x\"</b>\n#+end_example"
-      "<div class=\"example\">\n<pre>\n&lt;b&gt;&amp;\"x\"&lt;/b&gt;\n</pre>\n</div>")
-     ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
-      "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
-     ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
-     ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\n\n\n\n</pre>\n</div>")
-     ;; `:attr_html' is a user attribute too: no class="example"
-     ("#+attr_html: :class foo\n#+begin_example\n1\n#+end_example"
-      "<div class=\"foo\">\n<pre>\n1\n</pre>\n</div>")
-     ;; an empty `#+attr__:' still counts as user control
-     ("#+attr__:\n#+begin_example\n1\n#+end_example"
-      "<div>\n<pre>\n1\n</pre>\n</div>")
-     ;; an empty `#+attr_html:' line is user control too
-     ("#+attr_html:\n#+begin_example\n1\n#+end_example"
-      "<div>\n<pre>\n1\n</pre>\n</div>")
-     ;; `#+attr__:' wins over `#+attr_html:'; they are not merged
-     ("#+attr__: [a]\n#+attr_html: :class b\n#+begin_example\n1\n#+end_example"
-      "<div class=\"a\">\n<pre>\n1\n</pre>\n</div>")
-     ;; switches are not interpreted, except `-i': `-n' adds no line numbers
-     ("#+begin_example -n\na\nb\n#+end_example"
-      "<div class=\"example\">\n<pre>\na\nb\n</pre>\n</div>")
-     ;; `-i' preserves the indentation, as in a source block
-     ("#+begin_example -i\n  a\n   b\n#+end_example"
-      "<div class=\"example\">\n<pre>\n  a\n   b\n</pre>\n</div>")
-     ;; code-reference labels are removed from the code, as in ox-html
-     ("#+name: t\n#+begin_example\nfoo (ref:sc)\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
-     ;; label removal uses the block's own `-l' format
-     ("#+name: t\n#+begin_example -l \"((%s))\"\nfoo ((sc))\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
-     ;; a non-blank caption becomes a bare span before the <pre>
-     ("#+name: t\n#+caption: Cap\n#+begin_example\nx\n#+end_example"
-      "<div id=\"t\" class=\"example\">\n<span>Cap</span>\n<pre>\nx\n</pre>\n</div>")
-     ;; caption markup is exported, not escaped
-     ("#+caption: *Bold* and /italic/\n#+begin_example\nx\n#+end_example"
-      "<div class=\"example\">\n<span><b>Bold</b> and <i>italic</i></span>\n<pre>\nx\n</pre>\n</div>")
-     ;; an empty or blank caption is dropped
-     ("#+caption:\n#+begin_example\nx\n#+end_example"
-      "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
-     ("#+caption:  \t\n#+begin_example\nx\n#+end_example"
-      "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
-     ;; `:textarea' is not special here, just an ordinary attribute
-     ("#+attr_html: :textarea x\n#+begin_example\n1\n#+end_example"
-      "<div textarea=\"x\">\n<pre>\n1\n</pre>\n</div>"))
-   t '(:html-prefer-user-labels t))
-  ;; A synthetic element with nil `:value' falls back to "".
-  ($l (t-example-block '(example-block nil) nil nil)
-      "<div class=\"example\">\n<pre></pre>\n</div>"))
+  (let ((org-src-preserve-indentation nil)
+        (org-coderef-label-format "(ref:%s)"))
+    (t-check-element-values
+     #'t-example-block
+     '(("#+name: t\n#+begin_example\n#+end_example"
+        "<div id=\"t\" class=\"example\">\n<pre></pre>\n</div>")
+       ("#+name: t\n#+begin_example\n1\n2\n3\n#+end_example"
+        "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
+       ;; content is HTML-escaped via `org-w3ctr--encode-plain-text'
+       ;; (quotes stay raw)
+       ("#+begin_example\n<b>&\"x\"</b>\n#+end_example"
+        "<div class=\"example\">\n<pre>\n&lt;b&gt;&amp;\"x\"&lt;/b&gt;\n</pre>\n</div>")
+       ("#+name: t\n#+attr__: [ex]\n#+BEGIN_EXAMPLE\n123\n#+END_EXAMPLE"
+        "<div id=\"t\" class=\"ex\">\n<pre>\n123\n</pre>\n</div>")
+       ("#+name: t\n#+begin_example\n 1\n 2\n 3\n#+end_example"
+        "<div id=\"t\" class=\"example\">\n<pre>\n1\n2\n3\n</pre>\n</div>")
+       ("#+name:t\n#+begin_example\n\n\n\n#+end_example"
+        "<div id=\"t\" class=\"example\">\n<pre>\n\n\n\n</pre>\n</div>")
+       ;; `:attr_html' is a user attribute too: no class="example"
+       ("#+attr_html: :class foo\n#+begin_example\n1\n#+end_example"
+        "<div class=\"foo\">\n<pre>\n1\n</pre>\n</div>")
+       ;; an empty `#+attr__:' still counts as user control
+       ("#+attr__:\n#+begin_example\n1\n#+end_example"
+        "<div>\n<pre>\n1\n</pre>\n</div>")
+       ;; an empty `#+attr_html:' line is user control too
+       ("#+attr_html:\n#+begin_example\n1\n#+end_example"
+        "<div>\n<pre>\n1\n</pre>\n</div>")
+       ;; `#+attr__:' wins over `#+attr_html:'; they are not merged
+       ("#+attr__: [a]\n#+attr_html: :class b\n#+begin_example\n1\n#+end_example"
+        "<div class=\"a\">\n<pre>\n1\n</pre>\n</div>")
+       ;; switches are not interpreted, except `-i': `-n' adds no line numbers
+       ("#+begin_example -n\na\nb\n#+end_example"
+        "<div class=\"example\">\n<pre>\na\nb\n</pre>\n</div>")
+       ;; `-i' preserves the indentation, as in a source block
+       ("#+begin_example -i\n  a\n   b\n#+end_example"
+        "<div class=\"example\">\n<pre>\n  a\n   b\n</pre>\n</div>")
+       ;; code-reference labels are removed from the code, as in ox-html
+       ("#+name: t\n#+begin_example\nfoo (ref:sc)\n#+end_example"
+        "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
+       ;; label removal uses the block's own `-l' format
+       ("#+name: t\n#+begin_example -l \"((%s))\"\nfoo ((sc))\n#+end_example"
+        "<div id=\"t\" class=\"example\">\n<pre>\nfoo\n</pre>\n</div>")
+       ;; a non-blank caption becomes a bare span before the <pre>
+       ("#+name: t\n#+caption: Cap\n#+begin_example\nx\n#+end_example"
+        "<div id=\"t\" class=\"example\">\n<span>Cap</span>\n<pre>\nx\n</pre>\n</div>")
+       ;; caption markup is exported, not escaped
+       ("#+caption: *Bold* and /italic/\n#+begin_example\nx\n#+end_example"
+        "<div class=\"example\">\n<span><b>Bold</b> and <i>italic</i></span>\n<pre>\nx\n</pre>\n</div>")
+       ;; an empty or blank caption is dropped
+       ("#+caption:\n#+begin_example\nx\n#+end_example"
+        "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
+       ("#+caption:  \t\n#+begin_example\nx\n#+end_example"
+        "<div class=\"example\">\n<pre>\nx\n</pre>\n</div>")
+       ;; `:textarea' is not special here, just an ordinary attribute
+       ("#+attr_html: :textarea x\n#+begin_example\n1\n#+end_example"
+        "<div textarea=\"x\">\n<pre>\n1\n</pre>\n</div>"))
+     t '(:html-prefer-user-labels t))
+    ;; A synthetic element with nil `:value' falls back to "".
+    ($l (t-example-block '(example-block nil) nil nil)
+        "<div class=\"example\">\n<pre></pre>\n</div>")))
 
 (ert-deftest t-example-block-coderef-id ()
   "An example block that defines a code reference always gets an id."
@@ -4402,10 +4411,13 @@ fresh: the code under test may store its state in it."
             (list 'org-w3ctr-error
                   (format "Engine eng returned a malformed token: %S" bad))))
     ;; The texts must give back the code exactly: no loss, no excess.
-    (dolist (code '("abc" "a" "ab "))
+    (dolist (code '("abc" "a" "ab " "ba"))
       ($e!l (t--fontify-check-tokens '((nil . "ab")) code 'eng info)
             '(org-w3ctr-error
               "Engine eng returned tokens that do not add up to the code")))
+    ($e!l (t--fontify-check-tokens nil "a" 'eng info)
+          '(org-w3ctr-error
+            "Engine eng returned tokens that do not add up to the code"))
     ;; Which slugs are known depends on INFO.
     (let ((extra (t-test-fontify-info
                   :html-fontify-extra-faces '((foo . "zz")))))
@@ -4446,9 +4458,9 @@ fresh: the code under test may store its state in it."
   ;; Adjacent runs of one class are not merged here.
   ($l (t--fontify-render '(("k" . "a") ("k" . "b")))
       "<span class=\"tok-k\">a</span><span class=\"tok-k\">b</span>")
-  ;; An inline style is escaped as an attribute value.
-  ($l (t--fontify-render '(((style . "color: #f00;\"") . "<x>")))
-      "<span style=\"color: #f00;&quot;\">&lt;x&gt;</span>"))
+  ;; An inline style is escaped as an attribute value (`&', `<', `>', `"', `'').
+  ($l (t--fontify-render '(((style . "a&b<c>d\"e'f") . "<x>")))
+      "<span style=\"a&amp;b&lt;c&gt;d&quot;e&apos;f\">&lt;x&gt;</span>"))
 
 (ert-deftest t--fontify-render-roundtrip ()
   "Exhaustive sweep: rendering loses nothing and wraps the right runs."
@@ -4931,8 +4943,15 @@ fresh: the code under test may store its state in it."
               " font-style: italic; text-decoration: underline line-through;"))
   ($l (t--font-lock-inline-style '((:weight semi-bold) (:slant oblique)))
       "font-weight: 600; font-style: italic;")
+  ($l (t--font-lock-inline-style '((:underline t)))
+      "text-decoration: underline;")
+  ($l (t--font-lock-inline-style '((:strike-through t)))
+      "text-decoration: line-through;")
+  ($l (t--font-lock-inline-style '((:underline (:style wave))))
+      "text-decoration: underline;")
   ;; Nothing worth a declaration.
   ($n (t--font-lock-inline-style '((:weight normal :slant normal))))
+  ($n (t--font-lock-inline-style '((:foreground "nosuchcolor"))))
   ($n (t--font-lock-inline-style '(default)))
   ($n (t--font-lock-inline-style nil))
   ;; The `default' face is ignored even when it has a colour.
@@ -5045,6 +5064,7 @@ fresh: the code under test may store its state in it."
 (ert-deftest t--font-lock-mode-init ()
   "Tests for `org-w3ctr--font-lock-mode-init'."
   (let* ((runs 0)
+         (prog-mode-hook nil)
          (emacs-lisp-mode-hook (list (lambda () (setq runs (1+ runs))))))
     (with-temp-buffer
       ($s (t--font-lock-mode-init 'emacs-lisp-mode nil))
@@ -5219,6 +5239,7 @@ fresh: the code under test may store its state in it."
               '((nil . "x")))
           ;; Mode hooks run only when asked to.
           (let* ((runs 0)
+                 (prog-mode-hook nil)
                  (emacs-lisp-mode-hook
                   (list (lambda () (setq runs (1+ runs))))))
             (ignore (t--font-lock-tokens "(a)" "emacs-lisp"
@@ -5901,7 +5922,24 @@ COUNTER, a cons cell, has its car incremented on every call."
              "x" "l" '(unready plain)
              (t-test-fontify-info :html-fontify-on-error 'error) nil)
             '(org-w3ctr-error
-              "Fontify engine unready failed on the l code: unready")))))
+              "Fontify engine unready failed on the l code: unready")))
+    ;; Cross-block `broken' interaction: block 1 marks `boom' broken (so
+    ;; `tried' > `declined', not unknown); block 2 skips `boom', leaving
+    ;; only `nope' to decline, which now triggers `unknown-language'.
+    (let* ((t-fontify-engines
+            `((boom :fontify ,(t-test-fontify-stub 'error) :available always)
+              (nope :fontify ,(t-test-fontify-stub 'decline) :available always)
+              (plain :fontify t--plain-tokens :available always)))
+           (info (t-test-fontify-info :html-fontify-on-error 'silent
+                                      :html-fontify-unknown-language 'plain)))
+      ($l (t--fontify-dispatch "x" "l" '(boom nope plain) info nil)
+          '(plain (nil . "x")))
+      ($n (gethash '(unknown-language . "l") (t--fontify-state info)))
+      ($l (t--fontify-dispatch "y" "l" '(boom nope plain) info nil)
+          '(plain (nil . "y")))
+      ($l (gethash '(failure . boom) (t--fontify-state info)) 1)
+      ($l (gethash '(decline . nope) (t--fontify-state info)) 2)
+      ($l (gethash '(unknown-language . "l") (t--fontify-state info)) 1))))
 
 (ert-deftest t--fontify-dispatch-matrix ()
   "Exhaustive sweep of the dispatcher against a model of its rules."
@@ -6084,7 +6122,12 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t-src-block ()
   "Tests for `org-w3ctr-src-block'."
-  (let ((t--fontify-last-state nil))
+  (let ((t--fontify-last-state nil)
+        (t-fontify-method 'font-lock)
+        (t-fontify-unknown-language 'warn)
+        (t-fontify-reuse-buffer nil)
+        (org-src-preserve-indentation nil)
+        (org-coderef-label-format "(ref:%s)"))
     (let ((out (org-export-string-as
                 "#+begin_src emacs-lisp\n(defun foo () 1)\n#+end_src"
                 'w3ctr t)))
@@ -6240,7 +6283,11 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t-src-block-coderef-id ()
   "A source block that defines a code reference always gets an id."
-  (let ((t--fontify-last-state nil))
+  (let ((t--fontify-last-state nil)
+        (t-fontify-method 'font-lock)
+        (t-fontify-unknown-language 'warn)
+        (t-fontify-reuse-buffer nil)
+        (org-coderef-label-format "(ref:%s)"))
     (let ((out (org-export-string-as
                 "#+begin_src text\nx (ref:sc)\n#+end_src" 'w3ctr t)))
       ($s (string-match-p "<div id=\"org[0-9a-f]+\">" out)))
@@ -6251,7 +6298,10 @@ COUNTER, a cons cell, has its car incremented on every call."
 
 (ert-deftest t-inline-src-block ()
   "Tests for `org-w3ctr-inline-src-block'."
-  (let ((t--fontify-last-state nil))
+  (let ((t--fontify-last-state nil)
+        (t-fontify-method 'font-lock)
+        (t-fontify-unknown-language 'warn)
+        (t-fontify-reuse-buffer nil))
     (let ((org-export-babel-evaluate nil))
       (let ((out (org-export-string-as "src_emacs-lisp{(setq a \"b\")}" 'w3ctr t)))
         ($s (string-match-p "<code class=\"language-emacs-lisp\">" out))
