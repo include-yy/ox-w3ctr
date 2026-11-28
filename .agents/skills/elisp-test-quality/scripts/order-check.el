@@ -135,10 +135,18 @@ TEST names a name when the two are equal, or the name is followed by
   (let* ((src (oc--collect source oc--def-re (oc--shorthands source)))
          (tst (oc--collect tests-file oc--test-re (oc--shorthands tests-file)))
          (src-by-key (make-hash-table :test 'equal))
+         (tst-by-key (make-hash-table :test 'equal))
+         (src-loc (make-hash-table :test 'equal))
+         (all-names nil)
          (sec-index (make-hash-table :test 'equal))
          (checked 0)
          (flagged 0))
-    (dolist (cell src) (puthash (car cell) (cdr cell) src-by-key))
+    (dolist (cell src)
+      (puthash (car cell) (cdr cell) src-by-key)
+      (dolist (item (cdr cell))
+        (push (cadr item) all-names)
+        (puthash (cadr item) (cons (car cell) (car item)) src-loc)))
+    (dolist (cell tst) (puthash (car cell) t tst-by-key))
     (let ((i 0))
       (dolist (cell (oc--sections source))
         (puthash (car cell) (cons i (cdr cell)) sec-index)
@@ -157,11 +165,11 @@ TEST names a name when the two are equal, or the name is followed by
             (when (> (car info) max)
               (setq max (car info)
                     prev (cons (cdr (car cell)) (cdr info))))))))
-    ;; Function order inside each section.
+    ;; Function order inside each section, plus cross-section misplacement.
     (dolist (cell tst)
       (let ((names (mapcar #'cadr (gethash (car cell) src-by-key))))
-        (when (and names (or (null part) (equal (caar cell) part)))
-          (setq checked (1+ checked))
+        (when (or (null part) (equal (caar cell) part))
+          (when names (setq checked (1+ checked)))
           (let ((index (make-hash-table :test 'equal))
                 (srcline (make-hash-table :test 'equal))
                 (j 0)
@@ -173,19 +181,31 @@ TEST names a name when the two are equal, or the name is followed by
               (puthash (cadr item) (car item) srcline)
               (setq j (1+ j)))
             (dolist (item (cdr cell))
-              (let ((mapped (oc--match (cadr item) names)))
-                (when mapped
-                  (let ((idx (gethash mapped index)))
-                    (when (< idx max)
+              (let* ((gmapped (oc--match (cadr item) all-names))
+                     (loc (and gmapped (gethash gmapped src-loc))))
+                (cond
+                 ;; Flag a test whose target's own section exists in
+                 ;; TESTS-FILE, yet the test sits in a different section.
+                 ((and loc
+                       (not (equal (car loc) (car cell)))
+                       (gethash (car loc) tst-by-key))
+                  (setq bad t)
+                  (princ (format "WRONG-SECTION %s:%d  %s  in %s / %s, but %s is in %s / %s (source line %d)\n"
+                                 tests-file (car item) (cadr item)
+                                 (caar cell) (cdar cell)
+                                 gmapped (caar loc) (cdar loc) (cdr loc))))
+                 ((and gmapped names)
+                  (let ((idx (gethash gmapped index)))
+                    (when (and idx (< idx max))
                       (setq bad t)
                       (princ (format "OUT-OF-ORDER %s:%d  %s  %s: maps to %s (source line %d), after %s (source line %d)\n"
                                      tests-file (car item) (cadr item)
                                      (cdr (car cell))
-                                     mapped (gethash mapped srcline)
+                                     gmapped (gethash gmapped srcline)
                                      (car prev) (cdr prev))))
-                    (when (> idx max)
+                    (when (and idx (> idx max))
                       (setq max idx
-                            prev (cons mapped (gethash mapped srcline))))))))
+                            prev (cons gmapped (gethash gmapped srcline)))))))))
             (when bad (setq flagged (1+ flagged)))))))
     (princ (format ";; %d sections checked, %d out of order\n" checked flagged))))
 ;;; order-check.el ends here

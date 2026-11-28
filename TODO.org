@@ -236,18 +236,6 @@ into one is not stable across exports.  Never diff raw export hashes
 the author gives every referenced element an explicit =CUSTOM_ID=, or
 the back-end derives a stable id -- see Non-goals.
 
-*** Test-suite tooling limitations                                   :test:
-
-- *OINFO source-scanning tests hardcode =info=.*  Both
-  =org-w3ctr--oinfo-props-are-looked-up= and
-  =org-w3ctr--oinfo-props-go-through-pget= match the literal variable
-  =info=; a differently named INFO plist would false-fail.  Loosen to
-  =[^ \t\n()]+= if that ever changes.
-- *=order-check= cannot see a test filed under the wrong section.*  It
-  checks order within a section and the order of sections only: tests
-  placed in a different section from their source functions are not
-  flagged and must be checked by eye.
-
 ** Non-goals
 
 Explicitly out of scope for now.

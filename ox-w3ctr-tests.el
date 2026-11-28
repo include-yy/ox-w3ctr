@@ -279,7 +279,7 @@ second argument to `org-w3ctr--pget' in the source file."
       (dolist (key t--oinfo-cache-props)
         (goto-char (point-min))
         ($s (re-search-forward
-             (format "[(]t--pget[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"
+             (format "[(]t--pget[ \t\n]+[^ \t\n()]+[ \t\n]+%s[ \t\n]*[)]"
                      (regexp-quote (symbol-name key)))
              nil t))))))
 
@@ -296,22 +296,30 @@ seen here."
       (insert-file-contents source)
       (let ((offenders nil)
             (patterns
-             '("[(]plist-get[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"
-               "[(]plist-put[ \t\n]+info[ \t\n]+%s\\_>"
-               "[(]setf[ \t\n]+[(]plist-get[ \t\n]+info[ \t\n]+%s[ \t\n]*[)]"))
-            (samples '("(plist-get info :k)"
-                       "(plist-put info :k v)"
-                       "(setf (plist-get info :k) v)")))
+             '("[(]plist-get[ \t\n]+[^ \t\n()]+[ \t\n]+%s[ \t\n]*[)]"
+               "[(]plist-put[ \t\n]+[^ \t\n()]+[ \t\n]+%s\\_>"
+               "[(]setf[ \t\n]+[(]plist-get[ \t\n]+[^ \t\n()]+[ \t\n]+%s[ \t\n]*[)]"))
+            (samples '("(plist-get my-info :k)"
+                       "(plist-put my-info :k v)"
+                       "(setf (plist-get my-info :k) v)")))
         ;; Self-check: a pattern that misses its own sample is dead.
         (dolist (pair (cl-mapcar #'cons patterns samples))
           ($s (string-match-p (format (car pair) ":k") (cdr pair))))
-        (dolist (key t--oinfo-cache-props)
-          (dolist (pat patterns)
-            (goto-char (point-min))
-            (when (re-search-forward
-                   (format pat (regexp-quote (symbol-name key))) nil t)
-              (push (format "%s at line %d" key (line-number-at-pos))
-                    offenders))))
+        ;; Legitimate reads of a non-INFO plist (ext-plist / publish plist).
+        (let ((allowed '(("t--file-extension" . :html-extension))))
+          (dolist (key t--oinfo-cache-props)
+            (dolist (pat patterns)
+              (goto-char (point-min))
+              (while (re-search-forward
+                      (format pat (regexp-quote (symbol-name key))) nil t)
+                (let ((fn (save-excursion
+                            (beginning-of-defun)
+                            (when (looking-at "([a-z-]+ \\([^ \t\n()]+\\)")
+                              (match-string 1)))))
+                  (unless (member (cons fn key) allowed)
+                    (push (format "%s in %s at line %d"
+                                  key fn (line-number-at-pos))
+                          offenders)))))))
         ($n offenders)))))
 
 (ert-deftest t--oinfo-test-namespace ()
