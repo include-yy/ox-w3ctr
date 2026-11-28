@@ -8,13 +8,6 @@ Grouped by priority and action type (=Next= / =Design= / =Later= /
 Actionable engineering debt and clear fixes to pick up after the
 manual source walkthrough finishes.
 
-*** Upgrade MathJax in =jstools= (=@xmldom/xmldom= audit)    :math:jstools:
-
-=npm audit= flags =@xmldom/xmldom= in =jstools=.  It comes with
-=mathjax= 4.0.0-beta.7, pinned in =package-lock.json= (MathJax 4.1.x
-is out); Shiki adds no finding.  Upgrade MathJax deliberately, re-run
-=npm test= and the math export tests, rather than =npm audit fix=.
-
 *** CSS cleanup in =assets/style.css=                                 :css:
 
 Not urgent (~50 KB, inlined into every exported document by

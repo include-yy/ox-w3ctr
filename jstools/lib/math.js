@@ -1,3 +1,6 @@
+import { isAbsolute } from 'node:path'
+import { pathToFileURL } from 'node:url'
+
 // MathJax conversion: TeX fragments to MathML or SVG.
 //
 // MathJax is loaded on the first call, so a run that only highlights code
@@ -16,10 +19,16 @@ let queue = Promise.resolve()
 // rendering silently as red text.  Record the error and let MathJax finish
 // formatting rather than throwing inside `formatError' -- throwing there
 // poisons MathJax 4's internal startup promise for all subsequent calls.
+// Wrap `loader.require' with `pathToFileURL' for absolute paths: MathJax 4.1
+// passes raw Windows paths (`C:/...') to `import()', which Node ESM rejects.
 const mathjax = () => mathjaxPromise ??= (async () => {
-    const Mathjax = await import('mathjax')
-    return Mathjax.init({
-        loader: { load: ['input/tex', 'output/svg', 'ui/safe', 'adaptors/liteDOM'] },
+    const MathJax = (await import('mathjax')).default
+    await MathJax.init({
+        loader: {
+            load: ['input/tex', 'output/svg', 'ui/safe'],
+            require: (file) => import(
+                isAbsolute(file) ? pathToFileURL(file).href : file),
+        },
         tex: {
             packages: { '[-]': ['noundefined'] },
             formatError: (texJax, err) => {
@@ -28,6 +37,7 @@ const mathjax = () => mathjaxPromise ??= (async () => {
             },
         },
     })
+    return MathJax
 })()
 
 // Serialize conversions so `lastError' always belongs to the active call.
